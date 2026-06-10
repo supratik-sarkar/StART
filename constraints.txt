@@ -1,0 +1,13 @@
+# Optional reproducibility pins for CI / clean-room installs:
+#   pip install -e ".[dev]" -c constraints.txt
+# These reflect the environment the v0.1 scaffold was verified against.
+# Regenerate with: pip freeze | grep -iE 'numpy|pandas|scipy|scikit-learn|pydantic|pyyaml|typer|rich'
+numpy==2.4.4
+pandas==3.0.2
+scipy==1.17.1
+scikit-learn==1.8.0
+pydantic==2.13.4
+pydantic-settings==2.14.1
+PyYAML==6.0.3
+typer==0.26.7
+rich==15.0.0

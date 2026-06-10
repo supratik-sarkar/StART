@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "start-mrt"
+version = "0.1.0"
+description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Supratik Sarkar" }]
+keywords = ["model-risk", "validation", "agentic", "evaluation", "audit", "mlops"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Core stays lightweight by design. Heavy stacks live in extras.
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "scipy>=1.11",
+  "scikit-learn>=1.4",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+  "rich>=13.0",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=2.2"]
+xai = ["shap>=0.45"]
+databricks = ["mlflow>=2.10"]
+mlflow = ["mlflow>=2.10"]
+openai = ["openai>=1.30"]
+anthropic = ["anthropic>=0.30"]
+huggingface = ["transformers>=4.40", "huggingface_hub>=0.23", "accelerate>=0.30"]
+genai = ["sentence-transformers>=3.0"]
+dev = [
+  "pytest>=8.0",
+  "hypothesis>=6.100",
+  "ruff>=0.4",
+  "mypy>=1.10",
+  "pre-commit>=3.7",
+]
+all = ["start-mrt[torch,xai,mlflow,openai,anthropic,huggingface,genai]"]
+
+[project.scripts]
+start = "start.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/supratik-sarkar/StART"
+Issues = "https://github.com/supratik-sarkar/StART/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/start"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]  # typer uses function calls in defaults by design
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_redundant_casts = true
+packages = ["start"]
+mypy_path = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

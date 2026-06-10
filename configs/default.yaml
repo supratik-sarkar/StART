@@ -1,0 +1,49 @@
+# StART default configuration. Environment variables with prefix START_
+# override these values, e.g. START_LLM__PROVIDER=anthropic
+project_name: start-demo
+seed: 42
+
+compute:
+  mode: auto            # auto | cpu | gpu | databricks
+  device: auto          # auto | cuda | mps | cpu  (detection order: CUDA -> MPS -> CPU)
+  distributed_backend: none   # none | databricks_spark | ray | dask (ray/dask: roadmap)
+  batch_size: 1024
+
+llm:
+  provider: none        # none | openai | anthropic | grok | huggingface | hf_local | enterprise_llm_gateway
+  model: ""
+  temperature: 0.0
+  max_tokens: 1024
+
+data:
+  provider: csv_parquet
+  path: examples/data
+  dataset_id: dataset-demo
+
+experiment:
+  provider: local       # local | mlflow (degrades to local if mlflow missing)
+  tracking_uri: null
+  experiment_name: start-runs
+
+output:
+  root: start_output
+  ledger_file: ledger.jsonl
+  evidence_store: evidence_store
+  reports_dir: reports
+
+model:
+  model_id: propensity-demo
+  task_type: binary_classification
+  materiality: medium
+  target_column: target
+  score_column: score
+
+test_families:
+  enabled: [preprocessing, supervised, xai]
+  disabled: []
+  overrides:
+    preprocessing.missingness:
+      warn_pct: 5.0
+      fail_pct: 30.0
+
+policy_file: configs/policy/default_policy.yaml
