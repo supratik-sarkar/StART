@@ -1,0 +1,157 @@
+# StART — Standardized Agentic Reusable Tests
+
+> **StART is a standardized agentic reusable testing framework for AI/ML evaluation. It combines deterministic quantitative validation engines with agent-assisted orchestration, evidence generation, adaptive compute routing, and reviewer-ready reporting.**
+
+[![ci](https://github.com/supratik-sarkar/StART/actions/workflows/ci.yml/badge.svg)](https://github.com/supratik-sarkar/StART/actions)
+![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![license](https://img.shields.io/badge/license-Apache--2.0-green)
+
+StART targets model review / model-risk evaluation across data preprocessing, supervised and unsupervised ML, propensity models, recommender systems, portfolio optimization, performance attribution, deep learning, global/local/deep XAI, and emerging GenAI/agentic systems.
+
+---
+
+## The core idea
+
+**Agents orchestrate. Deterministic engines compute. Evidence is the product.**
+
+```
+                ┌────────────────────────────────────────────────┐
+                │                 Agentic layer                  │
+                │  ReviewPlanner → PolicyGuard → TestRouter      │
+                │  → ExecutionAgent → EvidenceCritic → Narrative │
+                └───────────────────────┬────────────────────────┘
+                                        │  plans / critiques / narrates
+                                        │  (never computes metrics)
+                ┌───────────────────────▼────────────────────────┐
+                │        Deterministic test registry             │
+                │  preprocessing · supervised · xai · genai · …  │
+                └───────────────────────┬────────────────────────┘
+                                        │  typed TestResult
+                ┌───────────────────────▼────────────────────────┐
+                │   Evidence layer: content-addressed store +    │
+                │   append-only SHA-256–chained JSONL ledger     │
+                └────────────────────────────────────────────────┘
+```
+
+The LLM/agentic layer **never** invents a number. It plans validation work, routes it to registered deterministic Python engines, verifies evidence completeness, and writes reviewer narratives **from** the evidence. Every quantitative claim in a narrative must carry an inline evidence citation (`[EV-…]`), and the `EvidenceCriticAgent` **blocks** narratives containing uncited quantitative claims or citations to nonexistent evidence. With `NoLLMProvider`, narratives are built from a deterministic template that is proof-carrying by construction — so the framework is fully functional with zero LLM access.
+
+## Why this design
+
+**Why agentic orchestration is useful.** Choosing *which* tests apply to a given model (task type, materiality, available artifacts), sequencing them, spotting gaps in evidence, and writing a coherent reviewer narrative are judgment-and-language tasks. Agents are good at those. They are not good at being audit-grade calculators — so they are never asked to be.
+
+**Why deterministic tests remain the source of truth.** A model-risk verdict must be reproducible: same data, same parameters, same policy ⇒ same numbers, same status. Every engine in the registry is a pure function with seeds, explicit thresholds, and declared limitations. CI uses property-based tests (Hypothesis) to verify determinism claims such as row-order invariance.
+
+**Why evidence is tamper-evident.** Every test produces an `EvidenceRecord` containing test/model/dataset/run IDs, timestamp, parameters, metrics, thresholds, pass/warn/fail status, interpretation, limitations, input-data hash, **policy hash**, git SHA, and reproducibility metadata (seed, device, package versions). Records are canonicalized, SHA-256 hashed, written to a content-addressed store, and appended to a hash-chained JSONL ledger. Any retroactive edit breaks the chain (`start doctor` verifies it). The content addressing also yields result caching: an identical `(test, data hash, params, policy)` invocation can be served from cache.
+
+**Why policy is config, and hashed.** Thresholds and validation regimes live in versioned YAML (`configs/policy/`). The policy file's content hash is stamped into every evidence record, so a reviewer can prove *which threshold regime* produced a verdict.
+
+## Adaptive compute routing
+
+Device detection order: **CUDA → MPS (Apple Silicon) → CPU**, with Databricks runtime detection independent of device detection, and safe degradation everywhere (requesting GPU on a CPU-only machine falls back instead of failing).
+
+```
+Compute Router
+    ├── CUDA
+    ├── MPS (Apple Silicon)
+    ├── CPU
+    └── Distributed backends
+          ├── Databricks Spark   (runtime detection + stubs in v0.1)
+          ├── Ray                (roadmap)
+          └── Dask / k8s jobs    (roadmap)
+```
+
+## LLM providers
+
+Backend-agnostic interface with lazy imports — the core installs with zero LLM dependencies:
+
+| Provider | Selector | Notes |
+|---|---|---|
+| No LLM | `none` | First-class mode; deterministic fallbacks everywhere |
+| OpenAI | `openai` | Needs `OPENAI_API_KEY` + `start-mrt[openai]` |
+| Anthropic | `anthropic` | Needs `ANTHROPIC_API_KEY` + `start-mrt[anthropic]` |
+| xAI Grok | `grok` | OpenAI-compatible API |
+| HF Inference | `huggingface` | Hosted models |
+| HF local | `hf_local` | Local transformers; runs on detected device |
+| Enterprise gateway | `enterprise_llm_gateway` | **Neutral placeholder** — no proprietary code/endpoints; map to a private implementation outside this repo |
+
+Selection is via YAML (`llm.provider`) or env (`START_LLM__PROVIDER=…`). An unreachable provider degrades to `NoLLMProvider` rather than blocking a run.
+
+## Quickstart
+
+```bash
+git clone https://github.com/supratik-sarkar/StART.git && cd StART
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+start doctor                      # device, runtimes, providers, registry
+start list-tests                  # registered deterministic tests
+python examples/quickstart_local.py   # full offline run: toy data → report + ledger
+```
+
+The quickstart trains a toy propensity model, runs the full agentic pipeline with no LLM, and writes:
+
+- `start_output/ledger.jsonl` — hash-chained evidence ledger
+- `start_output/evidence_store/` — content-addressed evidence records
+- `start_output/reports/RUN-….md` — proof-carrying reviewer report
+
+CLI on your own data:
+
+```bash
+start init
+start plan  --config configs/default.yaml
+start run   --config configs/default.yaml path/to/train.csv --test path/to/holdout.csv
+start report --config configs/default.yaml
+```
+
+## Databricks
+
+`notebooks/01_databricks_quickstart.py` shows the intended pattern: notebooks are **thin orchestration layers** that install the package, detect the runtime (`DATABRICKS_RUNTIME_VERSION`), read data via Spark, convert cohorts to pandas for the deterministic engines, and run the same `run_review` pipeline with optional MLFlow logging (`experiment.provider: mlflow`, degrading to local JSONL tracking when MLFlow is absent). The same notebook runs locally via the toy-data fallback — no Databricks required.
+
+## Extending the registry
+
+```python
+from start import TestContext, TestResult, register_test
+
+@register_test("recommender.ndcg", family="recommender", default_params={"k": 10})
+def ndcg_at_k(ctx: TestContext, k: int = 10) -> TestResult:
+    ...
+```
+
+External test packs ship as pip packages exposing a `start.test_packs` entry point; StART loads them automatically without core changes.
+
+## Repository layout
+
+```
+src/start/
+  agents/          planner, router, executor, critic, narrator, policy guard
+  core/            typed schemas, config, hashing
+  evidence/        chained ledger + content-addressed store
+  orchestration/   end-to-end pipeline
+  providers/       compute, data, experiment, llm, storage interfaces + impls
+  registry/        @register_test decorator + entry-point plugin loading
+  reporting/       Markdown report rendering
+  tests/           deterministic test families (preprocessing, supervised,
+                   xai, genai implemented; unsupervised, recommender,
+                   portfolio, attribution, deep_learning are roadmap stubs)
+configs/           run configs + versioned policy YAML
+notebooks/         Databricks-style thin orchestration notebook
+examples/          local CPU-only, no-LLM quickstart
+tests/             pytest + hypothesis (incl. ledger tamper detection,
+                   citation-gate enforcement, determinism properties)
+```
+
+## Public-safety statement
+
+This repository is a clean-room public implementation. It contains **no** proprietary code, internal endpoints, credentials, firm-specific templates/policies/thresholds, or internal schemas. `enterprise_llm_gateway` and `SnowflakePlaceholderProvider` are intentionally empty interfaces for private, out-of-repo implementations. Never commit `.env`.
+
+## Roadmap
+
+- Test families: unsupervised, recommender ranking (NDCG/MAP/recall@k), portfolio optimization diagnostics, performance attribution, deep-learning training diagnostics, embedding drift, robustness
+- GenAI: NLI-based grounding, prompt-injection probes, retrieval faithfulness (`start[genai]`)
+- SHAP global/local consistency checks (`start[xai]`)
+- Ray/Dask distributed backends; Spark-native engines for large cohorts
+- HTML/PDF report rendering; signed report bundles
+
+## License
+
+Apache-2.0

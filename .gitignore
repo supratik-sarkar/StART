@@ -1,12 +1,25 @@
-start/
+# Python
 __pycache__/
-*.pyc
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.ipynb_checkpoints/
-.env
-.DS_Store
-dist/
-build/
+*.py[cod]
 *.egg-info/
+build/
+dist/
+.venv/
+start/bin/
+start/lib/
+start/pyvenv.cfg
+
+# Environments & secrets
+.env
+
+# StART outputs
+start_output/
+mlruns/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.ipynb_checkpoints/
+.DS_Store
