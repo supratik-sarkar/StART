@@ -42,10 +42,50 @@ class LLMConfig(BaseModel):
     max_tokens: int = 1024
 
 
+class DatasetRefs(BaseModel):
+    """References for each cohort: file paths, table names, or SQL strings."""
+
+    train: str | None = None
+    test: str | None = None
+    oos: str | None = None
+
+
+class SnowflakeSource(BaseModel):
+    """Generic warehouse coordinates; credentials come from SNOWFLAKE_* env vars."""
+
+    database: str | None = None
+    db_schema: str | None = Field(default=None, alias="schema")
+    table: str | None = None
+    query: str | None = None
+    warehouse: str | None = None
+    role: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class DataConfig(BaseModel):
     provider: Literal["csv_parquet", "snowflake_placeholder"] = "csv_parquet"
     path: str = "examples/data"
     dataset_id: str = "dataset-local"
+    # Universal data abstraction (v0.3): demo data is the example; user data
+    # is the product. See start.connectors.
+    source: Literal["demo", "files", "pandas", "spark", "snowflake"] = "demo"
+    demo_dataset: str = "attrition"
+    dataset: DatasetRefs = Field(default_factory=DatasetRefs)
+    snowflake: SnowflakeSource = Field(default_factory=SnowflakeSource)
+    spark_max_rows: int = 1_000_000
+    timestamp_column: str | None = None
+    entity_id_column: str | None = None
+    dataset_type: Literal[
+        "auto",
+        "tabular",
+        "time_series",
+        "panel_time_series",
+        "limit_order_book",
+        "tick_events",
+        "volatility_surface",
+        "text_alternative",
+    ] = "auto"
 
 
 class ExperimentConfig(BaseModel):
@@ -123,5 +163,13 @@ def load_config(path: str | Path | None = None) -> StartConfig:
 
 
 def load_policy(path: str | Path) -> PolicyConfig:
-    raw = yaml.safe_load(Path(path).read_text()) or {}
+    """Load a policy YAML. If the configured path does not exist (e.g. running
+    on user data outside a repo checkout), fall back to the packaged default
+    policy — its content hash is still stamped into every evidence record."""
+    policy_path = Path(path)
+    if not policy_path.exists():
+        packaged = Path(__file__).resolve().parent.parent / "policies" / "default_policy.yaml"
+        if packaged.exists():
+            policy_path = packaged
+    raw = yaml.safe_load(policy_path.read_text()) or {}
     return PolicyConfig(**raw)

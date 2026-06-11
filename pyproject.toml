@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "0.1.0"
+version = "0.3.0"
 description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-torch = ["torch>=2.2"]
+torch = ["torch>=2.2", "captum>=0.7"]
+tree-models = ["xgboost>=2.0", "lightgbm>=4.3"]
+optuna = ["optuna>=3.6"]
+formats = ["pyarrow>=15"]
+delta = ["deltalake>=0.17"]
+snowflake = ["snowflake-connector-python[pandas]>=3.7"]
 xai = ["shap>=0.45"]
 databricks = ["mlflow>=2.10"]
 mlflow = ["mlflow>=2.10"]
@@ -48,7 +53,9 @@ dev = [
   "mypy>=1.10",
   "pre-commit>=3.7",
 ]
-all = ["start-mrt[torch,xai,mlflow,openai,anthropic,huggingface,genai]"]
+llm-openai = ["openai>=1.30"]
+llm-anthropic = ["anthropic>=0.30"]
+all = ["start-mrt[torch,xai,mlflow,openai,anthropic,huggingface,genai,tree-models,optuna,formats]"]
 
 [project.scripts]
 start = "start.cli:app"
@@ -59,6 +66,9 @@ Issues = "https://github.com/supratik-sarkar/StART/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/start"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/start/policies" = "start/policies"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -80,6 +90,3 @@ no_implicit_optional = true
 warn_redundant_casts = true
 packages = ["start"]
 mypy_path = "src"
-
-[tool.setuptools.packages.find]
-where = ["src"]

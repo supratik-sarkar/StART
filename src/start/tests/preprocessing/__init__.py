@@ -15,6 +15,11 @@ def _numeric_columns(df: pd.DataFrame, exclude: tuple[str | None, ...] = ()) -> 
     return [c for c in df.select_dtypes(include=[np.number]).columns if c not in drop]
 
 
+def _non_feature_columns(ctx: TestContext) -> tuple[str | None, ...]:
+    """Columns that are outputs/labels, not features: excluded from feature scans."""
+    return (ctx.target_column, ctx.score_column, ctx.prediction_column)
+
+
 @register_test(
     "preprocessing.missingness",
     family="preprocessing",
@@ -66,7 +71,7 @@ def outliers(
 ) -> TestResult:
     """Share of values outside Tukey fences per numeric column."""
     df: pd.DataFrame = ctx.train
-    cols = _numeric_columns(df, exclude=(ctx.target_column,))
+    cols = _numeric_columns(df, exclude=_non_feature_columns(ctx))
     rates: dict[str, float] = {}
     for col in cols:
         series = df[col].dropna()
@@ -118,7 +123,7 @@ def _psi(expected: np.ndarray, actual: np.ndarray, bins: int = 10) -> float:
 def feature_drift(ctx: TestContext, psi_warn: float = 0.1, psi_fail: float = 0.25) -> TestResult:
     """PSI and KS statistics between train and test for numeric features."""
     train, test = ctx.train, ctx.test
-    cols = [c for c in _numeric_columns(train, exclude=(ctx.target_column,)) if c in test.columns]
+    cols = [c for c in _numeric_columns(train, exclude=_non_feature_columns(ctx)) if c in test.columns]
     psis: dict[str, float] = {}
     ks_ps: dict[str, float] = {}
     for col in cols:
@@ -164,7 +169,7 @@ def target_leakage(ctx: TestContext, warn_corr: float = 0.95, fail_corr: float =
             status=Status.SKIPPED,
             interpretation="No target column configured; leakage screen skipped.",
         )
-    cols = _numeric_columns(df, exclude=(target,))
+    cols = _numeric_columns(df, exclude=_non_feature_columns(ctx))
     y = df[target]
     corrs = {c: float(abs(df[c].corr(y))) for c in cols if df[c].nunique() > 1}
     corrs = {c: (0.0 if np.isnan(v) else v) for c, v in corrs.items()}
@@ -196,7 +201,8 @@ def split_diagnostics(
 ) -> TestResult:
     """Row-overlap between train and test, plus size and class-balance checks."""
     train, test = ctx.train, ctx.test
-    common_cols = sorted(set(train.columns) & set(test.columns))
+    drop = {c for c in (ctx.score_column, ctx.prediction_column) if c}
+    common_cols = sorted((set(train.columns) & set(test.columns)) - drop)
     train_hashes = pd.util.hash_pandas_object(train[common_cols], index=False)
     test_hashes = pd.util.hash_pandas_object(test[common_cols], index=False)
     overlap = float(test_hashes.isin(set(train_hashes)).mean() * 100)
@@ -223,5 +229,152 @@ def split_diagnostics(
         ],
         interpretation=f"{overlap:.2f}% of test rows are exact duplicates of train rows.",
         limitations=["Exact-duplicate detection misses near-duplicate contamination."],
+    )
+    return result.apply_thresholds()
+
+
+@register_test(
+    "preprocessing.duplicates",
+    family="preprocessing",
+    name="Duplicate row scan",
+    requires=("train",),
+    default_params={"warn_pct": 0.5, "fail_pct": 5.0},
+)
+def duplicates(ctx: TestContext, warn_pct: float = 0.5, fail_pct: float = 5.0) -> TestResult:
+    """Share of exactly duplicated rows in the training data."""
+    df: pd.DataFrame = ctx.train
+    dup_pct = float(df.duplicated().mean() * 100)
+    result = TestResult(
+        test_id="preprocessing.duplicates",
+        test_name="Duplicate row scan",
+        params={"warn_pct": warn_pct, "fail_pct": fail_pct},
+        metrics={"duplicate_row_pct": round(dup_pct, 4), "n_rows": len(df)},
+        thresholds=[ThresholdSpec(metric="duplicate_row_pct", warn=warn_pct, fail=fail_pct)],
+        interpretation=f"{dup_pct:.2f}% of training rows are exact duplicates.",
+        limitations=["Near-duplicate rows are not detected by exact matching."],
+    )
+    return result.apply_thresholds()
+
+
+@register_test(
+    "preprocessing.constant_features",
+    family="preprocessing",
+    name="Constant / near-constant features",
+    requires=("train",),
+    default_params={"near_constant_top_freq": 0.99},
+)
+def constant_features(ctx: TestContext, near_constant_top_freq: float = 0.99) -> TestResult:
+    """Counts features that are constant or dominated by a single value."""
+    df: pd.DataFrame = ctx.train
+    drop = {c for c in _non_feature_columns(ctx) if c}
+    cols = [c for c in df.columns if c not in drop]
+    constant, near_constant = [], []
+    for col in cols:
+        series = df[col].dropna()
+        if series.empty or series.nunique() <= 1:
+            constant.append(col)
+            continue
+        top_freq = float(series.value_counts(normalize=True).iloc[0])
+        if top_freq >= near_constant_top_freq:
+            near_constant.append(col)
+    result = TestResult(
+        test_id="preprocessing.constant_features",
+        test_name="Constant / near-constant features",
+        params={"near_constant_top_freq": near_constant_top_freq},
+        metrics={
+            "n_constant_features": len(constant),
+            "n_near_constant_features": len(near_constant),
+            "constant_features": ", ".join(constant[:10]),
+            "near_constant_features": ", ".join(near_constant[:10]),
+        },
+        thresholds=[
+            ThresholdSpec(metric="n_constant_features", warn=0.5, fail=5.5),
+            ThresholdSpec(metric="n_near_constant_features", warn=0.5, fail=10.5),
+        ],
+        interpretation=(
+            f"Found {len(constant)} constant and {len(near_constant)} near-constant features."
+        ),
+        limitations=["Near-constant detection uses a single top-frequency cutoff."],
+    )
+    return result.apply_thresholds()
+
+
+@register_test(
+    "preprocessing.high_cardinality",
+    family="preprocessing",
+    name="High-cardinality categorical scan",
+    requires=("train",),
+    default_params={"warn_unique_ratio": 0.5},
+)
+def high_cardinality(ctx: TestContext, warn_unique_ratio: float = 0.5) -> TestResult:
+    """Flags object/categorical columns whose unique-value ratio is ID-like."""
+    df: pd.DataFrame = ctx.train
+    cat_cols = [
+        c
+        for c in df.select_dtypes(include=["object", "category"]).columns
+        if c != ctx.target_column
+    ]
+    ratios = {
+        c: float(df[c].nunique() / max(len(df), 1)) for c in cat_cols if len(df) > 0
+    }
+    max_ratio = max(ratios.values()) if ratios else 0.0
+    worst = max(ratios, key=ratios.get) if ratios else ""  # type: ignore[arg-type]
+    result = TestResult(
+        test_id="preprocessing.high_cardinality",
+        test_name="High-cardinality categorical scan",
+        params={"warn_unique_ratio": warn_unique_ratio},
+        metrics={
+            "n_categorical_columns": len(cat_cols),
+            "max_unique_ratio": round(max_ratio, 6),
+            "worst_column": worst,
+        },
+        thresholds=[ThresholdSpec(metric="max_unique_ratio", warn=warn_unique_ratio, fail=0.95)],
+        interpretation=(
+            f"{len(cat_cols)} categorical columns scanned; maximum unique-value ratio "
+            f"is {max_ratio:.2f}."
+            if cat_cols
+            else "No categorical columns present; nothing to scan."
+        ),
+        limitations=["Encoded-categorical columns stored as numerics are not scanned."],
+    )
+    return result.apply_thresholds()
+
+
+@register_test(
+    "preprocessing.feature_ranges",
+    family="preprocessing",
+    name="Numerical feature range summary",
+    requires=("train",),
+)
+def feature_ranges(ctx: TestContext) -> TestResult:
+    """Informational summary of numeric feature ranges (no thresholds)."""
+    df: pd.DataFrame = ctx.train
+    cols = _numeric_columns(df, exclude=_non_feature_columns(ctx))
+    if not cols:
+        return TestResult(
+            test_id="preprocessing.feature_ranges",
+            test_name="Numerical feature range summary",
+            status=Status.SKIPPED,
+            interpretation="No numeric feature columns present.",
+        )
+    desc = df[cols].describe()
+    global_min = float(desc.loc["min"].min())
+    global_max = float(desc.loc["max"].max())
+    widest = str((desc.loc["max"] - desc.loc["min"]).idxmax())
+    result = TestResult(
+        test_id="preprocessing.feature_ranges",
+        test_name="Numerical feature range summary",
+        metrics={
+            "n_numeric_features": len(cols),
+            "global_min": round(global_min, 6),
+            "global_max": round(global_max, 6),
+            "widest_range_feature": widest,
+            "n_negative_min_features": int((desc.loc["min"] < 0).sum()),
+        },
+        interpretation=(
+            f"{len(cols)} numeric features span [{global_min:.4g}, {global_max:.4g}]; "
+            f"the widest range belongs to '{widest}'."
+        ),
+        limitations=["Informational summary; range plausibility needs domain review."],
     )
     return result.apply_thresholds()
