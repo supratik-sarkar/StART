@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -254,10 +254,32 @@ class Narrative(BaseModel):
     cited_evidence_ids: list[str] = Field(default_factory=list)
 
 
+class AgentReview(BaseModel):
+    """Output of the dual-mode agent review flow. In deterministic mode the
+    sections come from rules/templates; in LLM mode they come from the
+    configured provider, constrained to the evidence bundle and gated by
+    EvidenceCriticAgent. `rejected_sections` lists sections whose LLM output
+    failed critique twice and was replaced by the deterministic fallback."""
+
+    mode: Literal["deterministic", "llm"] = "deterministic"
+    llm_provider: str = "none"
+    review_plan: list[str] = Field(default_factory=list)
+    suggested_tests: list[str] = Field(default_factory=list)
+    findings: list[str] = Field(default_factory=list)
+    challenge_memo: list[str] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
+    governance: list[str] = Field(default_factory=list)
+    signoff: str = ""
+    critique_ok: bool = True
+    rejected_sections: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class RunResult(BaseModel):
     run_id: str
     plan: ValidationPlan
     evidence: list[EvidenceRecord] = Field(default_factory=list)
     critique: CritiqueResult | None = None
     narrative: Narrative | None = None
+    agent_review: AgentReview | None = None
     policy: PolicyDecision | None = None

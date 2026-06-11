@@ -53,6 +53,8 @@ class PropensityOptions:
     test_path: str | None = None
     oos_path: str | None = None
     target_column: str = TARGET_COLUMN
+    agent_mode: str = "deterministic"
+    llm_provider: str = ""
 
 
 # --------------------------------------------------------------------------- #
@@ -148,6 +150,8 @@ def _build_config(opts: PropensityOptions, model_name: str) -> StartConfig:
     config.model.target_column = TARGET_COLUMN
     config.model.score_column = SCORE_COLUMN
     config.test_families.enabled = ["preprocessing", "supervised", "xai"]
+    config.agent.mode = opts.agent_mode  # type: ignore[assignment]
+    config.agent.llm_provider = opts.llm_provider  # type: ignore[assignment]
     config.test_families.overrides = {
         "xai.feature_sensitivity": {"cohort": opts.sensitivity_cohort, "top_k": 5},
     }
@@ -251,6 +255,14 @@ def run_propensity_demo(opts: PropensityOptions) -> RunResult:
     report_path.write_text(render_markdown(result))
     console.print(f"    report: {report_path}")
     console.print(f"    critique OK: {result.critique.ok if result.critique else 'n/a'}")
+    if result.agent_review is not None:
+        ar = result.agent_review
+        mode_label = f"llm-assisted ({ar.llm_provider})" if ar.mode == "llm" else "deterministic"
+        review_status = 'OK' if ar.critique_ok else 'FAILED'
+        console.print(f"    agent mode: {mode_label} | review critique: {review_status}")
+        for note in ar.notes:
+            console.print(f"    [yellow]{note}[/yellow]")
+        console.print(f"    sign-off: {ar.signoff.split('.')[0]}.")
     return result
 
 

@@ -38,6 +38,38 @@ def render_markdown(result: RunResult) -> str:
             lines.append("### Reviewer sign-off recommendation")
             lines += [result.narrative.signoff, ""]
 
+    if result.agent_review is not None:
+        ar = result.agent_review
+        lines.append("## Agent review")
+        if ar.mode == "llm":
+            lines.append("Agent mode: llm-assisted")
+            lines.append(f"LLM provider: {ar.llm_provider}")
+        else:
+            lines.append("Agent mode: deterministic")
+        lines.append(f"Evidence critique status: {'PASSED' if ar.critique_ok else 'FAILED'}")
+        if ar.rejected_sections:
+            lines.append(
+                "Rejected LLM sections (deterministic fallback shown): "
+                + ", ".join(ar.rejected_sections)
+            )
+        for note in ar.notes:
+            lines.append(f"> {note}")
+        lines.append("")
+        for title, items in (
+            ("Review plan", ar.review_plan),
+            ("Suggested next tests", ar.suggested_tests),
+            ("Model-risk findings", ar.findings),
+            ("Challenge memo", ar.challenge_memo),
+            ("Missing evidence", ar.missing_evidence),
+            ("Governance assessment", ar.governance),
+        ):
+            if items:
+                lines.append(f"### {title}")
+                lines += [f"- {item}" for item in items] + [""]
+        if ar.signoff:
+            lines.append("### Sign-off recommendation")
+            lines += [ar.signoff, ""]
+
     lines.append("## Evidence table")
     lines.append("")
     lines.append("| Evidence ID | Test | Status | Key metrics |")

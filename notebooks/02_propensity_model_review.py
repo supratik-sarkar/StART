@@ -33,13 +33,25 @@ WIDGET_DEFAULTS = {
     "tuning": "none",                 # none | grid | random | optuna
     "cv_folds": "holdout",            # holdout | 3 | 5
     "sensitivity_cohort": "test",     # test | oos | development
+    "secret_scope": "start",          # Databricks secret scope holding LLM keys
+}
+WIDGET_DROPDOWNS = {
+    "agent_mode": ("deterministic", ["deterministic", "llm"]),
+    "llm_provider": (
+        "none",
+        ["none", "enterprise_llm_gateway", "openai", "anthropic", "huggingface", "hf_local"],
+    ),
+    "run_agent_review": ("yes", ["yes", "no"]),
 }
 try:
     for key, default in WIDGET_DEFAULTS.items():
         dbutils.widgets.text(key, default, key)  # type: ignore[name-defined]
+    for key, (default, choices) in WIDGET_DROPDOWNS.items():
+        dbutils.widgets.dropdown(key, default, choices, key)  # type: ignore[name-defined]
     get_widget = lambda key: dbutils.widgets.get(key)  # type: ignore[name-defined]  # noqa: E731
 except NameError:  # outside Databricks
-    get_widget = lambda key: WIDGET_DEFAULTS[key]  # noqa: E731
+    _ALL_DEFAULTS = {**WIDGET_DEFAULTS, **{k: v[0] for k, v in WIDGET_DROPDOWNS.items()}}
+    get_widget = lambda key: _ALL_DEFAULTS[key]  # noqa: E731
 
 # COMMAND ----------
 # MAGIC %md
@@ -77,6 +89,29 @@ print(bundle.source, "| train/test/oos:", len(bundle.train), len(bundle.test), l
 # COMMAND ----------
 from start.modeling.propensity import PropensityOptions, run_propensity_demo
 
+# LLM key resolution (LLM mode only): Databricks secret scope first
+# (dbutils.secrets.get(scope, KEY_NAME)), environment second, deterministic
+# fallback with an explicit warning last. Secrets never use visible widgets
+# and are never printed to notebook output.
+agent_mode = get_widget("agent_mode")
+llm_provider = get_widget("llm_provider")
+if agent_mode == "llm" and llm_provider not in ("none", "enterprise_llm_gateway", "hf_local"):
+    from start.providers.keys import resolve_key_databricks
+
+    try:
+        _dbutils = dbutils  # type: ignore[name-defined]
+    except NameError:
+        _dbutils = None
+    key_status = resolve_key_databricks(
+        llm_provider, dbutils=_dbutils, scope=get_widget("secret_scope")
+    )
+    print(f"LLM key source for '{llm_provider}': {key_status.source}")  # source only, never the key
+    if not key_status.ok:
+        print(
+            "WARNING: no key found in the secret scope or environment; "
+            "the run will fall back to deterministic mode explicitly."
+        )
+
 cv = get_widget("cv_folds")
 opts = PropensityOptions(
     model=get_widget("model_family"),
@@ -84,8 +119,39 @@ opts = PropensityOptions(
     cv_folds=None if cv == "holdout" else int(cv),
     sensitivity_cohort=get_widget("sensitivity_cohort"),
     target_column=target_column,
+    agent_mode=agent_mode,
+    llm_provider="" if llm_provider == "none" else llm_provider,
 )
 result = run_propensity_demo(opts)
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## Agent review (inline)
+# MAGIC Same dual-mode agent review as `start agent-review` in the terminal:
+# MAGIC deterministic governance fallback, or LLM-assisted evidence-grounded
+# MAGIC review through the configured provider (including the generic
+# MAGIC `enterprise_llm_gateway` placeholder). Every claim cites evidence IDs;
+# MAGIC unsupported LLM output is rejected by the EvidenceCriticAgent.
+
+# COMMAND ----------
+if get_widget("run_agent_review") == "yes" and result.agent_review is not None:
+    ar = result.agent_review
+    print(f"Agent mode: {'llm-assisted (' + ar.llm_provider + ')' if ar.mode == 'llm' else 'deterministic'}")
+    print(f"Evidence critique status: {'PASSED' if ar.critique_ok else 'FAILED'}")
+    for note in ar.notes:
+        print(f"NOTE: {note}")
+    for title, items in (
+        ("Review plan", ar.review_plan),
+        ("Suggested next tests", ar.suggested_tests),
+        ("Model-risk findings", ar.findings),
+        ("Challenge memo", ar.challenge_memo),
+        ("Missing evidence", ar.missing_evidence),
+        ("Governance assessment", ar.governance),
+    ):
+        print(f"\n## {title}")
+        for item in items:
+            print(f"- {item}")
+    print(f"\n## Sign-off recommendation\n{ar.signoff}")
 
 # COMMAND ----------
 from start.reporting import render_markdown

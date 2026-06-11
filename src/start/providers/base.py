@@ -67,6 +67,15 @@ class LLMProvider(ABC):
     @abstractmethod
     def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str: ...
 
+    def generate(
+        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
+    ) -> str:
+        """Common cross-provider interface (spec: prompt + optional system +
+        optional metadata). Delegates to ``complete``; metadata is advisory
+        (e.g. max_tokens) and never contains raw confidential data."""
+        max_tokens = int((metadata or {}).get("max_tokens", 1024))
+        return self.complete(system or "", prompt, max_tokens=max_tokens)
+
 
 class StorageProvider(ABC):
     name: str = "storage"

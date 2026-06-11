@@ -39,6 +39,13 @@ from start.providers.base import ComputeProvider, LLMProvider
 from start.registry import TestContext, get_test, list_tests
 
 EV_CITATION_RE = re.compile(r"\[EV-[A-Za-z0-9]+\]")
+# family.test_id style identifiers, e.g. supervised.cohort_metrics_comparison
+_TEST_ID_LIKE_RE = re.compile(
+    r"\b(?:preprocessing|supervised|xai|genai|unsupervised|recommender|portfolio|"
+    r"attribution|deep_learning|quant_finance)\.[a-z][a-z0-9_]+\b"
+)
+# metric assertions of the form `metric_name = value` or `metric_name: value`
+_METRIC_CLAIM_RE = re.compile(r"\b([a-z][a-z0-9]*_[a-z0-9_]+)\b\s*[=:]\s*-?\d")
 _NUMERIC_RE = re.compile(r"\d")
 # Identifiers (run/plan/evidence IDs) contain digits but are not
 # quantitative claims; strip them before numeric-claim detection.
@@ -252,6 +259,84 @@ class EvidenceCriticAgent:
                     )
         return CritiqueResult(ok=not any(i.severity == "block" for i in issues), issues=issues)
 
+    def critique_section(
+        self, text: str, records: list[EvidenceRecord]
+    ) -> CritiqueResult:
+        """Section-level gate for agent (incl. LLM-generated) review text.
+
+        Blocks: uncited quantitative claims; unknown evidence IDs; hallucinated
+        test identifiers (family.test tokens not in the run or registry);
+        metric names asserted that exist in no record; and sign-off readiness
+        claims that contradict fail/error statuses."""
+        issues: list[CritiqueIssue] = []
+        valid_ids = {r.evidence_id for r in records}
+        known_tests = {r.test_id for r in records}
+        try:
+            from start.registry import list_tests
+
+            known_tests |= {spec.test_id for spec in list_tests()}
+        except Exception:
+            pass
+        known_metrics: set[str] = set()
+        for rec in records:
+            known_metrics |= set(rec.metrics)
+
+        has_breach = any(r.status in (Status.FAIL, Status.ERROR) for r in records)
+        if has_breach and re.search(r"ready for sign[- ]?off", text, re.I) and not re.search(
+            r"not\s+ready", text, re.I
+        ):
+            issues.append(
+                CritiqueIssue(
+                    severity="block",
+                    code="unsupported_signoff",
+                    message="Readiness claim contradicts fail/error evidence statuses.",
+                )
+            )
+
+        for token in set(_TEST_ID_LIKE_RE.findall(text)):
+            if token not in known_tests:
+                issues.append(
+                    CritiqueIssue(
+                        severity="block",
+                        code="hallucinated_test",
+                        message=f"References unknown test '{token}'.",
+                    )
+                )
+
+        for metric in set(_METRIC_CLAIM_RE.findall(text)):
+            if metric not in known_metrics:
+                issues.append(
+                    CritiqueIssue(
+                        severity="block",
+                        code="unknown_metric",
+                        message=f"Asserts metric '{metric}' that no evidence record contains.",
+                    )
+                )
+
+        for sentence in re.split(r"(?<=[.!?])\s+(?!\[)", text):
+            if not sentence.strip():
+                continue
+            cited = EV_CITATION_RE.findall(sentence)
+            for cite in cited:
+                if cite.strip("[]") not in valid_ids:
+                    issues.append(
+                        CritiqueIssue(
+                            severity="block",
+                            code="unknown_citation",
+                            message=f"Cites unknown evidence {cite}.",
+                        )
+                    )
+            stripped = _ID_TOKEN_RE.sub("", EV_CITATION_RE.sub("", sentence))
+            if _NUMERIC_RE.search(stripped) and not cited:
+                issues.append(
+                    CritiqueIssue(
+                        severity="block",
+                        code="uncited_quantitative_claim",
+                        message=f"Uncited quantitative claim: '{sentence.strip()[:120]}'",
+                    )
+                )
+        return CritiqueResult(ok=not any(i.severity == "block" for i in issues), issues=issues)
+
 
 def _cite_every_sentence(text: str, evidence_id: str) -> str:
     """Append [EV-...] to each sentence lacking a citation, so template
@@ -448,8 +533,8 @@ class TestSuggestionAgent:
         for rec in records:
             if rec.status == Status.SKIPPED:
                 out.append(
-                    f"'{rec.test_name}' was skipped — {rec.interpretation.rstrip('.')}. "
-                    f"Provide the missing artifact to enable it. [{rec.evidence_id}]"
+                    f"'{rec.test_name}' was skipped ({rec.interpretation.rstrip('.')}); "
+                    f"provide the missing artifact to enable it. [{rec.evidence_id}]"
                 )
 
         importance = by_test.get("xai.global_importance")
@@ -466,6 +551,10 @@ class TestSuggestionAgent:
             )
 
         has_oos = bool(ctx is not None and getattr(ctx, "extra", {}).get("oos") is not None)
+        comparison = by_test.get("supervised.cohort_metrics_comparison")
+        if not has_oos and comparison is not None:
+            # Post-hoc reviews have no ctx; trust the evidence itself.
+            has_oos = "oos_auc_roc" in comparison.metrics
         if "supervised.cohort_metrics_comparison" in executed and not has_oos:
             out.append(
                 "No out-of-sample cohort was provided; add an OOS split to test "
