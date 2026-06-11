@@ -1,0 +1,10 @@
+# Versioned validation policy. Its SHA-256 content hash is stamped into every
+# evidence record so a reviewer can prove which threshold regime produced a
+# verdict. Keep firm-specific policies OUTSIDE public repositories.
+name: default
+version: 0.1.0
+allowed_task_types: []          # empty = all task types permitted
+allowed_data_roots: []          # empty = all data roots permitted
+max_materiality_without_review: high
+require_citations: true
+thresholds: {}

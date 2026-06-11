@@ -131,3 +131,125 @@ def calibration(
         limitations=["ECE depends on binning scheme; equal-width bins used here."],
     )
     return result.apply_thresholds()
+
+
+def _cohort_frames(ctx: TestContext) -> dict[str, pd.DataFrame]:
+    """Available scored cohorts: train / test / oos (oos via ctx.extra)."""
+    cohorts: dict[str, pd.DataFrame] = {}
+    for name, df in (("train", ctx.train), ("test", ctx.test), ("oos", ctx.extra.get("oos"))):
+        if (
+            df is not None
+            and ctx.target_column in getattr(df, "columns", [])
+            and ctx.score_column in getattr(df, "columns", [])
+        ):
+            cohorts[name] = df
+    return cohorts
+
+
+@register_test(
+    "supervised.cohort_metrics_comparison",
+    family="supervised",
+    name="Train/Test/OOS metrics comparison",
+    requires=("train", "target_column", "score_column"),
+    default_params={"decision_threshold": 0.5, "gap_warn": 0.05, "gap_fail": 0.10},
+)
+def cohort_metrics_comparison(
+    ctx: TestContext,
+    decision_threshold: float = 0.5,
+    gap_warn: float = 0.05,
+    gap_fail: float = 0.10,
+) -> TestResult:
+    """AUC/Accuracy/Precision/Recall/F1/top-decile lift across cohorts, with
+    an overfitting check on the train-test AUC gap."""
+    from start.modeling.metrics import compute_cohort_metrics
+
+    cohorts = _cohort_frames(ctx)
+    if "train" not in cohorts or ctx.target_column is None or ctx.score_column is None:
+        return _skipped(
+            "supervised.cohort_metrics_comparison", "Train/Test/OOS metrics comparison"
+        )
+    metrics: dict = {}
+    per_cohort: dict[str, dict[str, float]] = {}
+    for name, df in cohorts.items():
+        frame = df[[ctx.target_column, ctx.score_column]].dropna()
+        m = compute_cohort_metrics(
+            frame[ctx.target_column].to_numpy(),
+            frame[ctx.score_column].to_numpy(),
+            decision_threshold,
+        )
+        per_cohort[name] = m
+        for key, value in m.items():
+            metrics[f"{name}_{key}"] = value
+    metrics["cohorts_evaluated"] = ", ".join(per_cohort)
+    interpretation_bits = [
+        f"{name} AUC-ROC is {m['auc_roc']:.4f}" for name, m in per_cohort.items()
+    ]
+    thresholds = []
+    if "train" in per_cohort and "test" in per_cohort:
+        gap = round(per_cohort["train"]["auc_roc"] - per_cohort["test"]["auc_roc"], 6)
+        metrics["auc_gap_train_test"] = gap
+        thresholds.append(ThresholdSpec(metric="auc_gap_train_test", warn=gap_warn, fail=gap_fail))
+        interpretation_bits.append(f"train-test AUC gap is {gap:.4f}")
+    if "test" in per_cohort and "oos" in per_cohort:
+        metrics["auc_gap_test_oos"] = round(
+            per_cohort["test"]["auc_roc"] - per_cohort["oos"]["auc_roc"], 6
+        )
+    result = TestResult(
+        test_id="supervised.cohort_metrics_comparison",
+        test_name="Train/Test/OOS metrics comparison",
+        params={"decision_threshold": decision_threshold, "gap_warn": gap_warn, "gap_fail": gap_fail},
+        metrics=metrics,
+        thresholds=thresholds,
+        interpretation="; ".join(interpretation_bits) + ".",
+        limitations=[
+            "Cohorts missing target or score columns are excluded from the comparison."
+        ],
+    )
+    return result.apply_thresholds()
+
+
+@register_test(
+    "supervised.top_decile_lift",
+    family="supervised",
+    name="Top 10% lift",
+    requires=("test", "target_column", "score_column"),
+    default_params={"fraction": 0.10, "lift_warn": 1.5, "lift_fail": 1.0},
+)
+def top_decile_lift_test(
+    ctx: TestContext, fraction: float = 0.10, lift_warn: float = 1.5, lift_fail: float = 1.0
+) -> TestResult:
+    """Top-decile lift on each available scored cohort (rank-ordering power)."""
+    from start.modeling.metrics import top_decile_lift
+
+    cohorts = _cohort_frames(ctx)
+    if not cohorts or ctx.target_column is None or ctx.score_column is None:
+        return _skipped("supervised.top_decile_lift", "Top 10% lift")
+    metrics: dict = {"fraction": fraction}
+    for name, df in cohorts.items():
+        frame = df[[ctx.target_column, ctx.score_column]].dropna()
+        metrics[f"{name}_lift"] = round(
+            top_decile_lift(
+                frame[ctx.target_column].to_numpy(), frame[ctx.score_column].to_numpy(), fraction
+            ),
+            6,
+        )
+    if "test_lift" in metrics:
+        anchor = "test"
+    else:
+        anchor = next(k for k in metrics if k.endswith("_lift")).removesuffix("_lift")
+    thresholds = [
+        ThresholdSpec(metric=f"{anchor}_lift", warn=lift_warn, fail=lift_fail, direction="lower")
+    ]
+    result = TestResult(
+        test_id="supervised.top_decile_lift",
+        test_name="Top 10% lift",
+        params={"fraction": fraction, "lift_warn": lift_warn, "lift_fail": lift_fail},
+        metrics=metrics,
+        thresholds=thresholds,
+        interpretation=(
+            f"Top-decile lift on {anchor} is {metrics[f'{anchor}_lift']:.4f} "
+            "(event rate in the top decile relative to the overall event rate)."
+        ),
+        limitations=["Lift depends on the chosen fraction; the top decile is used here."],
+    )
+    return result.apply_thresholds()

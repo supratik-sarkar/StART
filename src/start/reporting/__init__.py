@@ -34,6 +34,9 @@ def render_markdown(result: RunResult) -> str:
         if result.narrative.limitations:
             lines.append("### Limitations")
             lines += [f"- {lim}" for lim in result.narrative.limitations] + [""]
+        if result.narrative.signoff:
+            lines.append("### Reviewer sign-off recommendation")
+            lines += [result.narrative.signoff, ""]
 
     lines.append("## Evidence table")
     lines.append("")

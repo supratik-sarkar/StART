@@ -249,6 +249,7 @@ class Narrative(BaseModel):
     findings: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     next_steps: list[str] = Field(default_factory=list)
+    signoff: str = ""
     generator: str = "template"
     cited_evidence_ids: list[str] = Field(default_factory=list)
 

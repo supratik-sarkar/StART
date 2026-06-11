@@ -3,8 +3,10 @@
 from start.agents import (  # noqa: F401
     EvidenceCriticAgent,
     ExecutionAgent,
+    ModelRiskFindingAgent,
     NarrativeAgent,
     PolicyGuardAgent,
     ReviewPlannerAgent,
     TestRouterAgent,
+    TestSuggestionAgent,
 )

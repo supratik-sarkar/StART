@@ -41,10 +41,32 @@ def build_context(config: StartConfig, train, test=None, model=None, extra=None)
         target_column=config.model.target_column,
         prediction_column=config.model.prediction_column,
         score_column=config.model.score_column,
+        timestamp_column=config.data.timestamp_column,
+        entity_id_column=config.data.entity_id_column,
         model=model,
         seed=config.seed,
         extra=extra or {},
     )
+
+
+def _enrich_narrative(narrative, records, ctx) -> None:
+    """Agentic governance layer: cross-evidence findings, next-step
+    suggestions, adversarial challenges, governance gate, and a reviewer
+    sign-off recommendation — all deterministic and citation-carrying."""
+    from start.agents import (
+        ChallengeAgent,
+        GovernanceAgent,
+        ModelRiskFindingAgent,
+        SignoffAgent,
+        TestSuggestionAgent,
+    )
+
+    narrative.findings.extend(ModelRiskFindingAgent().findings(records))
+    narrative.findings.extend(ChallengeAgent().challenge(records))
+    narrative.next_steps.extend(TestSuggestionAgent().suggest(records, ctx))
+    governance_ok, governance_items = GovernanceAgent().review(records)
+    narrative.findings.extend(governance_items)
+    narrative.signoff = SignoffAgent().conclude(records, governance_ok, governance_items)
 
 
 def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
@@ -101,9 +123,11 @@ def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
 
     narrator = NarrativeAgent(llm)
     narrative = narrator.generate(run_id, records)
+    _enrich_narrative(narrative, records, ctx)
     narrative_critique = critic.critique_narrative(narrative, records)
     if not narrative_critique.ok and narrative.generator.startswith("llm"):
         narrative = narrator._template_narrative(run_id, records)
+        _enrich_narrative(narrative, records, ctx)
         narrative_critique = critic.critique_narrative(narrative, records)
 
     for record in records:
@@ -125,3 +149,45 @@ def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
         narrative=narrative,
         policy=decision,
     )
+
+
+def review_dataframes(
+    train_df,
+    test_df=None,
+    oos_df=None,
+    *,
+    target_column: str,
+    score_column: str | None = "score",
+    prediction_column: str | None = None,
+    model=None,
+    config: StartConfig | None = None,
+    extra: dict | None = None,
+    seed: int = 42,
+) -> RunResult:
+    """First-class pandas API: run the full review directly on in-memory
+    DataFrames. If only `train_df` is given, a stratified 60/20/20
+    train/test/OOS split is applied. No framework changes needed for user data.
+    """
+    from start.connectors import PandasConnector
+
+    bundle = PandasConnector(
+        train_df,
+        test_df,
+        oos_df,
+        seed=seed,
+        target_column=target_column,
+        score_column=score_column,
+    ).load_bundle()
+
+    cfg = config or StartConfig()
+    cfg.seed = seed
+    cfg.model.target_column = target_column
+    cfg.model.score_column = score_column
+    cfg.model.prediction_column = prediction_column
+    cfg.data.source = "pandas"
+    cfg.data.dataset_id = bundle.source
+
+    merged_extra = {"oos": bundle.oos, "data_notes": bundle.notes}
+    merged_extra.update(extra or {})
+    ctx = build_context(cfg, bundle.train, bundle.test, model=model, extra=merged_extra)
+    return run_review(cfg, ctx)

@@ -31,6 +31,8 @@ class TestContext(BaseModel):
     target_column: str | None = None
     prediction_column: str | None = None
     score_column: str | None = None
+    timestamp_column: str | None = None
+    entity_id_column: str | None = None
     model: Any = None
     seed: int = 42
     extra: dict[str, Any] = Field(default_factory=dict)
