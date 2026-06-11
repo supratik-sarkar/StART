@@ -27,6 +27,25 @@ class ComputeConfig(BaseModel):
     max_memory_gb: float | None = None
 
 
+class AgentConfig(BaseModel):
+    """Dual-mode agentic review. 'deterministic' uses rules/templates only
+    (zero LLM access, public-safe offline mode). 'llm' reasons over validated
+    evidence through the configured provider, constrained by the citation
+    gate. llm_provider overrides llm.provider for the agent layer when set."""
+
+    mode: Literal["deterministic", "llm"] = "deterministic"
+    llm_provider: Literal[
+        "",
+        "none",
+        "openai",
+        "anthropic",
+        "grok",
+        "huggingface",
+        "hf_local",
+        "enterprise_llm_gateway",
+    ] = ""
+
+
 class LLMConfig(BaseModel):
     provider: Literal[
         "none",
@@ -146,6 +165,7 @@ class StartConfig(BaseSettings):
     seed: int = 42
     compute: ComputeConfig = Field(default_factory=ComputeConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    agent: AgentConfig = Field(default_factory=AgentConfig)
     data: DataConfig = Field(default_factory=DataConfig)
     experiment: ExperimentConfig = Field(default_factory=ExperimentConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
@@ -155,10 +175,18 @@ class StartConfig(BaseSettings):
 
 
 def load_config(path: str | Path | None = None) -> StartConfig:
-    """Load YAML config (if given) merged with environment overrides."""
+    """Load YAML config (if given) merged with environment overrides.
+
+    If the path is the conventional default ("configs/default.yaml") and the
+    file does not exist — e.g. running post-hoc commands on user data outside
+    a repo checkout — built-in defaults are used. Explicitly provided custom
+    paths that are missing still raise, never silently."""
     if path is None:
         return StartConfig()
-    raw = yaml.safe_load(Path(path).read_text()) or {}
+    config_path = Path(path)
+    if not config_path.exists() and str(path) == "configs/default.yaml":
+        return StartConfig()
+    raw = yaml.safe_load(config_path.read_text()) or {}
     return StartConfig(**raw)
 
 

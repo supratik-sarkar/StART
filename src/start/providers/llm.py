@@ -106,12 +106,12 @@ class GrokProvider(OpenAIProvider):
             import openai  # noqa: F401
         except ImportError:
             return False
-        return bool(os.environ.get("XAI_API_KEY"))
+        return bool(os.environ.get("GROK_API_KEY"))
 
     def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
         from openai import OpenAI
 
-        client = OpenAI(api_key=os.environ["XAI_API_KEY"], base_url="https://api.x.ai/v1")
+        client = OpenAI(api_key=os.environ["GROK_API_KEY"], base_url="https://api.x.ai/v1")
         resp = client.chat.completions.create(
             model=self.model,
             max_tokens=max_tokens,

@@ -130,6 +130,26 @@ def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
         _enrich_narrative(narrative, records, ctx)
         narrative_critique = critic.critique_narrative(narrative, records)
 
+    # Dual-mode agent review: deterministic governance fallback, or
+    # LLM-assisted evidence-grounded review gated by the citation critic.
+    from start.agents.review import run_agent_review
+
+    agent_llm = llm
+    if config.agent.llm_provider and config.agent.llm_provider != config.llm.provider:
+        from start.core.config import LLMConfig
+
+        agent_llm = get_llm_provider(
+            LLMConfig(provider=config.agent.llm_provider, model=config.llm.model)
+        )
+    agent_review = run_agent_review(
+        records,
+        mode=config.agent.mode,
+        llm=agent_llm,
+        ctx=ctx,
+        policy_hash=records[0].policy_hash if records else None,
+        demo_meta=(ctx.extra or {}).get("demo_meta"),
+    )
+
     for record in records:
         ledger.append(record)
         numeric = {k: float(v) for k, v in record.metrics.items() if isinstance(v, (int, float))}
@@ -147,6 +167,7 @@ def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
         evidence=records,
         critique=combined,
         narrative=narrative,
+        agent_review=agent_review,
         policy=decision,
     )
 

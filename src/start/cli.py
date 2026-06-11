@@ -189,6 +189,12 @@ def propensity_demo(
     test: str = typer.Option(None, help="Your test data; omit to auto-split train."),
     oos: str = typer.Option(None, help="Your out-of-sample data; omit to auto-split train."),
     target: str = typer.Option(None, help="Target column name in your data."),
+    agent_mode: str = typer.Option(
+        "deterministic", "--agent-mode", help="deterministic | llm (evidence-grounded)."
+    ),
+    llm_provider: str = typer.Option(
+        None, help="Agent LLM provider override (none | openai | anthropic | ... )."
+    ),
 ) -> None:
     """Propensity-style model review demo: 60/20/20 split, feature checks,
     model + tuning choice, train/test/OOS metrics, explainability with honest
@@ -207,6 +213,8 @@ def propensity_demo(
         test_path=test,
         oos_path=oos,
         target_column=target or TARGET_COLUMN,
+        agent_mode=agent_mode,
+        llm_provider=llm_provider or "",
     )
     if not non_interactive:
         opts = prompt_options(initial=opts)
@@ -260,3 +268,309 @@ def recommend(
         f"{', '.join(plan['explainability']['implemented']) or 'none'}; "
         f"roadmap: {', '.join(plan['explainability']['roadmap']) or 'none'}"
     )
+
+
+def _resolve_agent_llm(
+    llm_provider: str | None,
+    cfg,
+    *,
+    agent_mode: str = "deterministic",
+    prompt_for_key: bool | None = None,
+    allow_fallback: bool = False,
+) -> tuple[str, object, bool]:
+    """Resolve the agent-layer LLM provider from CLI flag > config.
+
+    In llm mode, makes sure the provider's API key is available for this
+    session: read from the environment, or — on an interactive terminal, or
+    when --prompt-for-key is passed — collected via a hidden getpass prompt.
+    The key is set for the current process only and never echoed, logged, or
+    persisted. Missing key with prompting disabled fails clearly unless
+    --allow-deterministic-fallback was given; never a silent fallback."""
+    from start.core.config import LLMConfig
+    from start.providers.keys import ensure_provider_key, key_required
+    from start.providers.llm import get_llm_provider
+
+    name = llm_provider or cfg.agent.llm_provider or cfg.llm.provider or "none"
+    if agent_mode == "llm" and key_required(name):
+        status = ensure_provider_key(name, prompt_for_key=prompt_for_key)
+        if not status.ok:
+            if allow_fallback:
+                console.print(
+                    f"[yellow]WARNING: {status.env_var} is not set and prompting is "
+                    f"disabled; falling back to deterministic mode as requested.[/yellow]"
+                )
+                return "none", get_llm_provider(LLMConfig(provider="none")), True
+            console.print(
+                f"[red]Missing {status.env_var} for provider '{name}'. Set the "
+                f"environment variable, re-run with --prompt-for-key to enter it "
+                f"securely, or pass --allow-deterministic-fallback.[/red]"
+            )
+            raise typer.Exit(code=1)
+    return name, get_llm_provider(LLMConfig(provider=name, model=cfg.llm.model)), False
+
+
+def _load_review(
+    config: str,
+    agent_mode: str,
+    llm_provider: str | None,
+    run_id: str,
+    evidence_dir: str,
+    ledger: str,
+    prompt_for_key: bool | None = None,
+    allow_fallback: bool = False,
+):
+    from start.agents.review import load_run_records, run_agent_review
+
+    cfg = load_config(config)
+    root = evidence_dir or cfg.output.root
+    resolved_run, records = load_run_records(root, ledger, run_id)
+    name, llm, fell_back = _resolve_agent_llm(
+        llm_provider,
+        cfg,
+        agent_mode=agent_mode,
+        prompt_for_key=prompt_for_key,
+        allow_fallback=allow_fallback,
+    )
+    if fell_back:
+        agent_mode = "deterministic"  # CLI already printed the explicit warning
+    review = run_agent_review(
+        records,
+        mode=agent_mode,
+        llm=llm,
+        policy_hash=records[0].policy_hash if records else None,
+    )
+    return resolved_run, records, review
+
+
+def _print_review_sections(run_id: str, review, sections: tuple[str, ...]) -> None:
+    console.print(
+        f"\n[bold]Agent review — run {run_id}[/bold] | mode: {review.mode}"
+        + (f" | provider: {review.llm_provider}" if review.mode == "llm" else "")
+    )
+    for note in review.notes:
+        console.print(f"  [yellow]{note}[/yellow]")
+    titles = {
+        "review_plan": "Review plan",
+        "suggested_tests": "Suggested next tests",
+        "findings": "Model-risk findings",
+        "challenge_memo": "Challenge memo",
+        "missing_evidence": "Missing evidence",
+        "governance": "Governance assessment",
+    }
+    for key in sections:
+        if key == "signoff":
+            console.print("\n[bold]Sign-off recommendation[/bold]")
+            console.print(f"  {review.signoff}")
+            continue
+        items = getattr(review, key)
+        console.print(f"\n[bold]{titles[key]}[/bold]")
+        for item in items:
+            console.print(f"  - {item}")
+    console.print(
+        f"\nEvidence critique status: "
+        f"{'[green]PASSED[/green]' if review.critique_ok else '[red]FAILED[/red]'}"
+    )
+
+
+_AGENT_OPTS = {
+    "config": typer.Option(DEFAULT_CONFIG, help="Path to YAML config."),
+    "agent_mode": typer.Option("deterministic", help="deterministic | llm."),
+    "llm_provider": typer.Option(
+        None, help="none | openai | anthropic | grok | huggingface | hf_local | enterprise_llm_gateway."
+    ),
+    "run_id": typer.Option("latest", help="RUN-... id from the ledger, or 'latest'."),
+    "evidence_dir": typer.Option("", help="Output root holding the ledger (default: config output root)."),
+    "ledger": typer.Option("ledger.jsonl", help="Ledger filename."),
+}
+
+
+@app.command("agent-review")
+def agent_review_cmd(
+    config: str = _AGENT_OPTS["config"],
+    prompt_for_key: bool = typer.Option(
+        None,
+        "--prompt-for-key/--no-prompt-for-key",
+        help="Securely prompt for a missing API key (default: only on interactive terminals).",
+    ),
+    allow_fallback: bool = typer.Option(
+        False, "--allow-deterministic-fallback", help="Fall back instead of failing on a missing key."
+    ),
+    agent_mode: str = typer.Option("deterministic", "--agent-mode", help="deterministic | llm."),
+    llm_provider: str = _AGENT_OPTS["llm_provider"],
+    run_id: str = _AGENT_OPTS["run_id"],
+    evidence_dir: str = _AGENT_OPTS["evidence_dir"],
+    ledger: str = _AGENT_OPTS["ledger"],
+) -> None:
+    """Full dual-mode agent review over stored evidence: plan, suggestions,
+    findings, challenge memo, missing evidence, governance, and sign-off."""
+    resolved_run, _, review = _load_review(
+        config, agent_mode, llm_provider, run_id, evidence_dir, ledger, prompt_for_key, allow_fallback
+    )
+    _print_review_sections(
+        resolved_run,
+        review,
+        (
+            "review_plan",
+            "suggested_tests",
+            "findings",
+            "challenge_memo",
+            "missing_evidence",
+            "governance",
+            "signoff",
+        ),
+    )
+
+
+@app.command("review-plan")
+def review_plan_cmd(
+    config: str = _AGENT_OPTS["config"],
+    prompt_for_key: bool = typer.Option(
+        None,
+        "--prompt-for-key/--no-prompt-for-key",
+        help="Securely prompt for a missing API key (default: only on interactive terminals).",
+    ),
+    allow_fallback: bool = typer.Option(
+        False, "--allow-deterministic-fallback", help="Fall back instead of failing on a missing key."
+    ),
+    agent_mode: str = typer.Option("deterministic", "--agent-mode"),
+    llm_provider: str = _AGENT_OPTS["llm_provider"],
+    run_id: str = _AGENT_OPTS["run_id"],
+    evidence_dir: str = _AGENT_OPTS["evidence_dir"],
+    ledger: str = _AGENT_OPTS["ledger"],
+) -> None:
+    """Review plan for a stored run."""
+    resolved_run, _, review = _load_review(
+        config, agent_mode, llm_provider, run_id, evidence_dir, ledger, prompt_for_key, allow_fallback
+    )
+    _print_review_sections(resolved_run, review, ("review_plan",))
+
+
+@app.command("suggest-tests")
+def suggest_tests_cmd(
+    config: str = _AGENT_OPTS["config"],
+    prompt_for_key: bool = typer.Option(
+        None,
+        "--prompt-for-key/--no-prompt-for-key",
+        help="Securely prompt for a missing API key (default: only on interactive terminals).",
+    ),
+    allow_fallback: bool = typer.Option(
+        False, "--allow-deterministic-fallback", help="Fall back instead of failing on a missing key."
+    ),
+    agent_mode: str = typer.Option("deterministic", "--agent-mode"),
+    llm_provider: str = _AGENT_OPTS["llm_provider"],
+    run_id: str = _AGENT_OPTS["run_id"],
+    evidence_dir: str = _AGENT_OPTS["evidence_dir"],
+    ledger: str = _AGENT_OPTS["ledger"],
+) -> None:
+    """Suggested next validation tests for a stored run."""
+    resolved_run, _, review = _load_review(
+        config, agent_mode, llm_provider, run_id, evidence_dir, ledger, prompt_for_key, allow_fallback
+    )
+    _print_review_sections(resolved_run, review, ("suggested_tests", "missing_evidence"))
+
+
+@app.command("challenge-findings")
+def challenge_findings_cmd(
+    config: str = _AGENT_OPTS["config"],
+    prompt_for_key: bool = typer.Option(
+        None,
+        "--prompt-for-key/--no-prompt-for-key",
+        help="Securely prompt for a missing API key (default: only on interactive terminals).",
+    ),
+    allow_fallback: bool = typer.Option(
+        False, "--allow-deterministic-fallback", help="Fall back instead of failing on a missing key."
+    ),
+    agent_mode: str = typer.Option("deterministic", "--agent-mode"),
+    llm_provider: str = _AGENT_OPTS["llm_provider"],
+    run_id: str = _AGENT_OPTS["run_id"],
+    evidence_dir: str = _AGENT_OPTS["evidence_dir"],
+    ledger: str = _AGENT_OPTS["ledger"],
+) -> None:
+    """Adversarial challenge memo for a stored run."""
+    resolved_run, _, review = _load_review(
+        config, agent_mode, llm_provider, run_id, evidence_dir, ledger, prompt_for_key, allow_fallback
+    )
+    _print_review_sections(resolved_run, review, ("findings", "challenge_memo"))
+
+
+@app.command("signoff")
+def signoff_cmd(
+    config: str = _AGENT_OPTS["config"],
+    prompt_for_key: bool = typer.Option(
+        None,
+        "--prompt-for-key/--no-prompt-for-key",
+        help="Securely prompt for a missing API key (default: only on interactive terminals).",
+    ),
+    allow_fallback: bool = typer.Option(
+        False, "--allow-deterministic-fallback", help="Fall back instead of failing on a missing key."
+    ),
+    agent_mode: str = typer.Option("deterministic", "--agent-mode"),
+    llm_provider: str = _AGENT_OPTS["llm_provider"],
+    run_id: str = _AGENT_OPTS["run_id"],
+    evidence_dir: str = _AGENT_OPTS["evidence_dir"],
+    ledger: str = _AGENT_OPTS["ledger"],
+) -> None:
+    """Governance assessment and sign-off recommendation for a stored run."""
+    resolved_run, _, review = _load_review(
+        config, agent_mode, llm_provider, run_id, evidence_dir, ledger, prompt_for_key, allow_fallback
+    )
+    _print_review_sections(resolved_run, review, ("governance", "signoff"))
+
+
+@app.command("llm-check")
+def llm_check(
+    llm_provider: str = typer.Option(..., "--llm-provider", help="Provider to verify."),
+    prompt_for_key: bool = typer.Option(
+        None,
+        "--prompt-for-key/--no-prompt-for-key",
+        help="Securely prompt for a missing API key (default: only on interactive terminals).",
+    ),
+) -> None:
+    """Verify an LLM provider end to end: dependency installed, key available
+    (or securely prompted), one synthetic-evidence test call, and the output
+    checked against the evidence citation gate. No raw data is ever sent."""
+    from start.providers.keys import (
+        PROVIDER_KEY_ENV,
+        dependency_available,
+        ensure_provider_key,
+        run_llm_check,
+    )
+
+    if llm_provider not in PROVIDER_KEY_ENV:
+        console.print(
+            f"[red]Unknown provider '{llm_provider}'. "
+            f"Known: {', '.join(sorted(PROVIDER_KEY_ENV))}[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    dep_ok, dep_msg = dependency_available(llm_provider)
+    console.print(f"Provider: {llm_provider}")
+    console.print(f"Dependency: {dep_msg}")
+    if not dep_ok:
+        raise typer.Exit(code=1)
+
+    if llm_provider == "none":
+        console.print("Mode: deterministic (no key, no LLM — this is the default and is fully supported)")
+        return
+    if llm_provider == "enterprise_llm_gateway":
+        console.print(
+            "Mode: placeholder — enterprise_llm_gateway has no public implementation; "
+            "provide a private one outside this repository."
+        )
+        return
+
+    status = ensure_provider_key(llm_provider, prompt_for_key=prompt_for_key)
+    console.print(f"Key source: {status.source}")
+    if not status.ok and llm_provider != "hf_local":
+        console.print(
+            f"[red]Missing {status.env_var}; set it or re-run with --prompt-for-key.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    result = run_llm_check(llm_provider)
+    console.print(f"Mode: {result['mode']}")
+    console.print(f"Synthetic evidence sent: {result['synthetic_evidence_sent']}")
+    console.print(f"Raw dataset sent: {result['raw_dataset_sent']}")
+    console.print(f"Critique: {result['critique']}")
+    if result["critique"] == "failed":
+        raise typer.Exit(code=1)

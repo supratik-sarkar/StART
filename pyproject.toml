@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "0.3.0"
+version = "0.4.1"
 description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
 readme = "README.md"
 requires-python = ">=3.10"
