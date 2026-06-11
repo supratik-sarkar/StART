@@ -90,3 +90,12 @@ no_implicit_optional = true
 warn_redundant_casts = true
 packages = ["start"]
 mypy_path = "src"
+
+[tool.ruff.lint.per-file-ignores]
+"src/start/modeling/deep_learning.py" = ["E501"]
+"src/start/modeling/dl_data.py" = ["E501"]
+"src/start/modeling/dl_explain.py" = ["E501"]
+"src/start/modeling/dl_figures.py" = ["B905"]
+"src/start/modeling/dl_metrics.py" = ["E501", "B905"]
+"notebooks/*.py" = ["E402", "E501", "F821", "B018"]
+"notebooks/*.ipynb" = ["E402", "E501", "F821", "B018"]

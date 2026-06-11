@@ -31,10 +31,19 @@ class FakeLLM:
 
     def __init__(self, responses=None):
         self.responses = list(responses or ["Synthetic check passed with AUC 0.91 [EV-TEST-0001]."])
+        self.calls = []
         self.prompts = []
 
     def complete(self, system, user, *, max_tokens=1024):
         self.prompts.append((system, user, max_tokens))
+        if hasattr(self, "calls"):
+            self.calls.append((system, user))
         if self.responses:
             return self.responses.pop(0)
         return "Synthetic check passed with AUC 0.91 [EV-TEST-0001]."
+
+    def generate(self, prompt, *, system=None, metadata=None):
+        max_tokens = 1024
+        if isinstance(metadata, dict):
+            max_tokens = metadata.get("max_tokens", 1024)
+        return self.complete(system or "", prompt, max_tokens=max_tokens)
