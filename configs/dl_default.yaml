@@ -1,0 +1,15 @@
+run:
+  output_root: start_output
+  seed: 42
+
+deep_learning:
+  architecture: mlp
+  epochs: 8
+  batch_size: 128
+  hidden_dim: 64
+  learning_rate: 0.001
+  dropout: 0.10
+
+agent:
+  mode: deterministic
+  llm_provider: none
