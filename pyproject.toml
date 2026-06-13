@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "0.4.3"
+version = "0.4.4"
 description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Supratik Sarkar" }]
 keywords = ["model-risk", "validation", "agentic", "evaluation", "audit", "mlops"]
@@ -55,7 +55,8 @@ dev = [
 ]
 llm-openai = ["openai>=1.30"]
 llm-anthropic = ["anthropic>=0.30"]
-all = ["start-mrt[torch,xai,mlflow,openai,anthropic,huggingface,genai,tree-models,optuna,formats]"]
+all = ["start-mrt[torch,tree-models,optuna,xai,formats,dev]"]
+everything = ["start-mrt[torch,tree-models,optuna,xai,formats,dev,openai,anthropic,huggingface,genai,mlflow]"]
 
 [project.scripts]
 start = "start.cli:app"
@@ -76,12 +77,12 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 110
-target-version = "py312"
+target-version = "py310"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = ["B008", "UP042"]  # typer uses function calls in defaults by design
+ignore = ["B008"]  # typer uses function calls in defaults by design
 
 [tool.ruff.lint.per-file-ignores]
 # Databricks notebook source files use dbutils (injected by the runtime) and
@@ -91,7 +92,7 @@ ignore = ["B008", "UP042"]  # typer uses function calls in defaults by design
 "notebooks/*.ipynb" = ["E402", "F821", "E702", "I001"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 ignore_missing_imports = true
 no_implicit_optional = true
 warn_redundant_casts = true

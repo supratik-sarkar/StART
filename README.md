@@ -110,39 +110,114 @@ You never import from `src.start`; after installation you simply `import start`.
 
 ## Installation (step by step)
 
-All commands below are run from Terminal. Replace paths as needed.
+> **The #1 setup trap:** a bare `python3` often resolves to the system Python (e.g. 3.9 on macOS), which silently creates the venv on the wrong interpreter. **Always create the venv with the full path to a 3.12 interpreter.** On macOS with Homebrew that is `/opt/homebrew/bin/python3.12`.
+
+### Quickstart (copy-paste, macOS / Linux)
+
+Run each block from Terminal. Do **not** run `deactivate` until you're finished — that drops you out of the venv.
 
 ```bash
-# 1. Get the code
-git clone https://github.com/supratik-sarkar/StART.git
-cd StART
+cd ~/Desktop/StART
+```
 
-# 2. Confirm your Python version (3.12 recommended, 3.10 minimum)
-python3.12 --version
+```bash
+deactivate 2>/dev/null || true
+rm -rf .venv-start .venv start venv env
+```
 
-# 3. Create and activate a virtual environment.
-#    Recommended name: .venv-start  (kept out of git via .gitignore)
-python3.12 -m venv .venv-start
-source .venv-start/bin/activate          # Windows: .venv-start\Scripts\activate
+```bash
+/opt/homebrew/bin/python3.12 --version
+```
 
-# Your prompt should now show: (.venv-start)
+```bash
+/opt/homebrew/bin/python3.12 -m venv .venv-start
+```
 
-# 4. Upgrade pip and install StART in editable mode with dev tools
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+```bash
+source .venv-start/bin/activate
+```
 
-# 5. Sanity-check the import and the CLI
+```bash
+which python
+```
+
+```bash
+python --version
+```
+
+```bash
+python -m pip install --upgrade pip setuptools wheel
+```
+
+```bash
+python -m pip install -e ".[all]" -c constraints.txt
+```
+
+```bash
 python -c "import start; print(start.__version__)"
+```
+
+```bash
 start --help
 ```
 
-**Why editable (`-e`)?** Your source edits under `src/start/` take effect immediately without reinstalling. This is the expected development workflow.
+`which python` must point inside `.venv-start`; `python --version` must say 3.12.x. If either is wrong, the venv was created on the wrong interpreter — delete it and recreate with the full path above.
 
-**Pinned installs (optional).** For a clean-room or CI-matching environment:
+### Windows (VS Code terminal / PowerShell)
+
+```powershell
+cd $HOME\Desktop\StART
+Remove-Item -Recurse -Force .venv-start -ErrorAction SilentlyContinue
+py -3.12 --version
+py -3.12 -m venv .venv-start
+.venv-start\Scripts\Activate.ps1
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e ".[all]" -c constraints.txt
+python -c "import start; print(start.__version__)"
+```
+
+### What `".[all]"` installs
+
+The `all` extra pulls every optional stack so nothing is missing mid-demo: deep learning (`torch`, `captum`, `matplotlib`), tree models (`xgboost`, `lightgbm`), tuning (`optuna`), explainability (`shap`), file formats (`pyarrow`), and dev tools (`pytest`, `hypothesis`, `ruff`). LLM SDKs (`openai`, `anthropic`) are **not** included — they're only needed for optional LLM-assisted review and are installed separately (see [LLM providers](#llm-providers)). The `-c constraints.txt` flag pins exact versions so a fresh venv matches a known-good environment and never resolves "old shit."
+
+For a minimal install (no DL, no tree models), use `".[dev]"` instead of `".[all]"`.
+
+**Why editable (`-e`)?** Source edits under `src/start/` take effect immediately without reinstalling — the expected development workflow.
+
+### Register the Jupyter kernel (for the VS Code notebook demos)
 
 ```bash
-python -m pip install -e ".[dev]" -c constraints.txt
+python -m pip install ipykernel jupyterlab notebook ipywidgets
+python -m ipykernel install --user --name start --display-name "Python (StART .venv-start)"
 ```
+
+Then in VS Code, open a notebook and select the kernel **Python (StART .venv-start)**.
+
+### Validate your install
+
+Run these to confirm the whole stack works (all should pass; the `llm-check` line is *meant* to exit non-zero on a missing key):
+
+```bash
+python -m pytest
+```
+
+```bash
+ruff check src tests examples notebooks
+```
+
+```bash
+start propensity-demo --non-interactive
+```
+
+```bash
+python examples/deep_learning_sequence_demo.py --non-interactive --architecture mlp --agent-mode deterministic
+```
+
+```bash
+start doctor --config configs/local_no_llm.yaml
+```
+
+Expected: the test suite passes, ruff is clean, both demos end with a READY / NOT-READY sign-off, and figures + reports appear under `start_output/`. If `pytest` runs far fewer tests than expected, the deep-learning suite was skipped because `torch` isn't installed — install with `".[all]"` (above) and re-run.
 
 ---
 
@@ -780,6 +855,7 @@ This repository is a clean-room public implementation. It contains **no** propri
 
 ## Roadmap
 
+- **Model Review Operating System (Part B)** — a phased evolution to a data-first, agent-driven review platform: "what dataset are we reviewing?" as the first interaction, a `DatasetDiscoveryAgent`, prompt-guided dataset intent (LLM-mode only, evidence-only), explicit target selection and task inference, a split planner (random/stratified/time-based/group/custom), a `FeatureEngineeringAgent`, a model/activation architecture registry, and a vision/CNN modality on its own track. The full phased plan with risk and sequencing lives in [`docs/part_b_plan.md`](docs/part_b_plan.md).
 - Quantitative-finance DL tracks by dataset type: limit order books (DeepLOB, CNN, temporal transformers), tick events (signature networks, neural point processes), multi-asset panels (TFT, temporal CNN, LSTM/GRU), volatility surfaces (CNN, neural PDEs, GNNs), and alternative text data (FinBERT variants, multimodal transformers, RAG) — the type-aware recommendation maps already ship in `start.taxonomy`
 - Deep learning: tabular MLP / Leaky-ReLU MLP / Residual MLP / Wide & Deep are **implemented** behind `[torch]` (see the Deep Learning Review Suite section), with Integrated Gradients / Gradient SHAP explainability and shock/noise/masking robustness. Sequence models (RNN/LSTM/GRU/TCN/Transformer/TFT) remain roadmap, to be demonstrated on genuinely sequential data with DeepLIFT and occlusion analysis; DL tuning stays laptop-safe by default, with large searches reserved for GPU clusters
 - Test families: unsupervised, recommender ranking (NDCG/MAP/recall@k), portfolio optimization diagnostics, performance attribution, embedding drift, robustness
