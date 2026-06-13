@@ -81,7 +81,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = ["B008"]  # typer uses function calls in defaults by design
+ignore = ["B008", "UP042"]  # typer uses function calls in defaults by design
 
 [tool.ruff.lint.per-file-ignores]
 # Databricks notebook source files use dbutils (injected by the runtime) and
