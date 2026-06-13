@@ -188,23 +188,35 @@ class HFLocalProvider(LLMProvider):
 class EnterpriseLLMGatewayProvider(LLMProvider):
     """Neutral placeholder for an internal enterprise LLM gateway.
 
-    This class intentionally contains no endpoints, credentials, or
-    firm-specific logic. To integrate a real gateway, implement a private
-    package exposing the same ``complete`` interface and select it via
-    private configuration kept outside this repository.
+    This class contains no endpoints, credentials, or firm-specific logic. It
+    delegates entirely to ``start.enterprise.EnterpriseLLMGatewayAdapter`` —
+    the single isolated file a firm implements. The adapter reports
+    unavailable (and this provider therefore degrades to deterministic review)
+    until a private implementation is supplied inside the firm environment.
     """
 
     name = "enterprise_llm_gateway"
 
+    def __init__(self) -> None:
+        from start.enterprise import EnterpriseLLMGatewayAdapter
+
+        self._adapter = EnterpriseLLMGatewayAdapter()
+
     @property
     def available(self) -> bool:
-        return False
+        return self._adapter.available()
 
     def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
-        raise NotImplementedError(
-            "enterprise_llm_gateway is a placeholder. Provide a private "
-            "implementation outside this public repository."
+        # Bridge the provider interface (system/user) onto the adapter's
+        # generate(prompt, *, system, metadata) contract.
+        return self._adapter.generate(
+            user, system=system, metadata={"max_tokens": max_tokens}
         )
+
+    def generate(
+        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
+    ) -> str:
+        return self._adapter.generate(prompt, system=system, metadata=metadata)
 
 
 _PROVIDERS: dict[str, type[LLMProvider]] = {

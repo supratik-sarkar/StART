@@ -40,7 +40,8 @@ from sklearn.model_selection import train_test_split
 
 from start import build_context, load_config, run_review
 
-config = load_config("../configs/databricks.yaml") if not is_databricks_runtime() else load_config("configs/databricks.yaml")
+_cfg = "configs/databricks.yaml" if is_databricks_runtime() else "../configs/databricks.yaml"
+config = load_config(_cfg)
 if not mlflow_available():
     config.experiment.provider = "local"  # safe degradation off-Databricks
 

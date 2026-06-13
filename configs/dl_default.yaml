@@ -1,15 +1,45 @@
-run:
-  output_root: start_output
-  seed: 42
+# StART deep-learning review — default configuration.
+# Laptop-safe defaults; deterministic agent review (no LLM key required).
+# The demo dataset is an example; point data.* at your own data to make it the
+# product. Secrets are NEVER stored here — keys come from a hidden prompt
+# (terminal) or a Databricks secret scope.
 
-deep_learning:
-  architecture: mlp
-  epochs: 8
-  batch_size: 128
-  hidden_dim: 64
-  learning_rate: 0.001
-  dropout: 0.10
+project_name: start-dl-review
+seed: 42
+
+model:
+  model_id: attrition-dl-mlp
+  task_type: binary_classification
+  materiality: medium
+  target_column: attrition
+  score_column: score
+
+data:
+  source: demo            # demo | files | pandas | spark | snowflake
+  demo_dataset: dl-synthetic
+  # For your own data (files mode):
+  # source: files
+  # dataset:
+  #   train: data/train.parquet
+  #   test: data/test.parquet
+  #   oos: data/oos.parquet
 
 agent:
-  mode: deterministic
-  llm_provider: none
+  mode: deterministic     # deterministic | llm
+  llm_provider: none      # none | openai | anthropic | enterprise_llm_gateway
+
+# Deep-learning hyperparameters (laptop-safe: epochs <= 10, batch_size <= 128).
+deep_learning:
+  architecture: mlp       # mlp | leaky_relu_mlp | residual_mlp | wide_deep
+  epochs: 8
+  batch_size: 128
+  learning_rate: 0.001
+  dropout: 0.1
+  explain_method: integrated_gradients   # integrated_gradients | gradient_shap
+  sensitivity_cohort: test               # test | oos | development
+
+output:
+  root: start_output
+
+test_families:
+  enabled: [preprocessing, supervised, xai]

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-MODEL_CHOICES = ("random_forest", "xgboost", "lightgbm")
+MODEL_CHOICES = ("random_forest", "xgboost", "lightgbm", "mlp")
 
 # Five standard tunable hyperparameters per model (suggested spaces shown to
 # the user in interactive mode; "grid" lists feed grid search, low/high feed
@@ -35,6 +35,16 @@ HYPERPARAM_SPACES: dict[str, dict[str, dict[str, Any]]] = {
         "learning_rate": {"type": "float", "grid": [0.03, 0.1, 0.3], "low": 0.01, "high": 0.3, "log": True},
         "subsample": {"type": "float", "grid": [0.7, 0.85, 1.0], "low": 0.5, "high": 1.0},
         "colsample_bytree": {"type": "float", "grid": [0.7, 0.85, 1.0], "low": 0.5, "high": 1.0},
+    },
+    # Laptop-safe by design: epochs capped at 10, batch size at 128.
+    "mlp": {
+        "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
+        "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
+        "learning_rate": {
+            "type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True
+        },
+        "dropout": {"type": "float", "grid": [0.0, 0.1, 0.3], "low": 0.0, "high": 0.5},
+        "activation": {"type": "cat", "grid": ["relu", "leaky_relu"], "choices": ["relu", "leaky_relu"]},
     },
 }
 
@@ -109,4 +119,15 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
             "lightgbm",
             "",
         )
+    if name == "mlp":
+        from start.modeling.deep_learning import TorchMLPClassifier, torch_available
+
+        if not torch_available():
+            return (
+                _make_random_forest(seed),
+                "random_forest",
+                "torch is not installed (pip install -e \".[torch]\"); "
+                "falling back to Random Forest.",
+            )
+        return TorchMLPClassifier(random_state=seed), "mlp", ""
     return _make_random_forest(seed), "random_forest", ""

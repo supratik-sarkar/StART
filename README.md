@@ -26,19 +26,20 @@ StART targets model review and model-risk evaluation across data preprocessing, 
 9. [Agentic governance: challenge & sign-off](#agentic-governance-challenge--sign-off)
 10. [Dual-mode agent review: deterministic vs LLM-assisted](#dual-mode-agent-review-deterministic-vs-llm-assisted)
 11. [Architecture](#architecture)
-12. [Minimal offline smoke demo](#minimal-offline-smoke-demo)
-13. [Generated artifacts](#generated-artifacts)
-14. [Safe degradation](#safe-degradation)
-15. [Running on your own data](#running-on-your-own-data)
-16. [Adaptive compute routing](#adaptive-compute-routing)
-17. [LLM providers](#llm-providers)
-18. [Databricks](#databricks)
-19. [Extending the registry](#extending-the-registry)
-20. [Repository layout](#repository-layout)
-21. [Development workflow](#development-workflow)
-22. [Troubleshooting](#troubleshooting)
-23. [Public-safety statement](#public-safety-statement)
-24. [Roadmap](#roadmap)
+12. [Deep Learning Review Suite](#deep-learning-review-suite)
+13. [Minimal offline smoke demo](#minimal-offline-smoke-demo)
+14. [Generated artifacts](#generated-artifacts)
+15. [Safe degradation](#safe-degradation)
+16. [Running on your own data](#running-on-your-own-data)
+17. [Adaptive compute routing](#adaptive-compute-routing)
+18. [LLM providers](#llm-providers)
+19. [Databricks](#databricks)
+20. [Extending the registry](#extending-the-registry)
+21. [Repository layout](#repository-layout)
+22. [Development workflow](#development-workflow)
+23. [Troubleshooting](#troubleshooting)
+24. [Public-safety statement](#public-safety-statement)
+25. [Roadmap](#roadmap)
 
 ---
 
@@ -183,7 +184,7 @@ start list-tests | python -c "import sys,json; print(len(json.load(sys.stdin)), 
 
 ```bash
 pytest
-# -> 89 passed
+# -> 133 passed
 ```
 
 The suite includes ledger tamper detection, citation-gate enforcement, compute-routing degradation, and Hypothesis-based determinism properties.
@@ -327,7 +328,7 @@ agent:
   llm_provider: enterprise_llm_gateway
 ```
 
-All providers (`none`, `openai`, `anthropic`, `grok`, `huggingface`, `hf_local`, `enterprise_llm_gateway`) share one interface — `generate(prompt, *, system=None, metadata=None)` — so swapping an enterprise gateway in requires no agent-logic changes. `enterprise_llm_gateway` remains a neutral, empty placeholder: no endpoints, no credentials, no firm-specific anything; implement it privately outside this repository. Reports always disclose the mode (`Agent mode: deterministic` or `Agent mode: llm-assisted` + provider), the critique status, and any rejected sections. The Databricks notebook exposes the same controls as widgets (`agent_mode`, `llm_provider`, `run_agent_review`) with inline rendering, so terminal and notebook outputs are functionally equivalent.
+All providers (`none`, `openai`, `anthropic`, `grok`, `huggingface`, `hf_local`, `enterprise_llm_gateway`) share one interface — `generate(prompt, *, system=None, metadata=None)` — so swapping an enterprise gateway in requires no agent-logic changes. `enterprise_llm_gateway` delegates to a single isolated adapter at `src/start/enterprise/llm_gateway.py`: no endpoints, no credentials, no firm-specific anything, and the private package is never imported by the public repo (only probed for lazily). A firm integrates by editing **only** that one file (or adding `src/start/enterprise/firm_adapter.py`) — agents, providers, modeling, notebooks, and examples stay untouched. See `src/start/enterprise/README.md` for the contract. Reports always disclose the mode (`Agent mode: deterministic` or `Agent mode: llm-assisted` + provider), the critique status, and any rejected sections. The Databricks notebook exposes the same controls as widgets (`agent_mode`, `llm_provider`, `run_agent_review`) with inline rendering, so terminal and notebook outputs are functionally equivalent.
 
 ### API keys: secure, session-only, never required by default
 
@@ -377,6 +378,67 @@ StART
     ├── sign-off recommendations (with agent-mode disclosure)
     └── Databricks inline notebook rendering
 ```
+
+## Deep Learning Review Suite
+
+> The same end-to-end rigor as the propensity workflow — train/test/OOS metrics, explainability, sensitivity, evidence, governance, sign-off — applied to **real PyTorch models**, laptop-safe and CPU/MPS-friendly. Not a toy notebook: a reusable DL review library callable from a terminal script, a Jupyter notebook, a Databricks notebook, and (later) an enterprise LLM gateway.
+
+**Architectures** (implemented now, behind the `[torch]` extra): `mlp`, `leaky_relu_mlp`, `residual_mlp`, `wide_deep`. Roadmap (raise with guidance, never forced onto tabular data): `lstm`, `gru`, `tcn`, `transformer`, `tft`. Defaults are laptop-safe by construction — epochs capped at 10, batch size at 128, internal validation split with early stopping — and a full review completes in a couple of minutes on a MacBook.
+
+**Terminal demo** (interactive prompts, or non-interactive with flags):
+
+```bash
+# safe default: no prompts, no key, deterministic governance
+python examples/deep_learning_sequence_demo.py --non-interactive --architecture mlp --agent-mode deterministic
+
+# other architectures, cohorts, and explainability methods
+python examples/deep_learning_sequence_demo.py --non-interactive --architecture residual_mlp --sensitivity-cohort oos
+python examples/deep_learning_sequence_demo.py --non-interactive --architecture wide_deep --explain-method gradient_shap
+
+# bring your own data
+python examples/deep_learning_sequence_demo.py --non-interactive --data-source files --train train.parquet --target churned
+
+# LLM-assisted review (hidden key prompt; deterministic fallback if unavailable)
+python examples/deep_learning_sequence_demo.py --architecture mlp --agent-mode llm --llm-provider openai --prompt-for-key
+```
+
+Flags: `--non-interactive`, `--architecture`, `--epochs`, `--batch-size`, `--learning-rate`, `--agent-mode`, `--llm-provider`, `--prompt-for-key` / `--no-prompt-for-key`, `--sensitivity-cohort`, `--explain-method`, `--data-source`, `--train/--test/--oos/--target`, `--output-root`, `--seed`. Run interactively (no flags) to be prompted for each choice.
+
+**What the review produces.** Cohort metrics for train/test/OOS — AUC-ROC, Accuracy, Precision, Recall, F1, Top-10% lift, **Brier score, and Expected Calibration Error** — plus training diagnostics (learning curves, generalization gap, overfitting signal, early-stopping metadata). Explainability is DL-appropriate and **honest about its method**: Integrated Gradients via Captum when available, Gradient SHAP optionally, and a permutation-importance fallback otherwise — Captum/IG is never claimed unless it actually ran, and SHAP-for-trees is never claimed for a DL model. Robustness spans three families: top-feature shock sensitivity (−30%…+30%), input-noise robustness (0–0.10), and feature-masking robustness (mask top 1/3/5). Each diagnostic becomes a stable evidence record:
+
+| Evidence | Diagnostic |
+| --- | --- |
+| `EV-DL-0001` | training diagnostics |
+| `EV-DL-0002` | performance diagnostics |
+| `EV-DL-0003` | calibration diagnostics |
+| `EV-DL-0004` | explainability diagnostics |
+| `EV-DL-0005` | sensitivity diagnostics |
+| `EV-DL-0006` | robustness diagnostics |
+| `EV-DL-0007` | figure generation diagnostics |
+
+**Figures** are saved under `start_output/figures/deep_learning/<RUN_ID>/`: `learning_curve.png`, `calibration_curve.png`, `attribution_top_features.png`, `top_feature_shock_sensitivity.png`. The proof-carrying report lands at `start_output/reports/RUN-DL-xxxx.md` with run metadata, architecture, device, cohort metrics, the evidence table, explainability, sensitivity and robustness tables, figure paths, the deterministic (or LLM-assisted) agent review — reviewer summary, challenger memo, governance assessment, sign-off — and reproducibility metadata. Validation rule: **READY FOR SIGN-OFF** only when no fail/error evidence exists; every quantitative statement cites its evidence ID, enforced by the citation gate.
+
+**Notebooks.** Two interchangeable forms ship: `notebooks/03_deep_learning_model_review.ipynb` (a real Jupyter notebook for VS Code/Jupyter, with optional `ipywidgets` dropdowns and inline figures) and `notebooks/03_deep_learning_model_review.py` (Databricks notebook source). Both run the identical `run_dl_review` workflow.
+
+### VS Code / Jupyter setup
+
+```bash
+cd ~/Desktop/StART
+source .venv-start/bin/activate          # Windows: .venv-start\Scripts\activate
+python -m pip install -e ".[torch,dev]"  # plus matplotlib for figures
+python -m pip install ipykernel jupyterlab notebook ipywidgets
+python -m ipykernel install --user --name start --display-name "Python (StART .venv-start)"
+```
+
+In VS Code: open the repo, open `notebooks/03_deep_learning_model_review.ipynb`, and select the kernel **Python (StART .venv-start)**. Run the option/widget cells, then the review cell. (On Windows the same `.py` example and notebook run unchanged; only the venv-activation command differs.)
+
+### Databricks deployment
+
+Import `notebooks/03_deep_learning_model_review.py` as a notebook, attach a cluster with `start` installed (cluster library or `%pip install`), and use the widgets — `architecture`, `epochs`, `batch_size`, `learning_rate`, `dataset_source`, `target_column`, `agent_mode`, `llm_provider`, `secret_scope`. Run deterministic mode first (no key); for LLM mode, store the key in a **secret scope** (`dbutils.secrets.get(scope, KEY_NAME)`) — never a visible widget — and the notebook resolves secret scope → environment → deterministic fallback, printing only the key *source*. Outputs are functionally equivalent to the local run.
+
+### Deterministic vs LLM-assisted, and the enterprise placeholder
+
+Default is **deterministic** and needs no key — strong enough to demo offline from a terminal. **LLM mode** (`--agent-mode llm`) reasons over the evidence bundle only (no raw rows, no secrets), with every section gated by the citation critic and an explicit deterministic fallback when a section is rejected or no provider is available. The `enterprise_llm_gateway` provider is a **route-compatible placeholder**: it is unavailable until a private implementation is supplied, contains no endpoints or credentials, and falls back to deterministic review. Within environments where external LLM keys are disallowed, run deterministic mode (or wire the gateway privately) — the workflow is identical either way.
 
 ## Minimal offline smoke demo
 
@@ -528,10 +590,10 @@ Backend-agnostic interface with lazy imports — the core installs with zero LLM
 | No LLM | `none` | Nothing. First-class mode; deterministic fallbacks everywhere |
 | OpenAI | `openai` | `OPENAI_API_KEY` + `pip install -e ".[openai]"` |
 | Anthropic | `anthropic` | `ANTHROPIC_API_KEY` + `pip install -e ".[anthropic]"` |
-| xAI Grok | `grok` | `XAI_API_KEY` (OpenAI-compatible API) |
+| xAI Grok | `grok` | `GROK_API_KEY` (OpenAI-compatible API) |
 | HF Inference | `huggingface` | `HF_TOKEN` + `pip install -e ".[huggingface]"` |
 | HF local | `hf_local` | `[huggingface]` extra; runs on detected device |
-| Enterprise gateway | `enterprise_llm_gateway` | **Neutral placeholder** — no proprietary code/endpoints; map to a private implementation outside this repo |
+| Enterprise gateway | `enterprise_llm_gateway` | **Isolated adapter** at `src/start/enterprise/llm_gateway.py` — no proprietary code/endpoints; unavailable until a private package is present; firm implements that one file |
 
 Select via YAML (`llm.provider`) or env (`START_LLM__PROVIDER=anthropic`). API keys go in `.env` (copy `.env.example`; never commit `.env`). An unreachable provider degrades to `NoLLMProvider` rather than blocking a run, and LLM-drafted narratives must still pass the EvidenceCriticAgent's citation gate — a blocked draft is replaced by the deterministic template narrative.
 
@@ -588,10 +650,12 @@ src/start/              # the importable package (src layout — see Requirement
                         # snowflake, with auto 60/20/20 split
   taxonomy.py           # dataset profiling + type-aware model/validation maps
   policies/             # packaged default policy (runs work from any directory)
-  modeling/             # demo workflows: data, model factory (RF/XGB/LGBM),
+  modeling/             # workflows: data, model factory (RF/XGB/LGBM/MLP),
                         # tuning (grid/random/Optuna), metrics incl. lift,
                         # explainability w/ honest SHAP fallback, sensitivity,
-                        # propensity workflow, DL roadmap skeleton
+                        # propensity workflow; full DL suite (dl_models,
+                        # dl_data, dl_training, dl_metrics, dl_explain,
+                        # dl_sensitivity, dl_figures, dl_report)
   reporting/            # Markdown report rendering
   tests/                # deterministic test families (preprocessing, supervised,
                         # xai, genai implemented; unsupervised, recommender,
@@ -601,7 +665,7 @@ notebooks/              # Databricks-style thin orchestration notebooks
                         # (01: pipeline quickstart, 02: propensity model review)
 examples/               # propensity_interactive.py (flagship), quickstart_local.py
                         # (smoke), deep_learning_sequence_demo.py (roadmap)
-tests/                  # pytest + hypothesis suite (89 tests)
+tests/                  # pytest + hypothesis suite (133 tests)
 docs/architecture.md    # layer responsibilities, data flow, invariants
 scripts/bootstrap.sh    # one-shot dev environment setup
 ```
@@ -717,7 +781,7 @@ This repository is a clean-room public implementation. It contains **no** propri
 ## Roadmap
 
 - Quantitative-finance DL tracks by dataset type: limit order books (DeepLOB, CNN, temporal transformers), tick events (signature networks, neural point processes), multi-asset panels (TFT, temporal CNN, LSTM/GRU), volatility surfaces (CNN, neural PDEs, GNNs), and alternative text data (FinBERT variants, multimodal transformers, RAG) — the type-aware recommendation maps already ship in `start.taxonomy`
-- Deep learning: torch-backed MLP/RNN/LSTM/GRU/TCN behind `[torch]` on genuinely sequential data, with Captum explainability (Integrated Gradients, DeepLIFT, Gradient SHAP) and occlusion analysis — scoped skeleton already in `src/start/modeling/deep_learning.py` and `examples/deep_learning_sequence_demo.py`; DL tuning stays laptop-safe by default, with large searches reserved for GPU clusters
+- Deep learning: tabular MLP / Leaky-ReLU MLP / Residual MLP / Wide & Deep are **implemented** behind `[torch]` (see the Deep Learning Review Suite section), with Integrated Gradients / Gradient SHAP explainability and shock/noise/masking robustness. Sequence models (RNN/LSTM/GRU/TCN/Transformer/TFT) remain roadmap, to be demonstrated on genuinely sequential data with DeepLIFT and occlusion analysis; DL tuning stays laptop-safe by default, with large searches reserved for GPU clusters
 - Test families: unsupervised, recommender ranking (NDCG/MAP/recall@k), portfolio optimization diagnostics, performance attribution, embedding drift, robustness
 - GenAI: NLI-based grounding, prompt-injection probes, retrieval faithfulness (`start[genai]`)
 - SHAP global/local consistency checks (`start[xai]`)
@@ -727,191 +791,3 @@ This repository is a clean-room public implementation. It contains **no** propri
 ## License
 
 Apache-2.0
-
-<!-- START_DEMO_ARCHITECTURE_SECTION -->
-
-## Architecture Map
-
-StART is designed as an evidence-grounded model review operating system.
-
-    StART
-    ├── Data Layer
-    │   ├── demo datasets
-    │   ├── local CSV / Parquet / Feather / Delta
-    │   ├── pandas DataFrames
-    │   ├── Spark DataFrames
-    │   └── Snowflake / Databricks connectors
-    │
-    ├── Deterministic Test Layer
-    │   ├── preprocessing checks
-    │   ├── supervised model diagnostics
-    │   ├── train / test / OOS comparisons
-    │   ├── top-decile lift
-    │   ├── explainability
-    │   └── sensitivity testing
-    │
-    ├── Evidence Layer
-    │   ├── evidence records
-    │   ├── SHA-256 hashes
-    │   ├── policy hashes
-    │   ├── content-addressed store
-    │   └── tamper-evident ledger
-    │
-    ├── Agentic Review Layer
-    │   ├── deterministic governance fallback
-    │   ├── LLM-assisted evidence-grounded review
-    │   ├── challenge memo
-    │   ├── governance assessment
-    │   ├── sign-off recommendation
-    │   └── citation gate
-    │
-    ├── LLM Provider Layer
-    │   ├── no LLM
-    │   ├── OpenAI
-    │   ├── Anthropic
-    │   ├── Grok
-    │   ├── Hugging Face local
-    │   └── enterprise_llm_gateway placeholder
-    │
-    └── Reporting Layer
-        ├── proof-carrying markdown reports
-        ├── evidence tables
-        ├── reviewer findings
-        ├── challenge findings
-        └── sign-off recommendation
-
-Core principle:
-
-    Deterministic engines compute.
-    Agents reason over evidence.
-    Every factual claim must cite evidence.
-
-## Repository Structure
-
-    StART
-    ├── src/start
-    │   ├── agents
-    │   ├── connectors
-    │   ├── core
-    │   ├── evidence
-    │   ├── modeling
-    │   ├── orchestration
-    │   ├── providers
-    │   ├── registry
-    │   ├── reporting
-    │   ├── tests
-    │   └── taxonomy.py
-    │
-    ├── notebooks
-    │   ├── 01_databricks_quickstart.py
-    │   └── 02_propensity_model_review.py
-    │
-    ├── examples
-    │   ├── quickstart_local.py
-    │   ├── propensity_interactive.py
-    │   └── deep_learning_sequence_demo.py
-    │
-    ├── configs
-    ├── tests
-    ├── docs
-    ├── requirements.txt
-    ├── constraints.txt
-    └── pyproject.toml
-
-## Quickstart
-
-Clone and install:
-
-    git clone https://github.com/supratik-sarkar/StART.git
-    cd StART
-    python -m venv .venv-start
-
-Mac / Linux:
-
-    source .venv-start/bin/activate
-
-Windows PowerShell:
-
-    .venv-start\Scripts\Activate.ps1
-
-Install:
-
-    python -m pip install --upgrade pip setuptools wheel
-    python -m pip install -e ".[dev,formats,tree-models,optuna,xai]"
-
-Validate:
-
-    python -m pytest
-    ruff check src tests
-    start doctor
-    start list-tests
-
-Run local deterministic demo:
-
-    start propensity-demo --non-interactive --agent-mode deterministic
-
-Run post-hoc agent review:
-
-    start agent-review --run-id latest --agent-mode deterministic
-    start challenge-findings --run-id latest
-    start signoff --run-id latest
-
-Check optional LLM mode:
-
-    start llm-check --llm-provider openai --no-prompt-for-key
-    start llm-check --llm-provider openai --prompt-for-key
-
-No API key is required for deterministic mode.
-
-LLM mode is optional. User keys are entered only through hidden prompts or environment variables and are not written to reports, ledgers, evidence files, configs, or logs.
-
-## Demo Script
-
-For a short demo, use:
-
-    start doctor
-    start list-tests
-    start propensity-demo --non-interactive --agent-mode deterministic
-    start agent-review --run-id latest --agent-mode deterministic
-    start challenge-findings --run-id latest
-    start signoff --run-id latest
-
-Show the generated report:
-
-    start report --run-id latest
-
-Key talking points:
-
-    Copilot helps write code.
-    StART helps govern model reviews.
-
-    sklearn, scipy, PyTorch, XGBoost, and SHAP compute.
-    StART plans, evidences, challenges, and signs off.
-
-    LLMs are optional.
-    Evidence is mandatory.
-
-## Databricks Demo Guidance
-
-For Morgan Stanley Databricks:
-
-1. Import the repository or notebook into Databricks.
-2. Attach a cluster.
-3. Use notebooks/02_propensity_model_review.py.
-4. Start with deterministic mode.
-5. Use Databricks secret scopes for LLM keys.
-6. Keep enterprise integration behind enterprise_llm_gateway.
-7. Do not place secrets in notebook widgets, configs, logs, reports, or ledgers.
-
-Databricks notebook flow:
-
-    data source selection
-    model review run
-    evidence generation
-    agent review
-    challenge memo
-    governance assessment
-    sign-off recommendation
-    report export
-
-<!-- END_DEMO_ARCHITECTURE_SECTION -->

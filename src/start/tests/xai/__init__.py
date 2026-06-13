@@ -219,3 +219,68 @@ def feature_sensitivity(
         ],
     )
     return result.apply_thresholds()
+
+
+@register_test(
+    "xai.integrated_gradients",
+    family="xai",
+    name="Integrated Gradients attribution (deep learning)",
+    requires=("model", "test"),
+    default_params={"top_k": 5, "n_samples": 200},
+)
+def integrated_gradients_test(ctx: TestContext, top_k: int = 5, n_samples: int = 200) -> TestResult:
+    """Captum Integrated Gradients global attribution for torch models.
+
+    Skips honestly for non-deep-learning models and when torch/captum are
+    absent — SHAP is never claimed for DL, and IG is never claimed unless it
+    actually executed."""
+    from start.modeling.deep_learning import integrated_gradients_importance
+
+    df = ctx.test if ctx.test is not None else ctx.train
+    if (
+        ctx.model is None
+        or df is None
+        or getattr(ctx.model, "_start_model_family", "") != "deep_learning"
+    ):
+        return TestResult(
+            test_id="xai.integrated_gradients",
+            test_name="Integrated Gradients attribution (deep learning)",
+            status=Status.SKIPPED,
+            interpretation="Model is not a deep-learning classifier; Integrated Gradients not applicable.",
+        )
+    feature_cols = [
+        c
+        for c in df.select_dtypes(include=np.number).columns
+        if c not in {ctx.target_column, ctx.score_column, ctx.prediction_column}
+    ]
+    method, ranked, note = integrated_gradients_importance(
+        ctx.model, df[feature_cols].dropna(), n_samples=n_samples, seed=ctx.seed
+    )
+    if method == "unavailable":
+        return TestResult(
+            test_id="xai.integrated_gradients",
+            test_name="Integrated Gradients attribution (deep learning)",
+            status=Status.SKIPPED,
+            interpretation=f"Integrated Gradients unavailable: {note}",
+        )
+    top = ranked[:top_k]
+    result = TestResult(
+        test_id="xai.integrated_gradients",
+        test_name="Integrated Gradients attribution (deep learning)",
+        params={"top_k": top_k, "n_samples": n_samples},
+        metrics={
+            "method": method,
+            "top_features": ", ".join(name for name, _ in top),
+            "top_feature": top[0][0] if top else "",
+            "top_feature_attribution": top[0][1] if top else 0.0,
+        },
+        interpretation=(
+            f"Integrated Gradients attribution computed on a {min(n_samples, len(df))}-row "
+            f"sample; the most influential feature is '{top[0][0] if top else 'n/a'}'."
+        ),
+        limitations=[
+            "Attributions use a zero baseline in standardized feature space.",
+            "Global ranking is a mean of absolute per-row attributions.",
+        ],
+    )
+    return result.apply_thresholds()
