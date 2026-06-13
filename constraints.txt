@@ -1,7 +1,7 @@
-# Generated from the active virtual environment via `python -m pip freeze`
-# (filtered: no editable installs, no local paths, no secrets).
+# Version constraints for a clean-room / CI-matching StART environment.
+# Use with the pyproject extras:
+#     python -m pip install -e ".[all]" -c constraints.txt
 
-# --- core runtime ---
 numpy==2.4.4
 pandas==3.0.2
 scipy==1.17.1
@@ -11,26 +11,15 @@ pydantic-settings==2.14.1
 PyYAML==6.0.3
 typer==0.26.7
 rich==15.0.0
-
-# --- optional: tree models ---
-xgboost==3.2.0
-lightgbm==4.6.0
-
-# --- optional: bayesian tuning ---
-optuna==4.9.0
-
-# --- optional: explainability ---
-shap==0.52.0
-
-# --- optional: deep learning ---
 torch==2.7.1
 captum==0.9.0
 matplotlib==3.10.8
-
-# --- optional: file formats ---
+xgboost==3.2.0
+lightgbm==4.6.0
+optuna==4.9.0
+shap==0.52.0
 pyarrow==24.0.0
-
-# --- optional: dev ---
 pytest==9.0.3
 hypothesis==6.155.2
 ruff==0.15.16
+mypy==2.1.0

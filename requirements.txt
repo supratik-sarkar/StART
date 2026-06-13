@@ -1,6 +1,15 @@
-# Core requirements: pip install -e . -c constraints.txt
-# Optional stacks via extras, e.g.:
-#   pip install -e ".[dev,torch,tree-models,optuna,xai,formats]" -c constraints.txt
+# StART pinned requirements — snapshot of a known-good Python 3.12 environment.
+#
+# RECOMMENDED install (pyproject extras + these pins as constraints):
+#     python -m pip install -e ".[all]" -c constraints.txt
+#
+# Flat reproducible alternative (everything below, then the package itself):
+#     python -m pip install -r requirements.txt && python -m pip install -e . --no-deps
+#
+# Generated via `python -m pip freeze` (no editable installs, no local paths, no secrets).
+# Pins are platform-independent; PyTorch resolves the correct CPU/MPS/CUDA wheel per OS.
+
+# --- Core runtime (always required) ---
 numpy==2.4.4
 pandas==3.0.2
 scipy==1.17.1
@@ -10,3 +19,34 @@ pydantic-settings==2.14.1
 PyYAML==6.0.3
 typer==0.26.7
 rich==15.0.0
+
+# --- Deep learning  — extra: torch ---
+torch==2.7.1
+captum==0.9.0
+matplotlib==3.10.8
+
+# --- Tree models    — extra: tree-models ---
+xgboost==3.2.0
+lightgbm==4.6.0
+
+# --- Tuning         — extra: optuna ---
+optuna==4.9.0
+
+# --- Explainability — extra: xai ---
+shap==0.52.0
+
+# --- File formats   — extra: formats ---
+pyarrow==24.0.0
+
+# --- Dev / test     — extra: dev ---
+pytest==9.0.3
+hypothesis==6.155.2
+ruff==0.15.16
+mypy==2.1.0
+
+# --- Notebooks (OPTIONAL — only for the VS Code / Jupyter demos) ---
+# Install on demand:  python -m pip install ipykernel jupyterlab notebook ipywidgets
+# ipykernel==7.3.0  (uncomment to pin)
+# ipywidgets==8.1.8  (uncomment to pin)
+# jupyterlab>=4.0
+# notebook>=7.0
