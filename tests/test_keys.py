@@ -120,9 +120,16 @@ def test_databricks_secret_scope_preferred(monkeypatch):
 # llm-check
 # --------------------------------------------------------------------------- #
 def test_llm_check_with_fake_provider_passes_citation_gate():
-    from tests.test_agent_review import FakeLLM
+    class CitingFake:
+        available = True
 
-    class CitingFake(FakeLLM):
+        def __init__(self):
+            self.calls = []
+
+        def generate(self, prompt, *, system=None, metadata=None):
+            return self.complete(system or "", prompt, max_tokens=(metadata or {}).get("max_tokens", 1024))
+
+        def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
         def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
             self.calls.append((system, user))
             # echo back a properly cited sentence using the bundle's own EV id
@@ -131,7 +138,7 @@ def test_llm_check_with_fake_provider_passes_citation_gate():
             ev = re.search(r"\[EV-[A-Za-z0-9]+\]", user).group(0)
             return f"The synthetic discrimination check passed cleanly. {ev}"
 
-    fake = CitingFake([])
+    fake = CitingFake()
     result = run_llm_check("openai", llm=fake)
     assert result == {
         "provider": "openai",
@@ -146,9 +153,13 @@ def test_llm_check_with_fake_provider_passes_citation_gate():
 
 
 def test_llm_check_uncited_output_fails_gate():
-    from tests.test_agent_review import FakeLLM
+    class UncitedFake:
+        available = True
 
-    fake = FakeLLM(["The AUC is 0.9 and everything is great."])
+        def generate(self, prompt, *, system=None, metadata=None):
+            return "The AUC is 0.9 and everything is great."
+
+    fake = UncitedFake()
     result = run_llm_check("openai", llm=fake)
     assert result["critique"] == "failed"
 

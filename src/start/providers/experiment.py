@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from start.providers.base import ExperimentProvider
@@ -20,7 +20,7 @@ class LocalExperimentProvider(ExperimentProvider):
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _log(self, run_id: str, payload: dict) -> None:
-        payload = {"ts": datetime.now(timezone.utc).isoformat(), **payload}
+        payload = {"ts": datetime.now(UTC).isoformat(), **payload}
         with (self.root / f"{run_id}.jsonl").open("a") as f:
             f.write(json.dumps(payload, default=str) + "\n")
 

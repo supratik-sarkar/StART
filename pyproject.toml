@@ -7,7 +7,7 @@ name = "start-mrt"
 version = "0.4.3"
 description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Supratik Sarkar" }]
 keywords = ["model-risk", "validation", "agentic", "evaluation", "audit", "mlops"]
@@ -76,7 +76,7 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -91,7 +91,7 @@ ignore = ["B008"]  # typer uses function calls in defaults by design
 "notebooks/*.ipynb" = ["E402", "F821", "E702", "I001"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 ignore_missing_imports = true
 no_implicit_optional = true
 warn_redundant_casts = true
