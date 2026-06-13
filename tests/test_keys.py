@@ -6,8 +6,6 @@ import pytest
 
 from start.providers.keys import (
     PROVIDER_KEY_ENV,
-    KeyStatus,
-    dependency_available,
     ensure_provider_key,
     key_required,
     resolve_key_databricks,
@@ -134,7 +132,7 @@ def test_llm_check_with_fake_provider_passes_citation_gate():
             self.calls.append((system, user))
             import re
 
-            ev = re.search(r"\\[EV-[A-Za-z0-9]+\\]", user).group(0)
+            ev = re.search(r"\[EV-[A-Za-z0-9]+\]", user).group(0)
             return f"The synthetic discrimination check passed cleanly. {ev}"
 
     fake = CitingFake()
