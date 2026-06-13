@@ -139,6 +139,9 @@ def detect_model_family(model: Any = None, model_family: str | None = None) -> s
         return model_family
     if model is None:
         return "unknown"
+    declared = getattr(model, "_start_model_family", None)
+    if declared:
+        return str(declared)
     mod = type(model).__module__
     name = type(model).__name__.lower()
     if any(k in mod for k in ("xgboost", "lightgbm")) or any(
@@ -152,6 +155,12 @@ def detect_model_family(model: Any = None, model_family: str | None = None) -> s
     return "unknown"
 
 
+def _captum_ready() -> bool:
+    from start.modeling.deep_learning import captum_available, torch_available
+
+    return torch_available() and captum_available()
+
+
 def route_explainability(model: Any = None, model_family: str | None = None) -> ExplainabilityPlan:
     family = detect_model_family(model, model_family)
     shap_ok = shap_available()
@@ -159,7 +168,7 @@ def route_explainability(model: Any = None, model_family: str | None = None) -> 
         "tree": [("shap_tree_explainer", shap_ok), ("permutation_importance", True)],
         "linear": [("coefficients", True), ("permutation_importance", True)],
         "deep_learning": [
-            ("integrated_gradients", False),
+            ("integrated_gradients", _captum_ready()),
             ("deeplift", False),
             ("gradient_shap", False),
             ("permutation_sensitivity", True),

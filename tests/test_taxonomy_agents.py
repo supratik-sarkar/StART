@@ -106,7 +106,13 @@ def test_explainability_router_families():
     assert detect_model_family(LogisticRegression()) == "linear"
     assert detect_model_family(None) == "unknown"
     plan = route_explainability(model_family="deep_learning")
-    assert "integrated_gradients" in plan.roadmap()
+    from start.modeling.deep_learning import captum_available
+
+    if captum_available():
+        assert "integrated_gradients" in plan.implemented()
+    else:
+        assert "integrated_gradients" in plan.roadmap()
+    assert "deeplift" in plan.roadmap()
     assert "permutation_sensitivity" in plan.implemented()
 
 

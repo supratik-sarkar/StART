@@ -84,7 +84,7 @@ def profile_dataset(
     numeric = df[feature_cols].select_dtypes(include=[np.number]).columns
     text = [
         c
-        for c in df[feature_cols].select_dtypes(include=["object", "string"]).columns
+        for c in df[feature_cols].select_dtypes(include=["object", "str"]).columns
         if df[c].dropna().astype(str).str.len().mean() > 30
     ]
     has_ts = bool(timestamp_column and timestamp_column in df.columns) or any(

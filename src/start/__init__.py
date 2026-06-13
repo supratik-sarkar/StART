@@ -9,7 +9,7 @@ from start.core.schemas import EvidenceRecord, RunResult, Status, TestResult
 from start.orchestration.pipeline import build_context, run_review
 from start.registry import TestContext, list_tests, register_test
 
-__version__ = "0.4.1"
+__version__ = "0.4.3"
 
 __all__ = [
     "StartConfig",

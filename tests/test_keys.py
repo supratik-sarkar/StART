@@ -120,7 +120,7 @@ def test_databricks_secret_scope_preferred(monkeypatch):
 # llm-check
 # --------------------------------------------------------------------------- #
 def test_llm_check_with_fake_provider_passes_citation_gate():
-    from conftest import FakeLLM
+    from tests.test_agent_review import FakeLLM
 
     class CitingFake(FakeLLM):
         def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
@@ -146,7 +146,7 @@ def test_llm_check_with_fake_provider_passes_citation_gate():
 
 
 def test_llm_check_uncited_output_fails_gate():
-    from conftest import FakeLLM
+    from tests.test_agent_review import FakeLLM
 
     fake = FakeLLM(["The AUC is 0.9 and everything is great."])
     result = run_llm_check("openai", llm=fake)
