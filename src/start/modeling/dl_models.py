@@ -21,13 +21,28 @@ ARCHITECTURE_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+ACTIVATIONS = ("relu", "leaky_relu", "gelu", "tanh", "selu", "elu")
+
+
 def _activation(name: str) -> Any:
     import torch.nn as nn
 
-    return nn.LeakyReLU() if name == "leaky_relu" else nn.ReLU()
+    table = {
+        "relu": nn.ReLU,
+        "leaky_relu": nn.LeakyReLU,
+        "gelu": nn.GELU,
+        "tanh": nn.Tanh,
+        "selu": nn.SELU,
+        "elu": nn.ELU,
+    }
+    if name not in table:
+        raise ValueError(f"Unknown activation '{name}'. Known: {tuple(table)}")
+    return table[name]()
 
 
-def build_mlp(n_features: int, hidden_dims: tuple[int, ...], dropout: float, activation: str):
+def build_mlp(
+    n_features: int, hidden_dims: tuple[int, ...], dropout: float, activation: str, n_outputs: int = 1
+):
     """Plain feed-forward MLP."""
     import torch.nn as nn
 
@@ -36,12 +51,12 @@ def build_mlp(n_features: int, hidden_dims: tuple[int, ...], dropout: float, act
     for width in hidden_dims:
         layers += [nn.Linear(prev, width), _activation(activation), nn.Dropout(dropout)]
         prev = width
-    layers.append(nn.Linear(prev, 1))
+    layers.append(nn.Linear(prev, n_outputs))
     return nn.Sequential(*layers)
 
 
 def build_residual_mlp(
-    n_features: int, hidden_dims: tuple[int, ...], dropout: float, activation: str
+    n_features: int, hidden_dims: tuple[int, ...], dropout: float, activation: str, n_outputs: int = 1
 ):
     """MLP with residual connections. Blocks of equal width add a skip path;
     a projection adapts dimensions when consecutive widths differ."""
@@ -68,7 +83,7 @@ def build_residual_mlp(
                 blocks.append(ResidualBlock(prev, width))
                 prev = width
             self.blocks = nn.Sequential(*blocks)
-            self.head = nn.Linear(prev, 1)
+            self.head = nn.Linear(prev, n_outputs)
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.head(self.blocks(x))
@@ -77,7 +92,7 @@ def build_residual_mlp(
 
 
 def build_wide_deep(
-    n_features: int, hidden_dims: tuple[int, ...], dropout: float, activation: str
+    n_features: int, hidden_dims: tuple[int, ...], dropout: float, activation: str, n_outputs: int = 1
 ):
     """Wide & Deep: a wide linear path (memorization) summed with a deep MLP
     path (generalization) at the logit."""
@@ -87,13 +102,13 @@ def build_wide_deep(
     class WideDeep(nn.Module):
         def __init__(self) -> None:
             super().__init__()
-            self.wide = nn.Linear(n_features, 1)
+            self.wide = nn.Linear(n_features, n_outputs)
             deep_layers: list[Any] = []
             prev = n_features
             for width in hidden_dims:
                 deep_layers += [nn.Linear(prev, width), _activation(activation), nn.Dropout(dropout)]
                 prev = width
-            deep_layers.append(nn.Linear(prev, 1))
+            deep_layers.append(nn.Linear(prev, n_outputs))
             self.deep = nn.Sequential(*deep_layers)
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -116,8 +131,9 @@ def build_network(
     hidden_dims: tuple[int, ...],
     dropout: float,
     activation: str,
+    n_outputs: int = 1,
 ):
     """Dispatch to the network builder for an implemented architecture."""
     if architecture not in _BUILDERS:
         raise ValueError(f"No network builder for architecture '{architecture}'.")
-    return _BUILDERS[architecture](n_features, hidden_dims, dropout, activation)
+    return _BUILDERS[architecture](n_features, hidden_dims, dropout, activation, n_outputs)

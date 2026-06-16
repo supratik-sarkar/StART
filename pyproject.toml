@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "0.4.4"
+version = "2.2.0"
 description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,7 +36,8 @@ dependencies = [
 torch = ["torch>=2.2", "captum>=0.7", "matplotlib>=3.7"]
 tree-models = ["xgboost>=2.0", "lightgbm>=4.3"]
 optuna = ["optuna>=3.6"]
-formats = ["pyarrow>=15"]
+formats = ["pyarrow>=15", "openpyxl>=3.1"]
+vision = ["pillow>=10.0", "torchvision>=0.17"]
 delta = ["deltalake>=0.17"]
 snowflake = ["snowflake-connector-python[pandas]>=3.7"]
 xai = ["shap>=0.45"]
@@ -55,8 +56,22 @@ dev = [
 ]
 llm-openai = ["openai>=1.30"]
 llm-anthropic = ["anthropic>=0.30"]
-all = ["start-mrt[torch,tree-models,optuna,xai,formats,dev]"]
-everything = ["start-mrt[torch,tree-models,optuna,xai,formats,dev,openai,anthropic,huggingface,genai,mlflow]"]
+all = ["start-mrt[torch,tree-models,optuna,xai,formats,vision,dev]"]
+everything = ["start-mrt[torch,tree-models,optuna,xai,formats,vision,dev,openai,anthropic,huggingface,genai,mlflow]"]
+
+# --- AI-engineering adapter backends (enterprise; install what you need) ---
+# Each adapter runs its real backend when its extra is installed; otherwise it
+# reports unavailability explicitly and still emits evidence.
+telemetry = ["opentelemetry-sdk>=1.20", "opentelemetry-api>=1.20"]
+observability = ["langfuse>=2.0"]
+mcp = ["mcp>=0.9"]
+redteam = ["garak>=0.9"]
+evals = ["deepeval>=0.21"]
+guardrails = ["nemoguardrails>=0.8"]
+orchestration = ["langgraph>=0.1"]
+ai-engineering = [
+    "start-mrt[telemetry,observability,mcp,evals,orchestration]",
+]
 
 [project.scripts]
 start = "start.cli:app"
@@ -89,7 +104,7 @@ ignore = ["B008"]  # typer uses function calls in defaults by design
 # place imports under MAGIC cell markers, which are not module-top imports.
 # Jupyter notebooks re-import locally per cell and use notebook-style semicolons.
 "notebooks/*.py" = ["E402", "F821"]
-"notebooks/*.ipynb" = ["E402", "F821", "E702", "I001"]
+"notebooks/*.ipynb" = ["E402", "F821", "E702", "I001", "E501"]
 
 [tool.mypy]
 python_version = "3.10"

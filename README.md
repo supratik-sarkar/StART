@@ -33,13 +33,17 @@ StART targets model review and model-risk evaluation across data preprocessing, 
 16. [Running on your own data](#running-on-your-own-data)
 17. [Adaptive compute routing](#adaptive-compute-routing)
 18. [LLM providers](#llm-providers)
-19. [Databricks](#databricks)
-20. [Extending the registry](#extending-the-registry)
-21. [Repository layout](#repository-layout)
-22. [Development workflow](#development-workflow)
-23. [Troubleshooting](#troubleshooting)
-24. [Public-safety statement](#public-safety-statement)
-25. [Roadmap](#roadmap)
+19. [Model-Risk Operating System (`start review`)](#model-risk-operating-system-start-review)
+20. [Enterprise Agentic Model Review (v2.0.0)](#enterprise-agentic-model-review-v200)
+21. [Live Model-Engineering Co-Pilot (v2.1.0)](#live-model-engineering-co-pilot-v210)
+22. [Visible Reviewer Co-Pilot (v2.1.1)](#visible-reviewer-co-pilot-v211)
+23. [Databricks](#databricks)
+24. [Extending the registry](#extending-the-registry)
+25. [Repository layout](#repository-layout)
+26. [Development workflow](#development-workflow)
+27. [Troubleshooting](#troubleshooting)
+28. [Public-safety statement](#public-safety-statement)
+29. [Roadmap](#roadmap)
 
 ---
 
@@ -674,6 +678,137 @@ Select via YAML (`llm.provider`) or env (`START_LLM__PROVIDER=anthropic`). API k
 
 ---
 
+## Model-Risk Operating System (`start review`)
+
+> StART's differentiator is not model training — PyTorch and TensorFlow already do that. It is the **model-risk operating layer** wrapped around training: dataset understanding, validation planning, governance, challenge generation, evidence management, and proof-carrying reports. The `start review` command makes that layer a single, data-first, fully visible flow.
+
+Point StART at any dataset and answer at most three questions — business objective, target column(s), model family — and the framework plans, validates, challenges, evidences, and reports the rest. **Every stage is shown; nothing runs silently.**
+
+```bash
+# Interactive: prompts for dataset, target, task, split, architecture,
+# activation, explainability, robustness, agent mode, provider
+start review
+
+# Non-interactive on the built-in demo, training a tabular MLP
+start review --non-interactive --target attrition --run-dl
+
+# On your own data, with an explicit split strategy
+start review mydata.csv --non-interactive --target churned --split-strategy time_based
+
+# LLM-assisted governance (evidence-only; deterministic fallback if unavailable)
+start review --non-interactive --target churned --agent-mode llm --llm-provider openai
+```
+
+The pipeline, each step emitting a visible status (`running` / `complete` / `skipped`) and an evidence record:
+
+```
+dataset → discovery → target confirmation → task inference → split planning
+→ feature engineering → model recommendation → model execution → metrics
+→ explainability → sensitivity → robustness → evidence ledger → review planner
+→ test suggestion → model-risk finding → challenge → governance → sign-off
+→ evidence critic → AI-engineering stages → final report
+```
+
+**Data-first entry (Layers 1–3).** Loaders for CSV, TSV, TXT, Parquet, Feather, Excel, JSON, JSONL, and pickle (gated — unpickling executes code), plus ImageFolder discovery. The `DatasetDiscoveryAgent` profiles schema, column roles (numeric / categorical / text / datetime / image-path / identifier / boolean), candidate targets, and missingness; `TargetDiscoveryAgent` requires explicit target confirmation (no training on an unconfirmed target); `TaskInferenceAgent` infers binary / multiclass / multilabel / regression / forecasting (user-overridable). The `SplitPlanner` offers random / stratified / time-based / group / custom strategies with user-controlled, never-hardcoded proportions and an explicit OOS hold-out. The `FeatureEngineeringAgent` runs per-modality diagnostics (scaling, encoding, leakage detection, missingness, drift for tabular; window/lag for sequential; normalization/augmentation for vision; tokenization for text).
+
+**Architecture registry (Layers 4–5).** Model family and activation are orthogonal: `family = mlp | residual_mlp | wide_deep | rnn | gru | lstm | bi_lstm | simple_cnn | resnet18 | …` and `activation = relu | leaky_relu | gelu | tanh | selu | elu`. The legacy `leaky_relu_mlp` name still works as a **deprecated alias** (emits a `DeprecationWarning`, resolves to `family=mlp, activation=leaky_relu`) — old CLI and notebook values keep working. Tabular DL branches by task: binary (sigmoid/BCE), multiclass (softmax/cross-entropy), and multilabel (per-label sigmoids), with metrics that branch automatically.
+
+**Sequence DL (Layer 6).** Real trainable RNN / GRU / LSTM / Bi-LSTM over genuinely sequential tensors — dedicated sequence generators, sliding-window builders, order-preserving splits, per-timestep/per-feature gradient saliency, and noise/time-jitter robustness. Sequence models are never forced onto tabular data.
+
+**Vision / CNN track (Layer 7).** A separate `vision_image_classification` modality — image-folder loader with label discovery, transforms, and stratified train/test/OOS. `simple_cnn` is fully implemented in pure PyTorch with three presets (`simple_cnn_small/medium/deep`) and user-configurable conv blocks, base channels, kernel size, pooling, dropout, and dense size; every built network resolves to a **named, evidence-stamped** architecture. `resnet18` is an **optional preset gated on torchvision** — availability is reported explicitly (`resnet18 unavailable: torchvision not installed`), never a silent stub. Diagnostics include accuracy, macro-F1, confusion matrices, Grad-CAM/saliency (captum when available), and noise/blur/crop/brightness robustness.
+
+**AI-engineering stages (Layer 8A).** A visible execution surface of adapters — Policy (OPA), MCP, Observability (Langfuse), Telemetry (OpenTelemetry), Red-Team (Garak, Promptfoo), Compliance (Moonshot), Guardrails (NeMo), Evals (DeepEval), Orchestration (LangGraph) — each reporting **honest availability**: it runs if the backend is installed, otherwise the stage shows `not installed` with an install hint. No stage ever fabricates success, so users always see a populated status screen rather than a blank one.
+
+Deterministic mode is the default and needs no key. In LLM mode the agents reason only over the evidence bundle (schema, statistics, profile, objective) — **never raw rows** — and every LLM section is gated by the `EvidenceCriticAgent`. The enterprise gateway routes exclusively through `src/start/enterprise/`. The same surface is exposed by the CLI, `notebooks/04_model_risk_review.py` (Databricks source), and `notebooks/04_model_risk_review.ipynb` (Jupyter/VS Code with widgets).
+
+---
+
+## Enterprise Agentic Model Review (v2.0.0)
+
+> v2.0.0 elevates StART from a validation framework into an **Enterprise Agentic Model Review Operating System** — a single execution flow that produces an audit-ready governance package. The frozen v0.5.0 components (Layers 1–7: loaders, discovery, split/feature, registry, tabular/sequence/vision DL) are unchanged; v2.0.0 adds the enterprise layers on top.
+
+Run it with the `--enterprise` flag (or `enterprise_mode=True` in the notebook):
+
+```bash
+start review --non-interactive --target attrition --run-dl --enterprise
+```
+
+**Explicit layered architecture.** The review executes as seven layers — Data, Model, Validation, Governance, AI-Engineering, Evidence, Reporting — and each emits `status`, `runtime`, `warnings`, `findings`, `artifacts`, and `evidence_ids`. Both the stage stream (22 visible stages) and the layer stream render live so the user never sits idle.
+
+**Governance findings engine.** Every diagnostic breach becomes a structured `Finding` with severity (Low/Medium/High/Critical), materiality (Low/Medium/High), a risk category (control), the evidence IDs that support it, and a remediation recommendation. Findings are derived automatically from warn/fail evidence and collected into a prioritized register. No finding is uncited — the `EvidenceCritic` gate flags any that lack evidence.
+
+**Executable AI-engineering adapters.** Eleven adapters — OPA (policy), MCP server/SDK/inspector, Langfuse (observability), OpenTelemetry (telemetry), Garak + Promptfoo (red-team), Moonshot (compliance), NeMo Guardrails, DeepEval (MRM evals) — each implement the full contract: `available() / validate() / execute() / collect_artifacts() / emit_evidence()`. When a backend is installed (e.g. `pip install -e ".[telemetry]"`), the adapter runs it for real and writes its artifact (OpenTelemetry emits a genuine span to `telemetry.json`); when absent, it reports `not_installed` with install guidance, still emits an evidence record, and remains visible in the report. **No fake success, no silent degradation.**
+
+**LangGraph-style graph execution.** `GraphReviewOrchestrator` runs the pipeline as a DAG with checkpointing, resume-from-failure, cycle detection, and state tracking, emitting `review_graph.json` + `review_graph.png`. It uses LangGraph when installed and a built-in deterministic DAG executor otherwise (same guarantees). The standard orchestrator remains the default; this is the opt-in enterprise execution mode.
+
+**Enterprise dashboard.** One review produces `dashboard.html`, `dashboard.json`, and `dashboard.md` with all ten sections: Executive Summary, Dataset Review, Model Review, Validation Review, Explainability Review, Robustness Review, AI-Engineering Review, Governance Findings, Evidence Ledger Summary, Final Sign-off. The HTML is fully self-contained (no external assets) for offline and audit use.
+
+**CNN transparency.** `describe_cnn()` exposes the resolved architecture as evidence metadata: preset, conv blocks, per-block channel progression, kernel size, pooling, dropout, dense size, and the real trainable parameter count. Custom configs are user-editable and flow into the dashboard.
+
+**Strict provider trust-domain separation.** Public providers (OpenAI, Anthropic, Grok) and the private enterprise gateway are isolated trust domains: no routing crossover, no key sharing, and no fallback between domains. An unavailable provider degrades only to the domain-neutral deterministic path, never across the boundary. The enterprise gateway stays isolated in `src/start/enterprise/`.
+
+The same surface is exposed by the CLI (`--enterprise`), `notebooks/05_enterprise_review.py` (Databricks), and `notebooks/05_enterprise_review.ipynb` (widget-driven). Examples: `examples/enterprise_dashboard_demo.py`, `examples/governance_findings_demo.py`.
+
+---
+
+## Live Model-Engineering Co-Pilot (v2.1.0)
+
+> v2.1.0 makes the enterprise review feel like a live model-risk co-pilot rather than a pipeline runner. Every model-engineering decision is now visible, explained, evidence-backed, and reviewable. The frozen v2.0.0 layers are unchanged; this release adds the reviewer-experience layer on top of `start review --enterprise`.
+
+Each of these appears in the terminal stream, the notebook, and all three dashboard formats (`dashboard.html/.json/.md`):
+
+**Dataset source visibility.** For the built-in demo, the review shows the real dataset name, a public source URL the reviewer can independently verify (the UCI Breast Cancer Wisconsin Diagnostic dataset, used as a clean public binary-classification cohort), why it was selected, and its task suitability. For custom data it shows the file path, detected format, loading route, shape, and a content hash.
+
+**Initial data statistics.** Before preprocessing: rows, columns, target type, class distribution, numeric/categorical/datetime/text/image-path counts, missing-by-column, duplicate rows, high-cardinality and low-variance columns, outlier summary, correlation summary, leakage candidates, imbalance warning, and a suggested split strategy.
+
+**Feature-engineering recommendations.** The agent recommends imputation, encoding, scaling, outlier handling, imbalance handling, low-variance removal, correlation pruning, leakage exclusion, high-cardinality handling, and modality-specific routing — and for **every** recommendation it shows the reason, an evidence ID, the risk if ignored, the default action, and the user's override slot. You accept the recommendation or keep your own.
+
+**Architecture review agent.** Compares your architecture + activation choice against a recommendation given dataset modality, sample size, feature count, imbalance, and task type — with reason, evidence ID, and risk. For example, on a small tabular binary dataset it recommends MLP + ReLU over Wide & Deep + GELU (lower overfitting risk, better interpretability) and surfaces the choice for you to keep or accept.
+
+**Hyperparameter tuning agent.** Proposes a bounded, leakage-safe plan: strategy, primary metric, search space, trial count, early stopping, and train-internal validation (never test/OOS), recording best and rejected parameters.
+
+**Metric-priority routing.** The primary metric follows the task and your cost preference: `--cost false_negatives` routes binary classification to PR-AUC / recall; `--cost false_positives` to precision; multiclass to macro-F1; regression to RMSE. The choice flows through tuning, evaluation, and sensitivity.
+
+**Sensitivity analysis.** Shocks the top features individually across -30% .. +30%, re-scores, and reports per-feature metric drift, the most sensitive feature, and a governance interpretation. The 0% row equals the unshocked baseline by construction.
+
+**Agentic action log.** Every agent records what it reviewed, the action it took, its recommendation, the evidence used, any user decision, and its output — across DatasetDiscovery, FeatureEngineering, ArchitectureReview, HyperparameterTuning, ValidationPlanner, GovernanceSignoff, and EvidenceCritic.
+
+**Progress visibility.** Cross-platform ASCII progress bars and percentages for each phase, so the reviewer never sits idle.
+
+New CLI flags on `start review`: `--cost {balanced|false_negatives|false_positives}`, `--accept-recommendations`, `--show-progress/--no-progress` (alongside the existing `--enterprise`, `--architecture`, `--activation`, `--agent-mode`, `--llm-provider`, `--run-dl`). The notebook exposes the same surface via widgets.
+
+```bash
+start review --non-interactive --target attrition --run-dl --enterprise --cost false_negatives
+```
+
+---
+
+## Visible Reviewer Co-Pilot (v2.1.1)
+
+> v2.1.1 is a visibility release: nothing important happens silently. Every agent, adapter, recommendation, model decision, and artifact is now observable, reviewable, challengeable, and exportable. The v2.1.0 engines are unchanged; this release surfaces them. A first-time user can sit at the terminal and understand what happened and why — without opening source code.
+
+**Interactive enterprise run.** Running `start review --enterprise` (interactively) walks you through every decision: it asks whether to train (default yes — no silent diagnostics-only skip), lets you set the train/test/OOS proportions, choose a tuning strategy and trial count, pick the LLM provider (securely prompting for a missing key via hidden input, session-only, never written to disk), and infers your cost priority from a free-text clarification (e.g. "false negatives are costlier" → PR-AUC/recall). When you select a public provider, the activation report shows `Provider: openai`, the trust domain, and an explicit `CONNECTED` / `FALLBACK` / `FAILED` status — never a silent `none`.
+
+**The run actually executes and shows its work.** With training enabled you get a visible train/test/OOS split table (stratified, your proportions), real hyperparameter tuning (each trial trained and scored on a train-internal holdout — no test/OOS leakage — with a per-trial table and the best/rejected parameters), metrics by split (AUC-ROC, PR-AUC, accuracy, precision, recall, F1, specificity, Brier, ECE) with the generalization gap, a global explainability table, and sensitivity analysis. Every artifact (split_distribution.csv, metrics_by_split.csv, tuning_trials.csv, global_feature_importance.csv, dashboards, the review graph, telemetry) is announced as it's generated and collected into an Artifact Catalog.
+
+**Visible LLM activation.** Before any agent runs in LLM mode, StART prints Provider / Model / Trust Domain / Endpoint / Status. Status is explicit — `CONNECTED`, `FALLBACK`, `FAILED`, or `DETERMINISTIC` — so you always know whether LLM execution actually occurred. There is no silent degradation: an unavailable provider is shown as `FALLBACK` with the reason and how to fix it. Keys are read from the environment, never echoed or stored.
+
+**Agent reasoning traces.** Each agent emits a trace — inputs, evidence, a short reasoning summary, the decision, a confidence, the alternative it considered, and the action taken — for DatasetDiscovery, TaskInference, FeatureEngineering, ArchitectureReview, HyperparameterTuning, GovernanceSignoff, and EvidenceCritic. No hidden decisions.
+
+**Interactive decision checkpoints.** Recommendations become checkpoints you can act on — `[A] Accept`, `[K] Keep my choice`, `[E] Explain further` — for architecture and metric priority. Your resolution is recorded; `--accept-recommendations` takes the agent's suggestion, and non-interactive runs keep your explicit choice (never a silent override).
+
+**AI-engineering control surface.** Every one of the eleven adapters shows its purpose, role, status, what it would do if installed, expected outputs, and install guidance. Unavailable adapters remain visible and never appear as "pass."
+
+**Artifact discovery.** Every generated artifact is announced the moment it's created (`Generated: telemetry.json -> ...`) and collected into an Artifact Catalog — dashboards, the review graph, telemetry, and adapter outputs — so nothing is hidden.
+
+All of this renders in the terminal, the notebook (`notebooks/05_enterprise_review.ipynb`), and all three dashboard formats, which gain four new sections: LLM Activation, Agent Reasoning Traces, AI-Engineering Control Surface, and Artifact Catalog.
+
+```bash
+start review --non-interactive --target attrition --run-dl --enterprise
+```
+
+---
+
 ## Databricks
 
 Databricks is an **optional execution target**, never a requirement. Two notebooks show the intended pattern (`notebooks/01_databricks_quickstart.py` for the basic pipeline, `notebooks/02_propensity_model_review.py` for the flagship propensity review reading from a Spark table with a public-data fallback): notebooks are thin orchestration layers that install the package, detect the runtime, read data via Spark, convert the cohort to pandas for the deterministic engines, and run the same `run_review` pipeline with optional MLFlow logging (`experiment.provider: mlflow`, degrading to local JSONL when MLFlow is absent). The same notebook runs locally via a toy-data fallback — no cluster required. CI deliberately covers local providers only.
@@ -730,18 +865,29 @@ src/start/              # the importable package (src layout — see Requirement
                         # explainability w/ honest SHAP fallback, sensitivity,
                         # propensity workflow; full DL suite (dl_models,
                         # dl_data, dl_training, dl_metrics, dl_explain,
-                        # dl_sensitivity, dl_figures, dl_report)
+                        # dl_sensitivity, dl_figures, dl_report);
+                        # architecture_registry (family/activation), tabular_dl
+                        # (binary/multiclass/multilabel), sequence_* (RNN/GRU/
+                        # LSTM/Bi-LSTM), vision_* (CNN presets + gated resnet18),
+                        # split_planner, feature_engineering, review_orchestrator
+  data/                 # explicit multi-format loaders + image-folder discovery
+  ai_engineering/       # visible AI-engineering stage adapters (policy, mcp,
+                        # observability, redteam, compliance, guardrails, evals,
+                        # orchestration) with honest availability checks
+  enterprise/           # isolated firm-integration adapter (public-safe)
+  interactive_review.py # the `start review` interactive flow + console stages
   reporting/            # Markdown report rendering
   tests/                # deterministic test families (preprocessing, supervised,
                         # xai, genai implemented; unsupervised, recommender,
-                        # portfolio, attribution, deep_learning are roadmap stubs)
+                        # portfolio, attribution are roadmap stubs)
 configs/                # run configs + versioned policy YAML
-notebooks/              # Databricks-style thin orchestration notebooks
-                        # (01: pipeline quickstart, 02: propensity model review)
+notebooks/              # thin orchestration notebooks (01: quickstart,
+                        # 02: propensity, 03: deep learning, 04: model-risk review)
 examples/               # propensity_interactive.py (flagship), quickstart_local.py
-                        # (smoke), deep_learning_sequence_demo.py (roadmap)
-tests/                  # pytest + hypothesis suite (133 tests)
+                        # (smoke), deep_learning_sequence_demo.py
+tests/                  # pytest + hypothesis suite (231 tests)
 docs/architecture.md    # layer responsibilities, data flow, invariants
+docs/part_b_plan.md     # the model-risk operating-system build plan
 scripts/bootstrap.sh    # one-shot dev environment setup
 ```
 

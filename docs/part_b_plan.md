@@ -1,10 +1,38 @@
-# StART Part B — "Model Review Operating System": Phased Build Plan
+# StART Part B — "Model Review Operating System": Build Plan & Delivery
 
-**Status:** planning document for review/approval. No code in this PR beyond
-this file, the README refresh, and the `requirements.txt` snapshot.
+**Status: DELIVERED in v0.5.0** as one consolidated release. All ten layers
+were implemented as modular internal layers, each with tests added after the
+layer, no stubbed features, and the full suite kept green throughout.
 
-**Baseline at time of writing:** v0.4.3, 133 tests passing, ruff clean across
-`src tests examples notebooks`. Enterprise adapter (Part A) merged.
+**Delivered baseline:** v0.5.0, 231 tests passing, ruff clean across
+`src tests examples notebooks`. Enterprise adapter (Part A) merged earlier.
+
+**What shipped (by layer):**
+
+1. Data-first loaders (CSV/TSV/TXT/Parquet/Feather/Excel/JSON/JSONL/pickle-gated)
+   + image-folder discovery — `start.data.loaders`.
+2. `DatasetDiscoveryAgent`, `TargetDiscoveryAgent`, `TaskInferenceAgent` —
+   `start.agents.discovery`.
+3. `SplitPlanner` (random/stratified/time-based/group/custom) +
+   `FeatureEngineeringAgent` — `start.modeling.split_planner`,
+   `start.modeling.feature_engineering`.
+4. `ArchitectureRegistry` — family⊕activation separation, `leaky_relu_mlp`
+   deprecated alias with warning — `start.modeling.architecture_registry`.
+5. Task-aware tabular DL (binary/multiclass/multilabel) with branching metrics
+   — `start.modeling.tabular_dl`, `tabular_dl_metrics`.
+6. Sequence DL (RNN/GRU/LSTM/Bi-LSTM) on genuinely sequential data —
+   `start.modeling.sequence_models`, `sequence_data`, `sequence_dl`.
+7. Vision/CNN track (configurable simple_cnn presets + gated resnet18,
+   confusion matrices, robustness, saliency) — `start.modeling.vision_*`.
+8. `ReviewOrchestrator` visible pipeline + AI-engineering stage adapters —
+   `start.modeling.review_orchestrator`, `start.ai_engineering`.
+9. Interactive `start review` CLI + notebook 04 (`.py` + `.ipynb`) exposing the
+   same surface — `start.interactive_review`, `notebooks/04_*`.
+10. Release finalization: README/docs/examples/requirements/constraints,
+    version bump, lint clean, consolidated package.
+
+The original phased plan (preserved below) was written when sequencing was
+still open; it is retained for historical context.
 
 ---
 

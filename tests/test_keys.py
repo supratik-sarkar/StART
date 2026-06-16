@@ -6,6 +6,8 @@ import pytest
 
 from start.providers.keys import (
     PROVIDER_KEY_ENV,
+    KeyStatus,
+    dependency_available,
     ensure_provider_key,
     key_required,
     resolve_key_databricks,
@@ -13,6 +15,35 @@ from start.providers.keys import (
 )
 
 FAKE_KEY = "sk-test-FAKE-KEY-do-not-leak-1234567890"
+
+
+class _LocalFakeLLM:
+    """Self-contained scriptable provider (no dependency on other test modules).
+
+    Returns queued responses in order; records the (system, user) prompts it
+    received so tests can assert what was sent.
+    """
+
+    name = "fake"
+
+    def __init__(self, responses: list[str]) -> None:
+        self._responses = list(responses)
+        self.calls: list[tuple[str, str]] = []
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+        self.calls.append((system, user))
+        return self._responses.pop(0) if self._responses else "ok"
+
+    def generate(
+        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
+    ) -> str:
+        # run_llm_check calls generate(prompt, system=..., metadata=...);
+        # delegate to complete so scripted/citing subclasses keep working.
+        return self.complete(system or "", prompt)
 
 
 @pytest.fixture(autouse=True)
@@ -118,45 +149,104 @@ def test_databricks_secret_scope_preferred(monkeypatch):
 # llm-check
 # --------------------------------------------------------------------------- #
 def test_llm_check_with_fake_provider_passes_citation_gate():
-    class CitingFake:
-        available = True
-
-        def __init__(self):
-            self.calls = []
-
-        def generate(self, prompt, *, system=None, metadata=None):
-            max_tokens = (metadata or {}).get("max_tokens", 1024)
-            return self.complete(system or "", prompt, max_tokens=max_tokens)
-
+    class CitingFake(_LocalFakeLLM):
         def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
             self.calls.append((system, user))
+            # echo back a properly cited sentence using the bundle's own EV id
             import re
 
             ev = re.search(r"\[EV-[A-Za-z0-9]+\]", user).group(0)
             return f"The synthetic discrimination check passed cleanly. {ev}"
 
-    fake = CitingFake()
+    fake = CitingFake([])
     result = run_llm_check("openai", llm=fake)
-
-    assert result["provider"] == "openai"
-    assert result["mode"] == "llm-assisted"
-    assert result["synthetic_evidence_sent"] == "yes"
-    assert result["raw_dataset_sent"] == "no"
-    assert result["critique"] == "passed"
+    assert result == {
+        "provider": "openai",
+        "mode": "llm-assisted",
+        "synthetic_evidence_sent": "yes",
+        "raw_dataset_sent": "no",
+        "critique": "passed",
+    }
+    # the prompt contained ONLY the synthetic record, no user data references
+    _, user_prompt = fake.calls[0]
+    assert "llm-check-synthetic" in user_prompt
 
 
 def test_llm_check_uncited_output_fails_gate():
-    class UncitedFake:
-        available = True
-
-        def generate(self, prompt, *, system=None, metadata=None):
-            return "The AUC is 0.9 and everything is great."
-
-    fake = UncitedFake()
+    fake = _LocalFakeLLM(["The AUC is 0.9 and everything is great."])
     result = run_llm_check("openai", llm=fake)
-
-    assert result["provider"] == "openai"
-    assert result["mode"] == "llm-assisted"
-    assert result["synthetic_evidence_sent"] == "yes"
-    assert result["raw_dataset_sent"] == "no"
     assert result["critique"] == "failed"
+
+
+def test_llm_check_cli_unsupported_and_none():
+    from typer.testing import CliRunner
+
+    from start.cli import app
+
+    runner = CliRunner()
+    bad = runner.invoke(app, ["llm-check", "--llm-provider", "magicllm"])
+    assert bad.exit_code == 1 and "Unknown provider" in bad.output
+    none = runner.invoke(app, ["llm-check", "--llm-provider", "none"])
+    assert none.exit_code == 0 and "deterministic" in none.output
+    gateway = runner.invoke(app, ["llm-check", "--llm-provider", "enterprise_llm_gateway"])
+    assert gateway.exit_code == 0 and "placeholder" in gateway.output
+
+
+def test_agent_review_cli_missing_key_refuses_clearly(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from start.cli import app
+    from start.modeling.data import load_attrition_dataset
+    from start.orchestration import review_dataframes
+
+    monkeypatch.chdir(tmp_path)
+    review_dataframes(load_attrition_dataset(seed=31), target_column="attrition", seed=31)
+    runner = CliRunner()
+    refused = runner.invoke(
+        app,
+        ["agent-review", "--agent-mode", "llm", "--llm-provider", "openai", "--no-prompt-for-key"],
+    )
+    assert refused.exit_code == 1
+    assert "Missing OPENAI_API_KEY" in refused.output
+    assert "--prompt-for-key" in refused.output
+
+    fallback = runner.invoke(
+        app,
+        [
+            "agent-review",
+            "--agent-mode",
+            "llm",
+            "--llm-provider",
+            "openai",
+            "--no-prompt-for-key",
+            "--allow-deterministic-fallback",
+        ],
+    )
+    assert fallback.exit_code == 0
+    assert "WARNING" in fallback.output and "deterministic" in fallback.output
+
+
+def test_entered_key_never_persisted(tmp_path, monkeypatch):
+    """A key present in the session env must not leak into the report, the
+    ledger, the evidence store, or the run JSON."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", FAKE_KEY)
+    from start.modeling.data import load_attrition_dataset
+    from start.orchestration import review_dataframes
+    from start.reporting import render_markdown
+
+    result = review_dataframes(load_attrition_dataset(seed=33), target_column="attrition", seed=33)
+    report = render_markdown(result)
+    assert FAKE_KEY not in report
+    assert FAKE_KEY not in result.model_dump_json()
+    for artifact in Path("start_output").rglob("*"):
+        if artifact.is_file():
+            assert FAKE_KEY not in artifact.read_text(errors="ignore"), artifact
+
+
+def test_dependency_check():
+    ok, msg = dependency_available("none")
+    assert ok
+    ok_hf, msg_hf = dependency_available("hf_local")
+    assert isinstance(ok_hf, bool) and "transformers" in msg_hf
+    assert isinstance(KeyStatus("openai", "OPENAI_API_KEY", "env").ok, bool)

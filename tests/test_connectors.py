@@ -46,9 +46,9 @@ def test_local_file_roundtrip_csv_parquet_feather(tmp_path, demo_df):
 
 
 def test_local_file_unsupported_suffix(tmp_path):
-    bad = tmp_path / "data.xlsx"
+    bad = tmp_path / "data.xyz"
     bad.write_text("x")
-    with pytest.raises(ValueError, match="Unsupported file type"):
+    with pytest.raises(ValueError, match="Unsupported"):
         load_local_file(bad)
 
 

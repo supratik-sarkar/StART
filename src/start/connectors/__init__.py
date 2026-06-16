@@ -113,21 +113,13 @@ class DemoConnector(DataConnector):
 # --------------------------------------------------------------------------- #
 # Mode 2 — local files (CSV / Parquet / Feather / Delta)
 # --------------------------------------------------------------------------- #
-def load_local_file(path: str | Path) -> pd.DataFrame:
+def load_local_file(path: str | Path, *, allow_pickle: bool = False) -> pd.DataFrame:
     path = Path(path)
     if path.is_dir():  # Delta tables are directories
         return _read_delta(path)
-    suffix = path.suffix.lower()
-    if suffix == ".csv":
-        return pd.read_csv(path)
-    if suffix in {".parquet", ".pq"}:
-        return pd.read_parquet(path)
-    if suffix in {".feather", ".ft"}:
-        return pd.read_feather(path)
-    raise ValueError(
-        f"Unsupported file type '{suffix}' for {path}. "
-        f"Supported: {', '.join(SUPPORTED_LOCAL_FORMATS)} or a Delta table directory."
-    )
+    from start.data.loaders import load_any_tabular
+
+    return load_any_tabular(path, allow_pickle=allow_pickle)
 
 
 def _read_delta(path: Path) -> pd.DataFrame:

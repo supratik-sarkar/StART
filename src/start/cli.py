@@ -574,3 +574,94 @@ def llm_check(
     console.print(f"Critique: {result['critique']}")
     if result["critique"] == "failed":
         raise typer.Exit(code=1)
+
+
+@app.command("review")
+def review(
+    data: str = typer.Argument(
+        None, help="Dataset path (csv/tsv/parquet/feather/excel/json/jsonl). Omit for the demo dataset."
+    ),
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", help="Run with the given flags, no prompts."
+    ),
+    target: str = typer.Option(None, help="Target column. Omit to let discovery propose one."),
+    task: str = typer.Option(
+        None, "--task", help="Override task inference (e.g. binary_classification)."
+    ),
+    split_strategy: str = typer.Option(
+        "stratified", help="random | stratified | time_based | group | custom."
+    ),
+    architecture: str = typer.Option("mlp", help="Tabular family: mlp | residual_mlp | wide_deep."),
+    activation: str = typer.Option(
+        "relu", help="relu | leaky_relu | gelu | tanh | selu | elu."
+    ),
+    explain_method: str = typer.Option(
+        "integrated_gradients", help="integrated_gradients | gradient_shap | permutation."
+    ),
+    robustness: str = typer.Option("standard", help="Robustness suite: standard | extended."),
+    agent_mode: str = typer.Option(
+        "deterministic", "--agent-mode", help="deterministic | llm (evidence-grounded)."
+    ),
+    llm_provider: str = typer.Option(
+        "none", help="LLM provider (none | openai | anthropic | grok | enterprise_llm_gateway)."
+    ),
+    run_dl: bool = typer.Option(
+        False, "--run-dl/--no-run-dl", help="Train a tabular DL model (binary classification)."
+    ),
+    enterprise: bool = typer.Option(
+        False, "--enterprise/--standard",
+        help="Enterprise mode: layered orchestrator, governance findings, "
+        "AI-engineering adapters, LangGraph-style DAG, and dashboard.html/.json/.md.",
+    ),
+    cost: str = typer.Option(
+        "balanced", "--cost",
+        help="Which errors are costlier: balanced | false_negatives | false_positives. "
+        "Routes the primary metric (e.g. false_negatives -> recall/PR-AUC).",
+    ),
+    accept_recommendations: bool = typer.Option(
+        False, "--accept-recommendations",
+        help="Auto-accept agent recommendations (architecture, feature engineering).",
+    ),
+    show_progress: bool = typer.Option(
+        True, "--show-progress/--no-progress", help="Show progress bars and percentages."
+    ),
+    output_root: str = typer.Option("start_output", help="Output directory root."),
+    seed: int = typer.Option(42, help="Random seed."),
+) -> None:
+    """Run the full StART model-risk review: data discovery -> target -> task
+    inference -> split planning -> feature engineering -> model recommendation
+    -> (optional) execution -> evidence -> agentic challenge/governance/sign-off
+    -> AI-engineering stages -> report. Every stage is shown; deterministic mode
+    is the default and needs no key. The LLM (if selected) reasons only over the
+    evidence bundle, never raw data; the enterprise gateway routes exclusively
+    through src/start/enterprise/. With --enterprise, the review runs as explicit
+    layers and emits an audit-ready governance dashboard."""
+    from start.interactive_review import (
+        ReviewConfig,
+        prompt_review_config,
+        run_interactive_review,
+    )
+
+    cfg = ReviewConfig(
+        data_path=data,
+        target=target,
+        task_override=task,
+        split_strategy=split_strategy,
+        architecture_family=architecture,
+        activation=activation,
+        explain_method=explain_method,
+        robustness_suite=robustness,
+        agent_mode=agent_mode,
+        llm_provider=llm_provider,
+        run_dl=run_dl,
+        enterprise_mode=enterprise,
+        costlier_errors=cost,
+        accept_recommendations=accept_recommendations,
+        show_progress=show_progress,
+        non_interactive=non_interactive,
+        output_root=output_root,
+        seed=seed,
+    )
+    if not non_interactive:
+        cfg = prompt_review_config(initial=cfg)
+    run_interactive_review(cfg)

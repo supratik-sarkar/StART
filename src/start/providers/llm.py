@@ -230,7 +230,23 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
 }
 
 
-def get_llm_provider(config: LLMConfig) -> LLMProvider:
+def get_llm_provider(config: LLMConfig, expected_domain: str | None = None) -> LLMProvider:
+    """Resolve a provider, enforcing trust-domain separation.
+
+    If ``expected_domain`` ('public' or 'private') is given, the requested
+    provider must belong to it — crossover raises TrustDomainViolation. A
+    provider that is unavailable degrades only WITHIN its own domain: public
+    providers fall back to the deterministic no-LLM path; the enterprise
+    gateway never falls back to a public provider (and public never falls back
+    to the gateway)."""
+    from start.providers.trust_domains import (
+        TrustDomain,
+        assert_no_crossover,
+    )
+
+    if expected_domain:
+        assert_no_crossover(config.provider, TrustDomain(expected_domain))
+
     cls = _PROVIDERS.get(config.provider, NoLLMProvider)
     try:
         if config.model and config.provider in {"openai", "anthropic", "grok", "huggingface", "hf_local"}:
@@ -240,6 +256,10 @@ def get_llm_provider(config: LLMConfig) -> LLMProvider:
     except TypeError:
         provider = cls()  # type: ignore[call-arg]
     if not provider.available and not isinstance(provider, NoLLMProvider):
-        # Safe degradation: never block a run because an LLM is unreachable.
+        # Within-domain degradation: an unavailable provider falls back to the
+        # domain-NEUTRAL deterministic path (NoLLMProvider makes no external
+        # calls and belongs to no trust domain), never to a provider in the
+        # OTHER trust domain. Explicit public<->private crossover is blocked
+        # above by assert_no_crossover; here we simply degrade safely.
         return NoLLMProvider()
     return provider
