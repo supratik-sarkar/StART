@@ -42,9 +42,9 @@ def test_laptop_safe_constraints():
         build_classifier("mlp", epochs=50)
     with pytest.raises(ValueError, match="batch_size"):
         build_classifier("mlp", batch_size=4096)
-    with pytest.raises(NotImplementedError, match="roadmap"):
+    with pytest.raises(NotImplementedError):  # lstm -> use the sequence track
         build_classifier("lstm")
-    with pytest.raises(ValueError, match="Unknown architecture"):
+    with pytest.raises(ValueError, match="[Uu]nknown architecture"):
         build_classifier("quantum_net")
     assert set(SUPPORTED_ARCHITECTURES) >= {"mlp", "rnn", "lstm", "gru", "tcn"}
 
@@ -73,8 +73,12 @@ def test_mlp_sklearn_protocol(fitted_mlp):
     assert clone.epochs == 5
     with pytest.raises(ValueError, match="Unknown parameter"):
         clone.set_params(banana=1)
-    leaky = build_classifier("leaky_relu_mlp")
-    assert leaky.activation == "leaky_relu"
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        leaky = build_classifier("leaky_relu_mlp")  # deprecated alias
+    assert leaky.activation == "leaky_relu" and leaky.architecture == "mlp"
 
 
 def test_dl_metrics_match_classical_contract(fitted_mlp, splits):

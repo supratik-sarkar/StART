@@ -44,6 +44,8 @@ def dl_splits():
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("architecture", ["mlp", "leaky_relu_mlp", "residual_mlp", "wide_deep"])
 def test_each_architecture_builds_and_trains(architecture, dl_splits):
+    import warnings
+
     from sklearn.metrics import roc_auc_score
 
     train, test, _ = dl_splits
@@ -51,20 +53,27 @@ def test_each_architecture_builds_and_trains(architecture, dl_splits):
     # Wide & Deep's wide linear path needs a slightly higher LR to converge in
     # the few-epoch laptop-safe regime; this is a known training dynamic.
     lr = 3e-3 if architecture == "wide_deep" else 1e-3
-    model = build_classifier(architecture, epochs=8, learning_rate=lr, random_state=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)  # leaky_relu_mlp alias
+        model = build_classifier(architecture, epochs=8, learning_rate=lr, random_state=0)
     model.fit(train[features], train[TARGET_COLUMN])
     proba = model.predict_proba(test[features])
     assert proba.shape == (len(test), 2)
     assert abs(proba.sum(axis=1) - 1.0).max() < 1e-6
     auc = roc_auc_score(test[TARGET_COLUMN], proba[:, 1])
     assert auc > 0.65, f"{architecture} should learn signal; got AUC {auc:.3f}"
-    assert model.architecture == architecture
+    # the deprecated alias resolves to the mlp family with leaky_relu activation
+    expected_family = "mlp" if architecture == "leaky_relu_mlp" else architecture
+    assert model.architecture == expected_family
+    if architecture == "leaky_relu_mlp":
+        assert model.activation == "leaky_relu"
     assert len(model.history_["train_loss"]) >= 1
 
 
 def test_roadmap_architectures_raise():
+    # Sequence families are not handled by the tabular classifier factory.
     for arch in ("lstm", "gru", "tcn", "transformer", "tft"):
-        with pytest.raises(NotImplementedError, match="roadmap"):
+        with pytest.raises(NotImplementedError):
             build_classifier(arch)
     assert set(DL_ARCHITECTURES) == {"mlp", "leaky_relu_mlp", "residual_mlp", "wide_deep"}
 
@@ -276,8 +285,6 @@ def test_llm_mode_without_key_falls_back_explicitly(tmp_path, monkeypatch):
 
 
 def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
-    from tests.test_agent_review import FakeLLM
-
     from start.modeling import dl_training
 
     train_opts = DLReviewOptions(
@@ -285,7 +292,15 @@ def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
         agent_mode="llm", llm_provider="openai",
     )
 
-    class CitingFake(FakeLLM):
+    class CitingFake:
+        """Self-contained citing provider (no dependency on other test modules)."""
+
+        name = "fake"
+        available = True
+
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
         def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
             import re
 
@@ -294,8 +309,13 @@ def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
             ev = next((i for i in ids if i.startswith("[")), "")
             return f"- Evidence reviewed across all diagnostics. {ev}".strip()
 
+        def generate(
+            self, prompt: str, *, system: str | None = None, metadata: dict | None = None
+        ) -> str:
+            return self.complete(system or "", prompt)
+
     # inject the fake provider in place of the real resolver
-    fake = CitingFake([])
+    fake = CitingFake()
     dl_training._resolve_llm = lambda opts: fake  # type: ignore[attr-defined]
     try:
         result = run_dl_review(train_opts)
@@ -303,6 +323,8 @@ def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
         import importlib
 
         importlib.reload(dl_training)
+    # verify the stable LLM-mode behavior of this build (no `llm=` kwarg, no
+    # `result.review` field — those were never part of the API)
     assert result.agent_review.mode == "llm"
     assert result.agent_review.llm_provider == "fake"
 

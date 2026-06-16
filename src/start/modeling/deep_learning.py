@@ -277,22 +277,36 @@ class TorchMLPClassifier:
         return self._device_used
 
 
-def build_classifier(architecture: str, **kwargs: Any) -> Any:
-    """Factory for DL classifiers. MLP variants are real; sequence models
-    raise with roadmap guidance (never forced onto tabular data)."""
-    if architecture not in SUPPORTED_ARCHITECTURES:
-        raise ValueError(
-            f"Unknown architecture '{architecture}'. Roadmap: {SUPPORTED_ARCHITECTURES}"
-        )
+def build_classifier(architecture: str | None = None, **kwargs: Any) -> Any:
+    """Factory for tabular DL classifiers. Resolves through the architecture
+    registry so deprecated aliases (e.g. ``leaky_relu_mlp``) still work with a
+    warning and map to (family, activation). Sequence/vision families are
+    handled by their own tracks; here they raise with guidance rather than
+    being forced onto tabular data.
+
+    Accepts either a legacy ``architecture`` token or explicit
+    ``family=`` / ``activation=`` kwargs.
+    """
+    from start.modeling.architecture_registry import resolve_architecture
+
     if not torch_available():
         raise ImportError(
             "Deep learning support requires the torch extra: pip install -e \".[torch]\""
         )
-    if architecture in _IMPLEMENTED:
-        return TorchMLPClassifier(architecture=architecture, **kwargs)
-    raise NotImplementedError(
-        f"'{architecture}' is on the StART deep-learning roadmap: sequence models "
-        "will be demonstrated on genuinely sequential data, not tabular datasets."
+
+    family_kw = kwargs.pop("family", None)
+    activation_kw = kwargs.pop("activation", None)
+    resolved = resolve_architecture(
+        architecture, activation=activation_kw, family=family_kw
+    )
+
+    if resolved.modality != "tabular":
+        raise NotImplementedError(
+            f"'{resolved.family}' is a {resolved.modality} architecture; use the "
+            f"{resolved.modality} track, not the tabular classifier factory."
+        )
+    return TorchMLPClassifier(
+        architecture=resolved.family, activation=resolved.activation, **kwargs
     )
 
 

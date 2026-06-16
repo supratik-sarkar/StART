@@ -1,52 +1,73 @@
-# StART pinned requirements — snapshot of a known-good Python 3.12 environment.
-#
-# RECOMMENDED install (pyproject extras + these pins as constraints):
-#     python -m pip install -e ".[all]" -c constraints.txt
-#
-# Flat reproducible alternative (everything below, then the package itself):
-#     python -m pip install -r requirements.txt && python -m pip install -e . --no-deps
-#
-# Generated via `python -m pip freeze` (no editable installs, no local paths, no secrets).
-# Pins are platform-independent; PyTorch resolves the correct CPU/MPS/CUDA wheel per OS.
+# StART relaxed runtime requirements
+# Exact versions from the current validated environment are recorded in requirements-lock.txt
 
-# --- Core runtime (always required) ---
-numpy==2.4.4
-pandas==3.0.2
-scipy==1.17.1
-scikit-learn==1.8.0
-pydantic==2.13.4
-pydantic-settings==2.14.1
-PyYAML==6.0.3
-typer==0.26.7
-rich==15.0.0
+numpy>=2.1
+pandas>=2.3
+scipy>=1.17
+scikit-learn>=1.8
+pydantic>=2.13
+pydantic-settings>=2.14
+pyyaml>=6.0
+typer>=0.25
+rich>=14.2
+torch>=2.7
+torchvision>=0.22
+captum>=0.9
+shap>=0.52
+xgboost>=3.2
+lightgbm>=4.6
+optuna>=4.9
+matplotlib>=3.10
+openpyxl>=3.1
+pyarrow>=22.0
+openai>=2.41
+anthropic>=0.109
+transformers>=5.12
+accelerate>=1.14
+huggingface-hub>=1.16
+opentelemetry-api>=1.42
+opentelemetry-sdk>=1.42
+langfuse>=4.7
+mcp>=1.27
+garak>=0.15
+nemoguardrails>=0.22
+deepeval>=4.0
+langsmith>=0.8
+arize-phoenix>=17.5
 
-# --- Deep learning  — extra: torch ---
-torch==2.7.1
-captum==0.9.0
-matplotlib==3.10.8
-
-# --- Tree models    — extra: tree-models ---
-xgboost==3.2.0
-lightgbm==4.6.0
-
-# --- Tuning         — extra: optuna ---
-optuna==4.9.0
-
-# --- Explainability — extra: xai ---
-shap==0.52.0
-
-# --- File formats   — extra: formats ---
-pyarrow==24.0.0
-
-# --- Dev / test     — extra: dev ---
-pytest==9.0.3
-hypothesis==6.155.2
-ruff==0.15.16
-mypy==2.1.0
-
-# --- Notebooks (OPTIONAL — only for the VS Code / Jupyter demos) ---
-# Install on demand:  python -m pip install ipykernel jupyterlab notebook ipywidgets
-# ipykernel==7.3.0  (uncomment to pin)
-# ipywidgets==8.1.8  (uncomment to pin)
-# jupyterlab>=4.0
-# notebook>=7.0
+# Current validated package versions
+# numpy==2.1.3
+# pandas==2.3.3
+# scipy==1.17.1
+# scikit-learn==1.8.0
+# pydantic==2.13.4
+# pydantic-settings==2.14.1
+# pyyaml==6.0.3
+# typer==0.25.1
+# rich==14.2.0
+# torch==2.7.1
+# torchvision==0.22.1
+# captum==0.9.0
+# shap==0.52.0
+# xgboost==3.2.0
+# lightgbm==4.6.0
+# optuna==4.9.0
+# matplotlib==3.10.8
+# openpyxl==3.1.5
+# pyarrow==22.0.0
+# openai==2.41.1
+# anthropic==0.109.1
+# transformers==5.12.0
+# accelerate==1.14.0
+# huggingface-hub==1.16.1
+# sentence-transformers==NOT_INSTALLED
+# mlflow==NOT_INSTALLED
+# opentelemetry-api==1.42.1
+# opentelemetry-sdk==1.42.1
+# langfuse==4.7.1
+# mcp==1.27.2
+# garak==0.15.1
+# nemoguardrails==0.22.0
+# deepeval==4.0.6
+# langsmith==0.8.15
+# arize-phoenix==17.5.0
