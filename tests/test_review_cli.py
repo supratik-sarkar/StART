@@ -9,6 +9,19 @@ from start.interactive_review import ReviewConfig, prompt_review_config
 
 runner = CliRunner()
 
+def _review_option_flags():
+    from typer.main import get_command
+    from start.cli import app
+
+    cmd = get_command(app)
+    review = cmd.commands["review"]
+    flags = set()
+    for param in review.params:
+        flags.update(getattr(param, "opts", []) or [])
+        flags.update(getattr(param, "secondary_opts", []) or [])
+    return flags
+
+
 
 def test_review_command_non_interactive_demo(tmp_path):
     result = runner.invoke(
@@ -108,11 +121,10 @@ def test_interactive_config_llm_shows_objective_prompt():
 
 
 def test_review_help_lists_full_surface():
-    result = runner.invoke(app, ["review", "--help"], terminal_width=240, color=False)
-    assert result.exit_code == 0
+    flags = _review_option_flags()
     for flag in ("--split-strategy", "--architecture", "--activation",
                  "--explain-method", "--robustness", "--agent-mode", "--llm-provider"):
-        assert flag in result.output
+        assert flag in flags
 
 
 def test_review_notebook_py_compiles():
@@ -145,6 +157,19 @@ def test_enterprise_review_command(tmp_path):
     from start.cli import app
 
     runner = CliRunner()
+
+def _review_option_flags():
+    from typer.main import get_command
+    from start.cli import app
+
+    cmd = get_command(app)
+    review = cmd.commands["review"]
+    flags = set()
+    for param in review.params:
+        flags.update(getattr(param, "opts", []) or [])
+        flags.update(getattr(param, "secondary_opts", []) or [])
+    return flags
+
     result = runner.invoke(
         app,
         ["review", "--non-interactive", "--target", "attrition", "--enterprise",
@@ -164,13 +189,9 @@ def test_enterprise_review_command(tmp_path):
 
 
 def test_enterprise_help_documents_flag():
-    from typer.testing import CliRunner
-
-    from start.cli import app
-
-    result = CliRunner().invoke(app, ["review", "--help"], terminal_width=240, color=False)
-    assert result.exit_code == 0
-    assert "--enterprise" in result.output
+    flags = _review_option_flags()
+    assert "--enterprise" in flags
+    assert "--standard" in flags
 
 
 def test_enterprise_notebook_py_compiles():
@@ -219,14 +240,9 @@ def test_review_cost_flag_routes_metric(tmp_path):
 
 
 def test_review_help_documents_new_flags():
-    from typer.testing import CliRunner
-
-    from start.cli import app
-
-    result = CliRunner().invoke(app, ["review", "--help"], terminal_width=240, color=False)
-    assert result.exit_code == 0
-    for flag in ("--cost", "--accept-recommendatio", "--show-progress"):
-        assert flag in result.output
+    flags = _review_option_flags()
+    for flag in ("--cost", "--accept-recommendations", "--show-progress", "--no-progress"):
+        assert flag in flags
 
 
 # -- v2.1.1 visible co-pilot terminal output ---------------------------------- #
