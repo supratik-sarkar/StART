@@ -108,7 +108,7 @@ def test_interactive_config_llm_shows_objective_prompt():
 
 
 def test_review_help_lists_full_surface():
-    result = runner.invoke(app, ["review", "--help"])
+    result = runner.invoke(app, ["review", "--help"], terminal_width=240, color=False)
     assert result.exit_code == 0
     for flag in ("--split-strategy", "--architecture", "--activation",
                  "--explain-method", "--robustness", "--agent-mode", "--llm-provider"):
@@ -168,7 +168,7 @@ def test_enterprise_help_documents_flag():
 
     from start.cli import app
 
-    result = CliRunner().invoke(app, ["review", "--help"])
+    result = CliRunner().invoke(app, ["review", "--help"], terminal_width=240, color=False)
     assert result.exit_code == 0
     assert "--enterprise" in result.output
 
@@ -223,7 +223,7 @@ def test_review_help_documents_new_flags():
 
     from start.cli import app
 
-    result = CliRunner().invoke(app, ["review", "--help"])
+    result = CliRunner().invoke(app, ["review", "--help"], terminal_width=240, color=False)
     assert result.exit_code == 0
     for flag in ("--cost", "--accept-recommendatio", "--show-progress"):
         assert flag in result.output
