@@ -17,6 +17,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install
         run: pip install -e ".[dev]"
+      - name: Install package with torch extra
+        run: pip install -e '.[torch]'
+
       - name: Lint (ruff)
         run: ruff check src tests
       - name: Type check (mypy)
