@@ -23,13 +23,8 @@ def render_transcript_markdown(session: ReviewSession) -> str:
 
     lines += ["## Decisions", ""]
     if d["decisions"]:
-        lines += ["| Checkpoint | Recommended | User chose | Outcome | Rationale |",
-                  "| --- | --- | --- | --- | --- |"]
-        for dec in d["decisions"]:
-            lines.append(
-                f"| {dec['key']} | {dec['recommended']} | {dec['effective']} "
-                f"| {dec['choice']} | {dec['rationale'][:80]} |"
-            )
+        from start.review_tables import decision_ledger_markdown
+        lines += [decision_ledger_markdown(d["decisions"]).rstrip()]
     else:
         lines.append("_No interactive decisions recorded (non-interactive run)._")
 
@@ -58,6 +53,43 @@ def render_transcript_markdown(session: ReviewSession) -> str:
         lines += ["", "## User clarifications", ""]
         for c in d["clarifications"]:
             lines.append(f"- {c}")
+
+    # v2.3.0 #3/#12: reviewer challenge log
+    challenges = d.get("challenges", [])
+    if challenges:
+        lines += ["", "## Reviewer challenges", "",
+                  "| Status | Agent | Challenge | Evidence used |",
+                  "| --- | --- | --- | --- |"]
+        for c in challenges:
+            lines.append(
+                f"| {c['status']} | {c['agent']} | {c['text']} "
+                f"| {', '.join(c.get('evidence_used', [])) or '—'} |"
+            )
+        cs = d.get("challenge_summary", {})
+        lines += ["", f"_Open: {cs.get('open', 0)} · Closed: {cs.get('closed', 0)} "
+                  f"· Unresolved: {cs.get('unresolved', 0)}_"]
+
+    # v2.3.0 #8/#12: ValidationAgent sensitivity review
+    vr = d.get("validation_review")
+    if vr:
+        lines += ["", "## ValidationAgent review", "",
+                  f"- Most sensitive feature: {vr.get('most_sensitive_feature')}",
+                  f"- Max |drift|: {vr.get('max_abs_drift')}",
+                  f"- Signoff impact: {vr.get('signoff_impact')}"]
+        for b in vr.get("business_interpretation", []):
+            lines.append(f"- {b}")
+
+    # v2.3.0 #11/#12: MRM signoff decision
+    ms = d.get("mrm_signoff")
+    if ms:
+        lines += ["", "## MRM signoff decision", "",
+                  f"**Verdict: {ms.get('verdict')}**", "", ms.get("rationale", ""),
+                  "", "| Factor | Status | Detail | Evidence |",
+                  "| --- | --- | --- | --- |"]
+        for f in ms.get("factors", []):
+            lines.append(
+                f"| {f['factor']} | {f['status']} | {f['detail']} | {f['evidence']} |"
+            )
 
     return "\n".join(lines) + "\n"
 
@@ -133,12 +165,13 @@ def render_transcript_html(session: ReviewSession) -> str:
 
 
 def write_transcript(session: ReviewSession, output_root: str, run_id: str,
-                     sensitivity: Any = None) -> dict[str, str]:
+                     sensitivity: Any = None, kfold: Any = None) -> dict[str, str]:
     """Write transcript.md/.html/.json next to the dashboards; return paths.
 
     If ``sensitivity`` (a SensitivityResult) is provided, its table is appended
     to the markdown transcript so the review journey includes the sensitivity
-    findings (#4)."""
+    findings (#4). If ``kfold`` (a KFoldTuningRun) is provided, its summary and
+    per-fold metrics are appended (v2.3.1 #7)."""
     out_dir = Path(output_root) / "transcripts" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     md = render_transcript_markdown(session)
@@ -146,6 +179,12 @@ def write_transcript(session: ReviewSession, output_root: str, run_id: str,
         try:
             from start.modeling.sensitivity_analysis import render_sensitivity_markdown
             md += "\n## Sensitivity\n\n" + render_sensitivity_markdown(sensitivity)
+        except Exception:
+            pass
+    if kfold is not None:
+        try:
+            from start.modeling.kfold_tuning import render_kfold_markdown
+            md += "\n" + render_kfold_markdown(kfold)
         except Exception:
             pass
     paths = {

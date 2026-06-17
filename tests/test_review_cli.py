@@ -18,6 +18,7 @@ def test_review_command_non_interactive_demo(tmp_path):
             "--non-interactive",
             "--target", "attrition",
             "--run-dl",
+            "--standard",
             "--output-root", str(tmp_path),
         ],
     )
@@ -41,7 +42,7 @@ def test_review_command_on_user_csv(tmp_path):
     result = runner.invoke(
         app,
         ["review", str(csv), "--non-interactive", "--target", "churned",
-         "--output-root", str(tmp_path / "out")],
+         "--standard", "--output-root", str(tmp_path / "out")],
     )
     assert result.exit_code == 0, result.output
     assert "Review complete" in result.output
@@ -59,6 +60,7 @@ def test_review_command_diagnostics_only(tmp_path):
 
 def test_interactive_config_deterministic_shows_no_llm_prompts():
     answers = iter([
+        "n",           # committee workflow? -> legacy (test basic flow)
         "",            # dataset path (demo)
         "attrition",   # target
         "stratified",  # split strategy
@@ -80,6 +82,7 @@ def test_interactive_config_deterministic_shows_no_llm_prompts():
 
 def test_interactive_config_llm_shows_objective_prompt():
     answers = iter([
+        "n",           # committee workflow? -> legacy (test basic flow)
         "",            # dataset path
         "attrition",   # target
         "stratified",  # split
@@ -92,6 +95,7 @@ def test_interactive_config_llm_shows_objective_prompt():
         "0.60", "0.20", "0.20",  # split proportions (Section D)
         "bounded_random_search",  # tuning strategy (Section H)
         "5",           # trials
+        "n",           # Use enterprise LLM gateway? -> No (use public)
         "openai",      # provider
         "Predict customer attrition",  # objective
         "",            # clarification (none)
@@ -147,7 +151,7 @@ def test_enterprise_review_command(tmp_path):
          "--output-root", str(tmp_path)],
     )
     assert result.exit_code == 0, result.output
-    assert "Enterprise review complete" in result.output
+    assert "AI review committee complete" in result.output
     # the seven layers stream visibly
     for layer in ("Data", "Model", "Validation", "Governance", "AI-Engineering",
                   "Evidence", "Reporting"):

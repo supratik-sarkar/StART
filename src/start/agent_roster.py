@@ -10,6 +10,7 @@ Pure presentation/metadata — no model logic here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,37 @@ def render_agent_roster() -> str:
 def roster_as_list() -> list[dict[str, str]]:
     """Roster for the dashboard/notebook (item 1 & 8)."""
     return [{"agent": r.name, "purpose": r.purpose} for r in AGENT_ROSTER]
+
+
+# Stable terminal color per agent (v2.3.1 #3) — colored, never plain white.
+AGENT_COLORS: dict[str, str] = {
+    "DatasetDiscoveryAgent": "bright_cyan",
+    "FeatureEngineeringAgent": "bright_green",
+    "ArchitectureReviewAgent": "bright_blue",
+    "HyperparameterTuningAgent": "bright_magenta",
+    "ModelExecutionAgent": "bright_yellow",
+    "ValidationAgent": "cyan",
+    "GovernanceSignoffAgent": "green",
+    "EvidenceCriticAgent": "magenta",
+}
+
+
+def agent_color(name: str) -> str:
+    return AGENT_COLORS.get(name, "white")
+
+
+def render_agent_roster_panel() -> Any:
+    """Rich panel: committee roster with colored agent names (v2.3.1 #3)."""
+    from rich.panel import Panel
+    from rich.table import Table
+
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(no_wrap=True)
+    grid.add_column()
+    for r in AGENT_ROSTER:
+        grid.add_row(f"[bold {agent_color(r.name)}]{r.name}[/]", r.purpose)
+    return Panel(grid, title="[bold]Review committee — your AI reviewers[/bold]",
+                 border_style="cyan", title_align="left")
 
 
 def render_adapter_panel(control_surface: list[dict]) -> str:

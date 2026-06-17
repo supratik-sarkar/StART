@@ -609,9 +609,11 @@ def review(
         False, "--run-dl/--no-run-dl", help="Train a tabular DL model (binary classification)."
     ),
     enterprise: bool = typer.Option(
-        False, "--enterprise/--standard",
-        help="Enterprise mode: layered orchestrator, governance findings, "
-        "AI-engineering adapters, LangGraph-style DAG, and dashboard.html/.json/.md.",
+        True, "--enterprise/--standard",
+        help="Enterprise committee review (DEFAULT): evidence-first committee "
+        "cards, dataset/FE transparency, ValidationAgent sensitivity review, "
+        "MRM-grade signoff, adapter transparency, and dashboard.html/.json/.md. "
+        "Use --standard for the legacy/basic review.",
     ),
     cost: str = typer.Option(
         "balanced", "--cost",

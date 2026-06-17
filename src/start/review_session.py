@@ -72,6 +72,32 @@ class Exchange:
 
 
 @dataclass
+class Challenge:
+    """A persistent reviewer challenge (v2.3.0 #3).
+
+    Tracks a reviewer's objection or probe — "Why not WideDeep?", "I disagree
+    with correlation pruning", "Show sensitivity evidence" — through the review,
+    including the evidence used to respond and whether it remains open.
+    """
+
+    text: str
+    agent: str
+    response: str = ""
+    evidence_used: list[str] = field(default_factory=list)
+    status: str = "open"  # open | closed | unresolved
+    ts: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "text": self.text,
+            "agent": self.agent,
+            "response": self.response,
+            "evidence_used": self.evidence_used,
+            "status": self.status,
+        }
+
+
+@dataclass
 class ReviewSession:
     """The shared, persistent state of one interactive review."""
 
@@ -80,6 +106,9 @@ class ReviewSession:
     conversations: list[Exchange] = field(default_factory=list)
     # free-form clarifications the user supplied (e.g. cost priority text)
     clarifications: list[str] = field(default_factory=list)
+    challenges: list[Challenge] = field(default_factory=list)
+    mrm_signoff: dict[str, Any] | None = None
+    validation_review: dict[str, Any] | None = None
 
     # -- recording -------------------------------------------------------- #
     def record_decision(self, decision: Decision) -> Decision:
@@ -89,6 +118,32 @@ class ReviewSession:
     def record_exchange(self, exchange: Exchange) -> Exchange:
         self.conversations.append(exchange)
         return exchange
+
+    def record_challenge(self, challenge: Challenge) -> Challenge:
+        self.challenges.append(challenge)
+        return challenge
+
+    def close_challenge(self, text: str, response: str = "",
+                        evidence_used: list[str] | None = None) -> Challenge | None:
+        """Mark the most recent matching open challenge as closed."""
+        for ch in reversed(self.challenges):
+            if ch.text == text and ch.status == "open":
+                ch.status = "closed"
+                if response:
+                    ch.response = response
+                if evidence_used:
+                    ch.evidence_used = evidence_used
+                return ch
+        return None
+
+    def open_challenges(self) -> list[Challenge]:
+        return [c for c in self.challenges if c.status == "open"]
+
+    def closed_challenges(self) -> list[Challenge]:
+        return [c for c in self.challenges if c.status == "closed"]
+
+    def unresolved_challenges(self) -> list[Challenge]:
+        return [c for c in self.challenges if c.status == "unresolved"]
 
     def add_clarification(self, text: str) -> None:
         if text and text.strip():
@@ -137,4 +192,12 @@ class ReviewSession:
             "conversations": [e.to_dict() for e in self.conversations],
             "clarifications": list(self.clarifications),
             "overrides": [d.to_dict() for d in self.overrides()],
+            "challenges": [c.to_dict() for c in self.challenges],
+            "challenge_summary": {
+                "open": len(self.open_challenges()),
+                "closed": len(self.closed_challenges()),
+                "unresolved": len(self.unresolved_challenges()),
+            },
+            "mrm_signoff": self.mrm_signoff,
+            "validation_review": self.validation_review,
         }

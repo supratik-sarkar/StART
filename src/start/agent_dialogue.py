@@ -39,6 +39,7 @@ class AgentContext:
     alternatives: list[dict[str, Any]] | None = None
     dataset_summary: str = ""
     checkpoint: str = ""
+    evidence: Any = None  # EvidenceStore: diagnostic facts for grounded answers (#1)
 
 
 # Canonical model-family comparison (item 6): performance / interpretability /
@@ -172,6 +173,20 @@ def _llm_answer(question: str, ctx: AgentContext, llm: Any) -> str | None:
         return None
 
 
+def _is_challenge(question: str) -> bool:
+    """Heuristic: does this question constitute a reviewer challenge?"""
+    q = question.lower().strip()
+    return (
+        q.startswith("why not")
+        or q.startswith("i disagree")
+        or q.startswith("i don't agree")
+        or "challenge" in q
+        or ("show" in q and "evidence" in q)
+        or "prove" in q
+        or "justify" in q
+    )
+
+
 def ask_agent(
     agent: str,
     question: str,
@@ -181,9 +196,46 @@ def ask_agent(
     llm: Any = None,
     llm_connected: bool = False,
 ) -> Exchange:
-    """Answer a freeform question and record it in the session transcript."""
+    """Answer a freeform question and record it in the session transcript.
+
+    v2.3.0 #1: diagnostic questions (outliers, correlations, missingness,
+    importance, sensitivity, metrics, tuning) are answered STRICTLY from the
+    evidence store, or explicitly refused — before any LLM is consulted, so the
+    model can never fabricate diagnostic values. Only non-diagnostic questions
+    (e.g. "why MLP?") fall through to the LLM / deterministic explanation path.
+
+    v2.3.0 #3: questions that constitute reviewer challenges ("why not X?",
+    "I disagree...", "show ... evidence") are recorded as persistent challenges
+    and closed with the answer + the evidence used.
+    """
+    from start.review_session import Challenge
+
     backend = "deterministic"
     answer: str | None = None
+    evidence_used: list[str] = []
+    is_challenge = _is_challenge(question)
+    if is_challenge:
+        session.record_challenge(Challenge(text=question, agent=agent))
+
+    # --- evidence-constrained path (anti-hallucination) ---
+    if ctx.evidence is not None:
+        from start.evidence_dialogue import answer_from_evidence
+
+        ea = answer_from_evidence(question, ctx.evidence)
+        if ea is not None:  # it was a diagnostic question
+            backend = "evidence" if ea.grounded else "evidence-refusal"
+            evidence_used = list(dict.fromkeys(e.get("source", "") for e in ea.evidence))
+            exchange = Exchange(
+                agent=agent, question=question, answer=ea.answer,
+                checkpoint=ctx.checkpoint, backend=backend,
+            )
+            session.record_exchange(exchange)
+            if is_challenge:
+                session.close_challenge(question, response=ea.answer,
+                                        evidence_used=evidence_used or ["evidence_store"])
+            return exchange
+
+    # --- non-diagnostic: LLM (if connected) then deterministic explanation ---
     if llm is not None and llm_connected:
         answer = _llm_answer(question, ctx, llm)
         if answer:
@@ -194,4 +246,9 @@ def ask_agent(
         agent=agent, question=question, answer=answer,
         checkpoint=ctx.checkpoint, backend=backend,
     )
-    return session.record_exchange(exchange)
+    session.record_exchange(exchange)
+    if is_challenge:
+        # challenge answered from agent reasoning (not raw evidence)
+        session.close_challenge(question, response=answer,
+                                evidence_used=["agent_reasoning"])
+    return exchange

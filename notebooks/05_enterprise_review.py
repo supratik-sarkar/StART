@@ -22,7 +22,8 @@ WIDGETS = {
     "architecture": "mlp",
     "activation": "relu",
     "agent_mode": "deterministic",  # deterministic | llm
-    "provider": "none",           # none | openai | anthropic | grok | enterprise_llm_gateway
+    "enterprise_gateway": "no",    # yes | no — yes routes via enterprise gateway, skips public keys
+    "provider": "none",           # none | openai | anthropic | grok (used only when enterprise_gateway=no)
     "enterprise_mode": "true",
     "governance_mode": "true",
     "run_dl": "true",
@@ -75,8 +76,24 @@ else:
     target = target or "attrition"
 
 llm = None
-provider = get("provider")
-if get("agent_mode") == "llm" and provider not in ("none", ""):
+trust_domain_label = "public"
+# v2.3.0 gateway UX (notebook mirror): enterprise_gateway=yes forces the
+# enterprise gateway and skips public providers/keys entirely. Otherwise the
+# public provider widget applies. Public and enterprise never cross over.
+if get("agent_mode") == "llm" and str(get("enterprise_gateway")).strip().lower() in ("yes", "y", "true"):
+    provider = "enterprise_llm_gateway"
+    trust_domain_label = "enterprise"
+    from start.core.config import LLMConfig
+    from start.providers.llm import get_llm_provider
+
+    llm = get_llm_provider(LLMConfig(provider=provider), expected_domain="private")
+    print(f"enterprise gateway selected (enterprise domain) | available: "
+          f"{getattr(llm, 'available', False)} | no public keys requested")
+    if not getattr(llm, "available", False):
+        print("FALLBACK: enterprise package not present — deterministic review "
+              "(no public provider is ever used as a fallback).")
+elif get("agent_mode") == "llm" and get("provider") not in ("none", ""):
+    provider = get("provider")
     from start.core.config import LLMConfig
     from start.providers.llm import get_llm_provider
     from start.providers.trust_domains import trust_domain
@@ -263,3 +280,149 @@ from start.reporting.review_transcript import write_transcript
 paths = write_transcript(session, "/tmp/start_notebook", outcome.run_id,
                          sensitivity=outcome.sensitivity)
 print("Transcript written:", paths)
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## Evidence-driven review committee (v2.3.0)
+# MAGIC The same evidence store, committee cards, challenge memory, ValidationAgent
+# MAGIC review, and MRM signoff the terminal uses — no duplicate logic.
+
+# COMMAND ----------
+# Evidence store assembled from the run's real diagnostics (#1)
+from start.evidence_store import EvidenceStore
+
+ev = EvidenceStore.from_artifacts(
+    copilot_exec=outcome.copilot_execution,
+    sensitivity=outcome.sensitivity,
+    tuning_run=outcome.tuning_run,
+)
+print("evidence available:", ev.has_any())
+
+# COMMAND ----------
+# Evidence-constrained Ask-Agent (#2): diagnostic questions are answered ONLY
+# from artifacts. A question without evidence is refused, never fabricated.
+from start.evidence_dialogue import answer_from_evidence
+
+for q in ["Show the feature sensitivity drift for the top features",
+          "What is the recall by split?",
+          "Which features have the most missing values?"]:
+    ea = answer_from_evidence(q, ev)
+    print(f"Q: {q}")
+    print(f"   grounded={ea.grounded} refused={ea.refused}")
+    print("   " + ea.answer.splitlines()[0])
+
+# COMMAND ----------
+# Committee card (#1/#4): evidence -> recommendation -> alternatives -> risks
+from start.committee_card import CommitteeCard, render_card_markdown
+
+card = CommitteeCard(
+    agent="ArchitectureReviewAgent", purpose="Model selection",
+    evidence=[f"{ev.n_rows or 'n'} rows",
+              f"max sensitivity drift {ev.max_abs_drift}"],
+    recommendation="MLP",
+    alternatives=["MLP (recommended)", "ResidualMLP", "WideDeep"],
+    risks=["overfitting on small data with a heavier architecture"],
+    artifacts_used=["data_statistics", "sensitivity_analysis"],
+)
+print(render_card_markdown(card))
+
+# COMMAND ----------
+# ValidationAgent sensitivity review (#7/#8): ranking + business interpretation
+from start.validation_review import business_interpretation
+
+if outcome.sensitivity is not None:
+    rows = outcome.sensitivity.to_dict()["rows"]
+    ranking = {}
+    for r in rows:
+        f, d = r["feature"], abs(r["drift"])
+        ranking[f] = max(ranking.get(f, 0.0), d)
+    ranked = sorted(ranking.items(), key=lambda kv: kv[1], reverse=True)
+    display(pd.DataFrame(ranked, columns=["feature", "max_abs_drift"]))
+    print("\nBusiness interpretation:")
+    for line in business_interpretation(rows):
+        print(" -", line)
+
+# COMMAND ----------
+# MRM-grade signoff (#11): performance, calibration, sensitivity, challenges
+from start.mrm_signoff import evaluate_signoff, render_signoff_markdown
+
+decision = evaluate_signoff(ev, session, primary_metric="auc_roc")
+print(render_signoff_markdown(decision))
+
+# COMMAND ----------
+# Reviewer challenge log (#3): challenges persist with the evidence used
+from start.review_session import Challenge
+
+session.record_challenge(Challenge(
+    text="Why is the top feature the most sensitive?",
+    agent="ValidationAgent"))
+session.close_challenge("Why is the top feature the most sensitive?",
+                        response="Answered from sensitivity artifacts.",
+                        evidence_used=["sensitivity_analysis.rows"])
+display(pd.DataFrame(session.to_dict()["challenges"]))
+print("challenge summary:", session.to_dict()["challenge_summary"])
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## v2.3.1 polish surfaces (notebook parity)
+# MAGIC Boxed committee roster, LLM activation, colored adapter inventory,
+# MAGIC dataset/target transparency, and the decision ledger.
+
+# COMMAND ----------
+# #2 dataset + target transparency
+print("Dataset:", "sklearn breast-cancer (demo)" if not OPTIONS["dataset_path"] else OPTIONS["dataset_path"])
+print("  url: https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+      if not OPTIONS["dataset_path"] else "")
+print(f"  loaded: {len(df)} rows x {df.shape[1]} columns")
+print("Target:", target, "(supplied by user)" if OPTIONS["target_column"] else "(inferred by discovery)")
+_cands = [c for c in df.columns if c != target and df[c].dropna().nunique() == 2][:8]
+print("  candidate targets:", ", ".join(_cands) if _cands else "—")
+
+# COMMAND ----------
+# #3 committee roster with colored agent names (roster + colors share the engine)
+from start.agent_roster import AGENT_COLORS, roster_as_list
+
+display(pd.DataFrame([
+    {"agent": r["agent"], "purpose": r["purpose"], "color": AGENT_COLORS.get(r["agent"], "white")}
+    for r in roster_as_list()
+]))
+
+# COMMAND ----------
+# #4 AI engineering adapter inventory (status/purpose/runtime/artifacts/evidence)
+display(pd.DataFrame(outcome.ai_engineering.control_surface())[
+    ["adapter", "status", "purpose", "runtime_s", "artifacts", "evidence", "install_guidance"]
+])
+
+# COMMAND ----------
+# #5 endpoint display (safe; never secrets) for the resolved provider
+from start.providers.llm_activation import preflight_llm
+
+_act = preflight_llm(provider if 'provider' in dir() else 'none', llm)
+print("provider:", _act.provider, "| trust domain:", _act.trust_domain)
+print("endpoint:", _act.endpoint, "| status:", _act.status)
+
+# COMMAND ----------
+# #8 review decision ledger (mirrors terminal/dashboard/transcript)
+from start.review_tables import decision_ledger_markdown
+
+print(decision_ledger_markdown(session.to_dict().get("decisions", [])))
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## K-fold tuning (train-only, stratified) — v2.3.1 #7
+# MAGIC Real stratified K-fold model selection over the TRAINING split only.
+# MAGIC Test/OOS rows are never used for selection. The DL path remains
+# MAGIC single-split validation and is labelled as such (not K-fold).
+
+# COMMAND ----------
+# K-fold tuning summary + per-fold metrics (mirrors terminal/dashboard/transcript)
+from start.modeling.kfold_tuning import render_kfold_markdown
+
+_kf = getattr(outcome, "kfold_tuning", None)
+if _kf is not None:
+    print(render_kfold_markdown(_kf))
+    display(pd.DataFrame([f.to_dict() for f in _kf.best_fold_results]))
+    print("artifacts:", [a.split("/")[-1] for a in _kf.artifacts])
+else:
+    print("K-fold tuning not run for this configuration "
+          "(e.g. too few rows/features); DL tuning uses single-split validation.")

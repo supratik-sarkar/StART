@@ -156,6 +156,18 @@ class PolicyConfig(BaseModel):
         return hash_obj(self.model_dump())
 
 
+class GovernanceConfig(BaseModel):
+    """MRM sign-off thresholds (configurable; not universal constants).
+
+    ``max_ece`` is the expected-calibration-error threshold above which the
+    calibration factor is flagged as a concern at sign-off. The default of 0.10
+    is a reasonable starting point, not a regulatory constant — adjust it to the
+    model and the firm's risk appetite.
+    """
+
+    max_ece: float = 0.10
+
+
 class StartConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="START_", env_nested_delimiter="__", extra="ignore"
@@ -171,6 +183,7 @@ class StartConfig(BaseSettings):
     output: OutputConfig = Field(default_factory=OutputConfig)
     model: ModelConfig = Field(default_factory=ModelConfig)
     test_families: TestFamiliesConfig = Field(default_factory=TestFamiliesConfig)
+    governance: GovernanceConfig = Field(default_factory=GovernanceConfig)
     policy_file: str = "configs/policy/default_policy.yaml"
 
 

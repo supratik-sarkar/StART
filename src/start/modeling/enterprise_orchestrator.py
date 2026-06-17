@@ -81,6 +81,7 @@ class EnterpriseOutcome:
     ai_engineering: Any
     dashboard_paths: dict[str, str]
     base_outcome: Any
+    dashboard_model: Any = None
     graph_paths: list[str] = field(default_factory=list)
     data_statistics: Any = None
     fe_recommendations: Any = None
@@ -95,6 +96,7 @@ class EnterpriseOutcome:
     activation_report: Any = None
     copilot_execution: Any = None
     tuning_run: Any = None
+    kfold_tuning: Any = None
     review_session: Any = None
 
     @property
@@ -164,6 +166,7 @@ class EnterpriseReviewOrchestrator:
         tuning_strategy: str = "bounded_random_search",
         tuning_trials: int = 5,
         session: Any = None,
+        k_folds: int = 5,
     ) -> EnterpriseOutcome:
         from start.agents.engineering_agents import (
             ArchitectureReviewAgent,
@@ -373,6 +376,7 @@ class EnterpriseReviewOrchestrator:
         sensitivity_result = None
         copilot_exec = None
         tuning_run = None
+        kfold_tuning = None
         if run_dl and base_outcome.cohort_metrics and base_outcome.modality == "tabular":
             sensitivity_result = self._run_sensitivity(
                 df, single_target, metric_choice["primary_metric"], seed
@@ -460,6 +464,40 @@ class EnterpriseReviewOrchestrator:
                         alternative_considered="grid search",
                         action_taken=f"ran {len(tuning_run.trials)} trial(s)"
                         if tuning_run.ran else "tuning disabled by user",
+                    )
+
+                # --- v2.3.1 #7: real stratified K-fold tuning on TRAIN-ONLY
+                # rows. We reproduce the exact train/test/OOS split the copilot
+                # used and pass ONLY the training rows to K-fold, so test/OOS
+                # are never used for model selection.
+                from start.modeling.copilot_execution import _stratified_split
+                from start.modeling.kfold_tuning import run_kfold_tuning
+
+                _splits = _stratified_split(df, single_target, split_props, seed)
+                _train_only = _splits["train"]
+                _excluded = len(_splits["test"]) + len(_splits["oos"])
+                kfold_tuning = run_kfold_tuning(
+                    _train_only, single_target, copilot_exec.feature_columns,
+                    n_folds=k_folds, primary_metric=metric_choice["primary_metric"],
+                    seed=seed, output_root=output_root, run_id=run_id,
+                    registry=artifact_registry, excluded_rows=_excluded,
+                )
+                if kfold_tuning:
+                    trace_log.record(
+                        "HyperparameterTuningAgent",
+                        inputs=f"{kfold_tuning.n_folds}-fold stratified K-fold on "
+                        f"{kfold_tuning.train_rows} train rows "
+                        f"({_excluded} test/OOS rows excluded)",
+                        decision=f"best mean {kfold_tuning.primary_metric}="
+                        f"{kfold_tuning.best_mean_metric:.4f} "
+                        f"(std {kfold_tuning.best_std_metric:.4f}) @ "
+                        f"{kfold_tuning.best_params}",
+                        reasoning="folds created only within the training split; "
+                        "test/OOS never used for model selection",
+                        evidence_ids=[tuning_plan.evidence_id], confidence=0.9,
+                        alternative_considered="single-split validation",
+                        action_taken=f"ran K-fold over {len(kfold_tuning.trials)} "
+                        "candidate configs",
                     )
         self._finish(val_layer, t0, f"{len(base_outcome.cohort_metrics)} cohorts scored")
 
@@ -601,6 +639,7 @@ class EnterpriseReviewOrchestrator:
             findings_register=register,
             ai_engineering=ai_report,
             dashboard_paths=dashboard_paths,
+            dashboard_model=getattr(self, "_last_dashboard_model", None),
             base_outcome=base_outcome,
             graph_paths=graph_paths,
             data_statistics=data_stats,
@@ -616,6 +655,7 @@ class EnterpriseReviewOrchestrator:
             activation_report=activation_report,
             copilot_execution=copilot_exec,
             tuning_run=tuning_run,
+            kfold_tuning=kfold_tuning,
             review_session=session,
         )
 
@@ -725,4 +765,5 @@ class EnterpriseReviewOrchestrator:
             tuning_run=tuning_run.to_dict() if tuning_run else None,
             review_journey=review_session.to_dict() if review_session else None,
         )
+        self._last_dashboard_model = model
         return write_dashboard(model, output_root, run_id)
