@@ -39,6 +39,7 @@ def run_feature_engineering_checkpoints(
     llm_connected: bool = False,
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
+    evidence: Any = None,
 ) -> dict[str, str]:
     """Negotiate each FE recommendation (item 5). Returns step -> action map
     ('accept' keeps the default action; 'skip' rejects it). Decisions are
@@ -52,7 +53,7 @@ def run_feature_engineering_checkpoints(
             reason=rec.reason, risk_if_ignored=rec.risk_if_ignored,
             alternatives=None,
             dataset_summary="",
-            checkpoint=f"fe:{rec.step}",
+            checkpoint=f"fe:{rec.step}", evidence=evidence,
         )
         on_ask = _ask_factory("FeatureEngineeringAgent", ctx, session, llm, llm_connected)
         action = "apply"
@@ -96,6 +97,7 @@ def run_metric_checkpoint(
     llm_connected: bool = False,
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
+    evidence: Any = None,
 ) -> str:
     """Confirm cost priority / primary metric (items 1, 2). Returns effective
     cost priority that routes tuning + validation downstream (#2)."""
@@ -106,7 +108,7 @@ def run_metric_checkpoint(
         risk_if_ignored="Wrong metric can optimize for the wrong error type.",
         alternatives=[{"family": "false_negatives"}, {"family": "false_positives"},
                       {"family": "balanced"}],
-        dataset_summary="", checkpoint="metric_priority",
+        dataset_summary="", checkpoint="metric_priority", evidence=evidence,
     )
     on_ask = _ask_factory("HyperparameterTuningAgent", ctx, session, llm, llm_connected)
     dec = resolve_checkpoint(
@@ -134,13 +136,14 @@ def run_target_checkpoint(
     llm_connected: bool = False,
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
+    evidence: Any = None,
 ) -> str:
     """Confirm / override the target (item 4). Returns the effective target."""
     say = emit or (lambda _m: None)
     ctx = AgentContext(
         agent="DatasetDiscoveryAgent", recommendation=recommended_target,
         reason=reason, risk_if_ignored="Wrong target invalidates the entire review.",
-        alternatives=None, dataset_summary="", checkpoint="target",
+        alternatives=None, dataset_summary="", checkpoint="target", evidence=evidence,
     )
     on_ask = _ask_factory("DatasetDiscoveryAgent", ctx, session, llm, llm_connected)
     dec = resolve_checkpoint(

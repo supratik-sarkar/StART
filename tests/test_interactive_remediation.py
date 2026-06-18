@@ -44,6 +44,7 @@ def test_blank_split_uses_defaults():
 # -- Section C: interactive run_dl defaults true ------------------------------ #
 def test_interactive_run_dl_defaults_true():
     answers = iter([
+        "n",  # committee workflow? -> legacy
         "", "attrition", "stratified", "mlp", "relu", "integrated_gradients",
         "standard", "deterministic",
         "",  # run_dl blank -> default Y
@@ -55,6 +56,7 @@ def test_interactive_run_dl_defaults_true():
 
 def test_interactive_run_dl_explicit_no():
     answers = iter([
+        "n",  # committee workflow? -> legacy
         "", "attrition", "stratified", "mlp", "relu", "integrated_gradients",
         "standard", "deterministic",
         "n",  # run_dl no -> diagnostics only

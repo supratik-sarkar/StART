@@ -1,73 +1,14 @@
-# StART relaxed runtime requirements
-# Exact versions from the current validated environment are recorded in requirements-lock.txt
+# Relaxed runtime requirements for firm/Linux/Windows installs.
+# Generated from pyproject.toml; exact environment snapshot is in requirements-lock.txt.
 
-numpy>=2.1
-pandas>=2.3
-scipy>=1.17
-scikit-learn>=1.8
-pydantic>=2.13
-pydantic-settings>=2.14
+numpy>=1.26
+pandas>=2.1
+scipy>=1.11
+scikit-learn>=1.4
+pydantic>=2.6
+pydantic-settings>=2.2
 pyyaml>=6.0
-typer>=0.25
-rich>=14.2
-torch>=2.7
-torchvision>=0.22
-captum>=0.9
-shap>=0.52
-xgboost>=3.2
-lightgbm>=4.6
-optuna>=4.9
-matplotlib>=3.10
-openpyxl>=3.1
-pyarrow>=22.0
-openai>=2.41
-anthropic>=0.109
-transformers>=5.12
-accelerate>=1.14
-huggingface-hub>=1.16
-opentelemetry-api>=1.42
-opentelemetry-sdk>=1.42
-langfuse>=4.7
-mcp>=1.27
-garak>=0.15
-nemoguardrails>=0.22
-deepeval>=4.0
-langsmith>=0.8
-arize-phoenix>=17.5
-
-# Current validated package versions
-# numpy==2.1.3
-# pandas==2.3.3
-# scipy==1.17.1
-# scikit-learn==1.8.0
-# pydantic==2.13.4
-# pydantic-settings==2.14.1
-# pyyaml==6.0.3
-# typer==0.25.1
-# rich==14.2.0
-# torch==2.7.1
-# torchvision==0.22.1
-# captum==0.9.0
-# shap==0.52.0
-# xgboost==3.2.0
-# lightgbm==4.6.0
-# optuna==4.9.0
-# matplotlib==3.10.8
-# openpyxl==3.1.5
-# pyarrow==22.0.0
-# openai==2.41.1
-# anthropic==0.109.1
-# transformers==5.12.0
-# accelerate==1.14.0
-# huggingface-hub==1.16.1
-# sentence-transformers==NOT_INSTALLED
-# mlflow==NOT_INSTALLED
-# opentelemetry-api==1.42.1
-# opentelemetry-sdk==1.42.1
-# langfuse==4.7.1
-# mcp==1.27.2
-# garak==0.15.1
-# nemoguardrails==0.22.0
-# deepeval==4.0.6
-# langsmith==0.8.15
-# arize-phoenix==17.5.0
+typer>=0.12
+rich>=13.0
+opentelemetry-api>=1.25
+opentelemetry-sdk>=1.25

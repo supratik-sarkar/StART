@@ -71,6 +71,7 @@ class DashboardModel:
     artifact_catalog: list[dict[str, Any]] = field(default_factory=list)
     copilot_execution: dict[str, Any] | None = None
     tuning_run: dict[str, Any] | None = None
+    kfold: dict[str, Any] | None = None
     review_journey: dict[str, Any] | None = None
 
     def executive_summary(self) -> dict[str, Any]:
@@ -112,6 +113,7 @@ class DashboardModel:
             "architecture_review": self.architecture_review,
             "hyperparameter_tuning": self.tuning_plan,
             "tuning_execution": self.tuning_run,
+            "kfold_tuning": self.kfold,
             "review_journey": self.review_journey,
             "metric_choice": self.metric_choice,
             "validation_review": {
@@ -203,14 +205,8 @@ def render_dashboard_md(model: DashboardModel) -> str:
         if decisions or convos:
             lines += ["", "## Review Journey", ""]
             if decisions:
-                lines += ["**Decisions**", "",
-                          "| Checkpoint | Recommended | User chose | Outcome |",
-                          "| --- | --- | --- | --- |"]
-                for d in decisions:
-                    lines.append(
-                        f"| {d['key']} | {d['recommended']} | {d['effective']} "
-                        f"| {d['choice']} |"
-                    )
+                from start.review_tables import decision_ledger_markdown
+                lines += [decision_ledger_markdown(decisions).rstrip()]
             if overrides:
                 lines += ["", "**User overrides**", ""]
                 for d in overrides:
@@ -223,6 +219,46 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 for ex in convos:
                     lines.append(f"- _{ex['agent']}_ (via {ex['backend']}): "
                                  f"Q: {ex['question']} — A: {ex['answer']}")
+
+        # v2.3.0 #3/#12: reviewer challenge log
+        challenges = rj.get("challenges", [])
+        if challenges:
+            lines += ["", "### Reviewer Challenges", "",
+                      "| Status | Agent | Challenge | Evidence used |",
+                      "| --- | --- | --- | --- |"]
+            for c in challenges:
+                lines.append(
+                    f"| {c.get('status')} | {c.get('agent')} | {c.get('text')} "
+                    f"| {', '.join(c.get('evidence_used', [])) or '—'} |"
+                )
+            cs_sum = rj.get("challenge_summary", {})
+            lines.append("")
+            lines.append(f"_Open: {cs_sum.get('open', 0)} · "
+                         f"Closed: {cs_sum.get('closed', 0)} · "
+                         f"Unresolved: {cs_sum.get('unresolved', 0)}_")
+
+        # v2.3.0 #8/#12: ValidationAgent sensitivity review
+        vr = rj.get("validation_review")
+        if vr:
+            lines += ["", "### ValidationAgent Review", "",
+                      f"- Most sensitive feature: {vr.get('most_sensitive_feature')}",
+                      f"- Max |drift|: {vr.get('max_abs_drift')}",
+                      f"- Signoff impact: {vr.get('signoff_impact')}"]
+            if vr.get("business_interpretation"):
+                lines += ["", "**Business interpretation**", ""]
+                lines += [f"- {b}" for b in vr["business_interpretation"]]
+
+        # v2.3.0 #11/#12: MRM-grade signoff
+        ms = rj.get("mrm_signoff")
+        if ms:
+            lines += ["", "### MRM Signoff Decision", "",
+                      f"**Verdict: {ms.get('verdict')}**", "", ms.get("rationale", ""),
+                      "", "| Factor | Status | Detail | Evidence |",
+                      "| --- | --- | --- | --- |"]
+            for f in ms.get("factors", []):
+                lines.append(
+                    f"| {f['factor']} | {f['status']} | {f['detail']} | {f['evidence']} |"
+                )
 
     if model.dataset_source:
         src = model.dataset_source
@@ -324,6 +360,23 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 )
         else:
             lines += ["", f"_{tr.get('note', 'Tuning disabled.')}_"]
+
+    # v2.3.1 #7: K-fold tuning summary + per-fold metrics (train-only).
+    if model.kfold:
+        kf = model.kfold
+        lines += ["", "## K-fold Tuning (train-only, stratified)", "",
+                  f"- Method: {kf.get('method')} ({kf.get('n_folds')}-fold)",
+                  f"- Primary metric: {kf.get('primary_metric')}",
+                  f"- Train rows used: {kf.get('train_rows')} "
+                  f"(test/OOS excluded from selection: {kf.get('excluded_rows')})",
+                  f"- Best params: {kf.get('best_params')}",
+                  f"- Best mean: {kf.get('best_mean_metric')} "
+                  f"(std {kf.get('best_std_metric')})",
+                  "", "| Fold | Metric | n_train | n_val |",
+                  "| --- | --- | --- | --- |"]
+        for f in kf.get("best_fold_results", []):
+            lines.append(f"| {f['fold']} | {f['metric']:.4f} | {f['n_train']} "
+                         f"| {f['n_val']} |")
 
     # v2.1.1 remediation: model execution — split table, metrics-by-split,
     # training diagnostics, explainability (Sections D/G/I/J/K)

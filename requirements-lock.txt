@@ -1,5 +1,3 @@
--e /Users/supratiksarkar/Desktop/StART
-# Editable install with no version control (start-mrt==2.2.0)
 accelerate==1.14.0
 aiofile==3.11.1
 aiohappyeyeballs==2.6.2

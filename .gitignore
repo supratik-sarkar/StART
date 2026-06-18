@@ -1,27 +1,26 @@
-
-__pycache__/
-.deepeval/
-.DS_Store
-.env
-.hypothesis/
-.ipynb_checkpoints/
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.venv-start/
-.venv/
-*.egg-info/
-*.py[cod]
-*.pyc
-# Environments & secrets
 # Python
-# Runtime/test artifacts
-# StART outputs
-# Tooling
+__pycache__/
+*.py[cod]
+*.egg-info/
 build/
 dist/
-mlruns/
-start_output/
+.venv/
+.venv-start/
 start/bin/
 start/lib/
 start/pyvenv.cfg
+
+# Environments & secrets
+.env
+
+# StART outputs
+start_output/
+mlruns/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.ipynb_checkpoints/
+.DS_Store

@@ -28,15 +28,21 @@ from typing import Any
 
 # Generic name of the private, firm-internal package. The public repo does not
 # ship, vendor, or depend on this package; it is only probed for at runtime.
-# A firm may override this via the START_ENTERPRISE_PACKAGE environment
-# variable if their internal package has a different import name.
+# A firm may override this via an environment variable. Two names are accepted:
+#   START_ENTERPRISE_LLM_PACKAGE  (preferred)
+#   START_ENTERPRISE_PACKAGE      (backward-compatible alias)
+# If both are set, START_ENTERPRISE_LLM_PACKAGE wins.
 ENTERPRISE_PACKAGE = "enterprise_package"
 
 
 def _enterprise_package_name() -> str:
     import os
 
-    return os.environ.get("START_ENTERPRISE_PACKAGE", ENTERPRISE_PACKAGE)
+    return (
+        os.environ.get("START_ENTERPRISE_LLM_PACKAGE")
+        or os.environ.get("START_ENTERPRISE_PACKAGE")
+        or ENTERPRISE_PACKAGE
+    )
 
 
 def enterprise_package_available() -> bool:

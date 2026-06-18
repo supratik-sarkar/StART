@@ -13,6 +13,7 @@ lightweight connectivity probe.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -75,6 +76,25 @@ def preflight_llm(provider_name: str, llm: Any = None, *, probe: bool = False) -
     """
     domain = trust_domain(provider_name).value
     endpoint = _ENDPOINTS.get(provider_name, "—")
+
+    # v2.3.1 #5: for the enterprise gateway, surface the configured private
+    # package name and a safe endpoint ONLY if the private package/config
+    # exposes one explicitly; otherwise show the route with the endpoint hidden.
+    # Never read or display secrets.
+    if provider_name == "enterprise_llm_gateway":
+        # Resolve the configured private-package name from the environment
+        # directly (mirrors the gateway adapter's precedence) so this module
+        # has no dependency on the gateway internals.
+        pkg = (
+            os.environ.get("START_ENTERPRISE_LLM_PACKAGE")
+            or os.environ.get("START_ENTERPRISE_PACKAGE")
+            or "enterprise_package"
+        )
+        safe_endpoint = os.environ.get("START_ENTERPRISE_LLM_ENDPOINT_PUBLIC")
+        if safe_endpoint:
+            endpoint = f"{pkg} -> {safe_endpoint}"
+        else:
+            endpoint = f"private-package route ({pkg}); endpoint hidden"
 
     if provider_name in ("none", "") or provider_name is None:
         return ActivationReport(
