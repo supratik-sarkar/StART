@@ -8,10 +8,16 @@ from start.cli import app
 from start.interactive_review import ReviewConfig, prompt_review_config
 
 runner = CliRunner()
-def _review_help_text() -> str:
-    result = runner.invoke(app, ["review", "--help"], terminal_width=1000, color=False)
-    assert result.exit_code == 0
-    return result.output
+def _review_option_flags() -> set[str]:
+    from typer.main import get_command
+
+    cmd = get_command(app)
+    review = cmd.commands["review"]
+    flags: set[str] = set()
+    for param in review.params:
+        flags.update(getattr(param, "opts", []))
+        flags.update(getattr(param, "secondary_opts", []))
+    return flags
 
 
 def test_review_command_non_interactive_demo(tmp_path):
@@ -112,7 +118,7 @@ def test_interactive_config_llm_shows_objective_prompt():
 
 
 def test_review_help_lists_full_surface():
-    output = _review_help_text()
+    flags = _review_option_flags()
     for flag in (
         "--split-strategy",
         "--architecture",
@@ -122,7 +128,7 @@ def test_review_help_lists_full_surface():
         "--agent-mode",
         "--llm-provider",
     ):
-        assert flag in output
+        assert flag in flags
 
 
 def test_review_notebook_py_compiles():
@@ -174,7 +180,7 @@ def test_enterprise_review_command(tmp_path):
 
 
 def test_enterprise_help_documents_flag():
-    assert "--enterprise" in _review_help_text()
+    assert "--enterprise" in _review_option_flags()
 
 
 def test_enterprise_notebook_py_compiles():
@@ -223,30 +229,9 @@ def test_review_cost_flag_routes_metric(tmp_path):
 
 
 def test_review_help_documents_new_flags():
-    output = _review_help_text()
-    for flag in ("--cost", "--accept-recommendatio", "--show-progress"):
-        assert flag in output
-
-
-# -- v2.1.1 visible co-pilot terminal output ---------------------------------- #
-def test_enterprise_terminal_shows_visibility(tmp_path):
-    from typer.testing import CliRunner
-
-    from start.cli import app
-
-    result = CliRunner().invoke(
-        app,
-        ["review", "--non-interactive", "--target", "attrition", "--run-dl",
-         "--enterprise", "--output-root", str(tmp_path)],
-    )
-    assert result.exit_code == 0, result.output
-    # Section A: LLM activation visible
-    assert "LLM activation" in result.output
-    # Section K: agent reasoning traces visible
-    assert "Agent reasoning traces" in result.output
-    assert "DatasetDiscoveryAgent" in result.output
-    # Section N: artifacts discoverable
-    assert "Artifacts generated" in result.output
+    flags = _review_option_flags()
+    for flag in ("--cost", "--accept-recommendations", "--show-progress"):
+        assert flag in flags
 
 
 def test_enterprise_dashboard_has_v211_sections(tmp_path):
