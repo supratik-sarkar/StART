@@ -24,3 +24,17 @@ mlruns/
 .hypothesis/
 .ipynb_checkpoints/
 .DS_Store
+
+.venv-start/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+start_output/
+.DS_Store

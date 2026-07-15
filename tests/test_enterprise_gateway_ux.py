@@ -23,9 +23,9 @@ def test_choosing_enterprise_gateway_sets_domain_and_skips_public_menu():
     seen = {"provider_menu": False}
 
     def ask(prompt=""):
-        if "enterprise llm gateway" in prompt.lower():
-            return "y"
-        if "llm provider" in prompt.lower():
+        if "backend" in prompt.lower():
+            return "2"  # Option 2: Enterprise LLM Gateway
+        if "provider" in prompt.lower():
             seen["provider_menu"] = True
             return "openai"
         return ""
@@ -40,9 +40,9 @@ def test_declining_gateway_preserves_public_provider_menu():
     seen = {"provider_menu": False}
 
     def ask(prompt=""):
-        if "enterprise llm gateway" in prompt.lower():
-            return "n"
-        if "llm provider" in prompt.lower():
+        if "backend" in prompt.lower():
+            return "3"  # Option 3: Public LLM Providers
+        if "provider" in prompt.lower():
             seen["provider_menu"] = True
             return "anthropic"
         return ""
@@ -54,18 +54,10 @@ def test_declining_gateway_preserves_public_provider_menu():
 
 
 def test_gateway_default_is_no():
-    # empty answer to the y/N prompt must NOT select the gateway
-    seen = {"provider_menu": False}
-
-    def ask(prompt=""):
-        if "llm provider" in prompt.lower():
-            seen["provider_menu"] = True
-            return "none"
-        return ""  # empty for the gateway y/N -> default No
-
-    cfg = prompt_review_config(ReviewConfig(agent_mode="llm", run_dl=False), ask=ask)
-    assert cfg.trust_domain == "public"
-    assert seen["provider_menu"] is True
+    # empty answer to the prompt must NOT select the gateway, should fallback to None/deterministic
+    cfg = prompt_review_config(ReviewConfig(agent_mode="llm", run_dl=False), ask=lambda p: "")
+    assert cfg.agent_mode == "deterministic"
+    assert cfg.llm_provider == "none"
 
 
 def test_enterprise_gateway_skips_public_key_prompt():

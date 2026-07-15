@@ -216,6 +216,32 @@ class DatasetDiscoveryAgent:
         )
         return result.apply_thresholds()
 
+    def analyze_categorical_density(self, df: pd.DataFrame) -> tuple[str, float, str]:
+        """Scans data schemas for high-cardinality blocks to recommend CatBoost or Distributed Random Forest."""
+        total_features = len(df.columns)
+        categorical_features_count = 0
+        high_cardinality_detected = False
+
+        for col in df.columns:
+            if df[col].dtype == "object" or isinstance(df[col].dtype, pd.CategoricalDtype):
+                categorical_features_count += 1
+                unique_count = df[col].nunique()
+                if unique_count > 50:
+                    high_cardinality_detected = True
+
+        categorical_ratio = categorical_features_count / max(total_features, 1)
+        
+        # Core heuristic decision boundary logic
+        if categorical_ratio > 0.20 or high_cardinality_detected:
+            model_rec = "catboost"
+            reasoning = f"High categorical density ({categorical_ratio*100:.1f}%) or cardinality detected. Explicitly recommending CatBoost over standard trees to preserve structural feature interactions natively."
+        else:
+            model_rec = "distributed_random_forest"
+            reasoning = "Dense numerical feature distribution with bounded cardinality. Recommending Distributed Random Forest parameters to maximize split variance across parallel trees."
+
+        return model_rec, float(categorical_ratio), reasoning
+
+
 
 @dataclass
 class TargetRecommendation:

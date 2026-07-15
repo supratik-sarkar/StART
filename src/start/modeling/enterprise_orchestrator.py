@@ -167,6 +167,10 @@ class EnterpriseReviewOrchestrator:
         tuning_trials: int = 5,
         session: Any = None,
         k_folds: int = 5,
+        validation: str = "holdout",
+        class_weight: str | None = None,
+        custom_space: dict[str, Any] | None = None,
+        cost_specification: dict[str, Any] | None = None,
     ) -> EnterpriseOutcome:
         from start.agents.engineering_agents import (
             ArchitectureReviewAgent,
@@ -221,6 +225,8 @@ class EnterpriseReviewOrchestrator:
             output_root=output_root,
             run_dl=run_dl,
             seed=seed,
+            architecture=architecture,
+            activation=activation,
         )
         evidence_ids = [getattr(r, "evidence_id", r.test_id) for r in base_outcome.evidence]
 
@@ -269,7 +275,11 @@ class EnterpriseReviewOrchestrator:
         fe_modality = {
             "tabular": "tabular", "sequence": "sequential", "vision": "vision"
         }.get(base_outcome.modality, "tabular")
-        fe_recs = recommend_feature_engineering(data_stats, modality=fe_modality)
+        fe_recs = recommend_feature_engineering(
+            data_stats,
+            modality=fe_modality,
+            cost_specification=cost_specification,
+        )
         if fe_recs.applicable():
             action_log.record(
                 "FeatureEngineeringAgent", "data statistics",
@@ -340,6 +350,7 @@ class EnterpriseReviewOrchestrator:
         tuning_plan = HyperparameterTuningAgent().plan(
             task_type=base_outcome.task_type, family=architecture,
             n_samples=len(df), costlier_errors=costlier_errors,
+            n_trials=tuning_trials,
         )
         action_log.record(
             "HyperparameterTuningAgent", "search space",
@@ -378,8 +389,14 @@ class EnterpriseReviewOrchestrator:
         tuning_run = None
         kfold_tuning = None
         if run_dl and base_outcome.cohort_metrics and base_outcome.modality == "tabular":
+            _apply_winsorize = True
+            if session is not None and session.rejected("fe:outliers"):
+                _apply_winsorize = False
+
             sensitivity_result = self._run_sensitivity(
-                df, single_target, metric_choice["primary_metric"], seed
+                df, single_target, metric_choice["primary_metric"], seed,
+                architecture=architecture, task_type=base_outcome.task_type,
+                activation=activation, winsorize=_apply_winsorize
             )
             if sensitivity_result:
                 action_log.record(
@@ -404,6 +421,13 @@ class EnterpriseReviewOrchestrator:
                 explain_method=explain_method, seed=seed,
                 output_root=output_root, run_id=run_id, registry=artifact_registry,
                 apply_correlation_pruning=_apply_pruning,
+                architecture=architecture,
+                stratify=(split_strategy == "stratified"),
+                class_weight=class_weight,
+                task_type=base_outcome.task_type,
+                activation=activation,
+                winsorize=_apply_winsorize,
+                custom_space=custom_space,
             )
             if copilot_exec:
                 if copilot_exec.pruned_features:
@@ -431,20 +455,28 @@ class EnterpriseReviewOrchestrator:
                 trace_log.record(
                     "ModelExecutionAgent",
                     inputs=f"train/test/oos split {split_props}",
-                    decision=f"trained mlp; explainability via {copilot_exec.explainability_method}",
+                    decision=f"trained {architecture}; explainability via {copilot_exec.explainability_method}",
                     reasoning=f"generalization gap {copilot_exec.generalization_gap}",
                     evidence_ids=val_ids[:1], confidence=0.85,
                     alternative_considered="diagnostics-only (no training)",
                     action_taken=f"emitted {len(copilot_exec.artifacts)} execution artifact(s)",
                 )
                 # --- Real hyperparameter tuning (Section H): actually runs ---
+                from start.modeling.copilot_execution import _stratified_split
                 from start.modeling.tuning_run import run_tuning
 
+                _effective_stratify = (split_strategy == "stratified") and (base_outcome.task_type not in ("regression", "forecasting"))
+                _splits = _stratified_split(df, single_target, split_props, seed, stratify=_effective_stratify)
+                _train_only = _splits["train"]
+
                 tuning_run = run_tuning(
-                    df, single_target, copilot_exec.feature_columns,
+                    _train_only, single_target, copilot_exec.feature_columns,
                     strategy=tuning_strategy, n_trials=tuning_trials,
                     primary_metric=metric_choice["primary_metric"], seed=seed,
                     output_root=output_root, run_id=run_id, registry=artifact_registry,
+                    architecture=architecture, activation=activation, task_type=base_outcome.task_type,
+                    custom_space=custom_space, validation=validation, k_folds=k_folds,
+                    cost_specification=cost_specification,
                 )
                 if tuning_run:
                     # record the executed outcome on the planned tuning object
@@ -458,7 +490,7 @@ class EnterpriseReviewOrchestrator:
                         decision=(f"best metric {tuning_run.best_metric:.4f} "
                                   f"@ {tuning_run.best_params}") if tuning_run.ran
                         else tuning_run.note,
-                        reasoning="train-internal holdout only (no test/OOS leakage)",
+                        reasoning=f"train-internal {tuning_run.validation} only (no test/OOS leakage)",
                         evidence_ids=[tuning_plan.evidence_id],
                         confidence=0.85 if tuning_run.ran else 0.5,
                         alternative_considered="grid search",
@@ -466,39 +498,10 @@ class EnterpriseReviewOrchestrator:
                         if tuning_run.ran else "tuning disabled by user",
                     )
 
-                # --- v2.3.1 #7: real stratified K-fold tuning on TRAIN-ONLY
-                # rows. We reproduce the exact train/test/OOS split the copilot
-                # used and pass ONLY the training rows to K-fold, so test/OOS
-                # are never used for model selection.
-                from start.modeling.copilot_execution import _stratified_split
-                from start.modeling.kfold_tuning import run_kfold_tuning
-
-                _splits = _stratified_split(df, single_target, split_props, seed)
-                _train_only = _splits["train"]
-                _excluded = len(_splits["test"]) + len(_splits["oos"])
-                kfold_tuning = run_kfold_tuning(
-                    _train_only, single_target, copilot_exec.feature_columns,
-                    n_folds=k_folds, primary_metric=metric_choice["primary_metric"],
-                    seed=seed, output_root=output_root, run_id=run_id,
-                    registry=artifact_registry, excluded_rows=_excluded,
-                )
-                if kfold_tuning:
-                    trace_log.record(
-                        "HyperparameterTuningAgent",
-                        inputs=f"{kfold_tuning.n_folds}-fold stratified K-fold on "
-                        f"{kfold_tuning.train_rows} train rows "
-                        f"({_excluded} test/OOS rows excluded)",
-                        decision=f"best mean {kfold_tuning.primary_metric}="
-                        f"{kfold_tuning.best_mean_metric:.4f} "
-                        f"(std {kfold_tuning.best_std_metric:.4f}) @ "
-                        f"{kfold_tuning.best_params}",
-                        reasoning="folds created only within the training split; "
-                        "test/OOS never used for model selection",
-                        evidence_ids=[tuning_plan.evidence_id], confidence=0.9,
-                        alternative_considered="single-split validation",
-                        action_taken=f"ran K-fold over {len(kfold_tuning.trials)} "
-                        "candidate configs",
-                    )
+                # v3.1.1: legacy run_kfold_tuning (logistic regression
+                # C/class_weight tuner) removed. The unified run_tuning now
+                # handles K-fold CV for the selected architecture.
+                kfold_tuning = None
         self._finish(val_layer, t0, f"{len(base_outcome.cohort_metrics)} cohorts scored")
 
         # --- Governance layer: derive findings from evidence ---
@@ -659,14 +662,15 @@ class EnterpriseReviewOrchestrator:
             review_session=session,
         )
 
-    def _run_sensitivity(self, df, target, metric_name, seed):
+    def _run_sensitivity(self, df, target, metric_name, seed, architecture="mlp", task_type="binary_classification", activation="relu", winsorize=False):
         """Train a quick tabular model on the same data and shock its top
         features. Real computation; uses model coefficients/importance proxy
         via variance of standardized features to pick the top set."""
         try:
 
+            from start.modeling.models import resolve_model
             from start.modeling.sensitivity_analysis import run_sensitivity_analysis
-            from start.modeling.tabular_dl import TabularDLClassifier
+            from start.modeling.tuning_run import _model_family
 
             features = [
                 c for c in df.columns
@@ -675,13 +679,36 @@ class EnterpriseReviewOrchestrator:
             if len(features) < 2:
                 return None
             X, y = df[features], df[target].to_numpy()
-            clf = TabularDLClassifier(
-                task="binary_classification", family="mlp", epochs=8, random_state=seed
-            ).fit(X, y)
+            
+            family = _model_family(architecture)
+            if family == "sklearn":
+                from sklearn.impute import SimpleImputer
+                imputer = SimpleImputer(strategy="median")
+                X = pd.DataFrame(imputer.fit_transform(X), columns=features)
+            if family == "tabular_dl":
+                from start.modeling.tabular_dl import TabularDLClassifier
+                clf = TabularDLClassifier(
+                    task=task_type, family=architecture, activation=activation, epochs=8, random_state=seed, winsorize=winsorize
+                )
+            elif family == "sequence_dl":
+                from start.modeling.sequence_dl import SequenceClassifier
+                clf = SequenceClassifier(
+                    family=architecture, epochs=8, random_state=seed,
+                )
+            elif family == "vision_dl":
+                from start.modeling.vision_dl import VisionCNNClassifier
+                arch = "simple_cnn_small" if architecture == "cnn" else architecture
+                clf = VisionCNNClassifier(
+                    architecture=arch, epochs=8, random_state=seed,
+                )
+            else:
+                clf, _, _ = resolve_model(architecture, seed)
+            
+            clf.fit(X, y)
             # top features by standardized variance (cheap, model-agnostic proxy)
             variances = X.std().sort_values(ascending=False)
             top = list(variances.index[:5])
-            metric = metric_name if metric_name in ("auc_roc", "pr_auc", "recall", "f1") else "auc_roc"
+            metric = metric_name if metric_name in ("auc_roc", "pr_auc", "recall", "f1", "rmse", "mae", "r2") else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
             return run_sensitivity_analysis(clf, X, y, top_features=top, metric_name=metric)
         except Exception:
             return None

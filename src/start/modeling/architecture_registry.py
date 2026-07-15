@@ -22,10 +22,10 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 
-ACTIVATIONS = ("relu", "leaky_relu", "gelu", "tanh", "selu", "elu")
+ACTIVATIONS = ("relu", "leaky_relu", "gelu", "tanh", "selu", "elu", "swish", "mish", "sigmoid", "softplus")
 
 # Families that have a real tabular training path today.
-_TABULAR_IMPLEMENTED = {"mlp", "residual_mlp", "wide_deep"}
+_TABULAR_IMPLEMENTED = {"mlp", "residual_mlp", "wide_deep", "rnn", "gru", "lstm", "bi_lstm", "cnn", "gnn", "dcn"}
 # Sequence families implemented in the sequence track.
 _SEQUENCE_IMPLEMENTED = {"rnn", "gru", "lstm", "bi_lstm"}
 # Vision families implemented in the vision track (resnet18 gated separately).
@@ -51,11 +51,21 @@ _REGISTRY: dict[str, ArchitectureSpec] = {
     "wide_deep": ArchitectureSpec(
         "wide_deep", "tabular", "Wide linear path + deep MLP.", "relu", True
     ),
-    "rnn": ArchitectureSpec("rnn", "sequence", "Vanilla RNN sequence classifier.", "tanh", True),
-    "gru": ArchitectureSpec("gru", "sequence", "GRU sequence classifier.", "tanh", True),
-    "lstm": ArchitectureSpec("lstm", "sequence", "LSTM sequence classifier.", "tanh", True),
+    "rnn": ArchitectureSpec("rnn", "sequence", "Vanilla RNN classifier.", "tanh", True),
+    "gru": ArchitectureSpec("gru", "sequence", "GRU classifier.", "tanh", True),
+    "lstm": ArchitectureSpec("lstm", "sequence", "LSTM classifier.", "tanh", True),
     "bi_lstm": ArchitectureSpec(
-        "bi_lstm", "sequence", "Bidirectional LSTM sequence classifier.", "tanh", True
+        "bi_lstm", "sequence", "Bidirectional LSTM classifier.", "tanh", True
+    ),
+
+    "cnn": ArchitectureSpec(
+        "cnn", "tabular", "1D Conv classifier.", "relu", True
+    ),
+    "gnn": ArchitectureSpec(
+        "gnn", "tabular", "Graph Neural Network (GCN/GAT).", "relu", True
+    ),
+    "dcn": ArchitectureSpec(
+        "dcn", "tabular", "Deep & Cross Network.", "relu", True
     ),
     "simple_cnn": ArchitectureSpec(
         "simple_cnn", "vision", "Compact pure-PyTorch CNN for image classification.", "relu", True

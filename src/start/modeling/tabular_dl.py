@@ -1,16 +1,14 @@
-"""Task-aware tabular deep-learning classifier.
+"""Task-aware tabular deep-learning classifier/regressor.
 
 A single sklearn-compatible estimator that branches by task type:
 
     binary_classification       -> 1 logit, BCEWithLogits, sigmoid
     multiclass_classification   -> C logits, CrossEntropy, softmax
     multilabel_classification   -> K logits, BCEWithLogits per label, sigmoid
+    regression / forecasting    -> 1 output, MSELoss, linear
 
 It reuses the implemented architecture families (mlp / residual_mlp /
-wide_deep) and the full activation set via the architecture registry, keeps
-the laptop-safe constraints (epochs <= 10, batch_size <= 128), an internal
-validation split for learning curves + early stopping, and device routing
-(CUDA -> MPS -> CPU). Metrics branch by task in ``dl_task_metrics``.
+wide_deep) and the full activation set via the architecture registry.
 """
 
 from __future__ import annotations
@@ -27,6 +25,8 @@ TABULAR_TASKS = (
     "binary_classification",
     "multiclass_classification",
     "multilabel_classification",
+    "regression",
+    "forecasting",
 )
 
 
@@ -50,6 +50,9 @@ class TabularDLClassifier:
         device: str | None = None,
         random_state: int = 42,
         verbose: bool = False,
+        class_weight: str | None = None,
+        winsorize: bool = False,
+        cost_specification: dict[str, Any] | None = None,
     ) -> None:
         if task not in TABULAR_TASKS:
             raise ValueError(f"Unknown tabular task '{task}'. Known: {TABULAR_TASKS}")
@@ -71,10 +74,16 @@ class TabularDLClassifier:
         self.device = device
         self.random_state = random_state
         self.verbose = verbose
+        self.class_weight = class_weight
+        self.winsorize = winsorize
+        self.cost_specification = cost_specification or {"type": "balanced"}
 
         self._net = None
         self._mean: np.ndarray | None = None
         self._std: np.ndarray | None = None
+        self._medians: np.ndarray | None = None
+        self._lower_bounds: np.ndarray | None = None
+        self._upper_bounds: np.ndarray | None = None
         self._device_used = "cpu"
         self.classes_: np.ndarray | None = None
         self.label_columns_: list[str] | None = None  # multilabel
@@ -99,6 +108,9 @@ class TabularDLClassifier:
             "device": self.device,
             "random_state": self.random_state,
             "verbose": self.verbose,
+            "class_weight": self.class_weight,
+            "winsorize": self.winsorize,
+            "cost_specification": self.cost_specification,
         }
 
     def set_params(self, **params: Any) -> TabularDLClassifier:
@@ -117,6 +129,26 @@ class TabularDLClassifier:
 
     def _standardize(self, X: np.ndarray, fit: bool) -> np.ndarray:
         if fit:
+            self._medians = np.nanmedian(X, axis=0)
+            self._medians[np.isnan(self._medians)] = 0.0
+
+        # Median Imputation
+        nan_mask = np.isnan(X)
+        if np.any(nan_mask):
+            X = X.copy()
+            for col_idx in range(X.shape[1]):
+                col_nan = nan_mask[:, col_idx]
+                if np.any(col_nan):
+                    X[col_nan, col_idx] = self._medians[col_idx]
+
+        # Winsorization clipping
+        if self.winsorize:
+            if fit:
+                self._lower_bounds = np.percentile(X, 1, axis=0)
+                self._upper_bounds = np.percentile(X, 99, axis=0)
+            X = np.clip(X, self._lower_bounds, self._upper_bounds)
+
+        if fit:
             self._mean = X.mean(axis=0)
             self._std = X.std(axis=0)
             self._std[self._std == 0] = 1.0
@@ -124,6 +156,21 @@ class TabularDLClassifier:
 
     def _prepare_targets(self, y: Any):
         """Return (y_tensor_ready ndarray, n_outputs) and set class metadata."""
+        if self.task in ("regression", "forecasting"):
+            if isinstance(y, pd.DataFrame):
+                arr = y.to_numpy(dtype=np.float32)
+            else:
+                arr = np.asarray(y, dtype=np.float32)
+                if arr.ndim == 1:
+                    arr = arr.reshape(-1, 1)
+            self.n_outputs_ = arr.shape[1]
+            self.classes_ = None
+            self._target_mean = arr.mean(axis=0)
+            self._target_std = arr.std(axis=0)
+            self._target_std[self._target_std == 0] = 1.0
+            arr = (arr - self._target_mean) / self._target_std
+            return arr, self.n_outputs_
+
         if self.task == "multilabel_classification":
             if isinstance(y, pd.DataFrame):
                 self.label_columns_ = list(y.columns)
@@ -136,6 +183,7 @@ class TabularDLClassifier:
             self.n_outputs_ = arr.shape[1]
             self.classes_ = np.array([0, 1])
             return arr, self.n_outputs_
+
         # single-column classification
         y_arr = np.asarray(y).reshape(-1)
         classes = np.unique(y_arr)
@@ -145,17 +193,49 @@ class TabularDLClassifier:
             mapping = {c: i for i, c in enumerate(classes)}
             mapped = np.array([mapping[v] for v in y_arr], dtype=np.float32).reshape(-1, 1)
             return mapped, 1
+
         # multiclass
         self.n_outputs_ = len(classes)
         mapping = {c: i for i, c in enumerate(classes)}
         mapped = np.array([mapping[v] for v in y_arr], dtype=np.int64)
         return mapped, self.n_outputs_
 
-    def _loss_fn(self):
+    def _loss_fn(self, y_arr, device):
         import torch
 
+        if self.task in ("regression", "forecasting"):
+            return torch.nn.MSELoss()
+
+        weights = None
         if self.task == "multiclass_classification":
+            if self.class_weight == "balanced":
+                from sklearn.utils.class_weight import compute_class_weight
+                classes = np.arange(self.n_outputs_)
+                weights = compute_class_weight("balanced", classes=classes, y=y_arr.ravel())
+                weights = np.asarray(weights, dtype=np.float32)
+
+            cost_spec = getattr(self, "cost_specification", None) or {"type": "balanced"}
+            if cost_spec.get("type") == "critical_class":
+                crit_class = cost_spec.get("critical_class")
+                rel_cost = cost_spec.get("relative_cost", 5.0)
+                if self.classes_ is not None:
+                    if weights is None:
+                        weights = np.ones(self.n_outputs_, dtype=np.float32)
+                    for i, c in enumerate(self.classes_):
+                        if str(c) == str(crit_class):
+                            weights[i] *= rel_cost
+
+            if weights is not None:
+                return torch.nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
             return torch.nn.CrossEntropyLoss()
+
+        if self.class_weight == "balanced" and self.task == "binary_classification":
+            n_pos = float(np.sum(y_arr == 1))
+            n_neg = float(np.sum(y_arr == 0))
+            if n_pos > 0:
+                pos_weight = torch.tensor([n_neg / n_pos], dtype=torch.float32, device=device)
+                return torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+
         return torch.nn.BCEWithLogitsLoss()
 
     # -- training ---------------------------------------------------------- #
@@ -197,7 +277,7 @@ class TabularDLClassifier:
             xv, yv = X_tensor[val_idx].to(device), y_tensor[val_idx].to(device)
 
         optimizer = torch.optim.Adam(self._net.parameters(), lr=self.learning_rate)
-        loss_fn = self._loss_fn()
+        loss_fn = self._loss_fn(y_arr, device)
         self.history_ = {"train_loss": [], "val_loss": []}
         best_val, best_state, no_improve = float("inf"), None, 0
         self.stopped_early_ = False
@@ -246,6 +326,8 @@ class TabularDLClassifier:
             return self._net(torch.tensor(X_arr, dtype=torch.float32).to(device)).cpu().numpy()
 
     def predict_proba(self, X: Any) -> np.ndarray:
+        if self.task in ("regression", "forecasting"):
+            raise ValueError("predict_proba is not supported for regression/forecasting tasks.")
         logits = self._logits(X)
         if self.task == "binary_classification":
             p1 = 1.0 / (1.0 + np.exp(-logits.reshape(-1)))
@@ -257,13 +339,54 @@ class TabularDLClassifier:
         return 1.0 / (1.0 + np.exp(-logits))
 
     def predict(self, X: Any) -> np.ndarray:
+        if self.task in ("regression", "forecasting"):
+            preds = self._logits(X)
+            if hasattr(self, "_target_mean"):
+                preds = preds * self._target_std + self._target_mean
+            if self.n_outputs_ == 1:
+                return preds.reshape(-1)
+            return preds
         if self.task == "multilabel_classification":
             return (self.predict_proba(X) >= 0.5).astype(int)
+        
         proba = self.predict_proba(X)
         idx = proba.argmax(axis=1)
-        return np.asarray(self.classes_)[idx]
+        argmax_preds = np.asarray(self.classes_)[idx]
+        self.last_predictions_argmax_ = argmax_preds
+
+        # Check if cost specification is set and not balanced
+        cost_spec = getattr(self, "cost_specification", None) or {"type": "balanced"}
+        cost_matrix = None
+        if cost_spec.get("type", "balanced") != "balanced":
+            from start.modeling.cost_sensitive import cost_spec_to_matrix, validate_cost_matrix
+            classes_list = [str(c) for c in self.classes_]
+            cost_matrix = cost_spec_to_matrix(cost_spec, classes_list)
+            if cost_matrix is not None:
+                # Assertions to validate cost matrix before applying expected-cost minimization
+                assert cost_matrix.shape == (len(self.classes_), len(self.classes_)), f"Cost matrix shape must be {len(self.classes_)}x{len(self.classes_)}"
+                assert np.all(np.isfinite(cost_matrix)), "Cost matrix must contain only finite values"
+                assert np.all(cost_matrix >= 0), "Cost matrix must contain non-negative values"
+                
+                # Check for critical errors from validate_cost_matrix if matrix format was directly supplied
+                if cost_spec.get("type") == "matrix":
+                    errors = validate_cost_matrix(cost_spec["matrix"], classes_list)
+                    critical_errors = [e for e in errors if "Warning" not in e]
+                    assert len(critical_errors) == 0, f"Cost matrix validation failed: {critical_errors}"
+
+        if cost_matrix is not None:
+            from start.modeling.cost_sensitive import cost_sensitive_predictions
+            cost_sensitive_preds = cost_sensitive_predictions(proba, cost_matrix, self.classes_)
+            self.last_predictions_cost_sensitive_ = cost_sensitive_preds
+            return cost_sensitive_preds
+        else:
+            self.last_predictions_cost_sensitive_ = argmax_preds
+            return argmax_preds
 
     def score(self, X: Any, y: Any) -> float:
+        if self.task in ("regression", "forecasting"):
+            from sklearn.metrics import r2_score
+            preds = self.predict(X)
+            return float(r2_score(np.asarray(y).reshape(-1), preds))
         if self.task == "multilabel_classification":
             preds = self.predict(X)
             y_arr = y.to_numpy() if isinstance(y, pd.DataFrame) else np.asarray(y)

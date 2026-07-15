@@ -117,6 +117,9 @@ class ReviewOrchestrator:
         output_root: str | None = None,
         seed: int = 42,
         run_dl: bool = False,
+        architecture: str = "mlp",
+        activation: str = "relu",
+        custom_space: dict[str, Any] | None = None,
     ) -> ReviewOutcome:
         import uuid
 
@@ -178,14 +181,14 @@ class ReviewOrchestrator:
 
         # 7. model recommendation
         self._emit("model_recommendation", "running")
-        recommended = _MODALITY_DEFAULT[modality]
+        recommended = architecture if architecture != "mlp" else _MODALITY_DEFAULT[modality]
         self._emit("model_recommendation", "complete", f"recommended: {recommended}")
 
         # 8-12. execution + metrics + explainability + sensitivity + robustness
         cohort_metrics: dict[str, dict[str, float]] = {}
-        if modality == "tabular" and run_dl and inference.task_type == "binary_classification":
+        if modality == "tabular" and run_dl and inference.task_type in ("binary_classification", "multiclass_classification", "regression", "forecasting"):
             cohort_metrics = self._run_tabular_dl(
-                plan, single_target, evidence, seed
+                plan, single_target, evidence, seed, architecture=architecture, task_type=inference.task_type, activation=activation, custom_space=custom_space
             )
         else:
             self._emit("model_execution", "skipped", "diagnostics-only review (no model trained)")
@@ -251,32 +254,128 @@ class ReviewOrchestrator:
         )
 
     # -- helpers ----------------------------------------------------------- #
-    def _run_tabular_dl(self, plan, target, evidence, seed) -> dict[str, dict[str, float]]:
-        from start.modeling.metrics import compute_cohort_metrics
-        from start.modeling.tabular_dl import TabularDLClassifier
+    def _run_tabular_dl(self, plan, target, evidence, seed, architecture="mlp", task_type="binary_classification", activation="relu", custom_space=None) -> dict[str, dict[str, float]]:
+        from start.modeling.models import resolve_model
+        from start.modeling.tabular_dl_metrics import dl_task_metrics
+        from start.modeling.tuning_run import _model_family
 
-        self._emit("model_execution", "running", "training tabular MLP")
+        self._emit("model_execution", "running", f"training tabular {architecture} with activation {activation}")
         features = [c for c in plan.train.columns if c != target]
         features = [c for c in features if pd.api.types.is_numeric_dtype(plan.train[c])]
-        clf = TabularDLClassifier(
-            task="binary_classification", family="mlp", epochs=8, random_state=seed
-        )
+        
+        family = _model_family(architecture)
+        if family == "sklearn":
+            from sklearn.impute import SimpleImputer
+            imputer = SimpleImputer(strategy="median")
+            plan.train = plan.train.copy()
+            plan.train[features] = imputer.fit_transform(plan.train[features])
+            if len(plan.test):
+                plan.test = plan.test.copy()
+                plan.test[features] = imputer.transform(plan.test[features])
+            if len(plan.oos):
+                plan.oos = plan.oos.copy()
+                plan.oos[features] = imputer.transform(plan.oos[features])
+        if family == "tabular_dl":
+            from start.modeling.tabular_dl import TabularDLClassifier
+            kwargs = {
+                "task": task_type,
+                "family": architecture,
+                "activation": activation,
+                "epochs": 8,
+                "random_state": seed
+            }
+            if custom_space:
+                if "hidden_dims" in custom_space:
+                    kwargs["hidden_dims"] = custom_space["hidden_dims"]
+                elif "hidden_size" in custom_space:
+                    kwargs["hidden_dims"] = (custom_space["hidden_size"],) * custom_space.get("num_layers", 1)
+                for param in ("learning_rate", "dropout", "batch_size", "epochs"):
+                    if param in custom_space:
+                        val = custom_space[param]
+                        if isinstance(val, list):
+                            val = val[0]
+                        kwargs[param] = val
+            clf = TabularDLClassifier(**kwargs)
+        elif family == "sequence_dl":
+            from start.modeling.sequence_dl import SequenceClassifier
+            kwargs = {
+                "family": architecture,
+                "epochs": 8,
+                "random_state": seed
+            }
+            if custom_space:
+                for param in ("hidden_size", "learning_rate", "dropout", "epochs"):
+                    if param in custom_space:
+                        val = custom_space[param]
+                        if isinstance(val, list):
+                            val = val[0]
+                        kwargs[param] = val
+            clf = SequenceClassifier(**kwargs)
+        elif family == "vision_dl":
+            from start.modeling.vision_dl import VisionCNNClassifier
+            arch = "simple_cnn_small" if architecture == "cnn" else architecture
+            kwargs = {
+                "architecture": arch,
+                "epochs": 8,
+                "random_state": seed
+            }
+            if custom_space:
+                for param in ("learning_rate", "batch_size", "epochs"):
+                    if param in custom_space:
+                        val = custom_space[param]
+                        if isinstance(val, list):
+                            val = val[0]
+                        kwargs[param] = val
+            clf = VisionCNNClassifier(**kwargs)
+        else:
+            clf, _, _ = resolve_model(architecture, seed)
+            if custom_space:
+                scalar_space = {}
+                for k, v in custom_space.items():
+                    scalar_space[k] = v[0] if isinstance(v, list) else v
+                try:
+                    clf.set_params(**scalar_space)
+                except Exception:
+                    pass
+            
         clf.fit(plan.train[features], plan.train[target])
-        self._emit("model_execution", "complete", f"device={clf.device_used}")
+        device_used = getattr(clf, "device_used", "cpu")
+        self._emit("model_execution", "complete", f"device={device_used}")
 
         self._emit("metrics", "running")
         cohort_metrics = {}
         for name, frame in (("train", plan.train), ("test", plan.test), ("oos", plan.oos)):
             if len(frame):
-                proba = clf.predict_proba(frame[features])[:, 1]
-                cohort_metrics[name] = compute_cohort_metrics(frame[target].to_numpy(), proba)
+                y_true = frame[target].to_numpy()
+                if task_type in ("regression", "forecasting"):
+                    preds = clf.predict(frame[features])
+                    cohort_metrics[name] = dl_task_metrics(task_type, y_true, preds)
+                else:
+                    proba = clf.predict_proba(frame[features])
+                    classes = getattr(clf, "classes_", None)
+                    cohort_metrics[name] = dl_task_metrics(task_type, y_true, proba, classes=classes)
+                    
+                    # Labeled confusion matrix computation and printing
+                    if classes is not None:
+                        from sklearn.metrics import confusion_matrix
+                        preds = clf.predict(frame[features])
+                        cm = confusion_matrix(y_true, preds, labels=classes)
+                        print(f"\nConfusion Matrix for cohort '{name}':")
+                        print("True \\ Pred | " + " | ".join(f"{str(c):>8}" for c in classes))
+                        print("-" * (12 + 11 * len(classes)))
+                        for idx, row_label in enumerate(classes):
+                            row_str = " | ".join(f"{cm[idx, j]:>8}" for j in range(len(classes)))
+                            print(f"{str(row_label):<11} | {row_str}")
+                        print("")
+        
+        m_key = "rmse" if task_type in ("regression", "forecasting") else "auc_roc"
         evidence.append(
             TestResult(
                 test_id="execution.cohort_metrics",
                 test_name="Cohort performance metrics",
-                metrics={f"{k}_auc": v["auc_roc"] for k, v in cohort_metrics.items()},
+                metrics={f"{k}_{m_key}": v[m_key] for k, v in cohort_metrics.items() if m_key in v},
                 interpretation="; ".join(
-                    f"{k} AUC {v['auc_roc']:.4f}" for k, v in cohort_metrics.items()
+                    f"{k} {m_key.upper()} {v[m_key]:.4f}" for k, v in cohort_metrics.items() if m_key in v
                 ),
             ).apply_thresholds()
         )

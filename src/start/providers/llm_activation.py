@@ -24,6 +24,8 @@ _ENDPOINTS = {
     "openai": "https://api.openai.com/v1",
     "anthropic": "https://api.anthropic.com/v1",
     "grok": "https://api.x.ai/v1",
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/",
+    "deepseek": "https://api.deepseek.com/v1",
     "enterprise_llm_gateway": "configured by the firm (src/start/enterprise/)",
     "none": "—",
 }
@@ -32,6 +34,8 @@ _DEFAULT_MODELS = {
     "openai": "gpt-4.1",
     "anthropic": "claude-sonnet-4-6",
     "grok": "grok-3",
+    "gemini": "gemini-1.5-flash",
+    "deepseek": "deepseek-chat",
     "enterprise_llm_gateway": "gateway-managed",
 }
 

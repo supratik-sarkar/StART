@@ -1,0 +1,4 @@
+split,rows,percent,positive_rate,negative_rate
+train,360,60.0,0.0028,0.9972
+test,120,20.0,0.0083,0.9917
+oos,120,20.0,0.0083,0.9917

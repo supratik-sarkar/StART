@@ -189,11 +189,19 @@ class HyperparameterTuningAgent:
     ) -> TuningPlan:
         metric = select_primary_metric(task_type, costlier_errors=costlier_errors)["primary_metric"]
         trials = n_trials or (5 if n_samples < 2000 else 10 if n_samples < 20000 else 15)
-        search_space = {
-            "learning_rate": [1e-3, 3e-3, 1e-2],
-            "hidden_dims": [[32], [64, 32], [128, 64]],
-            "dropout": [0.0, 0.1, 0.2],
-        }
+        if family in ("rnn", "lstm", "gru", "bi_lstm"):
+            search_space = {
+                "learning_rate": [1e-3, 3e-3, 1e-2],
+                "hidden_size": [16, 32, 64],
+                "num_layers": [1, 2],
+                "dropout": [0.0, 0.1, 0.2],
+            }
+        else:
+            search_space = {
+                "learning_rate": [1e-3, 3e-3, 1e-2],
+                "hidden_dims": [[32], [64, 32], [128, 64]],
+                "dropout": [0.0, 0.1, 0.2],
+            }
         return TuningPlan(
             strategy="bounded_randomized_search",
             primary_metric=metric,

@@ -72,10 +72,11 @@ def test_each_architecture_builds_and_trains(architecture, dl_splits):
 
 def test_roadmap_architectures_raise():
     # Sequence families are not handled by the tabular classifier factory.
-    for arch in ("lstm", "gru", "tcn", "transformer", "tft"):
+    for arch in ("tcn", "transformer", "tft"):
         with pytest.raises(NotImplementedError):
             build_classifier(arch)
     assert set(DL_ARCHITECTURES) == {"mlp", "leaky_relu_mlp", "residual_mlp", "wide_deep"}
+
 
 
 def test_training_history_and_early_stopping(dl_splits):

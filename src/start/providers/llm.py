@@ -14,6 +14,7 @@ outside this repository.
 from __future__ import annotations
 
 import os
+import time
 
 from start.core.config import LLMConfig
 from start.providers.base import LLMProvider
@@ -51,6 +52,7 @@ class OpenAIProvider(LLMProvider):
         from openai import OpenAI
 
         client = OpenAI()
+        t0 = time.perf_counter()
         resp = client.chat.completions.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -60,6 +62,12 @@ class OpenAIProvider(LLMProvider):
                 {"role": "user", "content": user},
             ],
         )
+        self.last_latency_seconds = time.perf_counter() - t0
+        self.last_response_id = getattr(resp, "id", "") or ""
+        usage = getattr(resp, "usage", None)
+        if usage:
+            self.last_input_tokens = getattr(usage, "prompt_tokens", 0)
+            self.last_output_tokens = getattr(usage, "completion_tokens", 0)
         return resp.choices[0].message.content or ""
 
 
@@ -82,6 +90,7 @@ class AnthropicProvider(LLMProvider):
         import anthropic
 
         client = anthropic.Anthropic()
+        t0 = time.perf_counter()
         resp = client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -89,6 +98,12 @@ class AnthropicProvider(LLMProvider):
             system=system,
             messages=[{"role": "user", "content": user}],
         )
+        self.last_latency_seconds = time.perf_counter() - t0
+        self.last_response_id = getattr(resp, "id", "") or ""
+        usage = getattr(resp, "usage", None)
+        if usage:
+            self.last_input_tokens = getattr(usage, "input_tokens", 0)
+            self.last_output_tokens = getattr(usage, "output_tokens", 0)
         return "".join(block.text for block in resp.content if block.type == "text")
 
 
@@ -185,6 +200,76 @@ class HFLocalProvider(LLMProvider):
         return out[0]["generated_text"][-1]["content"]
 
 
+class GeminiProvider(OpenAIProvider):
+    """Google Gemini via OpenAI-compatible API."""
+
+    name = "gemini"
+
+    def __init__(self, model: str = "gemini-1.5-flash", temperature: float = 0.0) -> None:
+        super().__init__(model=model, temperature=temperature)
+
+    @property
+    def available(self) -> bool:
+        try:
+            import openai  # noqa: F401
+        except ImportError:
+            return False
+        return bool(os.environ.get("GEMINI_API_KEY"))
+
+    def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+        from openai import OpenAI
+
+        client = OpenAI(
+            api_key=os.environ["GEMINI_API_KEY"],
+            base_url="https://generativelanguage.googleapis.com/v1beta/",
+        )
+        resp = client.chat.completions.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            temperature=self.temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        return resp.choices[0].message.content or ""
+
+
+class DeepSeekProvider(OpenAIProvider):
+    """DeepSeek via OpenAI-compatible API."""
+
+    name = "deepseek"
+
+    def __init__(self, model: str = "deepseek-chat", temperature: float = 0.0) -> None:
+        super().__init__(model=model, temperature=temperature)
+
+    @property
+    def available(self) -> bool:
+        try:
+            import openai  # noqa: F401
+        except ImportError:
+            return False
+        return bool(os.environ.get("DEEPSEEK_API_KEY"))
+
+    def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+        from openai import OpenAI
+
+        client = OpenAI(
+            api_key=os.environ["DEEPSEEK_API_KEY"],
+            base_url="https://api.deepseek.com/v1",
+        )
+        resp = client.chat.completions.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            temperature=self.temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        return resp.choices[0].message.content or ""
+
+
 class EnterpriseLLMGatewayProvider(LLMProvider):
     """Neutral placeholder for an internal enterprise LLM gateway.
 
@@ -224,6 +309,8 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "grok": GrokProvider,
+    "gemini": GeminiProvider,
+    "deepseek": DeepSeekProvider,
     "huggingface": HuggingFaceProvider,
     "hf_local": HFLocalProvider,
     "enterprise_llm_gateway": EnterpriseLLMGatewayProvider,
@@ -249,7 +336,7 @@ def get_llm_provider(config: LLMConfig, expected_domain: str | None = None) -> L
 
     cls = _PROVIDERS.get(config.provider, NoLLMProvider)
     try:
-        if config.model and config.provider in {"openai", "anthropic", "grok", "huggingface", "hf_local"}:
+        if config.model and config.provider in {"openai", "anthropic", "grok", "gemini", "deepseek", "huggingface", "hf_local"}:
             provider = cls(model=config.model)  # type: ignore[call-arg]
         else:
             provider = cls()

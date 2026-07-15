@@ -15,9 +15,42 @@ action log. No silent overrides: the decision is always explicit.
 
 from __future__ import annotations
 
+import select
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+
+
+def read_multiline_paste_normalized(prompt: str) -> str:
+    """Read a line of input. If additional lines are queued in stdin (indicating a paste),
+
+    read them all with a short timeout and join them with spaces into a single string.
+    This prevents pasted newlines from remaining in the stdin buffer and polluting later prompts.
+    If stdin is not a TTY or not select-supported, fallback to standard readline/input.
+    """
+    if prompt:
+        print(prompt, end="", flush=True)
+    first_line = sys.stdin.readline()
+    if not first_line:
+        return ""
+    
+    lines = [first_line.strip()]
+    try:
+        if sys.stdin.isatty():
+            while True:
+                r, _, _ = select.select([sys.stdin], [], [], 0.05)
+                if r:
+                    next_line = sys.stdin.readline()
+                    if not next_line:
+                        break
+                    lines.append(next_line.strip())
+                else:
+                    break
+    except (OSError, AttributeError, ValueError):
+        pass
+
+    return " ".join([l for l in lines if l]).strip()
 
 
 @dataclass
@@ -59,8 +92,8 @@ def render_checkpoint(
         lines.append(f"    Detail      : {extra}")
     if agree:
         lines.append("    (agent agrees with your choice)")
-    else:
-        lines.append("    [A] Accept recommendation   [K] Keep my choice   [E] Explain further")
+    # v3.1.1: always show all options, even when values agree
+    lines.append("    [A] Accept   [O] Override   [C] Challenge   [Q] Ask agent")
     return "\n".join(lines)
 
 
@@ -77,25 +110,51 @@ def resolve_checkpoint(
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
     on_ask: Callable[[str], str] | None = None,
+    llm: Any = None,
+    session: Any = None,
+    ctx: Any = None,
 ) -> CheckpointDecision:
     """Resolve a single decision checkpoint.
 
-    - If the agent agrees with the user, no prompt is needed.
-    - auto_accept: take the recommendation, recorded as 'auto_accept'.
-    - non-interactive (and not auto_accept): keep the user's choice, recorded
-      as 'non_interactive_keep' (never a silent override).
-    - interactive: prompt [A]/[K]/[E]; [E] prints the explanation and re-asks.
-      If ``on_ask`` is provided, [Q] lets the user ask the agent a freeform
-      question; the answer is printed and the prompt repeats (item 2).
+    v3.1.1: All checkpoints show [A]/[O]/[C]/[Q] even if user and recommended
+    values agree. LLM response telemetry is printed on every agent answer.
+    Q&A exchanges are persisted with checkpoint ID, agent name, question,
+    answer, response ID, and evidence context.
     """
     say = emit or (lambda _msg: None)
     say(render_checkpoint(name, user_value, recommended_value, reason, evidence_id, explanation))
 
-    if user_value == recommended_value:
-        return CheckpointDecision(
-            name, user_value, recommended_value, reason, evidence_id,
-            choice="accept", effective_value=user_value,
-        )
+    def _fallback_log(q_text, ans_text):
+        if llm is not None and getattr(llm, "last_response_id", None):
+            if getattr(llm, "_telemetry_printed", False) is not True:
+                _total_tokens = llm.last_input_tokens + llm.last_output_tokens
+                say(
+                    f"    [LLM Call] Response ID: {llm.last_response_id} | "
+                    f"Latency: {llm.last_latency_seconds:.3f}s | "
+                    f"Tokens: {llm.last_input_tokens}/{llm.last_output_tokens} "
+                    f"(total: {_total_tokens})"
+                )
+            try:
+                if hasattr(llm, "_telemetry_printed"):
+                    delattr(llm, "_telemetry_printed")
+            except AttributeError:
+                pass
+
+        if session is not None and hasattr(session, "record_qa"):
+            if getattr(session, "_qa_recorded", False) is not True:
+                session.record_qa(
+                    checkpoint_id=name,
+                    agent_name=current_agent,
+                    question=q_text,
+                    answer=ans_text,
+                    response_id=getattr(llm, "last_response_id", "") if llm else "",
+                    evidence_context=evidence_id,
+                )
+            try:
+                if hasattr(session, "_qa_recorded"):
+                    delattr(session, "_qa_recorded")
+            except AttributeError:
+                pass
 
     if auto_accept:
         return CheckpointDecision(
@@ -110,15 +169,107 @@ def resolve_checkpoint(
             choice="non_interactive_keep", effective_value=user_value,
         )
 
-    ask_hint = " / Ask agent (Q)" if on_ask else ""
+    checkpoint_agent_map = {
+        "architecture": "ArchitectureReviewAgent",
+        "metric_priority": "HyperparameterTuningAgent",
+        "target": "DatasetDiscoveryAgent",
+    }
+    current_agent = checkpoint_agent_map.get(name, "System Coordinator")
+
     while True:
-        answer = (ask(
-            f"[{name}] Accept (A) / Keep (K) / Explain (E){ask_hint}? "
-        ) or "").strip().lower()
+        if ask is input:
+            from rich.console import Console
+
+            from start.cli.view import get_styled_agent_name
+            c = Console()
+            c.print(f"[{name}] Accept (A) / Override (O) / Challenge (C)", end="")
+            if on_ask:
+                c.print(" / [Q] ask ", end="")
+                c.print(get_styled_agent_name(current_agent), end="")
+            c.print("? ", end="")
+            answer_raw = read_multiline_paste_normalized("")
+        else:
+            from start.cli.view import get_ansi_agent_name
+            ask_hint = f" / [Q] ask {get_ansi_agent_name(current_agent)}" if on_ask else ""
+            answer_raw = ask(
+                f"[{name}] Accept (A) / Override (O) / Challenge (C){ask_hint}? "
+            )
+
+        stripped = (answer_raw or "").strip()
+        answer = stripped.lower()
+
+        # Check if the user wants to ask a question
+        is_q = False
+        question = ""
+        if answer in ("q", "ask", "?"):
+            is_q = True
+        elif answer.startswith("q ") or answer.startswith("q\n") or answer.startswith("q:"):
+            is_q = True
+            question = stripped[1:].strip()
+            if question.startswith(":") or question.startswith("\n"):
+                question = question[1:].strip()
+
+        if on_ask and is_q:
+            if not question:
+                prompt_q = f"    Ask {current_agent}: "
+                if ask is input:
+                    question = read_multiline_paste_normalized(prompt_q)
+                else:
+                    question = ask(prompt_q)
+
+            question = (question or "").strip()
+            # Do not treat the literal Q or empty as the question
+            if question.lower() in ("q", "ask", "?") or not question:
+                continue
+
+            agent_answer = on_ask(question)
+            say(f"    {agent_answer}")
+            _fallback_log(question, agent_answer)
+            continue
+
+        # Challenge — prompts for a challenge question and calls the provider
+        if answer in ("c", "challenge"):
+            if on_ask:
+                prompt_c = f"    Enter challenge to {current_agent}: "
+                if ask is input:
+                    challenge_q = read_multiline_paste_normalized(prompt_c)
+                else:
+                    challenge_q = ask(prompt_c)
+                challenge_q = (challenge_q or "").strip()
+                if not challenge_q:
+                    challenge_q = (
+                        f"Why is the recommended value '{recommended_value}' "
+                        f"preferable to my choice '{user_value}'? "
+                        f"Please justify this choice and address the alternative."
+                    )
+                agent_answer = on_ask(challenge_q)
+                say(f"    {agent_answer}")
+                _fallback_log(challenge_q, agent_answer)
+            else:
+                say("    Challenge accepted. Agent reasoning:")
+                say(f"    {explanation or reason}")
+                if evidence_id:
+                    say(f"    Evidence basis: {evidence_id}")
+            continue
+
         if answer in ("a", "accept"):
             return CheckpointDecision(
                 name, user_value, recommended_value, reason, evidence_id,
                 choice="accept", effective_value=recommended_value,
+            )
+        # v3.1.1: Override replaces Accept + Keep. If values agree, override
+        # still prompts for a new value.
+        if answer in ("o", "override"):
+            if ask is input:
+                new_val = read_multiline_paste_normalized("    Override value: ")
+            else:
+                new_val = ask("    Override value: ")
+            new_val = (new_val or "").strip()
+            if not new_val:
+                new_val = user_value
+            return CheckpointDecision(
+                name, user_value, recommended_value, reason, evidence_id,
+                choice="override", effective_value=new_val,
             )
         if answer in ("k", "keep", ""):
             return CheckpointDecision(
@@ -128,9 +279,6 @@ def resolve_checkpoint(
         if answer in ("e", "explain"):
             say(f"    {explanation or reason}")
             continue
-        if on_ask and answer in ("q", "ask", "?"):
-            question = (ask("    Ask the agent: ") or "").strip()
-            if question:
-                say(f"    {on_ask(question)}")
-            continue
-        say(f"    Please answer A, K, or E{', or Q to ask' if on_ask else ''}.")
+
+        say(f"    Please answer A, O, C{', or Q to ask' if on_ask else ''}.")
+

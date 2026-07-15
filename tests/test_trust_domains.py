@@ -24,8 +24,8 @@ def test_domain_mapping():
     assert trust_domain("none") == TrustDomain.NONE
 
 
-def test_public_providers_are_exactly_the_three():
-    assert set(PUBLIC_PROVIDERS) == {"openai", "anthropic", "grok"}
+def test_public_providers_are_exactly_the_five():
+    assert set(PUBLIC_PROVIDERS) == {"openai", "anthropic", "grok", "gemini", "deepseek"}
     assert set(PRIVATE_PROVIDERS) == {"enterprise_llm_gateway"}
 
 

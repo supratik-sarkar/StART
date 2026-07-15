@@ -40,6 +40,10 @@ def run_feature_engineering_checkpoints(
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
     evidence: Any = None,
+    business_context: str = "",
+    reviewer_clarification: str = "",
+    task_type: str = "",
+    model_name: str = "",
 ) -> dict[str, str]:
     """Negotiate each FE recommendation (item 5). Returns step -> action map
     ('accept' keeps the default action; 'skip' rejects it). Decisions are
@@ -54,6 +58,10 @@ def run_feature_engineering_checkpoints(
             alternatives=None,
             dataset_summary="",
             checkpoint=f"fe:{rec.step}", evidence=evidence,
+            business_context=business_context,
+            reviewer_clarification=reviewer_clarification,
+            task_type=task_type,
+            model_name=model_name,
         )
         on_ask = _ask_factory("FeatureEngineeringAgent", ctx, session, llm, llm_connected)
         action = "apply"
@@ -65,14 +73,83 @@ def run_feature_engineering_checkpoints(
             say(f"  FeatureEngineeringAgent recommends: {rec.recommendation}")
             say(f"    reason: {rec.reason}")
             while True:
-                resp = (ask(
-                    f"    Apply {rec.step}? [Y]es / [n]o (skip) / [Q] ask agent: "
-                ) or "").strip().lower()
+                current_agent = "FeatureEngineeringAgent"
+                if ask is input:
+                    from rich.console import Console
+
+                    from start.cli.view import get_styled_agent_name
+                    from start.interactive_checkpoints import read_multiline_paste_normalized
+                    c = Console()
+                    c.print(f"    Apply {rec.step}? [Y]es / [n]o / [Q] ask ", end="")
+                    c.print(get_styled_agent_name(current_agent), end=": ")
+                    resp_raw = read_multiline_paste_normalized("")
+                else:
+                    from start.cli.view import get_ansi_agent_name
+                    resp_raw = ask(
+                        f"    Apply {rec.step}? [Y]es / [n]o / [Q] ask {get_ansi_agent_name(current_agent)}: "
+                    )
+
+                stripped = (resp_raw or "").strip()
+                resp = stripped.lower()
+
+                # Check if the user wants to ask a question or challenge
+                is_q = False
+                question = ""
                 if resp in ("q", "ask", "?"):
-                    q = (ask("      Ask the agent: ") or "").strip()
-                    if q:
-                        say(f"      {on_ask(q)}")
+                    is_q = True
+                elif resp.startswith("q ") or resp.startswith("q\n") or resp.startswith("q:"):
+                    is_q = True
+                    question = stripped[1:].strip()
+                    if question.startswith(":") or question.startswith("\n"):
+                        question = question[1:].strip()
+
+                is_c = False
+                challenge = ""
+                if resp in ("c", "challenge"):
+                    is_c = True
+                elif resp.startswith("c ") or resp.startswith("c\n") or resp.startswith("c:"):
+                    is_c = True
+                    challenge = stripped[1:].strip()
+                    if challenge.startswith(":") or challenge.startswith("\n"):
+                        challenge = challenge[1:].strip()
+
+                if is_q:
+                    if not question:
+                        prompt_q = f"    Ask {current_agent}: "
+                        if ask is input:
+                            from start.interactive_checkpoints import read_multiline_paste_normalized
+                            question = read_multiline_paste_normalized(prompt_q)
+                        else:
+                            question = ask(prompt_q)
+
+                    question = (question or "").strip()
+                    if question.lower() in ("q", "ask", "?") or not question:
+                        continue
+
+                    agent_answer = on_ask(question)
+                    say(f"    {agent_answer}")
                     continue
+
+                if is_c:
+                    if not challenge:
+                        prompt_c = f"    Enter challenge to {current_agent}: "
+                        if ask is input:
+                            from start.interactive_checkpoints import read_multiline_paste_normalized
+                            challenge = read_multiline_paste_normalized(prompt_c)
+                        else:
+                            challenge = ask(prompt_c)
+
+                    challenge = (challenge or "").strip()
+                    if not challenge:
+                        challenge = (
+                            f"Why is the recommendation '{rec.recommendation}' for step '{rec.step}' "
+                            f"appropriate? Please justify this recommendation."
+                        )
+
+                    agent_answer = on_ask(challenge)
+                    say(f"    {agent_answer}")
+                    continue
+
                 if resp in ("n", "no", "skip", "reject"):
                     action, choice = "skip", "reject"
                 break
@@ -98,9 +175,12 @@ def run_metric_checkpoint(
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
     evidence: Any = None,
+    business_context: str = "",
+    reviewer_clarification: str = "",
+    task_type: str = "",
+    model_name: str = "",
 ) -> str:
-    """Confirm cost priority / primary metric (items 1, 2). Returns effective
-    cost priority that routes tuning + validation downstream (#2)."""
+    """Negotiate the metric prioritization checkpoint. Returns effective choice."""
     say = emit or (lambda _m: None)
     ctx = AgentContext(
         agent="HyperparameterTuningAgent",
@@ -109,12 +189,17 @@ def run_metric_checkpoint(
         alternatives=[{"family": "false_negatives"}, {"family": "false_positives"},
                       {"family": "balanced"}],
         dataset_summary="", checkpoint="metric_priority", evidence=evidence,
+        business_context=business_context,
+        reviewer_clarification=reviewer_clarification,
+        task_type=task_type,
+        model_name=model_name,
     )
     on_ask = _ask_factory("HyperparameterTuningAgent", ctx, session, llm, llm_connected)
     dec = resolve_checkpoint(
         "metric_priority", user_cost, recommended_cost, reason,
         explanation=reason, interactive=interactive, auto_accept=auto_accept,
         ask=ask, emit=say, on_ask=on_ask,
+        llm=llm, session=session, ctx=ctx,
     )
     session.record_decision(Decision(
         key="metric_priority", prompt="Cost priority?",
@@ -150,6 +235,7 @@ def run_target_checkpoint(
         "target", candidate_target, recommended_target, reason,
         explanation=reason, interactive=interactive, auto_accept=auto_accept,
         ask=ask, emit=say, on_ask=on_ask,
+        llm=llm, session=session, ctx=ctx,
     )
     session.record_decision(Decision(
         key="target", prompt="Target column?",

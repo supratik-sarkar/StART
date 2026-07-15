@@ -93,45 +93,96 @@ class KFoldTuningRun:
         }
 
 
-def _metric_fn(primary_metric: str):
+def _replace_inf_with_nan(X):
+    """Replace non-finite values (inf, -inf) in feature matrix with NaN."""
+    X_arr = np.asarray(X, dtype=float)
+    return np.where(np.isfinite(X_arr), X_arr, np.nan)
+
+
+def _metric_fn(primary_metric: str, is_multiclass: bool, classes_order: Any):
     """Map the routed primary metric to a scorer(y_true, proba)."""
     from sklearn.metrics import (
         average_precision_score,
+        f1_score,
         precision_score,
         recall_score,
         roc_auc_score,
     )
+    from sklearn.preprocessing import label_binarize
 
     def auc(y, p):
-        return float(roc_auc_score(y, p))
+        if is_multiclass:
+            return float(roc_auc_score(y, p, multi_class="ovr", average="macro", labels=classes_order))
+        else:
+            return float(roc_auc_score(y, p))
 
     def prauc(y, p):
-        return float(average_precision_score(y, p))
+        if is_multiclass:
+            y_bin = label_binarize(y, classes=classes_order)
+            return float(average_precision_score(y_bin, p, average="macro"))
+        else:
+            return float(average_precision_score(y, p))
 
     def rec(y, p):
-        return float(recall_score(y, (np.asarray(p) >= 0.5).astype(int), zero_division=0))
+        if is_multiclass:
+            yhat = classes_order[np.argmax(p, axis=1)]
+            return float(recall_score(y, yhat, average="macro", labels=classes_order, zero_division=0))
+        else:
+            yhat = (np.asarray(p) >= 0.5).astype(int)
+            return float(recall_score(y, yhat, zero_division=0))
 
     def prec(y, p):
-        return float(precision_score(y, (np.asarray(p) >= 0.5).astype(int), zero_division=0))
+        if is_multiclass:
+            yhat = classes_order[np.argmax(p, axis=1)]
+            return float(precision_score(y, yhat, average="macro", labels=classes_order, zero_division=0))
+        else:
+            yhat = (np.asarray(p) >= 0.5).astype(int)
+            return float(precision_score(y, yhat, zero_division=0))
+
+    def f1(y, p):
+        if is_multiclass:
+            yhat = classes_order[np.argmax(p, axis=1)]
+            return float(f1_score(y, yhat, average="macro", labels=classes_order, zero_division=0))
+        else:
+            yhat = (np.asarray(p) >= 0.5).astype(int)
+            return float(f1_score(y, yhat, zero_division=0))
 
     def specificity(y, p):
-        yhat = (np.asarray(p) >= 0.5).astype(int)
-        tn = int(((yhat == 0) & (np.asarray(y) == 0)).sum())
-        fp = int(((yhat == 1) & (np.asarray(y) == 0)).sum())
-        return float(tn / (tn + fp)) if (tn + fp) else 0.0
+        if is_multiclass:
+            from sklearn.metrics import confusion_matrix
+            yhat = classes_order[np.argmax(p, axis=1)]
+            cm = confusion_matrix(y, yhat, labels=classes_order)
+            specs = []
+            for i in range(len(cm)):
+                tp = cm[i, i]
+                fn = cm[i, :].sum() - tp
+                fp = cm[:, i].sum() - tp
+                tn = cm.sum() - (tp + fn + fp)
+                spec = float(tn / (tn + fp)) if (tn + fp) else 0.0
+                specs.append(spec)
+            return float(np.mean(specs))
+        else:
+            yhat = (np.asarray(p) >= 0.5).astype(int)
+            tn = int(((yhat == 0) & (np.asarray(y) == 0)).sum())
+            fp = int(((yhat == 1) & (np.asarray(y) == 0)).sum())
+            return float(tn / (tn + fp)) if (tn + fp) else 0.0
 
     return {
         "auc_roc": auc, "pr_auc": prauc, "recall": rec,
         "precision": prec, "specificity": specificity,
+        "f1": f1, "macro_f1": f1,
     }.get(primary_metric, auc)
 
 
 def _make_estimator(C: float, class_weight: Any, seed: int):
+    from sklearn.impute import SimpleImputer
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
-    from sklearn.preprocessing import StandardScaler
+    from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
     return make_pipeline(
+        FunctionTransformer(_replace_inf_with_nan),
+        SimpleImputer(strategy="median"),
         StandardScaler(),
         LogisticRegression(C=C, class_weight=class_weight, max_iter=1000,
                            random_state=seed),
@@ -150,6 +201,7 @@ def run_kfold_tuning(
     run_id: str = "RUN",
     registry: Any = None,
     excluded_rows: int = 0,
+    task_type: str = "binary_classification",
 ) -> KFoldTuningRun | None:
     """Run stratified K-fold tuning over TRAIN-ONLY rows. ``train_df`` must
     already exclude test/OOS. Returns None if infeasible (too few rows/features
@@ -159,10 +211,11 @@ def run_kfold_tuning(
     if target not in train_df or train_df[target].nunique() < 2:
         return None
 
+    is_multiclass = (task_type == "multiclass_classification")
+
     metric_name = (primary_metric if primary_metric in
-                   ("auc_roc", "pr_auc", "recall", "precision", "specificity")
+                   ("auc_roc", "pr_auc", "recall", "precision", "specificity", "f1", "macro_f1")
                    else "auc_roc")
-    score = _metric_fn(metric_name)
 
     X = train_df[features].to_numpy(dtype=float)
     y = train_df[target].to_numpy()
@@ -189,7 +242,14 @@ def run_kfold_tuning(
         for fi, (tr_idx, va_idx) in enumerate(skf.split(X, y), start=1):
             est = _make_estimator(params["C"], params["class_weight"], seed)
             est.fit(X[tr_idx], y[tr_idx])
-            proba = est.predict_proba(X[va_idx])[:, 1]
+            classes_order = est.classes_
+            score = _metric_fn(metric_name, is_multiclass, classes_order)
+
+            if is_multiclass:
+                proba = est.predict_proba(X[va_idx])
+            else:
+                proba = est.predict_proba(X[va_idx])[:, 1]
+
             m = round(float(score(y[va_idx], proba)), 6)
             fold_scores.append(m)
             fold_results.append(FoldResult(fold=fi, metric=m,

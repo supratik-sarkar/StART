@@ -346,17 +346,26 @@ def render_dashboard_md(model: DashboardModel) -> str:
     if model.tuning_run:
         tr = model.tuning_run
         if tr.get("ran"):
+            param_keys = []
+            for t in tr.get("trials", []):
+                for k in t.get("params", {}).keys():
+                    if k not in param_keys:
+                        param_keys.append(k)
             lines += ["", "### Tuning trials (executed)", "",
                       f"- Best metric: {tr.get('best_metric'):.4f} | "
                       f"best params: {tr.get('best_params')}",
-                      "",
-                      "| Trial | learning_rate | hidden_dims | dropout | Validation metric | Status |",
-                      "| --- | --- | --- | --- | --- | --- |"]
+                      ""]
+            header_cols = ["Trial"] + param_keys + ["Validation metric", "Status"]
+            lines.append("| " + " | ".join(header_cols) + " |")
+            lines.append("| " + " | ".join(["---"] * len(header_cols)) + " |")
             for t in tr.get("trials", []):
                 p = t["params"]
+                cells = []
+                for k in param_keys:
+                    cells.append(str(p.get(k, "-")))
                 lines.append(
-                    f"| {t['trial']} | {p['learning_rate']} | {p['hidden_dims']} "
-                    f"| {p['dropout']} | {t['validation_metric']:.4f} | {t['status']} |"
+                    f"| {t['trial']} | " + " | ".join(cells) +
+                    f" | {t['validation_metric']:.4f} | {t['status']} |"
                 )
         else:
             lines += ["", f"_{tr.get('note', 'Tuning disabled.')}_"]
@@ -737,20 +746,27 @@ def render_dashboard_html(model: DashboardModel) -> str:
     if model.tuning_run:
         tr = model.tuning_run
         if tr.get("ran"):
+            param_keys = []
+            for t in tr.get("trials", []):
+                for k in t.get("params", {}).keys():
+                    if k not in param_keys:
+                        param_keys.append(k)
             trows = []
             for t in tr.get("trials", []):
                 p = t["params"]
-                trows.append([
-                    esc(t["trial"]), esc(p["learning_rate"]), esc(p["hidden_dims"]),
-                    esc(p["dropout"]), f"{t['validation_metric']:.4f}",
+                row_cells = [esc(t["trial"])]
+                for k in param_keys:
+                    row_cells.append(esc(p.get(k, "-")))
+                row_cells += [
+                    f"{t['validation_metric']:.4f}",
                     f"<b>{esc(t['status'])}</b>" if t["status"] == "best" else esc(t["status"]),
-                ])
+                ]
+                trows.append(row_cells)
             sections.append(
                 "<section><h2>Tuning Trials (executed)</h2>"
                 f"<p>Best metric: <b>{esc(round(tr.get('best_metric', 0.0), 4))}</b> "
                 f"| best params: <code>{esc(tr.get('best_params'))}</code></p>"
-                + table(["Trial", "learning_rate", "hidden_dims", "dropout",
-                         "Validation metric", "Status"], trows)
+                + table(["Trial"] + param_keys + ["Validation metric", "Status"], trows)
                 + "</section>"
             )
         else:

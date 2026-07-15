@@ -38,6 +38,7 @@ class VisionCNNClassifier:
         early_stopping_patience: int = 3,
         device: str | None = None,
         random_state: int = 42,
+        class_weight: str | None = None,
     ) -> None:
         if epochs > 10:
             raise ValueError("Laptop-safe constraint: epochs must be <= 10.")
@@ -52,6 +53,7 @@ class VisionCNNClassifier:
         self.early_stopping_patience = early_stopping_patience
         self.device = device
         self.random_state = random_state
+        self.class_weight = class_weight
         self._net = None
         self._device_used = "cpu"
         self.classes_: np.ndarray | None = None
@@ -67,6 +69,22 @@ class VisionCNNClassifier:
         torch.manual_seed(self.random_state)
         np.random.seed(self.random_state)
         X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 2:
+            n_samples, n_features = X.shape
+            from start.modeling.vision_models import _PRESET_CONFIG
+            n_blocks = 2
+            if self.architecture in _PRESET_CONFIG:
+                n_blocks = _PRESET_CONFIG[self.architecture].get("n_blocks", 2)
+            elif self.config:
+                n_blocks = self.config.n_blocks
+            min_size = 2 ** n_blocks
+            image_size = max(min_size, int(np.ceil(np.sqrt(n_features))))
+            padded_features = image_size * image_size
+            if n_features < padded_features:
+                X_padded = np.zeros((n_samples, padded_features), dtype=np.float32)
+                X_padded[:, :n_features] = X
+                X = X_padded
+            X = X.reshape(n_samples, 1, image_size, image_size)
         y_arr = np.asarray(y).reshape(-1)
         self.classes_ = np.unique(y_arr)
         mapping = {c: i for i, c in enumerate(self.classes_)}
@@ -98,7 +116,12 @@ class VisionCNNClassifier:
         if has_val:
             xv, yv = Xt[val_idx].to(device), yt[val_idx].to(device)
         opt = torch.optim.Adam(self._net.parameters(), lr=self.learning_rate)
-        loss_fn = torch.nn.CrossEntropyLoss()
+        if self.class_weight == "balanced":
+            from sklearn.utils.class_weight import compute_class_weight
+            weights = compute_class_weight("balanced", classes=self.classes_, y=y_arr)
+            loss_fn = torch.nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
+        else:
+            loss_fn = torch.nn.CrossEntropyLoss()
         self.history_ = {"train_loss": [], "val_loss": []}
         best_val, best_state, no_improve = float("inf"), None, 0
         self.stopped_early_ = False
@@ -140,6 +163,22 @@ class VisionCNNClassifier:
         if self._net is None:
             raise RuntimeError("Not fitted; call fit() first.")
         X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 2:
+            n_samples, n_features = X.shape
+            from start.modeling.vision_models import _PRESET_CONFIG
+            n_blocks = 2
+            if self.architecture in _PRESET_CONFIG:
+                n_blocks = _PRESET_CONFIG[self.architecture].get("n_blocks", 2)
+            elif self.config:
+                n_blocks = self.config.n_blocks
+            min_size = 2 ** n_blocks
+            image_size = max(min_size, int(np.ceil(np.sqrt(n_features))))
+            padded_features = image_size * image_size
+            if n_features < padded_features:
+                X_padded = np.zeros((n_samples, padded_features), dtype=np.float32)
+                X_padded[:, :n_features] = X
+                X = X_padded
+            X = X.reshape(n_samples, 1, image_size, image_size)
         device = torch.device(self._device_used)
         self._net.eval()
         with torch.no_grad():

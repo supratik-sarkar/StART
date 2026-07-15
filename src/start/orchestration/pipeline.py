@@ -212,3 +212,43 @@ def review_dataframes(
     merged_extra.update(extra or {})
     ctx = build_context(cfg, bundle.train, bundle.test, model=model, extra=merged_extra)
     return run_review(cfg, ctx)
+
+
+# --- StART v2.4.0 Core Interceptor & Telemetry UI Bridge ---
+import asyncio
+
+from start.cli.view import ProgressDashboardUI
+from start.engine.state import StepCheckpointer
+from start.orchestration.middleware import SelfHealingExecutionInterceptor
+from start.telemetry.bus import TelemetryBus
+
+
+async def execute_pipeline_v240_bridge(workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"):
+    bus = TelemetryBus()
+    checkpointer = StepCheckpointer()
+    ui = ProgressDashboardUI(bus)
+    interceptor = SelfHealingExecutionInterceptor(telemetry_bus=bus, checkpointer=checkpointer)
+    
+    async def wrapped_execution():
+        ui.set_global_progress(15.0)
+        # Wrap the legacy test function execution inside the self-healing interceptor framework
+        result = await interceptor.execute_test_step(
+            workflow_id=workflow_id,
+            stage_name=stage_name,
+            test_callable=lambda ctx: core_runner_func(ctx),
+            test_context=context_payload
+        )
+        ui.set_global_progress(100.0)
+        await asyncio.sleep(0.5)
+        return result
+
+    return await ui.monitor_execution(wrapped_execution())
+
+def run_v240_sync_entry(workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"):
+    """Synchronous entry point proxy to execute the async TUI inside the legacy CLI thread context."""
+    try:
+        return asyncio.run(execute_pipeline_v240_bridge(workflow_id, stage_name, core_runner_func, context_payload, violation_type))
+    except RuntimeError:
+        # Fallback if an event loop is already running in the current thread
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(execute_pipeline_v240_bridge(workflow_id, stage_name, core_runner_func, context_payload, violation_type))

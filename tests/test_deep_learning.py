@@ -42,8 +42,9 @@ def test_laptop_safe_constraints():
         build_classifier("mlp", epochs=50)
     with pytest.raises(ValueError, match="batch_size"):
         build_classifier("mlp", batch_size=4096)
-    with pytest.raises(NotImplementedError):  # lstm -> use the sequence track
-        build_classifier("lstm")
+    with pytest.raises(NotImplementedError):  # tcn -> use the sequence track
+        build_classifier("tcn")
+
     with pytest.raises(ValueError, match="[Uu]nknown architecture"):
         build_classifier("quantum_net")
     assert set(SUPPORTED_ARCHITECTURES) >= {"mlp", "rnn", "lstm", "gru", "tcn"}

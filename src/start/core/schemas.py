@@ -9,7 +9,7 @@ produce ``TestResult`` objects, the execution layer enriches them into
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
 
@@ -53,7 +53,7 @@ class Materiality(str, Enum):
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_evidence_id() -> str:

@@ -4,11 +4,7 @@ When the enterprise review runs with training enabled, this produces the
 visible, exportable tables the reviewer needs — split distribution, metrics by
 split (with calibration), training diagnostics, and a global explainability
 table — and writes them as CSV/JSON artifacts registered in the
-ArtifactRegistry. It reuses the existing DL building blocks (no new model
-abstractions) and degrades honestly if torch is unavailable.
-
-All outputs are deterministic given a seed and contain no raw user rows beyond
-the standard evidence posture.
+ArtifactRegistry.
 """
 
 from __future__ import annotations
@@ -48,23 +44,41 @@ class CopilotExecution:
 
 
 def _stratified_split(
-    df: pd.DataFrame, target: str, props: tuple[float, float, float], seed: int
+    df: pd.DataFrame, target: str, props: tuple[float, float, float], seed: int, stratify: bool = True
 ) -> dict[str, pd.DataFrame]:
-    """Stratified train/test/OOS split honoring user proportions."""
+    """Train/test/OOS split honoring user proportions, with optional stratification."""
     train_p, test_p, _ = props
+    
+    # If the task is regression, or classes < 2, stratify is not possible
+    if stratify and target in df.columns and df[target].dropna().nunique() >= 2:
+        try:
+            rng = np.random.default_rng(seed)
+            parts: dict[str, list[pd.DataFrame]] = {"train": [], "test": [], "oos": []}
+            for _, grp in df.groupby(target, observed=True):
+                idx = grp.index.to_numpy().copy()
+                rng.shuffle(idx)
+                n = len(idx)
+                n_tr = int(round(n * train_p))
+                n_te = int(round(n * test_p))
+                parts["train"].append(grp.loc[idx[:n_tr]])
+                parts["test"].append(grp.loc[idx[n_tr:n_tr + n_te]])
+                parts["oos"].append(grp.loc[idx[n_tr + n_te:]])
+            return {k: pd.concat(v).sample(frac=1.0, random_state=seed) if v else pd.DataFrame()
+                    for k, v in parts.items()}
+        except Exception:
+            pass # Fall back to random split
+            
     rng = np.random.default_rng(seed)
-    parts: dict[str, list[pd.DataFrame]] = {"train": [], "test": [], "oos": []}
-    for _, grp in df.groupby(target, observed=True):
-        idx = grp.index.to_numpy().copy()
-        rng.shuffle(idx)
-        n = len(idx)
-        n_tr = int(round(n * train_p))
-        n_te = int(round(n * test_p))
-        parts["train"].append(grp.loc[idx[:n_tr]])
-        parts["test"].append(grp.loc[idx[n_tr:n_tr + n_te]])
-        parts["oos"].append(grp.loc[idx[n_tr + n_te:]])
-    return {k: pd.concat(v).sample(frac=1.0, random_state=seed) if v else pd.DataFrame()
-            for k, v in parts.items()}
+    idx = df.index.to_numpy().copy()
+    rng.shuffle(idx)
+    n = len(idx)
+    n_tr = int(round(n * train_p))
+    n_te = int(round(n * test_p))
+    return {
+        "train": df.loc[idx[:n_tr]].sample(frac=1.0, random_state=seed) if n_tr > 0 else pd.DataFrame(),
+        "test": df.loc[idx[n_tr:n_tr + n_te]].sample(frac=1.0, random_state=seed) if n_te > 0 else pd.DataFrame(),
+        "oos": df.loc[idx[n_tr + n_te:]].sample(frac=1.0, random_state=seed) if (n - n_tr - n_te) > 0 else pd.DataFrame()
+    }
 
 
 def _split_rows(splits: dict[str, pd.DataFrame], target: str) -> list[dict[str, Any]]:
@@ -72,7 +86,10 @@ def _split_rows(splits: dict[str, pd.DataFrame], target: str) -> list[dict[str, 
     rows = []
     for name, frame in splits.items():
         n = len(frame)
-        pos = float((frame[target] == frame[target].max()).mean()) if n else 0.0
+        try:
+            pos = float((frame[target] == frame[target].max()).mean()) if n else 0.0
+        except Exception:
+            pos = 0.0
         rows.append({
             "split": name,
             "rows": n,
@@ -95,21 +112,31 @@ def run_copilot_execution(
     run_id: str = "RUN",
     registry: Any = None,
     apply_correlation_pruning: bool = False,
+    architecture: str = "mlp",
+    stratify: bool = True,
+    class_weight: str | None = None,
+    task_type: str = "binary_classification",
+    activation: str | None = None,
+    winsorize: bool = False,
+    custom_space: dict[str, Any] | None = None,
 ) -> CopilotExecution | None:
-    """Train a tabular model on a user-proportioned split and emit the visible
-    tables + artifacts. Returns None if torch is unavailable (caller surfaces
-    the honest fallback).
-
-    ``apply_correlation_pruning`` reflects the user's FE decision: when True,
-    one feature from each highly-correlated pair is dropped before training;
-    when False (e.g. user rejected pruning), all features are retained (#2)."""
+    """Train a tabular model and emit the visible tables + artifacts."""
+    from start.modeling.tuning_run import _model_family
+    family = _model_family(architecture)
     try:
-        from start.modeling.deep_learning import torch_available
-        if not torch_available():
-            return None
+        from start.modeling.models import resolve_model
+        if family != "sklearn":
+            from start.modeling.deep_learning import torch_available
+            if not torch_available():
+                return None
+            if family == "tabular_dl":
+                from start.modeling.tabular_dl import TabularDLClassifier
+            elif family == "sequence_dl":
+                from start.modeling.sequence_dl import SequenceClassifier
+            elif family == "vision_dl":
+                from start.modeling.vision_dl import VisionCNNClassifier
         from start.modeling.dl_explain import dl_global_importance
-        from start.modeling.dl_metrics import compute_dl_cohort_metrics
-        from start.modeling.tabular_dl import TabularDLClassifier
+        from start.modeling.tabular_dl_metrics import dl_task_metrics
     except Exception:
         return None
 
@@ -117,7 +144,7 @@ def run_copilot_execution(
         c for c in df.columns
         if c != target and pd.api.types.is_numeric_dtype(df[c])
     ]
-    # #2: honor the user's correlation-pruning decision in actual execution.
+    # honor the user's correlation-pruning decision in actual execution.
     pruned_features: list[str] = []
     if apply_correlation_pruning and len(features) > 2:
         corr = df[features].corr().abs()
@@ -137,9 +164,22 @@ def run_copilot_execution(
     if len(features) < 2:
         return None
 
-    splits = _stratified_split(df, target, split_props, seed)
+    # For regression, disable stratification
+    effective_stratify = stratify and (task_type not in ("regression", "forecasting"))
+    splits = _stratified_split(df, target, split_props, seed, stratify=effective_stratify)
     if any(len(f) == 0 for f in splits.values()):
         return None
+
+    if family == "sklearn":
+        from sklearn.impute import SimpleImputer
+        imputer = SimpleImputer(strategy="median")
+        for k in ("train", "test", "oos"):
+            splits[k] = splits[k].copy()
+        splits["train"][features] = imputer.fit_transform(splits["train"][features])
+        if len(splits["test"]):
+            splits["test"][features] = imputer.transform(splits["test"][features])
+        if len(splits["oos"]):
+            splits["oos"][features] = imputer.transform(splits["oos"][features])
 
     out_dir = Path(output_root) / "copilot" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -155,37 +195,110 @@ def run_copilot_execution(
     result.artifacts += [str(split_csv), str(split_json)]
 
     # --- train (Section I) ---
-    clf = TabularDLClassifier(
-        task="binary_classification", family="mlp", epochs=8, random_state=seed
-    )
-    clf.fit(splits["train"][features], splits["train"][target])
+    if family == "tabular_dl":
+        kwargs = {
+            "task": task_type,
+            "family": architecture,
+            "activation": activation,
+            "epochs": 8,
+            "random_state": seed,
+            "class_weight": class_weight,
+            "winsorize": winsorize
+        }
+        if custom_space:
+            if "hidden_dims" in custom_space:
+                kwargs["hidden_dims"] = custom_space["hidden_dims"]
+            elif "hidden_size" in custom_space:
+                kwargs["hidden_dims"] = (custom_space["hidden_size"],) * custom_space.get("num_layers", 1)
+            for param in ("learning_rate", "dropout", "batch_size", "epochs"):
+                if param in custom_space:
+                    val = custom_space[param]
+                    if isinstance(val, list):
+                        val = val[0]
+                    kwargs[param] = val
+        clf = TabularDLClassifier(**kwargs)
+        clf.fit(splits["train"][features], splits["train"][target])
+    elif family == "sequence_dl":
+        kwargs = {
+            "family": architecture,
+            "epochs": 8,
+            "random_state": seed,
+            "class_weight": class_weight,
+        }
+        if custom_space:
+            for param in ("hidden_size", "learning_rate", "dropout", "epochs"):
+                if param in custom_space:
+                    val = custom_space[param]
+                    if isinstance(val, list):
+                        val = val[0]
+                    kwargs[param] = val
+        clf = SequenceClassifier(**kwargs)
+        clf.fit(splits["train"][features], splits["train"][target])
+    elif family == "vision_dl":
+        arch = "simple_cnn_small" if architecture == "cnn" else architecture
+        kwargs = {
+            "architecture": arch,
+            "epochs": 8,
+            "random_state": seed,
+            "class_weight": class_weight,
+        }
+        if custom_space:
+            for param in ("learning_rate", "batch_size", "epochs"):
+                if param in custom_space:
+                    val = custom_space[param]
+                    if isinstance(val, list):
+                        val = val[0]
+                    kwargs[param] = val
+        clf = VisionCNNClassifier(**kwargs)
+        clf.fit(splits["train"][features], splits["train"][target])
+    else:
+        clf, _, _ = resolve_model(architecture, seed)
+        if custom_space:
+            # For sklearn models, clean lists or arrays from custom_space to scalars
+            scalar_space = {}
+            for k, v in custom_space.items():
+                scalar_space[k] = v[0] if isinstance(v, list) else v
+            try:
+                clf.set_params(**scalar_space)
+            except Exception:
+                pass
+        fit_kwargs = {}
+        if class_weight == "balanced":
+            try:
+                from sklearn.utils.class_weight import compute_sample_weight
+                sample_weight = compute_sample_weight("balanced", splits["train"][target])
+                fit_kwargs["sample_weight"] = sample_weight
+            except Exception:
+                pass
+        clf.fit(splits["train"][features], splits["train"][target], **fit_kwargs)
 
     # --- metrics by split (Section J) ---
     from sklearn.metrics import (
-        average_precision_score,
         confusion_matrix,
         precision_score,
         recall_score,
     )
     for name, frame in splits.items():
-        proba = clf.predict_proba(frame[features])[:, 1]
         y_true = frame[target].to_numpy()
-        m = compute_dl_cohort_metrics(y_true, proba)
-        preds = (proba >= 0.5).astype(int)
-        # add the full binary metric set the reviewer expects
-        try:
-            m["pr_auc"] = round(float(average_precision_score(y_true, proba)), 6)
-        except Exception:
-            m["pr_auc"] = float("nan")
-        m["precision"] = round(float(precision_score(y_true, preds, zero_division=0)), 6)
-        m["recall"] = round(float(recall_score(y_true, preds, zero_division=0)), 6)
-        try:
-            tn, fp, fn, tp = confusion_matrix(y_true, preds, labels=[0, 1]).ravel()
-            m["specificity"] = round(float(tn / (tn + fp)) if (tn + fp) else 0.0, 6)
-            m["confusion_matrix"] = [int(tn), int(fp), int(fn), int(tp)]
-        except Exception:
-            m["specificity"] = float("nan")
+        if task_type in ("regression", "forecasting"):
+            preds = clf.predict(frame[features])
+            m = dl_task_metrics(task_type, y_true, preds)
+        else:
+            proba = clf.predict_proba(frame[features])
+            m = dl_task_metrics(task_type, y_true, proba, classes=getattr(clf, "classes_", None))
+            if task_type == "binary_classification":
+                p1 = proba[:, 1]
+                preds = (p1 >= 0.5).astype(int)
+                m["precision"] = round(float(precision_score(y_true, preds, zero_division=0)), 6)
+                m["recall"] = round(float(recall_score(y_true, preds, zero_division=0)), 6)
+                try:
+                    tn, fp, fn, tp = confusion_matrix(y_true, preds, labels=[0, 1]).ravel()
+                    m["specificity"] = round(float(tn / (tn + fp)) if (tn + fp) else 0.0, 6)
+                    m["confusion_matrix"] = [int(tn), int(fp), int(fn), int(tp)]
+                except Exception:
+                    m["specificity"] = float("nan")
         result.metrics_by_split[name] = m
+
     metrics_csv = out_dir / "metrics_by_split.csv"
     scalar_metrics = {
         split: {k: v for k, v in m.items() if not isinstance(v, list)}
@@ -193,6 +306,7 @@ def run_copilot_execution(
     }
     pd.DataFrame(scalar_metrics).T.to_csv(metrics_csv)
     result.artifacts.append(str(metrics_csv))
+    
     # confusion matrices exported separately (Section J)
     cm_rows = [
         {"split": s, "tn": m["confusion_matrix"][0], "fp": m["confusion_matrix"][1],
@@ -203,8 +317,9 @@ def run_copilot_execution(
         cm_csv = out_dir / "confusion_matrix.csv"
         pd.DataFrame(cm_rows).to_csv(cm_csv, index=False)
         result.artifacts.append(str(cm_csv))
+
     if "train" in result.metrics_by_split and "oos" in result.metrics_by_split:
-        m = metric_name if metric_name in result.metrics_by_split["train"] else "auc_roc"
+        m = metric_name if metric_name in result.metrics_by_split["train"] else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
         result.generalization_gap = round(
             result.metrics_by_split["train"][m] - result.metrics_by_split["oos"][m], 6
         )
@@ -216,7 +331,7 @@ def run_copilot_execution(
         "best_epoch": getattr(clf, "best_epoch_", None),
         "stopped_early": getattr(clf, "stopped_early_", False),
         "epochs_run": len(history.get("train_loss", [])) if history else None,
-        "architecture": "mlp",
+        "architecture": architecture,
     }
     train_json = out_dir / "training_summary.json"
     train_json.write_text(json.dumps(result.training_diagnostics, indent=2, default=str))
@@ -268,12 +383,13 @@ def render_copilot_execution_markdown(ex: CopilotExecution) -> str:
             f"| {r['positive_rate']} | {r['negative_rate']} |"
         )
     if ex.metrics_by_split:
-        keys = ["auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1", "brier_score", "ece"]
+        first_split = next(iter(ex.metrics_by_split.values()))
+        keys = [k for k in first_split.keys() if k != "confusion_matrix" and not isinstance(first_split[k], list)]
         lines += ["", "### Metrics by split", "",
                   "| Split | " + " | ".join(keys) + " |",
                   "| --- " * (len(keys) + 1) + "|"]
         for split, m in ex.metrics_by_split.items():
-            cells = " | ".join(f"{m.get(k, float('nan')):.4f}" for k in keys)
+            cells = " | ".join(f"{m.get(k, float('nan')):.4f}" if isinstance(m.get(k), (int, float)) else str(m.get(k)) for k in keys)
             lines.append(f"| {split} | {cells} |")
         if ex.generalization_gap is not None:
             lines += ["", f"Generalization gap (train - OOS): {ex.generalization_gap:.4f}"]

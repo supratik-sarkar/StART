@@ -61,7 +61,10 @@ class FERecommendationSet:
 
 
 def recommend_feature_engineering(
-    stats: DataStatistics, modality: str = "tabular", evidence_prefix: str = "FE"
+    stats: DataStatistics,
+    modality: str = "tabular",
+    evidence_prefix: str = "FE",
+    cost_specification: dict[str, Any] | None = None,
 ) -> FERecommendationSet:
     recs: list[FERecommendation] = []
     i = 0
@@ -126,11 +129,33 @@ def recommend_feature_engineering(
         ))
 
     # class imbalance
-    if "severe" in stats.imbalance_warning or "moderate" in stats.imbalance_warning:
+    cost_spec = cost_specification or {"type": "balanced"}
+    has_imbalance_warning = "severe" in stats.imbalance_warning or "moderate" in stats.imbalance_warning
+    
+    # Check if target is approximately balanced (minority class fraction >= 30%)
+    is_approx_balanced = False
+    if stats.class_distribution:
+        vals = list(stats.class_distribution.values())
+        if vals:
+            min_frac = min(vals)
+            if any(v > 1.0 for v in vals):
+                min_frac = min_frac / 100.0
+            if min_frac >= 0.30:
+                is_approx_balanced = True
+
+    recommend_weighting = False
+    if is_approx_balanced:
+        if cost_spec.get("type", "balanced") != "balanced":
+            recommend_weighting = True
+    else:
+        if has_imbalance_warning:
+            recommend_weighting = True
+
+    if recommend_weighting:
         recs.append(FERecommendation(
             step="imbalance",
             recommendation="Handle class imbalance (class weights, or resampling on train only).",
-            reason=f"Target imbalance: {stats.imbalance_warning}.",
+            reason=f"Target imbalance: {stats.imbalance_warning} (cost spec: {cost_spec.get('type')})." if is_approx_balanced else f"Target imbalance: {stats.imbalance_warning}.",
             evidence_id=ev(),
             risk_if_ignored="Model optimizes majority class; minority recall collapses.",
             default_action="class_weights",
