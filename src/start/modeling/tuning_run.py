@@ -637,17 +637,37 @@ def run_tuning(
             print(f"    ... and {len(_unique_warnings) - 10} more", file=sys.stderr)
 
     # mark best + rejected — failed trials cannot be best
-    for t in run.trials:
-        if t.status == "failed":
-            run.rejected_params.append(t.params)
+    eligible_trials = [
+        trial
+        for trial in run.trials
+        if trial.status != "failed"
+    ]
+
+    canonical_best = None
+    if eligible_trials:
+        canonical_best = (
+            min(
+                eligible_trials,
+                key=lambda trial: trial.validation_metric,
+            )
+            if minimize
+            else max(
+                eligible_trials,
+                key=lambda trial: trial.validation_metric,
+            )
+        )
+
+    for trial in run.trials:
+        if trial.status == "failed":
             continue
-        is_best = (t.validation_metric == best_metric)
-        t.status = "best" if is_best else "ok"
-        if t.status == "best":
-            run.best_params = t.params
-            run.best_metric = t.validation_metric
+
+        if trial is canonical_best:
+            trial.status = "best"
+            run.best_params = trial.params
+            run.best_metric = trial.validation_metric
         else:
-            run.rejected_params.append(t.params)
+            trial.status = "ok"
+            run.rejected_params.append(trial.params)
 
     # write artifacts
     out_dir = Path(output_root) / "tuning" / run_id

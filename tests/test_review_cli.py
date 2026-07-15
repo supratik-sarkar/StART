@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
 from typer.testing import CliRunner
@@ -8,6 +10,10 @@ from start.cli import app
 from start.interactive_review import ReviewConfig, prompt_review_config
 
 runner = CliRunner()
+
+
+def _plain_help(output: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", output)
 
 
 def test_review_command_non_interactive_demo(tmp_path):
@@ -120,7 +126,7 @@ def test_review_help_lists_full_surface():
     assert result.exit_code == 0
     for flag in ("--split-strategy", "--architecture", "--activation",
                  "--explain-method", "--robustness", "--agent-mode", "--llm-provider"):
-        assert flag in result.output
+        assert flag in _plain_help(result.output)
 
 
 def test_review_notebook_py_compiles():
@@ -178,7 +184,7 @@ def test_enterprise_help_documents_flag():
 
     result = CliRunner().invoke(app, ["review", "--help"])
     assert result.exit_code == 0
-    assert "--enterprise" in result.output
+    assert "--enterprise" in _plain_help(result.output)
 
 
 def test_enterprise_notebook_py_compiles():
@@ -234,7 +240,7 @@ def test_review_help_documents_new_flags():
     result = CliRunner().invoke(app, ["review", "--help"])
     assert result.exit_code == 0
     for flag in ("--cost", "--accept-recommendatio", "--show-progress"):
-        assert flag in result.output
+        assert flag in _plain_help(result.output)
 
 
 # -- v2.1.1 visible co-pilot terminal output ---------------------------------- #
