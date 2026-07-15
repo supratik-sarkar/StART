@@ -94,6 +94,7 @@ class TorchMLPClassifier:
         device: str | None = None,
         random_state: int = 42,
         verbose: bool = False,
+        class_weight: str | None = None,
     ) -> None:
         if epochs > 10:
             raise ValueError("Laptop-safe constraint: default-configurable epochs must be <= 10.")
@@ -113,6 +114,7 @@ class TorchMLPClassifier:
         self.device = device
         self.random_state = random_state
         self.verbose = verbose
+        self.class_weight = class_weight
         self._net = None
         self.classes_ = np.array([0, 1])  # sklearn classifier contract
         self._mean: np.ndarray | None = None
@@ -138,6 +140,7 @@ class TorchMLPClassifier:
             "device": self.device,
             "random_state": self.random_state,
             "verbose": self.verbose,
+            "class_weight": self.class_weight,
         }
 
     def set_params(self, **params: Any) -> TorchMLPClassifier:
@@ -192,7 +195,16 @@ class TorchMLPClassifier:
 
         self._net = self._build_net(X_arr.shape[1]).to(device)
         optimizer = torch.optim.Adam(self._net.parameters(), lr=self.learning_rate)
-        loss_fn = torch.nn.BCEWithLogitsLoss()
+        if self.class_weight == "balanced":
+            n_pos = float(np.sum(y_arr == 1))
+            n_neg = float(np.sum(y_arr == 0))
+            if n_pos > 0:
+                pos_weight = torch.tensor([n_neg / n_pos], dtype=torch.float32, device=device)
+                loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+            else:
+                loss_fn = torch.nn.BCEWithLogitsLoss()
+        else:
+            loss_fn = torch.nn.BCEWithLogitsLoss()
 
         train_ds = TensorDataset(
             torch.tensor(X_arr[tr_idx], dtype=torch.float32),
@@ -300,11 +312,11 @@ def build_classifier(architecture: str | None = None, **kwargs: Any) -> Any:
         architecture, activation=activation_kw, family=family_kw
     )
 
-    if resolved.modality != "tabular":
+    if not resolved.spec.implemented or resolved.modality == "vision":
         raise NotImplementedError(
-            f"'{resolved.family}' is a {resolved.modality} architecture; use the "
-            f"{resolved.modality} track, not the tabular classifier factory."
+            f"'{resolved.family}' is not implemented for the tabular classifier factory."
         )
+
     return TorchMLPClassifier(
         architecture=resolved.family, activation=resolved.activation, **kwargs
     )

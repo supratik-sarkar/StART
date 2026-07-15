@@ -37,13 +37,14 @@ StART targets model review and model-risk evaluation across data preprocessing, 
 20. [Enterprise Agentic Model Review (v2.0.0)](#enterprise-agentic-model-review-v200)
 21. [Live Model-Engineering Co-Pilot (v2.1.0)](#live-model-engineering-co-pilot-v210)
 22. [Visible Reviewer Co-Pilot (v2.1.1)](#visible-reviewer-co-pilot-v211)
-23. [Databricks](#databricks)
-24. [Extending the registry](#extending-the-registry)
-25. [Repository layout](#repository-layout)
-26. [Development workflow](#development-workflow)
-27. [Troubleshooting](#troubleshooting)
-28. [Public-safety statement](#public-safety-statement)
-29. [Roadmap](#roadmap)
+23. [Autonomous Self-Healing Committee (v2.4.0)](#autonomous-self-healing-committee-v240)
+24. [Databricks](#databricks)
+25. [Extending the registry](#extending-the-registry)
+26. [Repository layout](#repository-layout)
+27. [Development workflow](#development-workflow)
+28. [Troubleshooting](#troubleshooting)
+29. [Public-safety statement](#public-safety-statement)
+30. [Roadmap](#roadmap)
 
 ---
 
@@ -511,7 +512,95 @@ python -m ipykernel install --user --name start --display-name "Python (StART .v
 
 In VS Code: open the repo, open `notebooks/03_deep_learning_model_review.ipynb`, and select the kernel **Python (StART .venv-start)**. Run the option/widget cells, then the review cell. (On Windows the same `.py` example and notebook run unchanged; only the venv-activation command differs.)
 
-### Databricks deployment
+### Autonomous Self-Healing Committee (v2.4.0)
+
+> v2.4.0 shifts StART from a passive AI Review Engine into an active, **Autonomous AI Engineering Copilot + Review Committee**. Rather than simply flagging violations and ending with a static layout, the system transitions to a closed-loop execution pattern: **Detect → Explain → Fix → Revalidate → Compare → Recommend**.
+
+### 1. System Topology & Agent Hierarchy
+Agents are organized into a strict orchestration, diagnostic, and state-management tree. The system utilizes specific role scopes and multi-agent escalation pathways to manage findings collaboratively.
+
+```text
+             ┌───────────────────────────────────────────┐
+             │       Enterprise Review Orchestrator      │
+             └─────────────────────┬─────────────────────┘
+                                   │
+         ┌─────────────────────────┼─────────────────────────┐
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│ Root Cause Agt. │◄─────►│   Recovery Agt. │◄─────►│   Report Agent  │
+└────────┬────────┘       └─────────────────┘       └─────────────────┘
+         │
+         ├─────────────────────────┬─────────────────────────┐
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│ Data Quality Agt│       │   Leakage Agent │       │   Drift Agent   │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│Feature Eng. Agt │       │ExplainabilityAgt│       │HyperparameterAgt│
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│Architecture Agt │       │ Cost Opt. Agent │       │ Fairness Agent  │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         ▼                                                   ▼
+┌─────────────────┐                                 ┌─────────────────┐
+│ Governance Agent│                                 │  Security Agent │
+└─────────────────┘                                 └─────────────────┘
+```
+
+### 2. Asynchronous Telemetry Architecture
+To resolve operational visibility drops during long training or tuning operations, v2.4.0 introduces an asynchronous event loop decoupled from UI processing.
+
+```text
+[ Long Running Process ]
+   │  (e.g., Training, Tuning)
+   ▼
+[ telemetry_bus.publish(Event) ]
+   │
+   ▼
+┌──────────────────────────────────────┐
+│        Centralized Event Bus         │
+│  (In-memory AsyncIO Broadcast Hub)   │
+└──────────────────┬───────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────┐
+│     Streaming Progress Aggregator     │
+│ (Groups events into live state tree) │
+└──────────────────┬───────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────┐
+│       Rich Live Console Render       │
+│  (Smooth TUI updates at 10-60 Hz)    │
+└──────────────────────────────────────┘
+```
+
+### 3. Self-Healing Logic Loop
+When a test node enters a threshold breach state, the engine triggers an isolated loop to resolve the operational finding without breaking the main evaluation run.
+
+```text
+[ 1. Detect ] Class Imbalance identified -> Flagged in Evidence Ledger.
+      │
+      ▼
+[ 2. Explain ] Root Cause Agent analyzes target vector skew.
+      │
+      ▼
+[ 3. Fix ] Applies Candidate Remedies (e.g., SMOTE, Class Weights).
+      │
+      ▼
+[ 4. Revalidate ] Triggers localized retraining run on the MPS backend.
+      │
+      ▼
+[ 5. Compare ] Evaluates metrics (ROC-AUC, F1, Log-Loss) against original baseline.
+      │
+      ▼
+[ 6. Recommend ] Presents ranked options and saves best model artifact to disk.
+```
+
+
+## Databricks deployment
 
 Import `notebooks/03_deep_learning_model_review.py` as a notebook, attach a cluster with `start` installed (cluster library or `%pip install`), and use the widgets — `architecture`, `epochs`, `batch_size`, `learning_rate`, `dataset_source`, `target_column`, `agent_mode`, `llm_provider`, `secret_scope`. Run deterministic mode first (no key); for LLM mode, store the key in a **secret scope** (`dbutils.secrets.get(scope, KEY_NAME)`) — never a visible widget — and the notebook resolves secret scope → environment → deterministic fallback, printing only the key *source*. Outputs are functionally equivalent to the local run.
 
@@ -808,6 +897,94 @@ start review --non-interactive --target attrition --run-dl --enterprise
 ```
 
 ---
+
+## Autonomous Self-Healing Committee (v2.4.0)
+
+> v2.4.0 shifts StART from a passive AI Review Engine into an active, **Autonomous AI Engineering Copilot + Review Committee**. Rather than simply flagging violations and ending with a static layout, the system transitions to a closed-loop execution pattern: **Detect → Explain → Fix → Revalidate → Compare → Recommend**.
+
+### 1. System Topology & Agent Hierarchy
+Agents are organized into a strict orchestration, diagnostic, and state-management tree. The system utilizes specific role scopes and multi-agent escalation pathways to manage findings collaboratively.
+
+```text
+             ┌───────────────────────────────────────────┐
+             │       Enterprise Review Orchestrator      │
+             └─────────────────────┬─────────────────────┘
+                                   │
+         ┌─────────────────────────┼─────────────────────────┐
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│ Root Cause Agt. │◄─────►│   Recovery Agt. │◄─────►│   Report Agent  │
+└────────┬────────┘       └─────────────────┘       └─────────────────┘
+         │
+         ├─────────────────────────┬─────────────────────────┐
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│ Data Quality Agt│       │   Leakage Agent │       │   Drift Agent   │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│Feature Eng. Agt │       │ExplainabilityAgt│       │HyperparameterAgt│
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         ▼                         ▼                         ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│Architecture Agt │       │ Cost Opt. Agent │       │ Fairness Agent  │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         ▼                                                   ▼
+┌─────────────────┐                                 ┌─────────────────┐
+│ Governance Agent│                                 │  Security Agent │
+└─────────────────┘                                 └─────────────────┘
+```
+
+### 2. Asynchronous Telemetry Architecture
+To resolve operational visibility drops during long training or tuning operations, v2.4.0 introduces an asynchronous event loop decoupled from UI processing.
+
+```text
+[ Long Running Process ]
+   │  (e.g., Training, Tuning)
+   ▼
+[ telemetry_bus.publish(Event) ]
+   │
+   ▼
+┌──────────────────────────────────────┐
+│        Centralized Event Bus         │
+│  (In-memory AsyncIO Broadcast Hub)   │
+└──────────────────┬───────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────┐
+│     Streaming Progress Aggregator     │
+│ (Groups events into live state tree) │
+└──────────────────┬───────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────┐
+│       Rich Live Console Render       │
+│  (Smooth TUI updates at 10-60 Hz)    │
+└──────────────────────────────────────┘
+```
+
+### 3. Self-Healing Logic Loop
+When a test node enters a threshold breach state, the engine triggers an isolated loop to resolve the operational finding without breaking the main evaluation run.
+
+```text
+[ 1. Detect ] Class Imbalance identified -> Flagged in Evidence Ledger.
+      │
+      ▼
+[ 2. Explain ] Root Cause Agent analyzes target vector skew.
+      │
+      ▼
+[ 3. Fix ] Applies Candidate Remedies (e.g., SMOTE, Class Weights).
+      │
+      ▼
+[ 4. Revalidate ] Triggers localized retraining run on the MPS backend.
+      │
+      ▼
+[ 5. Compare ] Evaluates metrics (ROC-AUC, F1, Log-Loss) against original baseline.
+      │
+      ▼
+[ 6. Recommend ] Presents ranked options and saves best model artifact to disk.
+```
+
 
 ## Databricks
 

@@ -1,0 +1,15 @@
+{
+  "run_id": "RUN-ENT-ba3bef58",
+  "span_count": 1,
+  "spans": [
+    {
+      "name": "model_review",
+      "attributes": {
+        "start.run_id": "RUN-ENT-ba3bef58",
+        "start.n_stages": 36,
+        "start.evidence_count": 6
+      },
+      "duration_ns": 9000
+    }
+  ]
+}

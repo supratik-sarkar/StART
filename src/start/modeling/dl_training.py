@@ -311,6 +311,7 @@ def _print_metrics_table(cohort_metrics: dict[str, dict[str, float]]) -> None:
     table.add_column("Cohort")
     pretty = {
         "auc_roc": "AUC-ROC",
+        "pr_auc": "PR-AUC",
         "accuracy": "Accuracy",
         "precision": "Precision",
         "recall": "Recall",
@@ -319,6 +320,7 @@ def _print_metrics_table(cohort_metrics: dict[str, dict[str, float]]) -> None:
         "brier_score": "Brier",
         "ece": "ECE",
     }
+
     for metric in DL_METRIC_NAMES:
         table.add_column(pretty[metric], justify="right")
     for name in ("train", "test", "oos"):

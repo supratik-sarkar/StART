@@ -71,39 +71,68 @@ def evaluate_signoff(
 
     # --- performance (OOS primary metric) ---
     oos = (store.cohort_metrics or {}).get("oos") or (store.cohort_metrics or {}).get("test")
+    lower_is_better = primary_metric.lower() in ("rmse", "mae", "mse", "mape", "brier_score", "ece")
     if oos and primary_metric in oos:
         val = oos[primary_metric]
-        if val < _MIN_PRIMARY:
-            factors.append(SignoffFactor("Performance", "blocker",
-                f"OOS {primary_metric}={val:.4f} below minimum {_MIN_PRIMARY}",
-                "cohort_metrics.oos"))
-            blockers += 1
-        elif val < _WEAK_PRIMARY:
-            factors.append(SignoffFactor("Performance", "concern",
-                f"OOS {primary_metric}={val:.4f} is weak (<{_WEAK_PRIMARY})",
-                "cohort_metrics.oos"))
-            concerns += 1
+        if lower_is_better:
+            r2_val = oos.get("r2")
+            if r2_val is not None:
+                if r2_val < 0.1:
+                    factors.append(SignoffFactor("Performance", "blocker",
+                        f"OOS r2={r2_val:.4f} is below minimum 0.1 (poor regression fit)",
+                        "cohort_metrics.oos.r2"))
+                    blockers += 1
+                elif r2_val < 0.4:
+                    factors.append(SignoffFactor("Performance", "concern",
+                        f"OOS r2={r2_val:.4f} is weak (<0.4)",
+                        "cohort_metrics.oos.r2"))
+                    concerns += 1
+                else:
+                    factors.append(SignoffFactor("Performance", "ok",
+                        f"OOS {primary_metric}={val:.4f} (r2={r2_val:.4f})", "cohort_metrics.oos"))
+            else:
+                factors.append(SignoffFactor("Performance", "ok",
+                    f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"))
         else:
-            factors.append(SignoffFactor("Performance", "ok",
-                f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"))
+            if val < _MIN_PRIMARY:
+                factors.append(SignoffFactor("Performance", "blocker",
+                    f"OOS {primary_metric}={val:.4f} below minimum {_MIN_PRIMARY}",
+                    "cohort_metrics.oos"))
+                blockers += 1
+            elif val < _WEAK_PRIMARY:
+                factors.append(SignoffFactor("Performance", "concern",
+                    f"OOS {primary_metric}={val:.4f} is weak (<{_WEAK_PRIMARY})",
+                    "cohort_metrics.oos"))
+                concerns += 1
+            else:
+                factors.append(SignoffFactor("Performance", "ok",
+                    f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"))
     else:
-        factors.append(SignoffFactor("Performance", "unknown",
+        factors.append(SignoffFactor("Performance", "blocker",
             "No OOS metric available.", ""))
+        blockers += 1
 
     # --- generalization gap (train vs OOS) ---
     cm = store.cohort_metrics or {}
     if "train" in cm and ("oos" in cm or "test" in cm):
         hold = cm.get("oos") or cm.get("test")
-        if primary_metric in cm["train"] and primary_metric in hold:
-            gap = cm["train"][primary_metric] - hold[primary_metric]
-            if gap > _MAX_GEN_GAP:
+        use_r2_gap = "r2" in cm["train"] and "r2" in hold
+        metric_for_gap = "r2" if use_r2_gap else primary_metric
+        if metric_for_gap in cm["train"] and metric_for_gap in hold:
+            if metric_for_gap == "r2" or not lower_is_better:
+                gap = cm["train"][metric_for_gap] - hold[metric_for_gap]
+            else:
+                gap = hold[metric_for_gap] - cm["train"][metric_for_gap]
+            
+            is_scale_dependent = (metric_for_gap != "r2" and lower_is_better)
+            if not is_scale_dependent and gap > _MAX_GEN_GAP:
                 factors.append(SignoffFactor("Generalization", "concern",
-                    f"train-OOS gap {gap:+.4f} exceeds {_MAX_GEN_GAP}",
+                    f"train-OOS {metric_for_gap} gap {gap:+.4f} exceeds {_MAX_GEN_GAP}",
                     "cohort_metrics"))
                 concerns += 1
             else:
                 factors.append(SignoffFactor("Generalization", "ok",
-                    f"train-OOS gap {gap:+.4f}", "cohort_metrics"))
+                    f"train-OOS {metric_for_gap} gap {gap:+.4f}", "cohort_metrics"))
 
     # --- calibration (ECE) — threshold is configurable, not a universal law ---
     if oos and "ece" in oos:

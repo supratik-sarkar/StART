@@ -42,20 +42,34 @@ class DatasetBundle:
     entity_id_column: str | None = None
     notes: list[str] = field(default_factory=list)
 
-    def ensure_split(self, seed: int = 42) -> DatasetBundle:
-        """Apply a stratified 60/20/20 split when only train was provided."""
+    def ensure_split(
+        self,
+        seed: int = 42,
+        stratify: bool = True,
+        split_proportions: tuple[float, float, float] = (0.6, 0.2, 0.2),
+    ) -> DatasetBundle:
+        """Apply a train/test/OOS split when only train was provided."""
         if self.test is not None:
             return self
-        if self.target_column is None or self.target_column not in self.train.columns:
+        if stratify and (self.target_column is None or self.target_column not in self.train.columns):
             raise ValueError(
                 "A single dataset was provided without a usable target_column; "
                 "cannot create a stratified train/test/OOS split."
             )
         from start.modeling.data import three_way_split
 
-        train, test, oos = three_way_split(self.train, self.target_column, seed=seed)
+        train, test, oos = three_way_split(
+            self.train,
+            self.target_column or "",
+            fracs=split_proportions,
+            seed=seed,
+            stratify=stratify,
+        )
+        split_type = "stratified" if stratify else "random"
         self.notes.append(
-            "Single dataset supplied; applied stratified 60/20/20 train/test/OOS split."
+            f"Single dataset supplied; applied {split_type} "
+            f"{split_proportions[0]*100:.0f}/{split_proportions[1]*100:.0f}/{split_proportions[2]*100:.0f} "
+            "train/test/OOS split."
         )
         return DatasetBundle(
             train=train,
@@ -99,15 +113,22 @@ class DemoConnector(DataConnector):
             df = _synthetic_fallback(self.seed)
         else:
             df = load_attrition_dataset(seed=self.seed)
+
+        target_col = self.meta.get("target_column") or TARGET_COLUMN
+        if target_col not in df.columns and "attrition" in df.columns:
+            df = df.rename(columns={"attrition": target_col})
+
         bundle = DatasetBundle(
             train=df,
             source=f"demo:{self.dataset}",
-            target_column=self.meta.get("target_column") or TARGET_COLUMN,
+            target_column=target_col,
             timestamp_column=self.meta.get("timestamp_column"),
             entity_id_column=self.meta.get("entity_id_column"),
             notes=["Public demo dataset; substitute your own data via any connector."],
         )
-        return bundle.ensure_split(self.seed)
+        stratify = self.meta.get("stratify", True)
+        split_props = self.meta.get("split_proportions", (0.6, 0.2, 0.2))
+        return bundle.ensure_split(self.seed, stratify=stratify, split_proportions=split_props)
 
 
 # --------------------------------------------------------------------------- #
@@ -159,7 +180,9 @@ class LocalFileConnector(DataConnector):
                 "target_column", "score_column", "timestamp_column", "entity_id_column"
             )},
         )
-        return bundle.ensure_split(self.seed)
+        stratify = self.meta.get("stratify", True)
+        split_props = self.meta.get("split_proportions", (0.6, 0.2, 0.2))
+        return bundle.ensure_split(self.seed, stratify=stratify, split_proportions=split_props)
 
 
 # --------------------------------------------------------------------------- #
@@ -190,7 +213,9 @@ class PandasConnector(DataConnector):
                 "target_column", "score_column", "timestamp_column", "entity_id_column"
             )},
         )
-        return bundle.ensure_split(self.seed)
+        stratify = self.meta.get("stratify", True)
+        split_props = self.meta.get("split_proportions", (0.6, 0.2, 0.2))
+        return bundle.ensure_split(self.seed, stratify=stratify, split_proportions=split_props)
 
 
 # --------------------------------------------------------------------------- #

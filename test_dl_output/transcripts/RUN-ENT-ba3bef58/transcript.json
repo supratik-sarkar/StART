@@ -1,0 +1,98 @@
+{
+  "run_id": "RUN-ENT-ba3bef58",
+  "decisions": [
+    {
+      "key": "validation",
+      "prompt": "Accept validation review?",
+      "recommended": "accept",
+      "user_value": "accept",
+      "effective": "accept",
+      "choice": "auto_accept",
+      "rationale": "low feature dependence; no signoff concern from sensitivity.",
+      "evidence_ids": []
+    }
+  ],
+  "conversations": [],
+  "clarifications": [],
+  "overrides": [],
+  "challenges": [],
+  "challenge_summary": {
+    "open": 0,
+    "closed": 0,
+    "unresolved": 0
+  },
+  "mrm_signoff": {
+    "verdict": "READY WITH CONDITIONS",
+    "rationale": "READY WITH CONDITIONS: 0 blocker(s), 1 concern(s), 5 factor(s) clear across performance, generalization, calibration, feature dependence, and reviewer activity. Sign-off is conditional on addressing the listed concerns.",
+    "factors": [
+      {
+        "factor": "Performance",
+        "status": "ok",
+        "detail": "OOS auc_roc=0.9671",
+        "evidence": "cohort_metrics.oos"
+      },
+      {
+        "factor": "Generalization",
+        "status": "ok",
+        "detail": "train-OOS gap -0.0015",
+        "evidence": "cohort_metrics"
+      },
+      {
+        "factor": "Calibration",
+        "status": "concern",
+        "detail": "OOS ECE=0.2570 exceeds the configured threshold 0.100 (adjustable per model/risk appetite)",
+        "evidence": "cohort_metrics.oos.ece"
+      },
+      {
+        "factor": "Feature dependence",
+        "status": "ok",
+        "detail": "max drift 0.0015 (most sensitive: worst_perimeter)",
+        "evidence": "sensitivity_analysis"
+      },
+      {
+        "factor": "Reviewer challenges",
+        "status": "ok",
+        "detail": "no outstanding reviewer challenges",
+        "evidence": "review_session"
+      },
+      {
+        "factor": "Reviewer overrides",
+        "status": "ok",
+        "detail": "no overrides; reviewer accepted recommendations",
+        "evidence": "review_session"
+      }
+    ]
+  },
+  "validation_review": {
+    "ranking": [
+      {
+        "feature": "worst_perimeter",
+        "max_abs_drift": 0.001506
+      },
+      {
+        "feature": "worst_area",
+        "max_abs_drift": 0.000595
+      },
+      {
+        "feature": "mean_perimeter",
+        "max_abs_drift": 0.000555
+      },
+      {
+        "feature": "mean_area",
+        "max_abs_drift": 0.000357
+      },
+      {
+        "feature": "area_error",
+        "max_abs_drift": 0.000185
+      }
+    ],
+    "most_sensitive_feature": "worst_perimeter",
+    "max_abs_drift": 0.001506,
+    "business_interpretation": [
+      "The model shows no material dependence on 'worst_perimeter' (max metric drift 0.0015 under +/-30% shocks). If 'worst_perimeter' shifts in production, expect a proportional change in model output; monitor it for drift and data-quality issues.",
+      "The model shows no material dependence on 'worst_area' (max metric drift 0.0006 under +/-30% shocks). If 'worst_area' shifts in production, expect a proportional change in model output; monitor it for drift and data-quality issues.",
+      "The model shows no material dependence on 'mean_perimeter' (max metric drift 0.0006 under +/-30% shocks). If 'mean_perimeter' shifts in production, expect a proportional change in model output; monitor it for drift and data-quality issues."
+    ],
+    "signoff_impact": "low feature dependence; no signoff concern from sensitivity."
+  }
+}

@@ -42,7 +42,10 @@ def test_task_set():
         "binary_classification",
         "multiclass_classification",
         "multilabel_classification",
+        "regression",
+        "forecasting",
     }
+
 
 
 def test_unknown_task_raises():
@@ -121,7 +124,8 @@ def test_metrics_branch_by_task(binary_data):
     bm = dl_task_metrics("binary_classification", y, proba, clf.classes_)
     assert "top_decile_lift" in bm  # binary-only metric
     with pytest.raises(ValueError, match="No metric branch"):
-        dl_task_metrics("forecasting", y, proba)
+        dl_task_metrics("ranking", y, proba)
+
 
 
 def test_sklearn_protocol_and_history(binary_data):

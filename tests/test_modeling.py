@@ -61,7 +61,8 @@ def test_compute_cohort_metrics_keys_and_ranges(fitted_rf, attrition_splits):
     _, test, _ = attrition_splits
     scores = model.predict_proba(test[features])[:, 1]
     metrics = compute_cohort_metrics(test[TARGET_COLUMN].to_numpy(), scores)
-    assert set(metrics) == {"auc_roc", "accuracy", "precision", "recall", "f1", "top_decile_lift"}
+    assert set(metrics) == {"auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1", "top_decile_lift"}
+
     assert 0.5 < metrics["auc_roc"] <= 1.0
     assert metrics["top_decile_lift"] > 1.0
 

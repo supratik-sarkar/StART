@@ -86,3 +86,22 @@ def test_probe_failure_is_surfaced_not_hidden():
     r = preflight_llm("openai", _FakeBroken(), probe=True)
     assert r.status == "FAILED"
     assert "failed" in r.detail.lower()
+
+
+def test_gemini_and_deepseek_trust_domains_and_endpoints(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    
+    gemini_llm = get_llm_provider(LLMConfig(provider="gemini"), expected_domain="public")
+    r_gemini = preflight_llm("gemini", gemini_llm)
+    assert r_gemini.status == "FALLBACK"
+    assert r_gemini.trust_domain == "public"
+    assert "generativelanguage" in r_gemini.endpoint
+    assert r_gemini.model == "gemini-1.5-flash"
+    
+    deepseek_llm = get_llm_provider(LLMConfig(provider="deepseek"), expected_domain="public")
+    r_deepseek = preflight_llm("deepseek", deepseek_llm)
+    assert r_deepseek.status == "FALLBACK"
+    assert r_deepseek.trust_domain == "public"
+    assert "deepseek.com" in r_deepseek.endpoint
+    assert r_deepseek.model == "deepseek-chat"

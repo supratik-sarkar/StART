@@ -55,6 +55,9 @@ class PropensityOptions:
     target_column: str = TARGET_COLUMN
     agent_mode: str = "deterministic"
     llm_provider: str = ""
+    stratify: bool = True
+    class_weight: str | None = None
+    split_proportions: tuple[float, float, float] = (0.6, 0.2, 0.2)
 
 
 # --------------------------------------------------------------------------- #
@@ -168,13 +171,17 @@ def run_propensity_demo(opts: PropensityOptions) -> RunResult:
         connector = LocalFileConnector(
             opts.train_path, opts.test_path, opts.oos_path,
             seed=opts.seed, target_column=target,
+            stratify=opts.stratify, split_proportions=opts.split_proportions,
         )
     else:
         console.print(
             "\n[bold]1/5 Data[/bold] — loading public demo dataset "
             "(bring your own with --train/--test/--oos)"
         )
-        connector = DemoConnector(seed=opts.seed, target_column=target)
+        connector = DemoConnector(
+            seed=opts.seed, target_column=target,
+            stratify=opts.stratify, split_proportions=opts.split_proportions,
+        )
     bundle = connector.load_bundle()
     train, test, oos = bundle.train, bundle.test, bundle.oos
     if target not in train.columns:
@@ -211,7 +218,15 @@ def run_propensity_demo(opts: PropensityOptions) -> RunResult:
     _print_tuning(model_name, tuning)
 
     console.print("[bold]3/5 Fit & score[/bold] — fitting on train, scoring all cohorts")
-    estimator.fit(train[features], train[target])
+    fit_kwargs = {}
+    if opts.class_weight == "balanced":
+        try:
+            from sklearn.utils.class_weight import compute_sample_weight
+            sample_weight = compute_sample_weight("balanced", train[target])
+            fit_kwargs["sample_weight"] = sample_weight
+        except Exception as e:
+            console.print(f"    [yellow]Warning: Could not compute sample weights: {e}[/yellow]")
+    estimator.fit(train[features], train[target], **fit_kwargs)
     cohorts = {}
     for name, frame in (("train", train), ("test", test), ("oos", oos)):
         frame = frame.copy()
@@ -294,12 +309,14 @@ def _print_metrics_table(cohorts: dict[str, Any], target: str = TARGET_COLUMN) -
     table.add_column("Cohort")
     pretty = {
         "auc_roc": "AUC-ROC",
+        "pr_auc": "PR-AUC",
         "accuracy": "Accuracy",
         "precision": "Precision",
         "recall": "Recall",
         "f1": "F1",
         "top_decile_lift": "Top 10% Lift",
     }
+
     for metric in METRIC_NAMES:
         table.add_column(pretty[metric], justify="right")
     for name in ("train", "test", "oos"):

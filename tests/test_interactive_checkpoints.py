@@ -6,9 +6,10 @@ from start.interactive_checkpoints import (
 )
 
 
-def test_agent_agrees_no_prompt_needed():
+def test_agent_agrees_non_interactive_keep():
     d = resolve_checkpoint("architecture", "mlp", "mlp", "good fit", evidence_id="ARCH-01")
-    assert d.choice == "accept"
+    # v3.1.1: non-interactive mode keeps user value (no auto-accept for agreement)
+    assert d.choice == "non_interactive_keep"
     assert d.effective_value == "mlp"
 
 
@@ -73,7 +74,7 @@ def test_interactive_invalid_then_valid():
         interactive=True, ask=lambda p: next(answers), emit=msgs.append,
     )
     assert d.choice == "keep"
-    assert any("A, K, or E" in m for m in msgs)
+    assert any("A, O, C" in m for m in msgs)
 
 
 def test_decision_to_dict():
@@ -87,7 +88,7 @@ def test_decision_to_dict():
 
 def test_render_checkpoint_shows_options_when_disagreeing():
     out = render_checkpoint("architecture", "wide_deep", "mlp", "small data", "ARCH-01")
-    assert "[A] Accept" in out and "[K] Keep" in out and "[E] Explain" in out
+    assert "[A] Accept" in out and "[O] Override" in out and "[C] Challenge" in out
 
 
 def test_render_checkpoint_notes_agreement():

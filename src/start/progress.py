@@ -28,15 +28,22 @@ def spinner(description: str, *, enabled: bool = True,
     if not enabled:
         yield
         return
+
+    status = None
     try:
         from rich.console import Console
 
         c = console or Console()
-        with c.status(f"[bold]{description}[/bold]", spinner="dots"):
-            yield
+        status = c.status(f"[bold]{description}[/bold]", spinner="dots")
     except Exception:
-        # Rich unavailable or non-tty: do nothing, never crash the review.
         yield
+        return
+
+    status.start()
+    try:
+        yield
+    finally:
+        status.stop()
 
 
 @contextlib.contextmanager
@@ -50,6 +57,8 @@ def progress_bar(total: int, description: str, *, enabled: bool = True,
     if not enabled or total <= 0:
         yield lambda n=1: None
         return
+
+    progress = None
     try:
         from rich.progress import (
             BarColumn,
@@ -65,14 +74,19 @@ def progress_bar(total: int, description: str, *, enabled: bool = True,
             TaskProgressColumn(),
             TimeElapsedColumn(),
             console=console,
-            transient=True,
+            transient=False,
         )
-        with progress:
-            task = progress.add_task(description, total=total)
-
-            def advance(n: int = 1) -> None:
-                progress.advance(task, n)
-
-            yield advance
     except Exception:
         yield lambda n=1: None
+        return
+
+    progress.start()
+    try:
+        task = progress.add_task(description, total=total)
+
+        def advance(n: int = 1) -> None:
+            progress.advance(task, n)
+
+        yield advance
+    finally:
+        progress.stop()

@@ -6,7 +6,8 @@ from __future__ import annotations
 import numpy as np
 from sklearn import metrics as skm
 
-METRIC_NAMES = ("auc_roc", "accuracy", "precision", "recall", "f1", "top_decile_lift")
+METRIC_NAMES = ("auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1", "top_decile_lift")
+
 
 
 def top_decile_lift(y_true: np.ndarray, scores: np.ndarray, fraction: float = 0.10) -> float:
@@ -28,14 +29,23 @@ def compute_cohort_metrics(
     y_true = np.asarray(y_true)
     scores = np.asarray(scores)
     pred = (scores >= decision_threshold).astype(int)
+    try:
+        from sklearn.metrics import auc as sk_auc
+        from sklearn.metrics import precision_recall_curve
+        precision_pts, recall_pts, _ = precision_recall_curve(y_true, scores)
+        pr_auc_val = float(sk_auc(recall_pts, precision_pts))
+    except Exception:
+        pr_auc_val = 0.0
     return {
         "auc_roc": round(float(skm.roc_auc_score(y_true, scores)), 6),
+        "pr_auc": round(pr_auc_val, 6),
         "accuracy": round(float(skm.accuracy_score(y_true, pred)), 6),
         "precision": round(float(skm.precision_score(y_true, pred, zero_division=0)), 6),
         "recall": round(float(skm.recall_score(y_true, pred, zero_division=0)), 6),
         "f1": round(float(skm.f1_score(y_true, pred, zero_division=0)), 6),
         "top_decile_lift": round(top_decile_lift(y_true, scores), 6),
     }
+
 
 
 def cohort_comparison(

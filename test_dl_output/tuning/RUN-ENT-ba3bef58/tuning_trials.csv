@@ -1,0 +1,7 @@
+trial,C,class_weight,mean_metric,std_metric,status
+1,0.1,None,0.992093,0.005433,ok
+2,0.1,balanced,0.991906,0.005584,ok
+3,1.0,None,0.992478,0.005366,ok
+4,1.0,balanced,0.991733,0.006381,ok
+5,3.0,None,0.992486,0.006888,best
+6,3.0,balanced,0.992303,0.007414,ok

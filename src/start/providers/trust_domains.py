@@ -31,7 +31,7 @@ class TrustDomain(str, Enum):
     NONE = "none"
 
 
-PUBLIC_PROVIDERS = ("openai", "anthropic", "grok")
+PUBLIC_PROVIDERS = ("openai", "anthropic", "grok", "gemini", "deepseek")
 PRIVATE_PROVIDERS = ("enterprise_llm_gateway",)
 
 

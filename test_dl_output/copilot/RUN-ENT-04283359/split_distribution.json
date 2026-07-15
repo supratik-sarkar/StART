@@ -1,0 +1,23 @@
+[
+  {
+    "split": "train",
+    "rows": 360,
+    "percent": 60.0,
+    "positive_rate": 0.0028,
+    "negative_rate": 0.9972
+  },
+  {
+    "split": "test",
+    "rows": 120,
+    "percent": 20.0,
+    "positive_rate": 0.0083,
+    "negative_rate": 0.9917
+  },
+  {
+    "split": "oos",
+    "rows": 120,
+    "percent": 20.0,
+    "positive_rate": 0.0083,
+    "negative_rate": 0.9917
+  }
+]

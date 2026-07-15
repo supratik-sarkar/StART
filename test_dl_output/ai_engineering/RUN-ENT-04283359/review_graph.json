@@ -1,0 +1,76 @@
+{
+  "engine": "langgraph",
+  "nodes": [
+    {
+      "name": "data",
+      "depends_on": [],
+      "status": "complete",
+      "runtime_seconds": 0.0
+    },
+    {
+      "name": "model",
+      "depends_on": [
+        "data"
+      ],
+      "status": "complete",
+      "runtime_seconds": 0.0
+    },
+    {
+      "name": "validation",
+      "depends_on": [
+        "model"
+      ],
+      "status": "complete",
+      "runtime_seconds": 0.0
+    },
+    {
+      "name": "governance",
+      "depends_on": [
+        "validation"
+      ],
+      "status": "complete",
+      "runtime_seconds": 0.0
+    },
+    {
+      "name": "ai_engineering",
+      "depends_on": [
+        "governance"
+      ],
+      "status": "complete",
+      "runtime_seconds": 0.0
+    },
+    {
+      "name": "reporting",
+      "depends_on": [
+        "ai_engineering"
+      ],
+      "status": "complete",
+      "runtime_seconds": 0.0
+    }
+  ],
+  "edges": [
+    {
+      "from": "data",
+      "to": "model"
+    },
+    {
+      "from": "model",
+      "to": "validation"
+    },
+    {
+      "from": "validation",
+      "to": "governance"
+    },
+    {
+      "from": "governance",
+      "to": "ai_engineering"
+    },
+    {
+      "from": "ai_engineering",
+      "to": "reporting"
+    }
+  ],
+  "final_state_keys": [
+    "run_id"
+  ]
+}

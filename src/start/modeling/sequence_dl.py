@@ -39,6 +39,9 @@ class SequenceClassifier:
         early_stopping_patience: int = 3,
         device: str | None = None,
         random_state: int = 42,
+        class_weight: str | None = None,
+        task: str = "binary_classification",
+        cost_specification: dict[str, Any] | None = None,
     ) -> None:
         if family not in SEQUENCE_FAMILIES:
             raise ValueError(f"Unknown sequence family '{family}'. Known: {SEQUENCE_FAMILIES}")
@@ -57,12 +60,41 @@ class SequenceClassifier:
         self.early_stopping_patience = early_stopping_patience
         self.device = device
         self.random_state = random_state
+        self.class_weight = class_weight
+        self.task = task
+        self.cost_specification = cost_specification or {"type": "balanced"}
         self._net = None
         self._device_used = "cpu"
         self.classes_ = np.array([0, 1])
         self.history_: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
         self.best_epoch_ = 0
         self.stopped_early_ = False
+
+    # -- sklearn protocol -------------------------------------------------- #
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        return {
+            "family": self.family,
+            "hidden_size": self.hidden_size,
+            "num_layers": self.num_layers,
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "learning_rate": self.learning_rate,
+            "dropout": self.dropout,
+            "validation_fraction": self.validation_fraction,
+            "early_stopping_patience": self.early_stopping_patience,
+            "device": self.device,
+            "random_state": self.random_state,
+            "class_weight": self.class_weight,
+            "task": self.task,
+            "cost_specification": self.cost_specification,
+        }
+
+    def set_params(self, **params: Any) -> SequenceClassifier:
+        for k, v in params.items():
+            if not hasattr(self, k):
+                raise ValueError(f"Unknown parameter '{k}'.")
+            setattr(self, k, v)
+        return self
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> SequenceClassifier:
         import torch
@@ -71,11 +103,25 @@ class SequenceClassifier:
         torch.manual_seed(self.random_state)
         np.random.seed(self.random_state)
         X = np.asarray(X, dtype=np.float32)
-        y_arr = np.asarray(y, dtype=np.float32).reshape(-1, 1)
+        if X.ndim == 2:
+            X = X[:, np.newaxis, :]
+
+        classes = np.unique(y)
+        self.classes_ = classes
+
+        if self.task == "multiclass_classification":
+            self.n_outputs_ = len(classes)
+            mapping = {c: i for i, c in enumerate(classes)}
+            y_arr = np.array([mapping[v] for v in y], dtype=np.int64)
+        else:
+            self.n_outputs_ = 1
+            mapping = {c: i for i, c in enumerate(classes)}
+            y_arr = np.array([mapping[v] for v in y], dtype=np.float32).reshape(-1, 1)
+
         self._device_used = self.device or resolve_torch_device()
         device = torch.device(self._device_used)
         self._net = build_sequence_network(
-            self.family, X.shape[2], self.hidden_size, self.num_layers, self.dropout, 1
+            self.family, X.shape[2], self.hidden_size, self.num_layers, self.dropout, self.n_outputs_
         ).to(device)
 
         n = len(X)
@@ -86,7 +132,11 @@ class SequenceClassifier:
         has_val = n_val > 0
 
         Xt = torch.tensor(X)
-        yt = torch.tensor(y_arr)
+        if self.task == "multiclass_classification":
+            yt = torch.tensor(y_arr, dtype=torch.long)
+        else:
+            yt = torch.tensor(y_arr, dtype=torch.float32)
+
         loader = DataLoader(
             TensorDataset(Xt[tr_idx], yt[tr_idx]),
             batch_size=self.batch_size,
@@ -96,7 +146,41 @@ class SequenceClassifier:
         if has_val:
             xv, yv = Xt[val_idx].to(device), yt[val_idx].to(device)
         opt = torch.optim.Adam(self._net.parameters(), lr=self.learning_rate)
-        loss_fn = torch.nn.BCEWithLogitsLoss()
+
+        weights = None
+        if self.task == "multiclass_classification":
+            if self.class_weight == "balanced":
+                from sklearn.utils.class_weight import compute_class_weight
+                weights = compute_class_weight("balanced", classes=np.arange(self.n_outputs_), y=y_arr)
+                weights = np.asarray(weights, dtype=np.float32)
+
+            cost_spec = getattr(self, "cost_specification", None) or {"type": "balanced"}
+            if cost_spec.get("type") == "critical_class":
+                crit_class = cost_spec.get("critical_class")
+                rel_cost = cost_spec.get("relative_cost", 5.0)
+                if self.classes_ is not None:
+                    if weights is None:
+                        weights = np.ones(self.n_outputs_, dtype=np.float32)
+                    for i, c in enumerate(self.classes_):
+                        if str(c) == str(crit_class):
+                            weights[i] *= rel_cost
+
+            if weights is not None:
+                loss_fn = torch.nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
+            else:
+                loss_fn = torch.nn.CrossEntropyLoss()
+        else:
+            if self.class_weight == "balanced":
+                n_pos = float(np.sum(y_arr == 1))
+                n_neg = float(np.sum(y_arr == 0))
+                if n_pos > 0:
+                    pos_weight = torch.tensor([n_neg / n_pos], dtype=torch.float32, device=device)
+                    loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+                else:
+                    loss_fn = torch.nn.BCEWithLogitsLoss()
+            else:
+                loss_fn = torch.nn.BCEWithLogitsLoss()
+
         self.history_ = {"train_loss": [], "val_loss": []}
         best_val, best_state, no_improve = float("inf"), None, 0
         self.stopped_early_ = False
@@ -138,15 +222,55 @@ class SequenceClassifier:
         if self._net is None:
             raise RuntimeError("Not fitted; call fit() first.")
         X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 2:
+            X = X[:, np.newaxis, :]
         device = torch.device(self._device_used)
         self._net.eval()
         with torch.no_grad():
-            logits = self._net(torch.tensor(X).to(device)).cpu().numpy().reshape(-1)
-        p1 = 1.0 / (1.0 + np.exp(-logits))
-        return np.column_stack([1.0 - p1, p1])
+            logits = self._net(torch.tensor(X).to(device)).cpu().numpy()
+        
+        if self.task == "multiclass_classification":
+            e = np.exp(logits - logits.max(axis=1, keepdims=True))
+            return e / e.sum(axis=1, keepdims=True)
+        else:
+            p1 = 1.0 / (1.0 + np.exp(-logits.reshape(-1)))
+            return np.column_stack([1.0 - p1, p1])
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
+        if self.task == "multiclass_classification":
+            proba = self.predict_proba(X)
+            idx = proba.argmax(axis=1)
+            argmax_preds = np.asarray(self.classes_)[idx]
+            self.last_predictions_argmax_ = argmax_preds
+
+            # Check if cost specification is set and not balanced
+            cost_spec = getattr(self, "cost_specification", None) or {"type": "balanced"}
+            cost_matrix = None
+            if cost_spec.get("type", "balanced") != "balanced":
+                from start.modeling.cost_sensitive import cost_spec_to_matrix, validate_cost_matrix
+                classes_list = [str(c) for c in self.classes_]
+                cost_matrix = cost_spec_to_matrix(cost_spec, classes_list)
+                if cost_matrix is not None:
+                    # Assertions to validate cost matrix before prediction
+                    assert cost_matrix.shape == (len(self.classes_), len(self.classes_)), f"Cost matrix shape must be {len(self.classes_)}x{len(self.classes_)}"
+                    assert np.all(np.isfinite(cost_matrix)), "Cost matrix must contain only finite values"
+                    assert np.all(cost_matrix >= 0), "Cost matrix must contain non-negative values"
+                    
+                    if cost_spec.get("type") == "matrix":
+                        errors = validate_cost_matrix(cost_spec["matrix"], classes_list)
+                        critical_errors = [e for e in errors if "Warning" not in e]
+                        assert len(critical_errors) == 0, f"Cost matrix validation failed: {critical_errors}"
+
+            if cost_matrix is not None:
+                from start.modeling.cost_sensitive import cost_sensitive_predictions
+                cost_sensitive_preds = cost_sensitive_predictions(proba, cost_matrix, self.classes_)
+                self.last_predictions_cost_sensitive_ = cost_sensitive_preds
+                return cost_sensitive_preds
+            else:
+                self.last_predictions_cost_sensitive_ = argmax_preds
+                return argmax_preds
+        else:
+            return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
     def score(self, X: np.ndarray, y: np.ndarray) -> float:
         return float(np.mean(self.predict(X) == np.asarray(y).reshape(-1)))
@@ -156,10 +280,12 @@ class SequenceClassifier:
         return self._device_used
 
 
-def sequence_metrics(y_true: np.ndarray, proba: np.ndarray) -> dict[str, float]:
-    from start.modeling.metrics import compute_cohort_metrics
+def sequence_metrics(
+    y_true: np.ndarray, proba: np.ndarray, task: str = "binary_classification", classes: Any = None
+) -> dict[str, float]:
+    from start.modeling.tabular_dl_metrics import dl_task_metrics
 
-    return compute_cohort_metrics(np.asarray(y_true).reshape(-1), proba[:, 1])
+    return dl_task_metrics(task, y_true, proba, classes)
 
 
 def sequence_saliency(

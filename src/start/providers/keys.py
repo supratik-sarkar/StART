@@ -33,6 +33,8 @@ PROVIDER_KEY_ENV: dict[str, str | None] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "grok": "GROK_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
     "huggingface": "HF_TOKEN",
     "hf_local": None,
     "enterprise_llm_gateway": None,
@@ -44,6 +46,8 @@ PROVIDER_DEPENDENCY: dict[str, str | None] = {
     "openai": "openai",
     "anthropic": "anthropic",
     "grok": "openai",  # Grok speaks the OpenAI wire protocol
+    "gemini": "openai",  # Gemini OpenAI compatibility endpoint
+    "deepseek": "openai",  # DeepSeek OpenAI compatibility endpoint
     "huggingface": "huggingface_hub",
     "hf_local": "transformers",
     "enterprise_llm_gateway": None,

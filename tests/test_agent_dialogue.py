@@ -89,3 +89,13 @@ def test_compare_model_families_table():
     for r in rows:
         for key in ("family", "performance", "interpretability", "maintenance", "governance"):
             assert key in r
+
+
+def test_conceptual_question_bypasses_refusal():
+    from start.evidence_store import EvidenceStore
+    s = ReviewSession(run_id="R")
+    ctx = _ctx()
+    ctx.evidence = EvidenceStore()
+    ex = ask_agent("ArchitectureReviewAgent", "What is lookahead leakage in time series?", ctx, s)
+    assert "sufficient evidence" not in ex.answer.lower()
+    assert "mlp" in ex.answer.lower()

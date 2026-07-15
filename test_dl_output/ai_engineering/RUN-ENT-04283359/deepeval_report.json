@@ -1,0 +1,11 @@
+{
+  "metrics_available": [
+    "hallucination",
+    "faithfulness",
+    "relevancy",
+    "toxicity",
+    "bias"
+  ],
+  "evaluated": 0,
+  "note": "supply test cases to evaluate hallucination/faithfulness/etc."
+}

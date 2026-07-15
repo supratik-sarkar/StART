@@ -11,6 +11,7 @@ from start.modeling.metrics import compute_cohort_metrics
 
 DL_METRIC_NAMES = (
     "auc_roc",
+    "pr_auc",
     "accuracy",
     "precision",
     "recall",
@@ -19,6 +20,7 @@ DL_METRIC_NAMES = (
     "brier_score",
     "ece",
 )
+
 
 
 def brier_score(y_true: np.ndarray, scores: np.ndarray) -> float:

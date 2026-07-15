@@ -75,7 +75,15 @@ def _risk_impact(drift: float) -> str:
 
 def _scorer_for(metric_name: str) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """Return f(y_true, proba_pos, preds) -> metric value."""
-    from sklearn.metrics import average_precision_score, f1_score, recall_score, roc_auc_score
+    from sklearn.metrics import (
+        average_precision_score,
+        f1_score,
+        mean_absolute_error,
+        mean_squared_error,
+        r2_score,
+        recall_score,
+        roc_auc_score,
+    )
 
     def auc(y, p, _):
         return float(roc_auc_score(y, p))
@@ -89,7 +97,19 @@ def _scorer_for(metric_name: str) -> Callable[[np.ndarray, np.ndarray, np.ndarra
     def f1(y, _, pred):
         return float(f1_score(y, pred, zero_division=0))
 
-    return {"auc_roc": auc, "pr_auc": prauc, "recall": rec, "f1": f1}.get(metric_name, auc)
+    def rmse(y, _, pred):
+        return float(np.sqrt(mean_squared_error(y, pred)))
+
+    def mae(y, _, pred):
+        return float(mean_absolute_error(y, pred))
+
+    def r2(y, _, pred):
+        return float(r2_score(y, pred))
+
+    return {
+        "auc_roc": auc, "pr_auc": prauc, "recall": rec, "f1": f1,
+        "rmse": rmse, "mae": mae, "r2": r2
+    }.get(metric_name, auc)
 
 
 def run_sensitivity_analysis(
@@ -108,8 +128,13 @@ def run_sensitivity_analysis(
     y = np.asarray(y).reshape(-1)
 
     def score(frame: pd.DataFrame) -> float:
-        proba = model.predict_proba(frame)
-        p_pos = proba[:, 1] if proba.ndim == 2 and proba.shape[1] >= 2 else np.asarray(proba).reshape(-1)
+        p_pos = None
+        try:
+            if hasattr(model, "predict_proba"):
+                proba = model.predict_proba(frame)
+                p_pos = proba[:, 1] if proba.ndim == 2 and proba.shape[1] >= 2 else np.asarray(proba).reshape(-1)
+        except Exception:
+            pass
         preds = model.predict(frame)
         return scorer(y, p_pos, preds)
 

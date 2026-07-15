@@ -22,13 +22,17 @@ class AgentRole:
 # The committee. Order = the order the user meets them in a review.
 AGENT_ROSTER: tuple[AgentRole, ...] = (
     AgentRole("DatasetDiscoveryAgent", "Dataset understanding"),
-    AgentRole("FeatureEngineeringAgent", "Data preparation"),
-    AgentRole("ArchitectureReviewAgent", "Model selection"),
+    AgentRole("TaskInferenceAgent", "Task framing & inference"),
+    AgentRole("FeatureEngineeringAgent", "Data preparation & checks"),
+    AgentRole("ArchitectureReviewAgent", "Model selection & verification"),
     AgentRole("HyperparameterTuningAgent", "Optimization strategy"),
-    AgentRole("ModelExecutionAgent", "Training and evaluation"),
-    AgentRole("ValidationAgent", "Sensitivity and robustness"),
-    AgentRole("GovernanceSignoffAgent", "MRM signoff"),
-    AgentRole("EvidenceCriticAgent", "Citation and evidence enforcement"),
+    AgentRole("ModelExecutionAgent", "Training execution & telemetry"),
+    AgentRole("ExplainabilityAgent", "Model interpretability & attributions"),
+    AgentRole("SensitivityAgent", "Metric shock response"),
+    AgentRole("OverfittingAgent", "Generalization gap diagnosis"),
+    AgentRole("ValidationAgent", "Adversarial & robustness checks"),
+    AgentRole("GovernanceSignoffAgent", "MRM signoff decision"),
+    AgentRole("EvidenceCriticAgent", "Evidence & citation integrity"),
 )
 
 
@@ -49,10 +53,14 @@ def roster_as_list() -> list[dict[str, str]]:
 # Stable terminal color per agent (v2.3.1 #3) — colored, never plain white.
 AGENT_COLORS: dict[str, str] = {
     "DatasetDiscoveryAgent": "bright_cyan",
+    "TaskInferenceAgent": "orange1",
     "FeatureEngineeringAgent": "bright_green",
     "ArchitectureReviewAgent": "bright_blue",
     "HyperparameterTuningAgent": "bright_magenta",
     "ModelExecutionAgent": "bright_yellow",
+    "ExplainabilityAgent": "spring_green1",
+    "SensitivityAgent": "purple",
+    "OverfittingAgent": "salmon",
     "ValidationAgent": "cyan",
     "GovernanceSignoffAgent": "green",
     "EvidenceCriticAgent": "magenta",
@@ -60,7 +68,8 @@ AGENT_COLORS: dict[str, str] = {
 
 
 def agent_color(name: str) -> str:
-    return AGENT_COLORS.get(name, "white")
+    from start.cli.view import AGENT_COLOR_REGISTRY
+    return AGENT_COLOR_REGISTRY.get(name, "white")
 
 
 def render_agent_roster_panel() -> Any:
@@ -68,11 +77,13 @@ def render_agent_roster_panel() -> Any:
     from rich.panel import Panel
     from rich.table import Table
 
+    from start.cli.view import get_styled_agent_name
+
     grid = Table.grid(padding=(0, 2))
     grid.add_column(no_wrap=True)
     grid.add_column()
     for r in AGENT_ROSTER:
-        grid.add_row(f"[bold {agent_color(r.name)}]{r.name}[/]", r.purpose)
+        grid.add_row(get_styled_agent_name(r.name), r.purpose)
     return Panel(grid, title="[bold]Review committee — your AI reviewers[/bold]",
                  border_style="cyan", title_align="left")
 

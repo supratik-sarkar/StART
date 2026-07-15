@@ -69,9 +69,11 @@ def test_time_based_oos_is_most_recent(frame):
     assert plan.train.ts.max() <= plan.oos.ts.min()
 
 
-def test_time_based_requires_time_column(frame):
-    with pytest.raises(ValueError, match="time_column"):
-        SplitPlanner().plan(frame, strategy="time_based")
+def test_time_based_fallback_no_time_column(frame):
+    no_time_frame = frame.drop(columns=["ts"])
+    plan = SplitPlanner().plan(no_time_frame, strategy="time_based")
+    assert plan.strategy == "time_based"
+    assert any("No time column found" in note for note in plan.notes)
 
 
 def test_custom_split_with_masks(frame):

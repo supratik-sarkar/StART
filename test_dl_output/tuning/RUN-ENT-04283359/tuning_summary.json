@@ -1,0 +1,138 @@
+{
+  "strategy": "bounded_random_search",
+  "primary_metric": "rmse",
+  "n_trials": 5,
+  "ran": true,
+  "trials": [
+    {
+      "trial": 1,
+      "params": {
+        "learning_rate": 0.001,
+        "hidden_dims": [
+          128,
+          64
+        ],
+        "dropout": 0.1
+      },
+      "validation_metric": 34.561487,
+      "status": "ok"
+    },
+    {
+      "trial": 2,
+      "params": {
+        "learning_rate": 0.001,
+        "hidden_dims": [
+          64,
+          32
+        ],
+        "dropout": 0.2
+      },
+      "validation_metric": 35.970528,
+      "status": "ok"
+    },
+    {
+      "trial": 3,
+      "params": {
+        "learning_rate": 0.01,
+        "hidden_dims": [
+          64,
+          32
+        ],
+        "dropout": 0.0
+      },
+      "validation_metric": 25.518204,
+      "status": "best"
+    },
+    {
+      "trial": 4,
+      "params": {
+        "learning_rate": 0.001,
+        "hidden_dims": [
+          32
+        ],
+        "dropout": 0.2
+      },
+      "validation_metric": 36.189183,
+      "status": "ok"
+    },
+    {
+      "trial": 5,
+      "params": {
+        "learning_rate": 0.003,
+        "hidden_dims": [
+          32
+        ],
+        "dropout": 0.0
+      },
+      "validation_metric": 35.725206,
+      "status": "ok"
+    }
+  ],
+  "best_params": {
+    "learning_rate": 0.01,
+    "hidden_dims": [
+      64,
+      32
+    ],
+    "dropout": 0.0
+  },
+  "best_metric": 25.518204,
+  "rejected_params": [
+    {
+      "learning_rate": 0.001,
+      "hidden_dims": [
+        128,
+        64
+      ],
+      "dropout": 0.1
+    },
+    {
+      "learning_rate": 0.001,
+      "hidden_dims": [
+        64,
+        32
+      ],
+      "dropout": 0.2
+    },
+    {
+      "learning_rate": 0.001,
+      "hidden_dims": [
+        32
+      ],
+      "dropout": 0.2
+    },
+    {
+      "learning_rate": 0.003,
+      "hidden_dims": [
+        32
+      ],
+      "dropout": 0.0
+    }
+  ],
+  "search_space": {
+    "learning_rate": [
+      0.001,
+      0.003,
+      0.01
+    ],
+    "hidden_dims": [
+      [
+        32
+      ],
+      [
+        64,
+        32
+      ],
+      [
+        128,
+        64
+      ]
+    ],
+    "dropout": [
+      0.0,
+      0.1,
+      0.2
+    ]
+  },
+  "note": ""
+}

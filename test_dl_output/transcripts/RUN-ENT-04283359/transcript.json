@@ -1,0 +1,86 @@
+{
+  "run_id": "RUN-ENT-04283359",
+  "decisions": [
+    {
+      "key": "validation",
+      "prompt": "Accept validation review?",
+      "recommended": "accept",
+      "user_value": "accept",
+      "effective": "accept",
+      "choice": "auto_accept",
+      "rationale": "low feature dependence; no signoff concern from sensitivity.",
+      "evidence_ids": []
+    }
+  ],
+  "conversations": [],
+  "clarifications": [],
+  "overrides": [],
+  "challenges": [],
+  "challenge_summary": {
+    "open": 0,
+    "closed": 0,
+    "unresolved": 0
+  },
+  "mrm_signoff": {
+    "verdict": "READY",
+    "rationale": "READY: 0 blocker(s), 0 concern(s), 3 factor(s) clear across performance, generalization, calibration, feature dependence, and reviewer activity. No blocking issues or concerns identified.",
+    "factors": [
+      {
+        "factor": "Performance",
+        "status": "unknown",
+        "detail": "No OOS metric available.",
+        "evidence": ""
+      },
+      {
+        "factor": "Feature dependence",
+        "status": "ok",
+        "detail": "max drift 0.0900 (most sensitive: feature_lag2)",
+        "evidence": "sensitivity_analysis"
+      },
+      {
+        "factor": "Reviewer challenges",
+        "status": "ok",
+        "detail": "no outstanding reviewer challenges",
+        "evidence": "review_session"
+      },
+      {
+        "factor": "Reviewer overrides",
+        "status": "ok",
+        "detail": "no overrides; reviewer accepted recommendations",
+        "evidence": "review_session"
+      }
+    ]
+  },
+  "validation_review": {
+    "ranking": [
+      {
+        "feature": "feature_lag2",
+        "max_abs_drift": 0.090003
+      },
+      {
+        "feature": "feature_lag1",
+        "max_abs_drift": 0.069724
+      },
+      {
+        "feature": "feature_noise",
+        "max_abs_drift": 0.045652
+      },
+      {
+        "feature": "feature_trend",
+        "max_abs_drift": 0.025376
+      },
+      {
+        "feature": "feature_season",
+        "max_abs_drift": 0.006822
+      }
+    ],
+    "most_sensitive_feature": "feature_lag2",
+    "max_abs_drift": 0.090003,
+    "business_interpretation": [
+      "The model shows a moderate dependence worth monitoring on 'feature_lag2' (max metric drift 0.0900 under +/-30% shocks). If 'feature_lag2' shifts in production, expect a proportional change in model output; monitor it for drift and data-quality issues.",
+      "The model shows a moderate dependence worth monitoring on 'feature_lag1' (max metric drift 0.0697 under +/-30% shocks). If 'feature_lag1' shifts in production, expect a proportional change in model output; monitor it for drift and data-quality issues.",
+      "The model shows a moderate dependence worth monitoring on 'feature_noise' (max metric drift 0.0457 under +/-30% shocks). If 'feature_noise' shifts in production, expect a proportional change in model output; monitor it for drift and data-quality issues."
+    ],
+    "signoff_impact": "low feature dependence; no signoff concern from sensitivity."
+  }
+}

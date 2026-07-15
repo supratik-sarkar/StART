@@ -59,6 +59,11 @@ class LLMProvider(ABC):
     """Backend-agnostic chat interface. May be a no-op (NoLLMProvider)."""
 
     name: str = "llm"
+    # v3.1.1: response telemetry — populated after each complete() call
+    last_response_id: str = ""
+    last_latency_seconds: float = 0.0
+    last_input_tokens: int = 0
+    last_output_tokens: int = 0
 
     @property
     def available(self) -> bool:

@@ -81,7 +81,8 @@ def correlation_evidence_table(store: Any, n: int = 10) -> Any:
 def metrics_table(metrics_by_split: dict[str, dict[str, float]]) -> Any:
     """#9: metrics by split as a Rich table."""
     keys = ["auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1",
-            "specificity", "brier_score", "ece"]
+            "specificity", "brier_score", "ece",
+            "rmse", "mse", "mae", "r2", "mape"]
     present = [k for k in keys if any(k in m for m in metrics_by_split.values())]
     t = _table("Metrics by split", ["Split"] + present)
     for split, m in metrics_by_split.items():
@@ -94,15 +95,21 @@ def metrics_table(metrics_by_split: dict[str, dict[str, float]]) -> Any:
 
 def tuning_table(trials: list[dict[str, Any]]) -> Any:
     """#9: tuning trials as a Rich table."""
-    t = _table("Hyperparameter tuning trials",
-               ["Trial", "learning_rate", "hidden_dims", "dropout", "Val metric", "Status"])
+    if not trials:
+        return _table("Hyperparameter tuning trials", ["No trials"])
+    first_p = trials[0].get("params", {})
+    keys = list(first_p.keys())
+    columns = ["Trial"] + keys + ["Val metric", "Status"]
+    t = _table("Hyperparameter tuning trials", columns)
     for tr in trials:
         p = tr.get("params", {})
-        t.add_row(str(tr.get("trial")), str(p.get("learning_rate")),
-                  str(p.get("hidden_dims")), str(p.get("dropout")),
-                  f"{tr.get('validation_metric', float('nan')):.4f}",
-                  str(tr.get("status")))
+        row = [str(tr.get("trial"))] + [str(p.get(k, "")) for k in keys] + [
+            f"{tr.get('validation_metric', float('nan')):.4f}",
+            str(tr.get("status"))
+        ]
+        t.add_row(*row)
     return t
+
 
 
 def importance_table(rows: list[dict[str, Any]], n: int = 20) -> Any:
@@ -200,7 +207,8 @@ def llm_activation_panel(activation: Any) -> Any:
     grid.add_column()
     prov = getattr(activation, "provider", None) or "none"
     prov_color = {"openai": "bright_green", "anthropic": "bright_magenta",
-                  "grok": "bright_cyan", "enterprise_llm_gateway": "bright_yellow",
+                  "grok": "bright_cyan", "gemini": "bright_blue",
+                  "deepseek": "bright_blue", "enterprise_llm_gateway": "bright_yellow",
                   "none": "dim"}.get(prov, "white")
     grid.add_row("Provider", f"[{prov_color}]{prov}[/]")
     grid.add_row("Trust domain", str(getattr(activation, "trust_domain", "public")))
@@ -218,13 +226,14 @@ def llm_activation_panel(activation: Any) -> Any:
 
 def challenge_log_table(challenges: list[dict[str, Any]]) -> Any:
     """#9: reviewer challenge log as a Rich table."""
+    from start.cli.view import get_styled_agent_name
     t = _table("Reviewer challenge log",
                ["Status", "Agent", "Challenge", "Evidence used"])
     style = {"open": "yellow", "closed": "green", "unresolved": "red"}
     for c in challenges:
         t.add_row(
             f"[{style.get(c.get('status'), 'white')}]{c.get('status')}[/]",
-            str(c.get("agent")),
+            get_styled_agent_name(str(c.get("agent"))),
             str(c.get("text"))[:50],
             ", ".join(c.get("evidence_used", [])) or "—",
         )

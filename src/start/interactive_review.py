@@ -18,7 +18,7 @@ from typing import Any
 from rich.console import Console
 
 from start.modeling.architecture_registry import ACTIVATIONS, list_families
-from start.modeling.review_orchestrator import ReviewOrchestrator, StageEvent
+from start.modeling.review_orchestrator import STAGES, ReviewOrchestrator, StageEvent
 
 console = Console()
 
@@ -35,6 +35,7 @@ class ReviewConfig:
     robustness_suite: str = "standard"
     agent_mode: str = "deterministic"
     llm_provider: str = "none"
+    llm_model: str | None = None  # v3.1.1: selected model ID from provider API
     trust_domain: str = "public"  # public | enterprise (set by gateway prompt)
     objective: str = ""  # LLM-mode free-form objective
     run_dl: bool = False
@@ -52,6 +53,18 @@ class ReviewConfig:
     output_root: str = "start_output"
     seed: int = 42
     notes: list[str] = field(default_factory=list)
+    class_weight: str | None = None
+    preset_key: str | None = None
+    custom_space: dict[str, Any] | None = None
+    k_folds: int = 3
+    validation_scheme: str = "holdout"
+    # v3.1.1: typed cost specification — governance, tuning, and weighting
+    # logic consume this structured field, never free-form notes.
+    # Schema:
+    #   {"type": "balanced"}
+    #   {"type": "critical_class", "critical_class": str, "relative_cost": float}
+    #   {"type": "matrix", "matrix": {class_i: {class_j: cost, ...}, ...}}
+    cost_specification: dict[str, Any] = field(default_factory=lambda: {"type": "balanced"})
 
 
 def _ask(prompt: str, default: str, choices: list[str] | None = None, ask: Any = input) -> str:
@@ -75,7 +88,11 @@ def _ask_yes_no(prompt: str, default_no: bool = True, ask: Any = input) -> bool:
     return raw in ("y", "yes")
 
 
-def prompt_review_config(initial: ReviewConfig | None = None, ask: Any = input) -> ReviewConfig:
+def prompt_review_config(
+    initial: ReviewConfig | None = None,
+    ask: Any = input,
+    model_discovery: Any = None,
+) -> ReviewConfig:
     cfg = initial or ReviewConfig()
     console.print("\n[bold]StART model review — interactive setup[/bold]\n")
 
@@ -112,14 +129,61 @@ def prompt_review_config(initial: ReviewConfig | None = None, ask: Any = input) 
         "Architecture family", cfg.architecture_family or "mlp", tabular, ask
     )
     cfg.activation = _ask("Activation", cfg.activation or "relu", list(ACTIVATIONS), ask)
-    cfg.explain_method = _ask(
-        "Explainability", cfg.explain_method,
-        ["integrated_gradients", "gradient_shap", "permutation"], ask,
-    )
     cfg.robustness_suite = _ask(
         "Robustness suite", cfg.robustness_suite, ["standard", "extended"], ask
     )
-    cfg.agent_mode = _ask("Agent mode", cfg.agent_mode, ["deterministic", "llm"], ask)
+    # 0. AI Reviewer Agent Backend Selection (LLM Mode)
+    console.print("\nSelect AI Reviewer Agent Backend (LLM Mode):")
+    console.print("  [1] None (Deterministic Rule-Based / Local Engines) (default)")
+    console.print("  [2] Enterprise LLM Gateway (Firm Environment)")
+    console.print("  [3] Public LLM Providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq, etc.)")
+    backend_choice = ask("Select backend [default: 1]: ").strip() or "1"
+    
+    if backend_choice == "2":
+        cfg.agent_mode = "llm"
+        cfg.llm_provider = "enterprise_llm_gateway"
+        cfg.trust_domain = "enterprise"
+    elif backend_choice == "3":
+        cfg.agent_mode = "llm"
+        cfg.trust_domain = "public"
+        cfg.llm_provider = _ask(
+            "Select Public LLM Provider", cfg.llm_provider or "openai",
+            ["openai", "anthropic", "gemini", "deepseek", "grok"], ask,
+        )
+        # v3.1.1: query provider Models API for available models
+        _discovery = model_discovery
+        if _discovery is None:
+            from start.providers.model_discovery import RealProviderModelDiscovery
+            _discovery = RealProviderModelDiscovery()
+        _available_models = _discovery.list_models(cfg.llm_provider)
+        if _available_models:
+            console.print(f"\n  Available models for {cfg.llm_provider}:")
+            for idx, mid in enumerate(_available_models, 1):
+                console.print(f"    [{idx}] {mid}")
+            raw_model = ask("Select model [default: 1]: ").strip() or "1"
+            try:
+                sel_idx = int(raw_model) - 1
+                if 0 <= sel_idx < len(_available_models):
+                    cfg.llm_model = _available_models[sel_idx]
+                else:
+                    cfg.llm_model = _available_models[0]
+            except ValueError:
+                # Allow typing a model ID directly if it's in the list
+                if raw_model in _available_models:
+                    cfg.llm_model = raw_model
+                else:
+                    cfg.llm_model = _available_models[0]
+            console.print(f"  [cyan]Selected model: {cfg.llm_model}[/cyan]")
+        else:
+            console.print(
+                f"[yellow]No models returned by {cfg.llm_provider} API. "
+                "Model selection unavailable — check API key and connectivity.[/yellow]"
+            )
+            cfg.llm_model = None
+    else:
+        cfg.agent_mode = "deterministic"
+        cfg.llm_provider = "none"
+        cfg.trust_domain = "none"
 
     # Section C: ask whether to actually train (default Yes). Without this,
     # enterprise review silently runs diagnostics-only and skips execution.
@@ -147,42 +211,108 @@ def prompt_review_config(initial: ReviewConfig | None = None, ask: Any = input) 
             raw = ask("Number of trials [default 5]: ").strip()
             cfg.tuning_trials = int(raw) if raw.isdigit() and int(raw) > 0 else 5
 
+        cfg.explain_method = _ask(
+            "Explainability", cfg.explain_method,
+            ["integrated_gradients", "gradient_shap", "permutation"], ask,
+        )
+
     # LLM-mode-only prompts
     if cfg.agent_mode == "llm":
-        # v2.3.0 gateway UX: ask about the enterprise gateway FIRST. Choosing it
-        # sets the enterprise trust domain and skips the public provider menu and
-        # all public API-key prompts — the request routes only through the
-        # generic enterprise gateway adapter (which degrades to deterministic
-        # review, never to a public provider, if the private package is absent).
-        if _ask_yes_no("Use enterprise LLM gateway?", default_no=True, ask=ask):
-            cfg.llm_provider = "enterprise_llm_gateway"
-            cfg.trust_domain = "enterprise"
+        if cfg.llm_provider == "enterprise_llm_gateway":
             console.print(
                 "[cyan]Enterprise trust domain selected. Public provider keys "
-                "(OpenAI/Anthropic/Grok) will not be requested. Requests route "
-                "through the enterprise gateway adapter.[/cyan]"
+                "will not be requested. Requests route through the enterprise gateway adapter.[/cyan]"
             )
         else:
-            cfg.trust_domain = "public"
-            cfg.llm_provider = _ask(
-                "LLM provider", cfg.llm_provider,
-                ["none", "openai", "anthropic", "grok"], ask,
-            )
-        cfg.objective = ask(
-            "Business objective (free-form, sent only as context, never raw data): "
-        ).strip()
-        clar = ask("Any target/task clarification for the model-risk reviewer? ").strip()
-        if clar:
-            cfg.notes.append(f"User clarification: {clar}")
-            # Section M: infer cost priority from free-text clarification.
-            inferred = _infer_cost_priority(clar)
-            if inferred:
-                cfg.costlier_errors = inferred
-                console.print(
-                    f"[cyan]Cost priority inferred from your note: "
-                    f"{inferred}.[/cyan]"
-                )
+            # Securely prompt for key immediately if needed
+            import sys
+
+            from start.providers.keys import ensure_provider_key, key_required
+            if key_required(cfg.llm_provider) and sys.stdin.isatty():
+                status = ensure_provider_key(cfg.llm_provider, prompt_for_key=True, interactive=True)
+                if not status.ok:
+                    console.print(
+                        f"\n[yellow]API key for '{cfg.llm_provider}' is missing. "
+                        "Degrading to deterministic rule-based backend.[/yellow]"
+                    )
+                    cfg.agent_mode = "deterministic"
+                    cfg.llm_provider = "none"
+                    cfg.trust_domain = "none"
+        if cfg.agent_mode == "llm":
+            cfg.objective = ask(
+                "Business objective (free-form, sent only as context, never raw data): "
+            ).strip()
+            clar = ask("Any target/task clarification for the model-risk reviewer? ").strip()
+            if clar:
+                cfg.notes.append(f"User clarification: {clar}")
+                # Section M: infer cost priority from free-text clarification.
+                inferred = _infer_cost_priority(clar)
+                if inferred:
+                    cfg.costlier_errors = inferred
+                    console.print(
+                        f"[cyan]Cost priority inferred from your note: "
+                        f"{inferred}.[/cyan]"
+                    )
+
+    # v3.1.1: structured multiclass cost specification prompt
+    # Prompt after target is known but before execution.
+    # The cost specification is stored in cfg.cost_specification, never in notes.
     return cfg
+
+
+def _prompt_cost_specification(
+    task_type: str, classes: list[str], ask: Any = input,
+) -> dict[str, Any]:
+    """Prompt user for structured multiclass cost specification.
+
+    Returns a typed dict with schema:
+      {"type": "balanced"}
+      {"type": "critical_class", "critical_class": str, "relative_cost": float}
+      {"type": "matrix", "matrix": {class_i: {class_j: cost, ...}, ...}}
+    """
+    import sys
+    if ask is input and not sys.stdin.isatty():
+        return {"type": "balanced"}
+
+    console.print("\n[bold]Misclassification Cost Specification[/bold]")
+    console.print(f"  Classes: {classes}")
+    console.print("  [1] Balanced treatment (default)")
+    console.print("  [2] One critical class + relative miss cost")
+    console.print("  [3] Full class-to-class cost matrix")
+    choice = (ask("Select cost specification [default: 1]: ").strip() or "1")
+
+    if choice == "2":
+        console.print(f"  Available classes: {classes}")
+        crit = ask(f"  Critical class [default: {classes[0]}]: ").strip() or classes[0]
+        if crit not in classes:
+            console.print(f"  [yellow]'{crit}' not in classes; using '{classes[0]}'.[/yellow]")
+            crit = classes[0]
+        raw_cost = ask("  Relative miss cost for this class [default: 5.0]: ").strip() or "5.0"
+        try:
+            rel_cost = float(raw_cost)
+        except ValueError:
+            rel_cost = 5.0
+        return {"type": "critical_class", "critical_class": crit, "relative_cost": rel_cost}
+
+    if choice == "3":
+        console.print("  Enter the cost of predicting class j when true class is i.")
+        console.print("  Diagonal (correct predictions) should be 0.")
+        matrix: dict[str, dict[str, float]] = {}
+        for ci in classes:
+            row: dict[str, float] = {}
+            for cj in classes:
+                if ci == cj:
+                    row[cj] = 0.0
+                    continue
+                raw = ask(f"    Cost(true={ci}, pred={cj}) [default: 1.0]: ").strip() or "1.0"
+                try:
+                    row[cj] = float(raw)
+                except ValueError:
+                    row[cj] = 1.0
+            matrix[ci] = row
+        return {"type": "matrix", "matrix": matrix}
+
+    return {"type": "balanced"}
 
 
 def _ask_split_proportions(ask: Any = input) -> tuple[float, float, float]:
@@ -257,7 +387,7 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
                 )
         domain = trust_domain(cfg.llm_provider).value  # 'public' | 'private' | 'none'
         expected = domain if domain in ("public", "private") else None
-        llm = get_llm_provider(LLMConfig(provider=cfg.llm_provider), expected_domain=expected)
+        llm = get_llm_provider(LLMConfig(provider=cfg.llm_provider, model=cfg.llm_model), expected_domain=expected)
 
     # load data (demo or user path)
     _target_supplied_by_user = bool(cfg.target)
@@ -271,21 +401,79 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
             f"(user-supplied) — {len(df)} rows x {df.shape[1]} columns"
         )
     else:
-        from start.modeling.data import load_attrition_dataset
+        preset_key = getattr(cfg, "preset_key", None)
+        from start.modeling.data import load_preset_dataset
 
-        df = load_attrition_dataset(seed=cfg.seed)
+        df = load_preset_dataset(preset_key, seed=cfg.seed)
         if not cfg.target:
-            cfg.target = "attrition"
-        # v2.3.1 #2: name the demo dataset, its source, and a public URL.
+            target_map = {
+                "A": "is_fraud",
+                "B": "target_value",
+                "C": "adjusted_price",
+                "D": "decision_label"
+            }
+            cfg.target = target_map.get(preset_key, "attrition")
+
+
+        preset_details = {
+            "A": {
+                "name": "Synthetic Anomaly Detection & Transaction Monitoring",
+                "source": "Synthetic AML Profile Generator (imbalanced)",
+                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+            },
+            "B": {
+                "name": "Synthetic Time-Series Forecasting Profile",
+                "source": "Synthetic Trend & Seasonality Regressive Sequence",
+                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+            },
+            "C": {
+                "name": "Synthetic Asset Pricing Matrix",
+                "source": "Synthetic Multi-feature Pricing Regression",
+                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+            },
+            "D": {
+                "name": "Synthetic ML Decision Support Model Data",
+                "source": "Synthetic Multi-class Decision Profile",
+                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+            }
+        }
+        details = preset_details.get(preset_key, {
+            "name": "scikit-learn Breast Cancer Wisconsin (Diagnostic) (breast-cancer)",
+            "source": "sklearn.datasets.load_breast_cancer",
+            "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+        })
+
+
         console.print(
-            "[bold]Demo dataset:[/bold] sklearn breast-cancer "
-            "(reframed as binary attrition)\n"
-            "  source: scikit-learn datasets (UCI ML Breast Cancer Wisconsin, "
-            "diagnostic)\n"
-            "  url: https://archive.ics.uci.edu/dataset/17/"
-            "breast+cancer+wisconsin+diagnostic\n"
+            f"[bold]Demo dataset:[/bold] {details['name']}\n"
+            f"  source: {details['source']}\n"
+            f"  url: {details['url']}\n"
             f"  loaded: {len(df)} rows x {df.shape[1]} columns"
         )
+
+    # Reconcile target cardinality & task override early
+    if cfg.target in df.columns:
+        nunique = df[cfg.target].dropna().nunique()
+        if cfg.task_override == "binary_classification" and nunique > 2:
+            if cfg.non_interactive:
+                raise ValueError(
+                    f"Target '{cfg.target}' has {nunique} unique values, which requires "
+                    f"multiclass_classification, but the selected task override is binary_classification."
+                )
+            else:
+                from rich.prompt import Confirm
+                console.print(
+                    f"\n[bold yellow]Target Cardinality Mismatch:[/bold yellow] Target '{cfg.target}' "
+                    f"has {nunique} unique values, which requires multiclass classification, "
+                    f"but binary classification was selected."
+                )
+                if Confirm.ask("Would you like to switch to multiclass_classification?", default=True):
+                    cfg.task_override = "multiclass_classification"
+                else:
+                    raise ValueError(
+                        f"Execution aborted: Selected binary classification is incompatible with target "
+                        f"'{cfg.target}' cardinality ({nunique})."
+                    )
 
     # v2.3.1 #2: target transparency — what was selected, by whom, and the
     # candidate columns discovery would consider.
@@ -307,6 +495,19 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
         )
     console.print("")
 
+    # v3.1.1: prompt for structured cost specification if multiclass
+    if cfg.target in df.columns:
+        _nunique = df[cfg.target].dropna().nunique()
+        _resolved_task = cfg.task_override or (
+            "multiclass_classification" if _nunique > 2
+            else "binary_classification"
+        )
+        if _resolved_task == "multiclass_classification" and not cfg.non_interactive:
+            _classes = sorted(df[cfg.target].dropna().unique().tolist(), key=str)
+            cfg.cost_specification = _prompt_cost_specification(
+                _resolved_task, [str(c) for c in _classes], ask=input,
+            )
+
     if cfg.enterprise_mode:
         return _run_enterprise(cfg, df, llm)
 
@@ -315,18 +516,24 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
         f"(agent mode: {cfg.agent_mode}) — for the full v2.3.0 committee review, "
         f"re-run with --enterprise.\n"
     )
-    orch = ReviewOrchestrator(on_stage=_render_stage)
-    outcome = orch.run(
-        df,
-        user_target=cfg.target,
-        task_override=cfg.task_override,
-        split_strategy=cfg.split_strategy,
-        agent_mode=cfg.agent_mode,
-        llm=llm,
-        output_root=cfg.output_root,
-        seed=cfg.seed,
-        run_dl=cfg.run_dl,
-    )
+    from start.progress import progress_bar
+    with progress_bar(len(STAGES), "Model Review Execution", enabled=not cfg.non_interactive, console=console) as adv:
+        def on_stage_with_progress(event):
+            _render_stage(event)
+            if event.status in ("complete", "skipped"):
+                adv(1)
+        orch = ReviewOrchestrator(on_stage=on_stage_with_progress)
+        outcome = orch.run(
+            df,
+            user_target=cfg.target,
+            task_override=cfg.task_override,
+            split_strategy=cfg.split_strategy,
+            agent_mode=cfg.agent_mode,
+            llm=llm,
+            output_root=cfg.output_root,
+            seed=cfg.seed,
+            run_dl=cfg.run_dl,
+        )
     console.print(
         f"\n[bold green]Review complete[/bold green] — {outcome.run_id}\n"
         f"  task: {outcome.task_type} | modality: {outcome.modality} | "
@@ -362,6 +569,13 @@ def _render_adapter(result: Any) -> None:
 
 
 def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
+    from start.agents.discovery import TaskInferenceAgent
+    try:
+        ti = TaskInferenceAgent().infer(df, cfg.target, override=cfg.task_override)
+        task_type = ti.task_type
+    except Exception:
+        task_type = cfg.task_override or "binary_classification"
+
     from start.modeling.dataset_source import (
         describe_custom_dataset,
         describe_demo_dataset,
@@ -469,7 +683,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         ar = ArchitectureReviewAgent().review(
             user_family=arch_choice, user_activation=cfg.activation or "relu",
             modality="tabular", n_samples=len(df), n_features=df.shape[1] - 1,
-            task_type="binary_classification",
+            task_type=task_type,
         )
         # Item 2: let the user interrogate the agent live at this checkpoint.
         _llm_connected = activation.status == "CONNECTED"
@@ -481,6 +695,10 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                           {"family": arch_choice}, {"family": "xgboost"}],
             dataset_summary=f"{len(df)} rows x {df.shape[1]} cols",
             checkpoint="architecture", evidence=_evidence,
+            business_context=cfg.objective or "",
+            reviewer_clarification="\n".join(cfg.notes) or "",
+            task_type=task_type,
+            model_name=arch_choice,
         )
 
         def _ask_arch(question: str) -> str:
@@ -496,12 +714,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             evidence=[
                 f"dataset size {len(df)} rows",
                 f"{df.shape[1] - 1} candidate features",
-                "binary classification task",
+                f"{task_type.replace('_', ' ')} task",
             ],
             recommendation=f"{ar.recommendation['family']} "
             f"({ar.recommendation.get('activation', 'relu')})",
             alternatives=[f"{ar.recommendation['family']} (recommended)",
-                          arch_choice, "xgboost"],
+                           arch_choice, "xgboost"],
             risks=[ar.risk_if_ignored] if ar.risk_if_ignored else [],
             artifacts_used=["data_statistics"],
         )
@@ -512,6 +730,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             evidence_id=ar.evidence_id, explanation=ar.reason,
             interactive=interactive, auto_accept=cfg.accept_recommendations,
             ask=input, emit=lambda m: console.print(m), on_ask=_ask_arch,
+            llm=llm, session=session, ctx=_arch_ctx,
         )
         arch_choice = arch_dec.effective_value
         checkpoint_decisions.append(arch_dec.to_dict())
@@ -536,56 +755,77 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
             try:
                 _stats = compute_data_statistics(df, cfg.target)
-                _fe = recommend_feature_engineering(_stats)
+                _fe = recommend_feature_engineering(_stats, cost_specification=cfg.cost_specification)
                 run_feature_engineering_checkpoints(
                     _fe, session, interactive=interactive,
                     auto_accept=cfg.accept_recommendations, llm=llm,
                     llm_connected=_llm_connected, ask=input,
                     emit=lambda m: console.print(m), evidence=_evidence,
+                    business_context=cfg.objective or "",
+                    reviewer_clarification="\n".join(cfg.notes) or "",
+                    task_type=task_type,
+                    model_name=arch_choice,
                 )
             except Exception:
                 pass
             # metric / cost-priority checkpoint
             from start.agents.engineering_agents import select_primary_metric
 
-            _mc = select_primary_metric("binary_classification", costlier_errors=cost_choice)
+            _mc = select_primary_metric(task_type, costlier_errors=cost_choice)
             cost_choice = run_metric_checkpoint(
                 cost_choice, cost_choice, _mc.get("reason", ""), session,
                 interactive=interactive, auto_accept=cfg.accept_recommendations,
                 llm=llm, llm_connected=_llm_connected, ask=input,
                 emit=lambda m: console.print(m), evidence=_evidence,
+                business_context=cfg.objective or "",
+                reviewer_clarification="\n".join(cfg.notes) or "",
+                task_type=task_type,
+                model_name=arch_choice,
             )
 
     from start.agent_roster import announce_adapter_activity
-
-    orch = EnterpriseReviewOrchestrator(
-        on_stage=_render_stage, on_layer=_render_layer, on_adapter=_render_adapter,
-        on_adapter_start=lambda name, activity: console.print(
-            f"    [cyan]{announce_adapter_activity(name, activity)}[/cyan]"
-        ),
-    )
-    outcome = orch.run(
-        df,
-        user_target=cfg.target,
-        task_override=cfg.task_override,
-        split_strategy=cfg.split_strategy,
-        agent_mode=cfg.agent_mode,
-        llm=llm,
-        output_root=cfg.output_root,
-        run_dl=cfg.run_dl,
-        enterprise_mode=True,
-        seed=cfg.seed,
-        architecture=arch_choice,
-        activation=cfg.activation or "relu",
-        costlier_errors=cost_choice,
-        dataset_source=dataset_source,
-        requested_provider=cfg.llm_provider if cfg.agent_mode == "llm" else None,
-        split_props=(cfg.train_prop, cfg.test_prop, cfg.oos_prop),
-        explain_method=cfg.explain_method,
-        tuning_strategy=cfg.tuning_strategy,
-        tuning_trials=cfg.tuning_trials,
-        session=session,
-    )
+    from start.progress import progress_bar
+    with progress_bar(len(STAGES), "AI Review Committee Execution", enabled=not cfg.non_interactive, console=console) as adv:
+        def on_stage_with_progress(event):
+            _render_stage(event)
+            if event.status in ("complete", "skipped"):
+                adv(1)
+        
+        orch = EnterpriseReviewOrchestrator(
+            on_stage=on_stage_with_progress,
+            on_layer=_render_layer,
+            on_adapter=_render_adapter,
+            on_adapter_start=lambda name, activity: console.print(
+                f"    [cyan]{announce_adapter_activity(name, activity)}[/cyan]"
+            ),
+        )
+        outcome = orch.run(
+            df,
+            user_target=cfg.target,
+            task_override=cfg.task_override,
+            split_strategy=cfg.split_strategy,
+            agent_mode=cfg.agent_mode,
+            llm=llm,
+            output_root=cfg.output_root,
+            run_dl=cfg.run_dl,
+            enterprise_mode=True,
+            seed=cfg.seed,
+            architecture=arch_choice,
+            activation=cfg.activation or "relu",
+            costlier_errors=cost_choice,
+            dataset_source=dataset_source,
+            requested_provider=cfg.llm_provider if cfg.agent_mode == "llm" else None,
+            split_props=(cfg.train_prop, cfg.test_prop, cfg.oos_prop),
+            explain_method=cfg.explain_method,
+            tuning_strategy=cfg.tuning_strategy,
+            tuning_trials=cfg.tuning_trials,
+            session=session,
+            class_weight=cfg.class_weight,
+            custom_space=cfg.custom_space,
+            validation=cfg.validation_scheme,
+            k_folds=cfg.k_folds,
+            cost_specification=cfg.cost_specification,
+        )
     # Section K: agent reasoning traces (thinking visibility)
     if outcome.trace_log and outcome.trace_log.traces:
         console.print("\n[bold]Agent reasoning traces[/bold]")
@@ -621,7 +861,8 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     if outcome.tuning_run:
         from start.review_tables import tuning_table
 
-        console.print("\n[bold]Hyperparameter tuning (single-split validation)[/bold]")
+        val_name = "K-fold cross-validation" if outcome.tuning_run.validation == "k_fold" else "single-split validation"
+        console.print(f"\n[bold]Hyperparameter tuning ({val_name})[/bold]")
         console.print(tuning_table(outcome.tuning_run.to_dict().get("trials", [])))
     # v2.3.1 #7: real stratified K-fold tuning (train-only) per-fold table.
     if outcome.kfold_tuning:
@@ -650,9 +891,11 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
     # v2.3.0 #8/#11: MRM-grade signoff that weighs performance, generalization,
     # calibration, feature dependence (sensitivity), and reviewer activity.
+    from start.agents.engineering_agents import select_primary_metric
     from start.mrm_signoff import evaluate_signoff, render_signoff_rich
 
-    _mrm = evaluate_signoff(_final_store, session, primary_metric="auc_roc")
+    _mrm_mc = select_primary_metric(task_type, costlier_errors=cost_choice)
+    _mrm = evaluate_signoff(_final_store, session, primary_metric=_mrm_mc["primary_metric"])
     _st, _sp = render_signoff_rich(_mrm)
     console.print("")
     console.print(_st)

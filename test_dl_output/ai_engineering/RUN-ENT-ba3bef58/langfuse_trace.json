@@ -1,0 +1,11 @@
+{
+  "run_id": "RUN-ENT-ba3bef58",
+  "spans": [
+    {
+      "name": "model_review",
+      "stages": 36
+    }
+  ],
+  "exported": false,
+  "note": "trace captured locally; cloud export requires LANGFUSE keys"
+}
