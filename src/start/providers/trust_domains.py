@@ -22,10 +22,10 @@ and validates that a requested provider is allowed for a given mode.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class TrustDomain(str, Enum):
+class TrustDomain(StrEnum):
     PUBLIC = "public"
     PRIVATE = "private"
     NONE = "none"

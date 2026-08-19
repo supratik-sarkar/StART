@@ -55,13 +55,13 @@ class ArtifactRegistry:
     announce: Callable[[str], None] | None = None
 
     def register(
-        self, path: str, *, category: str = "general", description: str = "",
+        self, path: str, *, name: str | None = None, category: str = "general", description: str = "",
         artifact_type: str | None = None,
     ) -> Artifact:
         p = Path(path)
         atype = artifact_type or _TYPE_BY_EXT.get(p.suffix.lower(), p.suffix.lstrip(".") or "file")
         artifact = Artifact(
-            name=p.name, path=str(p), artifact_type=atype,
+            name=name or p.name, path=str(p), artifact_type=atype,
             category=category, description=description,
         )
         self.artifacts.append(artifact)

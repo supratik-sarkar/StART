@@ -5,7 +5,7 @@ from start.telemetry.bus import TelemetryBus
 
 
 class RootCauseAgent(BaseAgent):
-    """v2.4.0 Copilot Core Agent identifying anomalies and structuring precise fix directives."""
+    """v2.4.0 Core Diagnostic Agent identifying anomalies and structuring precise fix directives."""
     def __init__(self, telemetry_bus: TelemetryBus):
         super().__init__(name="Root Cause Agent", telemetry_bus=telemetry_bus)
 
@@ -48,7 +48,7 @@ class RootCauseAgent(BaseAgent):
             reasoning = f"Generic or unhandled pipeline exception encountered: {violation_type}."
             alternatives = ["Manual pipeline review escalation"]
 
-        # Emit the highly meticulous copilot trace to the bus
+        # Emit the structured reasoning trace to the bus
         self.emit_trace(
             stage="Anomaly Root Cause Analysis",
             progress=100.0,

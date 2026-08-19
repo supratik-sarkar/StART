@@ -240,12 +240,19 @@ def challenge_log_table(challenges: list[dict[str, Any]]) -> Any:
     return t
 
 
-def _impact_for(key: str, choice: str, effective: str) -> str:
+def _impact_for(key: str, choice: str, effective: str, recommended: str = "") -> str:
     """Plain-language downstream impact of a decision (v2.3.1 #8)."""
     k = key.lower()
     if k == "architecture":
-        return (f"trained {effective}" if choice in ("keep", "modify", "reject")
-                else f"trained recommended {effective}")
+        is_override = (
+            choice in ("override", "overridden", "keep", "modify", "reject")
+            or (bool(recommended) and bool(effective) and effective != recommended)
+        )
+        if is_override:
+            if recommended and effective != recommended:
+                return f"trained user-selected {effective} (recommended: {recommended})"
+            return f"trained user-selected {effective}"
+        return f"trained recommended {effective}"
     if "correlation_pruning" in k:
         return ("kept all features (no pruning)" if choice == "reject"
                 else "dropped highly-correlated features before training")
@@ -273,17 +280,30 @@ def decision_ledger_table(decisions: list[dict[str, Any]]) -> Any:
                     "non_interactive_keep": "green"}
     for d in decisions:
         choice = d.get("choice", "")
-        status = {"accept": "accepted", "auto_accept": "accepted",
-                  "non_interactive_keep": "accepted", "keep": "overridden",
-                  "modify": "overridden", "reject": "rejected"}.get(choice, choice)
+        rec_val = str(d.get("recommended", "")).strip()
+        eff_val = str(d.get("effective", "")).strip()
+        if rec_val and eff_val and rec_val == eff_val:
+            status = "accepted"
+            style_key = "accept"
+        else:
+            status = {"accept": "accepted", "auto_accept": "accepted",
+                      "non_interactive_keep": "accepted", "keep": "overridden",
+                      "modify": "overridden", "override": "overridden",
+                      "reject": "rejected"}.get(choice, choice)
+            style_key = choice
         ev = ", ".join(d.get("evidence_ids", []) or []) or "—"
         t.add_row(
             str(d.get("key")),
             str(d.get("recommended")),
             str(d.get("effective")),
-            f"[{status_style.get(choice, 'white')}]{status}[/]",
+            f"[{status_style.get(style_key, 'white')}]{status}[/]",
             ev[:24],
-            _impact_for(d.get("key", ""), choice, str(d.get("effective", ""))),
+            _impact_for(
+                d.get("key", ""),
+                choice,
+                str(d.get("effective", "")),
+                recommended=str(d.get("recommended", "")),
+            ),
         )
     return t
 
@@ -312,12 +332,24 @@ def decision_ledger_markdown(decisions: list[dict[str, Any]]) -> str:
              "| --- | --- | --- | --- | --- | --- |"]
     for d in decisions:
         choice = d.get("choice", "")
-        status = {"accept": "accepted", "auto_accept": "accepted",
-                  "non_interactive_keep": "accepted", "keep": "overridden",
-                  "modify": "overridden", "reject": "rejected"}.get(choice, choice)
+        rec_val = str(d.get("recommended", "")).strip()
+        eff_val = str(d.get("effective", "")).strip()
+        if rec_val and eff_val and rec_val == eff_val:
+            status = "accepted"
+        else:
+            status = {"accept": "accepted", "auto_accept": "accepted",
+                      "non_interactive_keep": "accepted", "keep": "overridden",
+                      "modify": "overridden", "override": "overridden",
+                      "reject": "rejected"}.get(choice, choice)
         ev = ", ".join(d.get("evidence_ids", []) or []) or "—"
+        impact = _impact_for(
+            d.get("key", ""),
+            choice,
+            str(d.get("effective", "")),
+            recommended=str(d.get("recommended", "")),
+        )
         lines.append(
             f"| {d.get('key')} | {d.get('recommended')} | {d.get('effective')} "
-            f"| {status} | {ev} | {_impact_for(d.get('key', ''), choice, str(d.get('effective', '')))} |"
+            f"| {status} | {ev} | {impact} |"
         )
     return "\n".join(lines) + "\n"

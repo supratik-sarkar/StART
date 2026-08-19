@@ -140,11 +140,84 @@ def describe_custom_dataset(
     )
 
 
+def describe_synthetic_dataset(
+    df: pd.DataFrame, target_column: str = "is_fraud"
+) -> DatasetSource:
+    return DatasetSource(
+        kind="synthetic",
+        name="StART Synthetic AML / Fraud Transaction Cohort",
+        n_rows=len(df),
+        n_columns=df.shape[1],
+        target_column=target_column,
+        public_url=None,
+        reason_selected=(
+            "Parametric generator with controllable prevalence (5.5%), leakage injection, "
+            "and proxy characteristics for realistic fraud detection review."
+        ),
+        task_suitability=(
+            "Binary classification (AML auto-decline and fraud risk scoring); "
+            "generated locally with no external source or credentials."
+        ),
+        loading_route="start.data.synthetic.generate_synthetic_transactions",
+        data_hash=frame_hash(df),
+        notes=["synthetic, generated locally, no external source."],
+    )
+
+
+def describe_uci_german_credit(
+    df: pd.DataFrame, target_column: str = "is_bad_credit"
+) -> DatasetSource:
+    return DatasetSource(
+        kind="uci_public_benchmark",
+        name="UCI Statlog German Credit Data",
+        n_rows=len(df),
+        n_columns=df.shape[1],
+        target_column=target_column,
+        public_url="https://archive.ics.uci.edu/dataset/144/statlog+german+credit+data",
+        reason_selected=(
+            "Standard credit scoring benchmark with documented 5:1 asymmetric cost matrix "
+            "and fair-lending demographic features (age, personal status, foreign worker)."
+        ),
+        task_suitability=(
+            "Binary classification (1,000 borrowers, 20 attributes, 30% bad rate); "
+            "credit risk scoring with asymmetric misclassification loss."
+        ),
+        loading_route="start.data.uci_credit.fetch_or_load_german_credit",
+        data_hash=frame_hash(df),
+        notes=["Public benchmark cached under ~/.cache/start/datasets/german_credit.csv"],
+    )
+
+
+def describe_fannie_mae_dataset(
+    df: pd.DataFrame, file_path: str, target_column: str = "is_delinquent"
+) -> DatasetSource:
+    p = Path(file_path)
+    return DatasetSource(
+        kind="byo_fannie_mae",
+        name=f"Fannie Mae Single-Family ({p.name})",
+        n_rows=len(df),
+        n_columns=df.shape[1],
+        target_column=target_column,
+        file_path=str(p),
+        detected_format=p.suffix.lower().lstrip(".") or "pipe/csv",
+        reason_selected=(
+            "User-supplied Single-Family Loan Performance dataset subject to "
+            "Fannie Mae terms and conditions."
+        ),
+        task_suitability="Mortgage credit risk and delinquency classification.",
+        loading_route="start.data.fannie_mae.load_fannie_mae_dataset",
+        data_hash=frame_hash(df),
+        notes=["User-provided Fannie Mae performance file."],
+    )
+
+
 def render_dataset_source_markdown(src: DatasetSource) -> str:
-    lines = ["### Dataset source", "", "| Field | Value |", "| --- | --- |",
-             f"| Name | {src.name} |", f"| Kind | {src.kind} |",
-             f"| Rows / Columns | {src.n_rows} / {src.n_columns} |",
-             f"| Target | {src.target_column} |"]
+    lines = [
+        "### Dataset source", "", "| Field | Value |", "| --- | --- |",
+        f"| Name | {src.name} |", f"| Kind | {src.kind} |",
+        f"| Rows / Columns | {src.n_rows} / {src.n_columns} |",
+        f"| Target | {src.target_column} |",
+    ]
     if src.public_url:
         lines.append(f"| Public source | {src.public_url} |")
     if src.file_path:
@@ -154,8 +227,11 @@ def render_dataset_source_markdown(src: DatasetSource) -> str:
         lines.append(f"| Loading route | {src.loading_route} |")
     if src.data_hash:
         lines.append(f"| Data hash | {src.data_hash} |")
+    if src.notes:
+        lines.append(f"| Notes | {'; '.join(src.notes)} |")
     if src.reason_selected:
         lines += ["", f"**Why selected:** {src.reason_selected}"]
     if src.task_suitability:
         lines += ["", f"**Task suitability:** {src.task_suitability}"]
     return "\n".join(lines) + "\n"
+

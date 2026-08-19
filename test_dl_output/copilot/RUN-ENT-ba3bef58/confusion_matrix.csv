@@ -1,4 +1,0 @@
-split,tn,fp,fn,tp
-train,212,2,36,91
-test,71,0,15,27
-oos,72,0,15,28

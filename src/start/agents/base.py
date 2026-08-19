@@ -1,7 +1,7 @@
 import abc
 from typing import Any
 
-from start.telemetry.bus import CopilotMessageTrace, TelemetryBus, TelemetryEvent
+from start.telemetry.bus import AgentMessageTrace, TelemetryBus, TelemetryEvent
 
 
 class BaseAgent(abc.ABC):
@@ -36,7 +36,7 @@ class BaseAgent(abc.ABC):
             return
 
         # Instantiate a type-enforced message trace instead of raw string conversation
-        trace = CopilotMessageTrace(
+        trace = AgentMessageTrace(
             reasoning_step=reasoning_step,
             alternatives_considered=alternatives_considered or [],
             evidence_citations=evidence_citations or [],

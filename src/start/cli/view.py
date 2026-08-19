@@ -113,9 +113,9 @@ class ProgressDashboardUI:
             body_text.append(f"Telemetry Footprint: {json.dumps(snap.metrics)}", style="italic cyan")
         layout["body"].update(Panel(body_text, title="Agent Execution Window"))
 
-        # Scrolling Copilot Action logs block panel mapping logic
+        # Scrolling Agent Action logs block panel mapping logic
         log_text = Text.from_markup("\n".join(self.logs[-6:]))
-        layout["logs"].update(Panel(log_text, title="Meticulous Copilot Action Log"))
+        layout["logs"].update(Panel(log_text, title="Meticulous Agent Action Log"))
         return layout
 
     async def monitor_execution(self, workflow_coro):

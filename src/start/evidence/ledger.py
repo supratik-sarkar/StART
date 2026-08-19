@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from start.core.hashing import canonical_json, hash_obj, sha256_hex
 from start.core.schemas import EvidenceRecord
@@ -100,9 +101,28 @@ class EvidenceLedger(EvidenceProvider):
                     last = json.loads(line)
         return last
 
-    def append(self, record: EvidenceRecord) -> str:
-        record_payload = record.model_dump(mode="json")
-        record_hash = self.store.put(record)
+    def append(
+        self,
+        record: EvidenceRecord | Any,
+        *,
+        run_id: str = "RUN-DEFAULT",
+        enterprise_run_id: str | None = None,
+    ) -> EvidenceRecord:
+        from start.core.schemas import EvidenceRecord, TestResult
+
+        if isinstance(record, TestResult):
+            rec = EvidenceRecord.from_result(
+                record, run_id=run_id, enterprise_run_id=enterprise_run_id
+            )
+        elif isinstance(record, EvidenceRecord):
+            rec = record
+            if enterprise_run_id and not rec.enterprise_run_id:
+                rec = rec.model_copy(update={"enterprise_run_id": enterprise_run_id})
+        else:
+            rec = record
+
+        record_payload = rec.model_dump(mode="json") if hasattr(rec, "model_dump") else dict(rec)
+        record_hash = self.store.put(rec)
         last = self._last_entry()
         prev_hash = last["entry_hash"] if last else GENESIS
         index = (last["index"] + 1) if last else 0
@@ -115,7 +135,13 @@ class EvidenceLedger(EvidenceProvider):
         }
         with self.path.open("a") as f:
             f.write(json.dumps(entry, default=str) + "\n")
-        return record_hash
+        return rec
+
+    def __len__(self) -> int:
+        if not self.path.exists():
+            return 0
+        with self.path.open() as f:
+            return sum(1 for line in f if line.strip())
 
     def verify(self) -> bool:
         prev_hash = GENESIS
@@ -145,3 +171,15 @@ class EvidenceLedger(EvidenceProvider):
                 if line.strip():
                     out.append(EvidenceRecord.model_validate(json.loads(line)["record"]))
         return out
+
+    def records_for_run(self, run_id: str) -> list[EvidenceRecord]:
+        """Return all records matching an enterprise_run_id or run_id."""
+        return [
+            r for r in self.records()
+            if r.enterprise_run_id == run_id or r.run_id == run_id
+        ]
+
+    def last_record_for_run(self, run_id: str) -> EvidenceRecord | None:
+        matched = self.records_for_run(run_id)
+        return matched[-1] if matched else None
+

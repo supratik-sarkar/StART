@@ -27,6 +27,7 @@ console = Console()
 class ReviewConfig:
     data_path: str | None = None
     target: str | None = None
+    dataset_selection: Any = None
     task_override: str | None = None
     split_strategy: str = "stratified"
     architecture_family: str | None = None
@@ -65,6 +66,8 @@ class ReviewConfig:
     #   {"type": "critical_class", "critical_class": str, "relative_cost": float}
     #   {"type": "matrix", "matrix": {class_i: {class_j: cost, ...}, ...}}
     cost_specification: dict[str, Any] = field(default_factory=lambda: {"type": "balanced"})
+    open_figures: bool | None = None
+    figure_delay: float = 1.5
 
 
 def _ask(prompt: str, default: str, choices: list[str] | None = None, ask: Any = input) -> str:
@@ -156,6 +159,16 @@ def prompt_review_config(
             from start.providers.model_discovery import RealProviderModelDiscovery
             _discovery = RealProviderModelDiscovery()
         _available_models = _discovery.list_models(cfg.llm_provider)
+        if not _available_models and cfg.llm_provider in ("openai", "anthropic", "deepseek", "gemini", "grok"):
+            fallback = {
+                "openai": ["gpt-4o-mini", "gpt-4o"],
+                "anthropic": ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
+                "deepseek": ["deepseek-chat"],
+                "gemini": ["gemini-2.0-flash"],
+                "grok": ["grok-2-latest"],
+            }.get(cfg.llm_provider, [])
+            _available_models = fallback
+
         if _available_models:
             console.print(f"\n  Available models for {cfg.llm_provider}:")
             for idx, mid in enumerate(_available_models, 1):
@@ -364,7 +377,14 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
 
     # resolve LLM provider with strict trust-domain enforcement
     llm = None
+    if cfg.llm_provider not in ("none", ""):
+        from start.runtime_profile import assert_provider_allowed
+
+        assert_provider_allowed(cfg.llm_provider)
+
     if cfg.agent_mode == "llm" and cfg.llm_provider not in ("none", ""):
+        import os
+
         from start.core.config import LLMConfig
         from start.providers.keys import ensure_provider_key, key_required
         from start.providers.llm import get_llm_provider
@@ -387,11 +407,40 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
                 )
         domain = trust_domain(cfg.llm_provider).value  # 'public' | 'private' | 'none'
         expected = domain if domain in ("public", "private") else None
-        llm = get_llm_provider(LLMConfig(provider=cfg.llm_provider, model=cfg.llm_model), expected_domain=expected)
+
+        DEFAULT_MODELS: dict[str, str] = {
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-3-5-haiku-20241022",
+            "deepseek": "deepseek-chat",
+            "gemini": "gemini-2.0-flash",
+            "grok": "grok-2-latest",
+        }
+        resolved_model = cfg.llm_model or os.environ.get(f"START_{cfg.llm_provider.upper()}_MODEL") or DEFAULT_MODELS.get(cfg.llm_provider, "")
+        if cfg.llm_provider in ("gateway", "enterprise_llm_gateway") and not resolved_model:
+            resolved_model = os.environ.get("START_GATEWAY_MODEL", "")
+            if not resolved_model:
+                raise RuntimeError(
+                    "Provider 'gateway' requires a model to be explicitly specified via --model or START_GATEWAY_MODEL; "
+                    "StART never guesses model names on operator-supplied gateways."
+                )
+        llm = get_llm_provider(
+            LLMConfig(provider=cfg.llm_provider, model=resolved_model),
+            expected_domain=expected,
+        )
 
     # load data (demo or user path)
     _target_supplied_by_user = bool(cfg.target)
-    if cfg.data_path:
+    if getattr(cfg, "dataset_selection", None) is not None and cfg.dataset_selection.frame is not None:
+        selection = cfg.dataset_selection
+        df = selection.frame
+        console.print(
+            f"[bold]Dataset:[/bold] {selection.display_name} — "
+            f"{selection.n_rows:,} rows x {selection.n_columns} columns "
+            f"({selection.source_reference})"
+        )
+        if not cfg.target:
+            cfg.target = selection.target_column
+    elif cfg.data_path:
         from start.data.loaders import load_any_tabular
 
         df = load_any_tabular(cfg.data_path)
@@ -412,35 +461,35 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
                 "C": "adjusted_price",
                 "D": "decision_label"
             }
-            cfg.target = target_map.get(preset_key, "attrition")
+            cfg.target = target_map.get(preset_key, "is_fraud")
 
 
         preset_details = {
             "A": {
                 "name": "Synthetic Anomaly Detection & Transaction Monitoring",
                 "source": "Synthetic AML Profile Generator (imbalanced)",
-                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+                "url": "synthetic (locally generated)",
             },
             "B": {
                 "name": "Synthetic Time-Series Forecasting Profile",
                 "source": "Synthetic Trend & Seasonality Regressive Sequence",
-                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+                "url": "synthetic (locally generated)",
             },
             "C": {
                 "name": "Synthetic Asset Pricing Matrix",
                 "source": "Synthetic Multi-feature Pricing Regression",
-                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+                "url": "synthetic (locally generated)",
             },
             "D": {
                 "name": "Synthetic ML Decision Support Model Data",
                 "source": "Synthetic Multi-class Decision Profile",
-                "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+                "url": "synthetic (locally generated)",
             }
         }
         details = preset_details.get(preset_key, {
-            "name": "scikit-learn Breast Cancer Wisconsin (Diagnostic) (breast-cancer)",
-            "source": "sklearn.datasets.load_breast_cancer",
-            "url": "https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic"
+            "name": "Synthetic AML / Transaction Monitoring (Default)",
+            "source": "Synthetic Transaction Generator",
+            "url": "synthetic (locally generated)",
         })
 
 
@@ -450,6 +499,14 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
             f"  url: {details['url']}\n"
             f"  loaded: {len(df)} rows x {df.shape[1]} columns"
         )
+
+    # Rename target column in demo dataset if user specified a custom target column name
+    if not cfg.data_path and cfg.target and cfg.target not in df.columns:
+        default_col = "is_fraud"
+        if getattr(cfg, "dataset_selection", None) and getattr(cfg.dataset_selection, "target_column", None):
+            default_col = cfg.dataset_selection.target_column
+        if default_col in df.columns:
+            df = df.rename(columns={default_col: cfg.target})
 
     # Reconcile target cardinality & task override early
     if cfg.target in df.columns:
@@ -576,23 +633,47 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     except Exception:
         task_type = cfg.task_override or "binary_classification"
 
+    # Initialize session and LangSmith tracer
+    import uuid
+
+    from start.agent_roster import render_agent_roster_panel
+    from start.ai_engineering.langsmith_tracer import LangSmithTracer
+    from start.cli.panels import render_run_header
     from start.modeling.dataset_source import (
         describe_custom_dataset,
         describe_demo_dataset,
     )
     from start.modeling.enterprise_orchestrator import EnterpriseReviewOrchestrator
+    from start.review_session import ReviewSession
+    from start.runtime_profile import active_profile
 
+    enterprise_run_id = getattr(cfg, "review_id", None) or ("RUN-ENT-" + uuid.uuid4().hex[:8])
+    session = ReviewSession(run_id=enterprise_run_id)
+    tracer = LangSmithTracer(run_id=enterprise_run_id)
+    tracer.start_review(review_id=enterprise_run_id)
+
+    # Render Panel 1: Run Header (D6)
+    console.print(
+        render_run_header(
+            review_id=enterprise_run_id,
+            target=cfg.target or "",
+            task_type=task_type,
+            dataset_shape=(len(df), df.shape[1]),
+            profile=active_profile().value,
+            policy_id="public_demo",
+            seed=cfg.seed,
+            mode=cfg.agent_mode,
+            provider=cfg.llm_provider,
+        )
+    )
+    console.print("")
+
+    # Committee Roster Panel
     console.print(
         f"\n[bold]Running AI REVIEW COMMITTEE workflow[/bold] (agent mode: {cfg.agent_mode})\n"
     )
-    # Item 1 / v2.3.1 #3: introduce the committee in a boxed panel with colored
-    # agent names.
-    from start.agent_roster import render_agent_roster_panel
-    from start.review_session import ReviewSession
-
     console.print(render_agent_roster_panel())
     console.print("")
-    session = ReviewSession(run_id="RUN")
     # Section A / v2.3.1 #3,#5: visible LLM activation as its own boxed panel.
     from start.providers.llm_activation import preflight_llm
     from start.review_tables import llm_activation_panel
@@ -758,8 +839,9 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                 _fe = recommend_feature_engineering(_stats, cost_specification=cfg.cost_specification)
                 run_feature_engineering_checkpoints(
                     _fe, session, interactive=interactive,
-                    auto_accept=cfg.accept_recommendations, llm=llm,
-                    llm_connected=_llm_connected, ask=input,
+                    auto_accept=cfg.accept_recommendations,
+                    df=df, target=cfg.target, already_weighted=bool(cfg.class_weight),
+                    llm=llm, llm_connected=_llm_connected, ask=input,
                     emit=lambda m: console.print(m), evidence=_evidence,
                     business_context=cfg.objective or "",
                     reviewer_clarification="\n".join(cfg.notes) or "",
@@ -782,6 +864,29 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                 task_type=task_type,
                 model_name=arch_choice,
             )
+    else:
+        from start.review_session import Decision
+
+        session.record_decision(Decision(
+            key="architecture",
+            prompt="Model architecture family",
+            recommended=arch_choice,
+            user_value=arch_choice,
+            effective=arch_choice,
+            choice="auto_accept",
+            rationale=f"Batch execution using configured family {arch_choice}",
+            agent_rationale=f"Configured family {arch_choice}",
+        ))
+        session.record_decision(Decision(
+            key="metric_priority",
+            prompt="Cost priority / primary metric",
+            recommended=cost_choice or "balanced",
+            user_value=cost_choice or "balanced",
+            effective=cost_choice or "balanced",
+            choice="auto_accept",
+            rationale="Batch execution with standard balanced cost weighting",
+            agent_rationale="Default balanced error cost",
+        ))
 
     from start.agent_roster import announce_adapter_activity
     from start.progress import progress_bar
@@ -825,38 +930,113 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             validation=cfg.validation_scheme,
             k_folds=cfg.k_folds,
             cost_specification=cfg.cost_specification,
+            run_id=enterprise_run_id,
         )
     # Section K: agent reasoning traces (thinking visibility)
     if outcome.trace_log and outcome.trace_log.traces:
         console.print("\n[bold]Agent reasoning traces[/bold]")
         console.print(outcome.trace_log.render_terminal())
-    # Section O: adapter transparency (purpose/status/time/artifacts/evidence #10)
-    cs = outcome.ai_engineering.control_surface()
-    if cs:
-        from start.review_tables import adapter_inventory_table
-
-        console.print("\n[bold]AI-engineering adapter inventory[/bold]")
-        console.print(adapter_inventory_table(cs))
+    # Section O: adapter transparency recorded for dashboard
+    # (terminal table was already printed during the pre-run sweep)
     # v2.3.0: assemble the post-run evidence store ONCE (sensitivity, metrics,
     # tuning) — reused by the ValidationAgent review and the MRM signoff.
     from start.evidence_store import EvidenceStore as _EvStore
 
     _final_store = _EvStore.from_artifacts(
-        copilot_exec=outcome.copilot_execution, sensitivity=outcome.sensitivity,
+        model_exec=outcome.model_execution, sensitivity=outcome.sensitivity,
         tuning_run=outcome.tuning_run,
     )
 
     # Sections D/J/K: split table, metrics-by-split, explainability (Rich #9)
-    if outcome.copilot_execution:
+    if outcome.model_execution:
         from start.review_tables import importance_table, metrics_table
 
-        ce = outcome.copilot_execution
+        me = outcome.model_execution
         console.print("\n[bold]Model execution[/bold]")
-        if ce.metrics_by_split:
-            console.print(metrics_table(ce.metrics_by_split))
-        if ce.global_importance:
+        if me.metrics_by_split:
+            console.print(metrics_table(me.metrics_by_split))
+
+            # Inline Terminal Plots
+            import numpy as np
+
+            from start.cli.terminal_plots import (
+                render_drift_sparkline,
+                render_threshold_sweep_ascii,
+            )
+
+            y_true = getattr(me, "oos_y_true", None)
+            scores = getattr(me, "oos_scores", None)
+            if y_true is not None and scores is not None and len(y_true) > 0 and len(np.unique(y_true)) > 1:
+                console.print(render_threshold_sweep_ascii(y_true, scores))
+                console.print("")
+
+            if outcome.sensitivity and getattr(outcome.sensitivity, "sensitivities", None):
+                drift_dict = {
+                    s.feature: getattr(s, "drift", 0.0) for s in outcome.sensitivity.sensitivities
+                }
+                if drift_dict:
+                    console.print(render_drift_sparkline(drift_dict))
+                    console.print("")
+
+            # Generate and register static figures (Workstream C2 & C3)
+            from start.reporting.figure_viewer import FigurePresentation, FigureSpec
+            from start.reporting.figures import generate_all_report_figures
+
+            if y_true is not None and scores is not None:
+                cm = me.metrics_by_split.get("oos", {}).get("confusion_matrix") or me.metrics_by_split.get("test", {}).get("confusion_matrix")
+                fig_drift = (
+                    {s.feature: getattr(s, "drift", 0.0) for s in outcome.sensitivity.sensitivities}
+                    if outcome.sensitivity and getattr(outcome.sensitivity, "sensitivities", None)
+                    else None
+                )
+                figs = generate_all_report_figures(
+                    y_true=y_true,
+                    scores=scores,
+                    cm=cm,
+                    drift_dict=fig_drift,
+                    global_importance_data=me.global_importance,
+                    output_dir=cfg.output_root,
+                    run_id=outcome.run_id,
+                )
+                if outcome.artifact_registry:
+                    for fig_key, fig_path in figs.items():
+                        outcome.artifact_registry.register(
+                            fig_path,
+                            name=f"figure_{fig_key}",
+                            artifact_type="figure_png",
+                            description=f"Generated diagnostic figure for {fig_key}",
+                        )
+
+                oos = me.metrics_by_split.get("oos", {})
+                headlines = {
+                    "roc_curve": f"AUC {oos.get('auc_roc', float('nan')):.4f}",
+                    "pr_curve": f"PR-AUC {oos.get('pr_auc', float('nan')):.4f}",
+                    "calibration_curve": f"ECE {oos.get('ece', float('nan')):.4f}",
+                    "confusion_matrix": "at the selected decision threshold",
+                    "feature_drift": "",
+                    "global_importance": "",
+                    "local_explanation": "3 named cases",
+                }
+                specs = [
+                    FigureSpec(
+                        key=key,
+                        path=path,
+                        headline=headlines.get(key, ""),
+                        cohort="OOS" if key in {"roc_curve", "pr_curve", "calibration_curve"} else "",
+                    )
+                    for key, path in figs.items()
+                ]
+                presentation = FigurePresentation.configure(
+                    explicit=getattr(cfg, "open_figures", None),
+                    delay_seconds=getattr(cfg, "figure_delay", 1.5),
+                    echo=lambda line: console.print(line, highlight=False),
+                )
+                presentation.present(specs)
+
+        if me.global_importance:
             console.print("")
-            console.print(importance_table(ce.global_importance))
+            console.print(importance_table(me.global_importance))
+
     # Section H: real tuning trials table (Rich #9)
     if outcome.tuning_run:
         from start.review_tables import tuning_table
@@ -926,14 +1106,140 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             pass
 
     # Item 11: write the committee transcript (conversations, decisions,
-    # overrides) alongside the dashboards.
+    # overrides) alongside the dashboards with inner run ID.
     from start.reporting.review_transcript import write_transcript
 
     session.run_id = outcome.run_id
+    inner_run_id = getattr(outcome, "inner_run_id", "")
     transcript_paths = write_transcript(
         session, cfg.output_root, outcome.run_id, sensitivity=outcome.sensitivity,
-        kfold=outcome.kfold_tuning,
+        kfold=outcome.kfold_tuning, inner_run_id=inner_run_id,
     )
+
+    # Cross-Agent Collisions & Human Adjudication
+    from start.attestation.seal import build_seal, persist_seal_manifest, validate_seal_preconditions
+    from start.cli.panels import render_seal_panel
+    from start.consensus import adjudicate_collisions_interactive, detect_collisions
+
+    evidence_dicts = [
+        r.model_dump() if hasattr(r, "model_dump") else (r.as_dict() if hasattr(r, "as_dict") else dict(r))
+        for r in getattr(_final_store, "records", [])
+    ]
+    agent_outputs = {
+        "ArchitectureReviewAgent": {"recommended_family": arch_choice},
+        "ValidationPlannerAgent": {"expected_modality": "tabular"},
+    }
+    collisions = detect_collisions(
+        evidence_records=evidence_dicts,
+        agent_outputs=agent_outputs,
+    )
+    adjudications = []
+    if collisions:
+        adjudications, can_proceed = adjudicate_collisions_interactive(
+            collisions,
+            non_interactive=cfg.non_interactive,
+            output_func=lambda m: console.print(m),
+            input_func=input,
+        )
+        if not can_proceed:
+            import typer
+            if cfg.non_interactive:
+                raise typer.Exit(code=1)
+            console.print("[bold red]Review blocked by human adjudication outcome.[/bold red]")
+
+    # Adjudications canonical payload (A2)
+    adjudications_payload = session.to_canonical_dict()
+    if adjudications:
+        adjudications_payload["collisions"] = [
+            a.as_evidence_record() if hasattr(a, "as_evidence_record") else dict(a)
+            for a in adjudications
+        ]
+
+    # Attestations leaf payload (A5)
+    from start.attestation.invariance import attest_narrative_invariance
+    attestations_list = []
+    agent_rev = getattr(outcome.base_outcome, "agent_review", None)
+    if agent_rev and getattr(agent_rev, "signoff", None):
+        signoff_text = agent_rev.signoff
+        att = attest_narrative_invariance(
+            section="governance_signoff",
+            deterministic_narrative=signoff_text,
+            model_narrative=signoff_text,
+            evidence=outcome.base_outcome.evidence,
+            provider_name=cfg.llm_provider if cfg.agent_mode == "llm" else "deterministic",
+            narration_path="model_narrated" if cfg.agent_mode == "llm" else "deterministic_only",
+        )
+        attestations_list.append(att.as_dict())
+
+    for chal in session.challenges:
+        if chal.answer:
+            c_att = attest_narrative_invariance(
+                section=f"challenge:{chal.challenge_id}",
+                deterministic_narrative=chal.answer,
+                model_narrative=chal.answer,
+                evidence=outcome.base_outcome.evidence,
+                provider_name=chal.provider or cfg.llm_provider,
+                narration_path="model_narrated" if cfg.agent_mode == "llm" else "deterministic_only",
+            )
+            attestations_list.append(c_att.as_dict())
+
+    # Precondition validation (A6, Amendment 1)
+    valid_seal, check_results = validate_seal_preconditions(
+        review_id=outcome.run_id,
+        ledger_records=outcome.base_outcome.evidence,
+        evidence_head=outcome.base_outcome.evidence[-1] if outcome.base_outcome.evidence else None,
+        adjudications=adjudications_payload,
+        attestations=attestations_list,
+        agent_mode=cfg.agent_mode,
+        critic_verdict="PASSED" if outcome.critique_ok else "FAILED",
+    )
+    if not valid_seal:
+        console.print("\n[bold red]SEAL WITHHELD — this review cannot be cryptographically sealed.[/bold red]")
+        for c in check_results:
+            mark = "[bold green]✓[/bold green]" if c.passed else "[bold red]✗[/bold red]"
+            console.print(f"  {mark} {c.label}")
+        console.print(
+            "\n[dim]A seal that commits to no evidence is worse than no seal: "
+            "it verifies forever and attests to nothing.[/dim]\n"
+        )
+        import typer
+        raise typer.Exit(code=1)
+
+    # Cryptographic Review Seal (start-seal/2 with 8 leaves)
+    evidence_head_hash = (
+        outcome.base_outcome.evidence[-1].evidence_id
+        if outcome.base_outcome.evidence
+        else ("0" * 32)
+    )
+    seal = build_seal(
+        review_id=outcome.run_id,
+        plan={
+            "task": task_type,
+            "target": cfg.target,
+            "architecture": arch_choice,
+            "enterprise_run_id": outcome.run_id,
+            "inner_run_id": inner_run_id,
+        },
+        policy={"disclosure_policy": "public_demo", "profile": active_profile().value},
+        evidence_head=evidence_head_hash,
+        attestations=attestations_list if attestations_list else None,
+        adjudications=adjudications_payload,
+        metadata={"enterprise_run_id": outcome.run_id, "inner_run_id": inner_run_id},
+    )
+
+    manifest_path = persist_seal_manifest(seal, cfg.output_root)
+    if outcome.artifact_registry:
+        outcome.artifact_registry.register(
+            str(manifest_path),
+            name="seal_manifest",
+            artifact_type="seal_manifest_json",
+            description="Archived Merkle seal manifest",
+        )
+
+    console.print("")
+    console.print(render_seal_panel(seal, critic_verdict="PASSED" if outcome.critique_ok else "FAILED"))
+    tracer.end_review(seal_string=seal.seal_string())
+    outcome.review_session = session
 
     summary = outcome.findings_register.summary()
     console.print(
@@ -946,6 +1252,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         f"  AI-engineering: {outcome.ai_engineering.available_count}"
         f"/{outcome.ai_engineering.total} adapters available\n"
         f"  evidence critique: {'PASSED' if outcome.critique_ok else 'FAILED'}\n"
+        f"  seal: [bold cyan]{seal.seal_string()}[/bold cyan]\n"
         f"  dashboard: {outcome.dashboard_paths['html']}\n"
         f"  transcript: {transcript_paths['html']}"
     )

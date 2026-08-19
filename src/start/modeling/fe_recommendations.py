@@ -1,4 +1,4 @@
-"""Feature-engineering recommendation engine for the co-pilot UX.
+"""Feature-engineering recommendation engine for the review execution layer.
 
 Turns the frozen FeatureEngineeringAgent diagnostics + the data statistics into
 a list of explicit, reviewable recommendations. Each carries: the action, the

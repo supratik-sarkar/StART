@@ -22,8 +22,7 @@ def test_wizard_custom_tuning_params_populated_only_on_input():
         "2", # Deep Learning Branch
         "3", # LSTM
         "1", # ReLU activation
-        "",  # blank local path (demo data)
-        "A", # Anomaly/Transaction Monitor preset
+        "1", # Dataset Source -> [1] Synthetic AML / fraud transactions
         "2", # Problem task type -> Regression
         "",  # target column (auto-lock is_fraud)
         "2", # split strategy -> Time-Series Split
@@ -88,11 +87,11 @@ def test_leakage_prevention_tuning_train_only():
     
     orchestrator = EnterpriseReviewOrchestrator()
     
-    # Mock run_tuning and run_copilot_execution to see what data they receive
+    # Mock run_tuning and run_model_execution to see what data they receive
     from unittest.mock import patch
     
     with patch("start.modeling.tuning_run.run_tuning") as mock_tuning, \
-         patch("start.modeling.copilot_execution.run_copilot_execution") as mock_copilot_exec, \
+         patch("start.modeling.model_execution.run_model_execution") as mock_model_exec, \
          patch("start.governance.findings.FindingsRegister"), \
          patch("start.reporting.agent_trace.TraceLog"), \
          patch("start.reporting.artifacts.ArtifactRegistry"), \
@@ -105,11 +104,11 @@ def test_leakage_prevention_tuning_train_only():
          mock_base.cohort_metrics = {"train": {"auc_roc": 0.8}}
          mock_base_orch.return_value.run.return_value = mock_base
          
-         # Stub copilot exec return value
-         mock_copilot = MagicMock()
-         mock_copilot.feature_columns = [c for c in df.columns if c != "attrition"][:2]
-         mock_copilot.explainability_method = "integrated_gradients"
-         mock_copilot.to_dict.return_value = {
+         # Stub model exec return value
+         mock_model = MagicMock()
+         mock_model.feature_columns = [c for c in df.columns if c != "attrition"][:2]
+         mock_model.explainability_method = "integrated_gradients"
+         mock_model.to_dict.return_value = {
              "split_table": [],
              "metrics_by_split": {},
              "training_diagnostics": {},
@@ -118,7 +117,7 @@ def test_leakage_prevention_tuning_train_only():
              "explainability_available": True,
              "generalization_gap": 0.05,
          }
-         mock_copilot_exec.return_value = mock_copilot
+         mock_model_exec.return_value = mock_model
 
          # Stub run_tuning return value
          mock_tune = MagicMock()

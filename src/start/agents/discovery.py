@@ -173,23 +173,29 @@ class DatasetDiscoveryAgent:
     def _candidate_targets(
         self, df: pd.DataFrame, columns: list[ColumnProfile], exclude: set[str]
     ) -> list[str]:
+        _PROTECTED_OR_AUX_HINTS = {
+            "foreign_worker", "telephone", "phone", "liable_people", "people_liable",
+            "personal_status", "sex", "gender", "race", "ethnicity", "age",
+            "marital_status", "nationality", "religion", "disability",
+        }
         scored: list[tuple[float, str]] = []
+        last_col = df.columns[-1] if len(df.columns) > 0 else ""
         for col in columns:
             if col.name in exclude or col.role in {"datetime", "image_path", "identifier", "text"}:
                 continue
-            score = 0.0
             lname = col.name.lower()
-            if lname in {"target", "label", "y", "class", "outcome"}:
+            if any(k in lname for k in _PROTECTED_OR_AUX_HINTS):
+                continue
+            score = 0.0
+            if lname in {"target", "label", "y", "class", "outcome", "default", "churn", "fraud", "attrition", "status", "credit_risk", "response", "bad"}:
                 score += 5
-            if any(k in lname for k in ("target", "label", "churn", "default", "fraud", "class")):
-                score += 2
-            if col.role in {"boolean", "categorical"} and 2 <= col.n_unique <= 20:
-                score += 2
-            if col.role == "numeric" and col.n_unique == 2:
-                score += 2
+            elif any(k in lname for k in ("target", "label", "churn", "default", "fraud", "attrition", "credit_risk", "response", "bad")):
+                score += 3
+            if col.name == last_col and (col.role in {"boolean", "categorical"} or (col.role == "numeric" and col.n_unique <= 5)):
+                score += 2.5
             if col.missing_pct > 5:
-                score -= 1
-            if score > 0:
+                score -= 1.5
+            if score >= 2.5:
                 scored.append((score, col.name))
         scored.sort(reverse=True)
         return [name for _, name in scored]

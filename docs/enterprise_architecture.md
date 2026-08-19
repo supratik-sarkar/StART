@@ -202,7 +202,7 @@ reasoning traces, and the artifact list. Notebook 05 renders the same via
 ## v2.1.1 remediation — Make the model review actually run
 
 The remediation fixed the interactive enterprise run so it behaves like a live
-co-pilot rather than silently running diagnostics-only.
+review execution layer rather than silently running diagnostics-only.
 
 ### Provider activation (Sections A/B)
 
@@ -222,7 +222,7 @@ priority from a free-text clarification (``_infer_cost_priority``).
 
 ### Real execution modules
 
-- ``modeling/copilot_execution.py`` — trains on the user-proportioned split and
+- ``modeling/model_execution.py`` — trains on the user-proportioned split and
   emits the split table, metrics-by-split (AUC/PR-AUC/precision/recall/
   specificity/F1/Brier/ECE + confusion matrix), training diagnostics,
   generalization gap, and a global explainability table — as registered CSV/JSON

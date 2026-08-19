@@ -1,25 +1,55 @@
+#
+# StART — Standardized Agentic Reusable Tests
+#
+# THIS FILE IS THE SINGLE AUTHORITATIVE SOURCE OF DEPENDENCY TRUTH.
+#
+#   pyproject.toml        -> authoritative dependency metadata      (edit here)
+#   scripts/bootstrap.py  -> canonical cross-platform installer     (reads this)
+#   requirements.txt      -> GENERATED mirror, reference only       (do not edit)
+#   constraints.txt       -> optional pinned clean-room constraints (opt-in)
+#
+# Rules enforced by tests/test_packaging_contract.py:
+#   * No extra may reference the package itself (no "start-mrt[...]" recursion).
+#   * "everything" must be the flat union of every other non-alias extra.
+#   * requires-python, ruff target-version and mypy python_version must agree.
+#
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "3.2.0"
-description = "StART: Standardized Agentic Reusable Tests — deterministic AI/ML validation engines with agentic orchestration, proof-carrying narratives, and a tamper-evident evidence ledger."
+version = "4.0.2"
+description = "StART: risk-stripe-agnostic agentic review platform — deterministic engines compute, agents reason, evidence proves, seals attest."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Supratik Sarkar" }]
-keywords = ["model-risk", "validation", "agentic", "evaluation", "audit", "mlops"]
+keywords = [
+  "model-risk",
+  "model-risk-management",
+  "validation",
+  "agentic",
+  "governance",
+  "audit",
+  "evidence",
+  "attestation",
+  "mlops",
+]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Financial and Insurance Industry",
+  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Office/Business :: Financial",
 ]
 
-# Core stays lightweight by design. Heavy stacks live in extras.
+# Core stays deliberately small. Every heavy stack lives in an extra, and the
+# entire risk / attestation / disclosure core is standard-library-only so it
+# imports in a locked-down environment with nothing installed but Python.
 dependencies = [
   "numpy>=1.26",
   "pandas>=2.1",
@@ -33,44 +63,101 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-torch = ["torch>=2.2", "captum>=0.7", "matplotlib>=3.7"]
-tree-models = ["xgboost>=2.0", "lightgbm>=4.3"]
-optuna = ["optuna>=3.6"]
-formats = ["pyarrow>=15", "openpyxl>=3.1"]
-vision = ["pillow>=10.0", "torchvision>=0.17"]
-delta = ["deltalake>=0.17"]
-snowflake = ["snowflake-connector-python[pandas]>=3.7"]
-xai = ["shap>=0.45"]
-databricks = ["mlflow>=2.10"]
-mlflow = ["mlflow>=2.10"]
-openai = ["openai>=1.30"]
-anthropic = ["anthropic>=0.30"]
-huggingface = ["transformers>=4.40", "huggingface_hub>=0.23", "accelerate>=0.30"]
-genai = ["sentence-transformers>=3.0"]
-dev = [
-  "pytest>=8.0",
-  "hypothesis>=6.100",
-  "ruff>=0.4",
-  "mypy>=1.10",
-  "pre-commit>=3.7",
-]
-llm-openai = ["openai>=1.30"]
-llm-anthropic = ["anthropic>=0.30"]
-all = ["start-mrt[torch,tree-models,optuna,xai,formats,vision,dev]"]
-everything = ["start-mrt[torch,tree-models,optuna,xai,formats,vision,dev,openai,anthropic,huggingface,genai,mlflow]"]
 
-# --- AI-engineering adapter backends (enterprise; install what you need) ---
-# Each adapter runs its real backend when its extra is installed; otherwise it
-# reports unavailability explicitly and still emits evidence.
+# --- modelling stacks -------------------------------------------------------
+dl = ["torch>=2.2", "captum>=0.7", "torchvision>=0.17", "matplotlib>=3.7", "pillow>=10.0"]
+trees = ["xgboost>=2.0", "lightgbm>=4.3"]
+tuning = ["optuna>=3.6"]
+xai = ["shap>=0.45"]
+formats = ["pyarrow>=15", "openpyxl>=3.1"]
+
+# --- data / experiment connectors ------------------------------------------
+connectors = ["deltalake>=0.17", "snowflake-connector-python[pandas]>=3.7"]
+tracking = ["mlflow>=2.10"]
+
+# --- LLM client SDKs --------------------------------------------------------
+# NOTE: these are HTTP client libraries, not a commitment to a vendor endpoint.
+# The same `openai` SDK is the transport for any OpenAI-compatible gateway,
+# including a private internal one addressed purely by START_GATEWAY_BASE_URL.
+# Which endpoints may actually be reached is decided by the runtime profile
+# (start.runtime_profile), never by which SDK happens to be installed.
+llm = ["openai>=1.30", "anthropic>=0.30"]
+llm-local = [
+  "transformers>=4.40",
+  "huggingface-hub>=0.23",
+  "accelerate>=0.30",
+  "sentence-transformers>=3.0",
+]
+
+# --- AI-engineering adapter backends ---------------------------------------
 telemetry = ["opentelemetry-sdk>=1.20", "opentelemetry-api>=1.20"]
-observability = ["langfuse>=2.0"]
+observability = ["langfuse>=2.0", "langsmith>=0.1", "arize-phoenix>=7.0"]
 mcp = ["mcp>=0.9"]
 redteam = ["garak>=0.9"]
 evals = ["deepeval>=0.21"]
 guardrails = ["nemoguardrails>=0.8"]
 orchestration = ["langgraph>=0.1"]
-ai-engineering = [
-    "start-mrt[telemetry,observability,mcp,evals,orchestration]",
+
+# --- development ------------------------------------------------------------
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "hypothesis>=6.100",
+  "ruff>=0.4",
+  "mypy>=1.10",
+  "pre-commit>=3.7",
+  "build>=1.2",
+]
+
+# --- flat union (NO self-reference; kept in sync by the packaging contract) --
+everything = [
+  # dl
+  "torch>=2.2", "captum>=0.7", "torchvision>=0.17", "matplotlib>=3.7", "pillow>=10.0",
+  # trees
+  "xgboost>=2.0", "lightgbm>=4.3",
+  # tuning
+  "optuna>=3.6",
+  # xai
+  "shap>=0.45",
+  # formats
+  "pyarrow>=15", "openpyxl>=3.1",
+  # connectors
+  "deltalake>=0.17", "snowflake-connector-python[pandas]>=3.7",
+  # tracking
+  "mlflow>=2.10",
+  # llm
+  "openai>=1.30", "anthropic>=0.30",
+  # llm-local
+  "transformers>=4.40", "huggingface-hub>=0.23", "accelerate>=0.30", "sentence-transformers>=3.0",
+  # telemetry
+  "opentelemetry-sdk>=1.20", "opentelemetry-api>=1.20",
+  # observability
+  "langfuse>=2.0", "langsmith>=0.1", "arize-phoenix>=7.0",
+  # mcp
+  "mcp>=0.9",
+  # redteam
+  "garak>=0.9",
+  # evals
+  "deepeval>=0.21",
+  # guardrails
+  "nemoguardrails>=0.8",
+  # orchestration
+  "langgraph>=0.1",
+  # dev
+  "pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.100", "ruff>=0.4", "mypy>=1.10",
+  "pre-commit>=3.7", "build>=1.2",
+]
+
+# --- compatibility aliases (deprecated; kept so older docs/CI keep working) --
+# Declared flat, never as "start-mrt[...]".
+torch = ["torch>=2.2", "captum>=0.7", "torchvision>=0.17", "matplotlib>=3.7", "pillow>=10.0"]
+all = [
+  "torch>=2.2", "captum>=0.7", "torchvision>=0.17", "matplotlib>=3.7", "pillow>=10.0",
+  "xgboost>=2.0", "lightgbm>=4.3", "optuna>=3.6", "shap>=0.45",
+  "pyarrow>=15", "openpyxl>=3.1",
+  "openai>=1.30", "anthropic>=0.30",
+  "pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.100", "ruff>=0.4", "mypy>=1.10",
+  "pre-commit>=3.7", "build>=1.2",
 ]
 
 [project.scripts]
@@ -79,6 +166,21 @@ start = "start.cli:app"
 [project.urls]
 Homepage = "https://github.com/supratik-sarkar/StART"
 Issues = "https://github.com/supratik-sarkar/StART/issues"
+Documentation = "https://github.com/supratik-sarkar/StART#readme"
+
+# ---------------------------------------------------------------------------
+# Plugin contracts.
+#
+# `start.llm_gateways` lets a PRIVATE, separately-distributed wheel register an
+# LLM gateway implementation without editing a single file in this repository.
+# That is the supported way to run StART against an internal gateway: install
+# the private wheel alongside StART and select the registered provider name.
+# Nothing about that gateway — its name, endpoint, auth scheme or owner — ever
+# appears here.
+#
+# `start.test_packs` lets an organisation ship additional deterministic tests.
+# `start.risk_stripes` lets an organisation ship additional risk stripes.
+# ---------------------------------------------------------------------------
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/start"]
@@ -86,27 +188,34 @@ packages = ["src/start"]
 [tool.hatch.build.targets.wheel.force-include]
 "src/start/policies" = "start/policies"
 
+[tool.hatch.build.targets.sdist]
+include = ["src/start", "tests", "configs", "scripts", "README.md", "LICENSE", "pyproject.toml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+  "network: test requires outbound network access (deselected by default in CI)",
+  "slow: long-running test",
+]
 # Test-hygiene only: silence known, benign sklearn linear-model RuntimeWarnings
-# emitted by synthetic/stress test fixtures on some BLAS backends (e.g. macOS).
-# These originate inside sklearn/numpy matmul internals, not StART code, and do
-# not indicate a StART failure. Source/model/tuning behavior is unchanged.
+# emitted by synthetic/stress fixtures on some BLAS backends (e.g. Accelerate on
+# Apple silicon). These originate inside sklearn/numpy matmul internals, not in
+# StART code, and do not indicate a StART failure.
 filterwarnings = [
-    "ignore:divide by zero encountered in matmul:RuntimeWarning",
-    "ignore:overflow encountered in matmul:RuntimeWarning",
-    "ignore:invalid value encountered in matmul:RuntimeWarning",
+  "ignore:divide by zero encountered in matmul:RuntimeWarning",
+  "ignore:overflow encountered in matmul:RuntimeWarning",
+  "ignore:invalid value encountered in matmul:RuntimeWarning",
 ]
 
 [tool.ruff]
 line-length = 110
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = ["B008", "E501", "E402", "E741", "F401", "F841", "UP035", "UP042"]  # typer uses function calls in defaults by design
+ignore = ["B008"]  # typer uses function calls in defaults by design
 
 [tool.ruff.lint.per-file-ignores]
 # Databricks notebook source files use dbutils (injected by the runtime) and
@@ -114,6 +223,24 @@ ignore = ["B008", "E501", "E402", "E741", "F401", "F841", "UP035", "UP042"]  # t
 # Jupyter notebooks re-import locally per cell and use notebook-style semicolons.
 "notebooks/*.py" = ["E402", "F821"]
 "notebooks/*.ipynb" = ["E402", "F821", "E702", "I001", "E501"]
+# Test requires top-level pytest.importorskip("torch") guard before module imports
+"tests/test_dl_enhancements.py" = ["E402"]
+# Legacy module line-length scoping (long error strings, CLI prompts, docstrings)
+"src/start/main.py" = ["E501"]
+"src/start/cli/main.py" = ["E501"]
+"src/start/cli/view.py" = ["E501"]
+"src/start/interactive_review.py" = ["E501"]
+"src/start/interactive_checkpoints_flow.py" = ["E501"]
+"src/start/interactive_checkpoints.py" = ["E501"]
+"src/start/agent_dialogue.py" = ["E501"]
+"src/start/core/metrics.py" = ["E501"]
+"src/start/agents/*.py" = ["E501"]
+"src/start/modeling/*.py" = ["E501"]
+"src/start/orchestration/*.py" = ["E501"]
+"src/start/reporting/*.py" = ["E501"]
+"src/start/providers/model_discovery.py" = ["E501"]
+"src/start/telemetry/bus.py" = ["E501"]
+"tests/*.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

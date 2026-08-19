@@ -8,6 +8,7 @@ replaces the LLM narrative with the deterministic template narrative.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from start.agents import (
@@ -18,6 +19,7 @@ from start.agents import (
     ReviewPlannerAgent,
     TestRouterAgent,
 )
+from start.cli.view import ProgressDashboardUI
 from start.core.config import StartConfig, load_policy
 from start.core.hashing import hash_dataframe
 from start.core.schemas import (
@@ -27,11 +29,14 @@ from start.core.schemas import (
     RunResult,
     TaskType,
 )
+from start.engine.state import StepCheckpointer
 from start.evidence.ledger import EvidenceLedger
+from start.orchestration.middleware import SelfHealingExecutionInterceptor
 from start.providers.compute import get_compute_provider
 from start.providers.experiment import get_experiment_provider
 from start.providers.llm import get_llm_provider
 from start.registry import TestContext
+from start.telemetry.bus import TelemetryBus
 
 
 def build_context(config: StartConfig, train, test=None, model=None, extra=None) -> TestContext:
@@ -215,12 +220,6 @@ def review_dataframes(
 
 
 # --- StART v2.4.0 Core Interceptor & Telemetry UI Bridge ---
-import asyncio
-
-from start.cli.view import ProgressDashboardUI
-from start.engine.state import StepCheckpointer
-from start.orchestration.middleware import SelfHealingExecutionInterceptor
-from start.telemetry.bus import TelemetryBus
 
 
 async def execute_pipeline_v240_bridge(workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"):

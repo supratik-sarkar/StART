@@ -318,7 +318,7 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
 
 
 def get_llm_provider(config: LLMConfig, expected_domain: str | None = None) -> LLMProvider:
-    """Resolve a provider, enforcing trust-domain separation.
+    """Resolve a provider, enforcing trust-domain separation and runtime profile egress containment.
 
     If ``expected_domain`` ('public' or 'private') is given, the requested
     provider must belong to it — crossover raises TrustDomainViolation. A
@@ -330,13 +330,43 @@ def get_llm_provider(config: LLMConfig, expected_domain: str | None = None) -> L
         TrustDomain,
         assert_no_crossover,
     )
+    from start.runtime_profile import (
+        PUBLIC_SAAS_PROVIDERS,
+        RuntimeProfile,
+        active_profile,
+        assert_provider_allowed,
+    )
 
     if expected_domain:
         assert_no_crossover(config.provider, TrustDomain(expected_domain))
 
+    current_profile = active_profile()
+    is_restricted = current_profile in (RuntimeProfile.ENTERPRISE, RuntimeProfile.AIRGAPPED)
+    if is_restricted and config.provider in PUBLIC_SAAS_PROVIDERS:
+        assert_provider_allowed(config.provider)
+
+    if config.provider == "gateway":
+        from start.providers.gateway import OpenAICompatibleGatewayProvider
+
+        provider = OpenAICompatibleGatewayProvider(model=config.model or "")
+        if not provider.available:
+            return NoLLMProvider()
+        return provider
+
+    from start.providers.gateway_discovery import registered_gateway_names
+
+    if config.provider in registered_gateway_names():
+        from start.providers.gateway import PluginGatewayProvider
+
+        provider = PluginGatewayProvider(config.provider)
+        if not provider.available:
+            return NoLLMProvider()
+        return provider
+
     cls = _PROVIDERS.get(config.provider, NoLLMProvider)
+    known_models = {"openai", "anthropic", "grok", "gemini", "deepseek", "huggingface", "hf_local"}
     try:
-        if config.model and config.provider in {"openai", "anthropic", "grok", "gemini", "deepseek", "huggingface", "hf_local"}:
+        if config.model and config.provider in known_models:
             provider = cls(model=config.model)  # type: ignore[call-arg]
         else:
             provider = cls()

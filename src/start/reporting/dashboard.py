@@ -55,7 +55,7 @@ class DashboardModel:
     signoff: str = ""
     critique_ok: bool = True
     stage_timeline: list[dict[str, Any]] = field(default_factory=list)
-    # v2.1.0 co-pilot sections
+    # v2.1.0 model execution sections
     data_statistics: dict[str, Any] | None = None
     fe_recommendations: list[dict[str, Any]] = field(default_factory=list)
     architecture_review: dict[str, Any] | None = None
@@ -69,7 +69,7 @@ class DashboardModel:
     activation_report: dict[str, Any] | None = None
     control_surface: list[dict[str, Any]] = field(default_factory=list)
     artifact_catalog: list[dict[str, Any]] = field(default_factory=list)
-    copilot_execution: dict[str, Any] | None = None
+    model_execution: dict[str, Any] | None = None
     tuning_run: dict[str, Any] | None = None
     kfold: dict[str, Any] | None = None
     review_journey: dict[str, Any] | None = None
@@ -120,12 +120,12 @@ class DashboardModel:
                 "cohort_metrics": self.cohort_metrics,
                 "rows": self.validation_rows,
             },
-            "model_execution": self.copilot_execution,
+            "model_execution": self.model_execution,
             "train_test_oos_split": (
-                self.copilot_execution.get("split_table") if self.copilot_execution else None
+                self.model_execution.get("split_table") if self.model_execution else None
             ),
             "metrics_by_split": (
-                self.copilot_execution.get("metrics_by_split") if self.copilot_execution else None
+                self.model_execution.get("metrics_by_split") if self.model_execution else None
             ),
             "explainability_review": self.explainability,
             "robustness_review": self.robustness,
@@ -194,7 +194,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
         lines += ["", "**CNN configuration:**", ""]
         lines += [f"- {k}: {v}" for k, v in model.cnn_config.items()]
 
-    # v2.1.0 co-pilot: dataset source provenance
+    # v2.1.0 model execution: dataset source provenance
     # #6: the review journey — embed the committee transcript (decisions,
     # overrides, agent conversations) directly in the primary dashboard.
     if model.review_journey:
@@ -284,7 +284,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
         if src.get("task_suitability"):
             lines += ["", f"**Task suitability:** {src['task_suitability']}"]
 
-    # v2.1.0 co-pilot: initial data statistics
+    # v2.1.0 model execution: initial data statistics
     if model.data_statistics:
         ds = model.data_statistics
         lines += [
@@ -304,7 +304,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 f"{k}={v:.1%}" for k, v in ds["class_distribution"].items()
             )]
 
-    # v2.1.0 co-pilot: feature-engineering recommendations
+    # v2.1.0 model execution: feature-engineering recommendations
     if model.fe_recommendations:
         lines += [
             "", "## Feature-Engineering Recommendations", "",
@@ -317,7 +317,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 f"| {r['evidence_id']} | {r['risk_if_ignored']} | {r['default_action']} |"
             )
 
-    # v2.1.0 co-pilot: architecture review
+    # v2.1.0 model execution: architecture review
     if model.architecture_review:
         ar = model.architecture_review
         lines += [
@@ -331,7 +331,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
             f"- Agreement: {'yes' if ar['agrees'] else 'no — user decision required'}",
         ]
 
-    # v2.1.0 co-pilot: hyperparameter tuning
+    # v2.1.0 model execution: hyperparameter tuning
     if model.tuning_plan:
         tp = model.tuning_plan
         lines += [
@@ -389,9 +389,9 @@ def render_dashboard_md(model: DashboardModel) -> str:
 
     # v2.1.1 remediation: model execution — split table, metrics-by-split,
     # training diagnostics, explainability (Sections D/G/I/J/K)
-    if model.copilot_execution:
-        ce = model.copilot_execution
-        split = ce.get("split_table") or []
+    if model.model_execution:
+        me = model.model_execution
+        split = me.get("split_table") or []
         if split:
             lines += ["", "## Train/Test/OOS Split", "",
                       "| Split | Rows | Percent | Positive rate | Negative rate |",
@@ -401,7 +401,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
                     f"| {r['split']} | {r['rows']} | {r['percent']}% "
                     f"| {r['positive_rate']} | {r['negative_rate']} |"
                 )
-        mbs = ce.get("metrics_by_split") or {}
+        mbs = me.get("metrics_by_split") or {}
         if mbs:
             keys = ["auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1",
                     "specificity", "brier_score", "ece"]
@@ -414,11 +414,11 @@ def render_dashboard_md(model: DashboardModel) -> str:
                     else "—" for k in keys
                 )
                 lines.append(f"| {split_name} | {cells} |")
-            if ce.get("generalization_gap") is not None:
-                lines += ["", f"Generalization gap (train - OOS): {ce['generalization_gap']:.4f}"]
-        gi = ce.get("global_importance") or []
+            if me.get("generalization_gap") is not None:
+                lines += ["", f"Generalization gap (train - OOS): {me['generalization_gap']:.4f}"]
+        gi = me.get("global_importance") or []
         if gi:
-            lines += ["", f"## Explainability — {ce.get('explainability_method')}", "",
+            lines += ["", f"## Explainability — {me.get('explainability_method')}", "",
                       "| Rank | Feature | Importance | Direction |",
                       "| --- | --- | --- | --- |"]
             for r in gi:
@@ -483,7 +483,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
                     f"{r.get('risk_impact', '')} |"
                 )
 
-    # v2.1.0 co-pilot: agentic action log
+    # v2.1.0 model execution: agentic action log
     if model.action_log:
         lines += [
             "", "## Agentic Action Log", "",
@@ -636,7 +636,7 @@ def render_dashboard_html(model: DashboardModel) -> str:
         )
     sections.append(f"<section><h2>Model Review</h2>{model_html}</section>")
 
-    # v2.1.0 co-pilot HTML sections
+    # v2.1.0 model execution HTML sections
     if model.dataset_source:
         src = model.dataset_source
         srows = [
@@ -775,9 +775,9 @@ def render_dashboard_html(model: DashboardModel) -> str:
             )
 
     # v2.1.1 remediation: model execution HTML (split / metrics / explainability)
-    if model.copilot_execution:
-        ce = model.copilot_execution
-        split = ce.get("split_table") or []
+    if model.model_execution:
+        me = model.model_execution
+        split = me.get("split_table") or []
         if split:
             srows = [
                 [esc(r["split"]), esc(r["rows"]), f"{r['percent']}%",
@@ -789,7 +789,7 @@ def render_dashboard_html(model: DashboardModel) -> str:
                 + table(["Split", "Rows", "Percent", "Positive rate", "Negative rate"], srows)
                 + "</section>"
             )
-        mbs = ce.get("metrics_by_split") or {}
+        mbs = me.get("metrics_by_split") or {}
         if mbs:
             keys = ["auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1",
                     "specificity", "brier_score", "ece"]
@@ -801,20 +801,20 @@ def render_dashboard_html(model: DashboardModel) -> str:
                 ]
                 mrows.append(row)
             gap = ""
-            if ce.get("generalization_gap") is not None:
-                gap = f"<p>Generalization gap (train - OOS): {esc(ce['generalization_gap'])}</p>"
+            if me.get("generalization_gap") is not None:
+                gap = f"<p>Generalization gap (train - OOS): {esc(me['generalization_gap'])}</p>"
             sections.append(
                 "<section><h2>Metrics by Split</h2>"
                 + table(["Split"] + keys, mrows) + gap + "</section>"
             )
-        gi = ce.get("global_importance") or []
+        gi = me.get("global_importance") or []
         if gi:
             grows = [
                 [esc(r["rank"]), esc(r["feature"]), esc(r["importance"]), esc(r["direction"])]
                 for r in gi
             ]
             sections.append(
-                f"<section><h2>Explainability — {esc(ce.get('explainability_method'))}</h2>"
+                f"<section><h2>Explainability — {esc(me.get('explainability_method'))}</h2>"
                 + table(["Rank", "Feature", "Importance", "Direction"], grows)
                 + "</section>"
             )
@@ -864,7 +864,7 @@ def render_dashboard_html(model: DashboardModel) -> str:
             + "</section>"
         )
 
-    # v2.1.0 co-pilot: sensitivity + action log HTML
+    # v2.1.0 model execution: sensitivity + action log HTML
     if model.sensitivity:
         sa = model.sensitivity
         shock_cols = ["-30%", "-20%", "-10%", "+0%", "+10%", "+20%", "+30%"]

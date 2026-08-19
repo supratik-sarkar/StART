@@ -219,57 +219,28 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         activation = act_map.get(act_choice, "relu")
 
     # 2. Domain Dataset Ingress Selector
-    dataset_path = input("\nEnter custom dataset local file path (blank = use built-in MoM presets): ").strip()
-    
-    mom_presets = {
-        "A": {"name": "Anomaly / Transaction Monitoring", "target": "is_fraud", "source": "UCI Breast Cancer Wisconsin (Diagnostic) / Synthetic (Fraud framing)"},
-        "B": {"name": "Time-Series Forecasting Profile", "target": "target_value", "source": "UCI Breast Cancer Wisconsin (Diagnostic) / Synthetic (Forecasting framing)"},
-        "C": {"name": "Asset Pricing Matrix", "target": "adjusted_price", "source": "UCI Breast Cancer Wisconsin (Diagnostic) / Synthetic (Asset Pricing framing)"},
-        "D": {"name": "ML Decision Support Model Data", "target": "decision_label", "source": "UCI Breast Cancer Wisconsin (Diagnostic) / Synthetic (Decision framing)"}
-    }
+    from start.data.selection import WIZARD_OPTIONS, resolve_wizard_choice
 
-    preset_key = None
+    print("\nSelect Dataset Source:")
+    for key, text in WIZARD_OPTIONS:
+        print(f"  [{key}] {text}")
+    ds_choice = input("Select dataset option [default: 1]: ").strip() or "1"
 
-    if not dataset_path:
-        print("\nSelect Built-In Model Risk Presets:")
-        print("  [A] Anomaly Detection / Transaction Monitoring")
-        print("  [B] Time-Series Forecasting")
-        print("  [C] Asset Pricing Datasets")
-        print("  [D] ML Decision Support Models")
-        preset_choice = input("Select preset option [default: A]: ").strip().upper() or "A"
-        preset_key = preset_choice if preset_choice in ("A", "B", "C", "D") else "A"
-        selected_preset = mom_presets.get(preset_key, mom_presets["A"])
-        dataset_vector = f"Built-In: {selected_preset['name']}"
-        default_target = selected_preset["target"]
-        public_source = selected_preset["source"]
-    else:
-        dataset_vector = f"Local Ingress Path: {dataset_path}"
-        default_target = "inferred_by_discovery"
-        public_source = "User-Supplied Custom Dataset"
+    selection = resolve_wizard_choice(ds_choice, seed=42)
 
-    # Load the dataset dynamically to inspect shapes, columns, and distributions
-    df = None
-    if dataset_path:
-        try:
-            from start.connectors import load_local_file
-            df = load_local_file(dataset_path)
-        except Exception as e:
-            print(f"\n[Warning] Could not load custom dataset from {dataset_path}: {e}")
-            print("Falling back to built-in presets dataset.")
-            dataset_path = ""
-            preset_key = "A"
-            selected_preset = mom_presets["A"]
-            dataset_vector = f"Built-In: {selected_preset['name']}"
-            default_target = selected_preset["target"]
-            public_source = selected_preset["source"]
+    errors = selection.consistency_errors()
+    if errors:
+        print("\n[Error] Dataset provenance is inconsistent:")
+        for err in errors:
+            print(f"  - {err}")
+        raise SystemExit(1)
 
-    if df is None:
-        from start.modeling.data import load_preset_dataset
-        try:
-            df = load_preset_dataset(preset_key or "A", seed=42)
-        except Exception:
-            from start.modeling.data import _synthetic_fallback
-            df = _synthetic_fallback(seed=42)
+    df = selection.frame
+    default_target = selection.target_column or "inferred_by_discovery"
+    dataset_vector = selection.display_name
+    public_source = selection.source_reference
+    dataset_path = selection.source_path or ""
+    dataset_source = selection.provenance_dict()
 
     volumetrics = f"{df.shape[0]} Rows x {df.shape[1]} Dimensions"
 
@@ -627,7 +598,10 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         "agent_mode": agent_mode,
         "llm_provider": llm_provider,
         "dataset_vector": dataset_vector,
-        "preset_key": preset_key,
+        "preset_key": ds_choice,
+        "dataset_selection": selection,
+        "dataset_provenance": selection.provenance_dict(),
+        "dataset_source": dataset_source,
         "public_source": public_source,
         "volumetrics": volumetrics,
         "problem_frame": problem_frame,

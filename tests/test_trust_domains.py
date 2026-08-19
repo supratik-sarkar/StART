@@ -54,6 +54,7 @@ def test_public_unavailable_degrades_within_public_domain(monkeypatch):
     # domain-neutral NoLLM path (public domain), never the enterprise gateway.
     # Clear every public-provider key so this is hermetic regardless of the
     # ambient environment (item 5).
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     for var in ("OPENAI_API_KEY", "OPENAI_KEY", "AZURE_OPENAI_API_KEY",
                 "ANTHROPIC_API_KEY", "GROK_API_KEY", "XAI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
@@ -61,7 +62,8 @@ def test_public_unavailable_degrades_within_public_domain(monkeypatch):
     assert isinstance(prov, NoLLMProvider)
 
 
-def test_requesting_wrong_domain_raises():
+def test_requesting_wrong_domain_raises(monkeypatch):
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     with pytest.raises(TrustDomainViolation):
         get_llm_provider(LLMConfig(provider="enterprise_llm_gateway"), expected_domain="public")
     with pytest.raises(TrustDomainViolation):

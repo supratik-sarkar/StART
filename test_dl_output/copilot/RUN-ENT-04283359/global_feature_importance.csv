@@ -1,6 +1,0 @@
-rank,feature,importance,direction
-1,feature_lag2,0.007565,positive
-2,feature_noise,0.003784,positive
-3,feature_lag1,0.002022,positive
-4,feature_trend,-0.00185,negative
-5,feature_season,-0.010978,negative

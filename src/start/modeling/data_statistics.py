@@ -1,4 +1,4 @@
-"""Comprehensive dataset statistics for the reviewer co-pilot.
+"""Comprehensive dataset statistics for the review execution layer.
 
 Produces the rich "what does this data look like" picture the v2.1.0 UX needs,
 on top of (not replacing) the frozen DatasetDiscoveryAgent. Everything here is

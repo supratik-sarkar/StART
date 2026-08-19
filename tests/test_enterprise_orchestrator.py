@@ -123,8 +123,8 @@ def test_cnn_config_flows_to_dashboard(churn_frame, tmp_path):
     assert "param_count" in md and "9999" in md
 
 
-# --- v2.1.0 co-pilot integration --------------------------------------------- #
-def test_copilot_artifacts_in_outcome(churn_frame, tmp_path):
+# --- v2.1.0 model execution integration --------------------------------------------- #
+def test_model_execution_artifacts_in_outcome(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
         churn_frame, user_target="churned", output_root=str(tmp_path),
         run_dl=True, architecture="wide_deep", activation="gelu",
@@ -172,7 +172,7 @@ def test_sensitivity_runs_when_dl_trained(churn_frame, tmp_path):
     assert zero and all(r.drift == 0.0 for r in zero)
 
 
-def test_dashboard_has_all_copilot_sections(churn_frame, tmp_path):
+def test_dashboard_has_all_model_execution_sections(churn_frame, tmp_path):
     import json
 
     outcome = EnterpriseReviewOrchestrator().run(
@@ -292,12 +292,12 @@ def test_visibility_sections_in_all_dashboard_formats(churn_frame, tmp_path):
 
 
 # --- v2.1.1 remediation: model execution surfacing ---------------------------- #
-def test_copilot_execution_in_outcome(churn_frame, tmp_path):
+def test_model_execution_in_outcome(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
         churn_frame, user_target="churned", output_root=str(tmp_path),
         run_dl=True, split_props=(0.60, 0.20, 0.20), seed=0,
     )
-    ce = outcome.copilot_execution
+    ce = outcome.model_execution
     assert ce is not None
     assert {r["split"] for r in ce.split_table} == {"train", "test", "oos"}
     assert set(ce.metrics_by_split) == {"train", "test", "oos"}
@@ -326,11 +326,12 @@ def test_custom_split_proportions_honored(churn_frame, tmp_path):
         churn_frame, user_target="churned", output_root=str(tmp_path),
         run_dl=True, split_props=(0.70, 0.15, 0.15), seed=0,
     )
-    by = {r["split"]: r["percent"] for r in outcome.copilot_execution.split_table}
+    by = {r["split"]: r["percent"] for r in outcome.model_execution.split_table}
     assert 65 <= by["train"] <= 75
 
 
 def test_requested_provider_shows_fallback_not_none(churn_frame, tmp_path, monkeypatch):
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     for var in ("OPENAI_API_KEY", "OPENAI_KEY"):
         monkeypatch.delenv(var, raising=False)
     from start.core.config import LLMConfig

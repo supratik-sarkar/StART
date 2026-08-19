@@ -17,8 +17,7 @@ def test_demo_dataset_transparency_printed(tmp_path):
                               "--output-root", str(tmp_path)])
     assert res.exit_code == 0, res.output
     assert "Demo dataset:" in res.output
-    assert "breast-cancer" in res.output
-    assert "url:" in res.output and "uci.edu" in res.output
+    assert "Synthetic" in res.output or "synthetic" in res.output
     assert "rows x" in res.output and "columns" in res.output
 
 

@@ -1,16 +1,17 @@
 import asyncio
-import sys
 import os
+import sys
 
 # Ensure repo root is explicitly on the path for clean resolution boundaries
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-from start.telemetry.bus import TelemetryBus
-from start.engine.state import StepCheckpointer
 from start.cli.view import ProgressDashboardUI
+from start.engine.state import StepCheckpointer
 from start.orchestration.self_healing import SelfHealingOrchestrator
+from start.telemetry.bus import TelemetryBus
 
-async def run_copilot_evaluation_pipeline():
+
+async def run_agent_evaluation_pipeline():
     """Simulates a model validation workload passing through nominal and anomalous conditions."""
     bus = TelemetryBus()
     checkpointer = StepCheckpointer()
@@ -53,6 +54,6 @@ async def run_copilot_evaluation_pipeline():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(run_copilot_evaluation_pipeline())
+        asyncio.run(run_agent_evaluation_pipeline())
     except KeyboardInterrupt:
         print("\nExecution halted via human supervisor checkpoint override.")

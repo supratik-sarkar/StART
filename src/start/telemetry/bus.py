@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
-class CopilotMessageTrace(BaseModel):
+class AgentMessageTrace(BaseModel):
     reasoning_step: str = Field(..., description="Mathematical or logical step evaluated.")
     alternatives_considered: list[str] = Field(default_factory=list, description="Alternative hypotheses evaluated.")
     evidence_citations: list[str] = Field(default_factory=list, description="Strict references to EV-xxxx hashes.")
@@ -24,6 +24,7 @@ class CopilotMessageTrace(BaseModel):
                 )
         return v
 
+
 class TelemetryEvent(BaseModel):
     timestamp: float = Field(default_factory=time.time)
     agent_name: str
@@ -31,7 +32,7 @@ class TelemetryEvent(BaseModel):
     progress_percentage: float
     status_msg: str
     metrics: dict[str, Any] = Field(default_factory=dict)
-    trace_details: CopilotMessageTrace | None = None
+    trace_details: AgentMessageTrace | None = None
 
 class TelemetryBus:
     def __init__(self):

@@ -12,7 +12,6 @@ class CostOptimizationAgent(BaseAgent):
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         metrics = context.get("metrics", {})
         execution_time = metrics.get("runtime_seconds", 0.0)
-        memory_allocated = metrics.get("peak_memory_mb", 0.0)
         budget_limit_seconds = context.get("budget_limit_seconds", 60.0)
 
         action_directive = {"strategy": "none", "parameters": {}}

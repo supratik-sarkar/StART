@@ -10,12 +10,12 @@ from pydantic import ValidationError
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 from start.engine.state import StepCheckpointer
-from start.telemetry.bus import CopilotMessageTrace, TelemetryBus, TelemetryEvent
+from start.telemetry.bus import AgentMessageTrace, TelemetryBus, TelemetryEvent
 
 
-def test_copilot_message_trace_citation_enforcement():
+def test_agent_message_trace_citation_enforcement():
     """Enforces that any message trace without a proper 'EV-' prefix raises a validation exception."""
-    valid_trace = CopilotMessageTrace(
+    valid_trace = AgentMessageTrace(
         reasoning_step="Analyzing feature drift via population stability indexing.",
         evidence_citations=["EV-DQ-001"],
         confidence_score=0.98
@@ -23,7 +23,7 @@ def test_copilot_message_trace_citation_enforcement():
     assert valid_trace.confidence_score == 0.98
 
     with pytest.raises(ValidationError) as exc_info:
-        CopilotMessageTrace(
+        AgentMessageTrace(
             reasoning_step="Invalid trace containing unstructured citation strings.",
             evidence_citations=["BAD-CITATION-123"],
             confidence_score=0.5

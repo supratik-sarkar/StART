@@ -10,12 +10,12 @@ import pytest
 
 warnings.filterwarnings("ignore")
 
-from start.modeling.copilot_execution import _stratified_split  # noqa: E402
 from start.modeling.data import load_attrition_dataset  # noqa: E402
 from start.modeling.kfold_tuning import (  # noqa: E402
     render_kfold_markdown,
     run_kfold_tuning,
 )
+from start.modeling.model_execution import _stratified_split  # noqa: E402
 
 
 def _train_only(seed=0, props=(0.6, 0.2, 0.2)):

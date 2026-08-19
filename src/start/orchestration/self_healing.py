@@ -40,7 +40,7 @@ class SelfHealingOrchestrator:
                 })
                 await asyncio.sleep(0.5)
                 
-                rec_result = self.recovery_agent.execute({
+                self.recovery_agent.execute({
                     "workflow_id": workflow_id,
                     "stage_name": stage_name,
                     "action_directive": rc_result["action_directive"],
@@ -50,7 +50,7 @@ class SelfHealingOrchestrator:
 
             # Route 2: Latency and Cost Performance Breaches
             elif violation_type == "cost_sla_breach":
-                cost_result = self.cost_agent.execute({
+                self.cost_agent.execute({
                     "evidence_id": evidence_id,
                     "metrics": metrics_snapshot,
                     "budget_limit_seconds": execution_context.get("budget_limit_seconds", 1.0)
@@ -60,7 +60,7 @@ class SelfHealingOrchestrator:
 
             # Route 3: Demographic Bias Protection Parity Breaches
             elif violation_type == "fairness_violation":
-                fair_result = self.fairness_agent.execute({
+                self.fairness_agent.execute({
                     "evidence_id": evidence_id,
                     "metrics": metrics_snapshot,
                     "fairness_threshold": execution_context.get("fairness_threshold", 0.80),

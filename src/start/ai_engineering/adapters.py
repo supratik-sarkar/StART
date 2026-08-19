@@ -340,14 +340,99 @@ class LangSmithAdapter(BaseAdapter):
     capabilities = ("trace_capture", "run_lineage", "evaluation_datasets")
     artifact_names = ("langsmith_report.json",)
 
+    def describe(self) -> dict[str, Any]:
+        import os
+
+        from start.runtime_profile import ProfileViolation, assert_sink_allowed
+
+        base = super().describe()
+        installed = self.available()
+        if not installed:
+            base["status"] = "not_installed"
+            return base
+
+        # Standard contract status is available when installed
+        base["status"] = "available"
+
+        # Check profile containment
+        try:
+            assert_sink_allowed("langsmith")
+        except ProfileViolation:
+            base["egress_status"] = "blocked_by_profile"
+            base["detail"] = (
+                "Blocked by runtime profile (public SaaS telemetry egress is refused "
+                "under enterprise/airgapped profiles without START_ALLOW_TELEMETRY_EGRESS=true)."
+            )
+            return base
+
+        # Check explicit disable
+        if os.environ.get("START_LANGSMITH_ENABLED", "").strip().lower() in {"0", "false", "no"}:
+            base["egress_status"] = "disabled"
+            base["detail"] = "Disabled via START_LANGSMITH_ENABLED=false."
+            return base
+
+        # Check API key presence
+        has_key = bool(
+            os.environ.get("LANGSMITH_API_KEY", "").strip()
+            or os.environ.get("LANGCHAIN_API_KEY", "").strip()
+        )
+        if not has_key:
+            base["egress_status"] = "available_not_configured"
+            base["detail"] = "Package installed, but LANGSMITH_API_KEY is not configured."
+            return base
+
+        base["egress_status"] = "active"
+        base["detail"] = "LangSmith tracing active and permitted under active runtime profile."
+        return base
+
     def _run(self, context: dict[str, Any]) -> ExecutionResult:
+        desc = self.describe()
         run_id = context.get("run_id", "run")
-        report = {"traces": 0, "note": "configure a LangSmith project to capture traces"}
+        egress_status = desc.get("egress_status", "active")
+
+        if egress_status == "blocked_by_profile":
+            report = {"status": "blocked_by_profile", "traces": 0, "detail": desc.get("detail", "")}
+            art = self.write_json_artifact(run_id, "langsmith_report.json", report, "LangSmith report")
+            return ExecutionResult(
+                adapter=self.name,
+                category=self.category,
+                status="complete",
+                available=True,
+                detail=desc.get("detail", ""),
+                summary={"status": "blocked_by_profile"},
+                artifacts=[art],
+                evidence=[self._evidence("warn", "LangSmith blocked by active runtime profile containment.")],
+            )
+        elif egress_status == "available_not_configured":
+            report = {"status": "available_not_configured", "traces": 0, "detail": desc.get("detail", "")}
+            art = self.write_json_artifact(run_id, "langsmith_report.json", report, "LangSmith report")
+            return ExecutionResult(
+                adapter=self.name,
+                category=self.category,
+                status="complete",
+                available=True,
+                detail=desc.get("detail", ""),
+                summary={"status": "available_not_configured"},
+                artifacts=[art],
+                evidence=[
+                    self._evidence(
+                        "pass",
+                        "LangSmith available but LANGSMITH_API_KEY not configured.",
+                    )
+                ],
+            )
+
+        report = {"status": "active", "traces": context.get("llm_traces_count", 0), "note": "traces captured"}
         art = self.write_json_artifact(run_id, "langsmith_report.json", report, "LangSmith report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
-            detail="LangSmith available; trace/eval harness ready.", summary={"traces": 0},
-            artifacts=[art], evidence=[self._evidence("pass", "LangSmith harness validated.")],
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
+            detail="LangSmith active; trace/eval harness ready.",
+            summary={"traces": context.get("llm_traces_count", 0)},
+            artifacts=[art],
+            evidence=[self._evidence("pass", "LangSmith trace harness active.")],
         )
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,15 +19,17 @@ from pydantic import BaseModel, ConfigDict, Field
 # --------------------------------------------------------------------------- #
 # Enums
 # --------------------------------------------------------------------------- #
-class Status(str, Enum):
+class Status(StrEnum):
     PASS = "pass"
     WARN = "warn"
     FAIL = "fail"
     ERROR = "error"
     SKIPPED = "skipped"
+    INFORMATIONAL = "informational"
+    RECORDED = "recorded"
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     BINARY_CLASSIFICATION = "binary_classification"
     MULTICLASS_CLASSIFICATION = "multiclass_classification"
     REGRESSION = "regression"
@@ -40,13 +42,13 @@ class TaskType(str, Enum):
     GENAI = "genai"
 
 
-class ComputeDevice(str, Enum):
+class ComputeDevice(StrEnum):
     CUDA = "cuda"
     MPS = "mps"
     CPU = "cpu"
 
 
-class Materiality(str, Enum):
+class Materiality(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -88,16 +90,13 @@ class ThresholdSpec(BaseModel):
 
 
 class TestResult(BaseModel):
-    """Raw, deterministic output of a test engine. No LLM content allowed."""
-
-    __test__ = False  # not a pytest class
-    model_config = ConfigDict(protected_namespaces=())
+    """Output of a single deterministic test invocation."""
 
     test_id: str
     test_name: str
+    status: Status = Status.PASS
     metrics: dict[str, float | int | str | None] = Field(default_factory=dict)
     thresholds: list[ThresholdSpec] = Field(default_factory=list)
-    status: Status = Status.PASS
     params: dict[str, Any] = Field(default_factory=dict)
     interpretation: str = ""
     limitations: list[str] = Field(default_factory=list)
@@ -106,13 +105,23 @@ class TestResult(BaseModel):
     )
 
     def apply_thresholds(self) -> TestResult:
+        if not self.thresholds:
+            return self
         worst = Status.PASS
-        order = {Status.PASS: 0, Status.WARN: 1, Status.FAIL: 2}
+        order = {
+            Status.RECORDED: -1,
+            Status.INFORMATIONAL: -1,
+            Status.SKIPPED: 0,
+            Status.PASS: 0,
+            Status.WARN: 1,
+            Status.FAIL: 2,
+            Status.ERROR: 3,
+        }
         for spec in self.thresholds:
             value = self.metrics.get(spec.metric)
             if isinstance(value, (int, float)):
                 outcome = spec.evaluate(float(value))
-                if order[outcome] > order[worst]:
+                if order.get(outcome, 0) > order.get(worst, 0):
                     worst = outcome
         self.status = worst
         return self
@@ -138,6 +147,7 @@ class EvidenceRecord(BaseModel):
     model_id: str
     dataset_id: str
     run_id: str
+    enterprise_run_id: str | None = None
     timestamp: datetime = Field(default_factory=_utcnow)
     params: dict[str, Any] = Field(default_factory=dict)
     metrics: dict[str, float | int | str | None] = Field(default_factory=dict)
@@ -155,9 +165,10 @@ class EvidenceRecord(BaseModel):
         cls,
         result: TestResult,
         *,
-        model_id: str,
-        dataset_id: str,
-        run_id: str,
+        model_id: str = "MOD-DEFAULT",
+        dataset_id: str = "DS-DEFAULT",
+        run_id: str = "RUN-DEFAULT",
+        enterprise_run_id: str | None = None,
         input_artifact_hash: str | None = None,
         policy_hash: str | None = None,
         repro: ReproducibilityMeta | None = None,
@@ -168,16 +179,17 @@ class EvidenceRecord(BaseModel):
             model_id=model_id,
             dataset_id=dataset_id,
             run_id=run_id,
+            enterprise_run_id=enterprise_run_id,
             params=result.params,
             metrics=result.metrics,
             thresholds=result.thresholds,
             status=result.status,
             interpretation=result.interpretation,
             limitations=result.limitations,
+            artifacts=result.artifacts,
             input_artifact_hash=input_artifact_hash,
             policy_hash=policy_hash,
             repro=repro or ReproducibilityMeta(),
-            artifacts=result.artifacts,
         )
 
 

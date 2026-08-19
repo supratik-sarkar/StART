@@ -5,9 +5,9 @@ import pandas as pd
 import pytest
 
 from start.connectors import DemoConnector
-from start.modeling.copilot_execution import _stratified_split
 from start.modeling.data import load_attrition_dataset
 from start.modeling.deep_learning import TorchMLPClassifier
+from start.modeling.model_execution import _stratified_split
 from start.modeling.sequence_dl import SequenceClassifier
 from start.modeling.tabular_dl import TabularDLClassifier
 from start.modeling.vision_dl import VisionCNNClassifier

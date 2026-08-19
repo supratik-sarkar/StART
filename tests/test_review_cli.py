@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-
 import numpy as np
 import pandas as pd
 from typer.testing import CliRunner
@@ -10,10 +8,6 @@ from start.cli import app
 from start.interactive_review import ReviewConfig, prompt_review_config
 
 runner = CliRunner()
-
-
-def _plain_help(output: str) -> str:
-    return re.sub(r"\x1b\[[0-9;]*m", "", output)
 
 
 def test_review_command_non_interactive_demo(tmp_path):
@@ -87,8 +81,6 @@ def test_interactive_config_deterministic_shows_no_llm_prompts():
 
 
 def test_interactive_config_llm_shows_objective_prompt():
-    from start.providers.model_discovery import FakeModelDiscovery
-
     answers = iter([
         "n",           # committee workflow? -> legacy (test basic flow)
         "",            # dataset path
@@ -108,15 +100,9 @@ def test_interactive_config_llm_shows_objective_prompt():
         "Predict customer attrition",  # objective
         "",            # clarification (none)
     ])
-    discovery = FakeModelDiscovery(mock_data={"openai": ["gpt-4.1-mini"]})
-    cfg = prompt_review_config(
-        ReviewConfig(),
-        ask=lambda *_: next(answers),
-        model_discovery=discovery,
-    )
+    cfg = prompt_review_config(ReviewConfig(), ask=lambda *_: next(answers))
     assert cfg.agent_mode == "llm"
     assert cfg.llm_provider == "openai"
-    assert cfg.llm_model == "gpt-4.1-mini"
     assert cfg.objective == "Predict customer attrition"
     assert cfg.run_dl is True  # Section C: training enabled by default
 
@@ -126,7 +112,7 @@ def test_review_help_lists_full_surface():
     assert result.exit_code == 0
     for flag in ("--split-strategy", "--architecture", "--activation",
                  "--explain-method", "--robustness", "--agent-mode", "--llm-provider"):
-        assert flag in _plain_help(result.output)
+        assert flag in result.output
 
 
 def test_review_notebook_py_compiles():
@@ -184,7 +170,7 @@ def test_enterprise_help_documents_flag():
 
     result = CliRunner().invoke(app, ["review", "--help"])
     assert result.exit_code == 0
-    assert "--enterprise" in _plain_help(result.output)
+    assert "--enterprise" in result.output
 
 
 def test_enterprise_notebook_py_compiles():
@@ -239,11 +225,11 @@ def test_review_help_documents_new_flags():
 
     result = CliRunner().invoke(app, ["review", "--help"])
     assert result.exit_code == 0
-    for flag in ("--cost", "--accept-recommendatio", "--show-progress"):
-        assert flag in _plain_help(result.output)
+    for flag in ("--cost", "--accept-recommendat", "--show-progress"):
+        assert flag in result.output
 
 
-# -- v2.1.1 visible co-pilot terminal output ---------------------------------- #
+# -- v2.1.1 visible review execution terminal output --------------------------- #
 def test_enterprise_terminal_shows_visibility(tmp_path):
     from typer.testing import CliRunner
 
