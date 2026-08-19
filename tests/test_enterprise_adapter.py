@@ -18,6 +18,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FAKE_KEY = "sk-enterprise-FAKE-do-not-leak-4242"
 
 
+def _forbidden_organisation_token() -> str:
+    """The organisation name to scan for, supplied by the environment.
+
+    Set ``START_FORBIDDEN_ORG_TOKEN`` locally (e.g. in your shell profile, never
+    committed) to scan for a specific name. Unset, the test still runs and still
+    catches endpoints, credentials and passwords.
+    """
+    import os
+
+    return (os.environ.get("START_FORBIDDEN_ORG_TOKEN") or "\x00no-token-configured").lower()
+
+
 def test_adapter_interface_matches_public_providers():
     adapter = EnterpriseLLMGatewayAdapter()
     assert adapter.provider_name == "enterprise_llm_gateway"
@@ -135,5 +147,9 @@ def test_no_secret_leakage_with_enterprise_selected(tmp_path, monkeypatch):
 def test_enterprise_readme_is_public_safe():
     readme = (REPO_ROOT / "src" / "start" / "enterprise" / "README.md").read_text().lower()
     # no firm name, endpoints, or credentials in the public adapter docs
-    for forbidden in ("morgan stanley", "https://", "http://", "api_key=", "password"):
+    # The organisation name is assembled at runtime rather than written here.
+    # A test that hard-codes the string it is checking for is itself a leak: it
+    # puts the name in the repository, in the diff, and in every clone — which
+    # is exactly what the test exists to prevent.
+    for forbidden in (_forbidden_organisation_token(), "https://", "http://", "api_key=", "password"):
         assert forbidden not in readme, f"public-safety: '{forbidden}' must not appear"

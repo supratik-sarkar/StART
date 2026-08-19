@@ -170,32 +170,68 @@ def evaluate_signoff(
         factors.append(SignoffFactor("Feature dependence", "unknown",
             "No sensitivity analysis available.", ""))
 
-    # --- reviewer challenges (open/unresolved block or condition) ---
-    if session is not None:
-        open_ch = session.open_challenges()
-        unresolved = session.unresolved_challenges()
-        if unresolved:
-            factors.append(SignoffFactor("Reviewer challenges", "blocker",
-                f"{len(unresolved)} unresolved reviewer challenge(s)", "review_session"))
+    # --- benchmark against baselines ---
+    if getattr(store, "benchmark", None):
+        b = store.benchmark
+        b_status = b.get("status", "ok")
+        b_verdict = b.get("verdict", "")
+        factors.append(
+            SignoffFactor(
+                "Trivial-baseline benchmark", b_status, b_verdict, "benchmark.decision_stump"
+            )
+        )
+        if b_status == "blocker":
             blockers += 1
-        elif open_ch:
-            factors.append(SignoffFactor("Reviewer challenges", "concern",
-                f"{len(open_ch)} open reviewer challenge(s)", "review_session"))
+        elif b_status == "concern":
             concerns += 1
-        else:
-            factors.append(SignoffFactor("Reviewer challenges", "ok",
-                "no outstanding reviewer challenges", "review_session"))
 
-        # --- reviewer overrides (note as a condition, not a blocker) ---
-        ov = session.overrides()
-        if ov:
-            factors.append(SignoffFactor("Reviewer overrides", "concern",
-                f"{len(ov)} reviewer override(s) of agent recommendations "
-                f"({', '.join(o.key for o in ov)})", "review_session"))
+    # --- reviewer challenges (open/conceded block, resolved ok) ---
+    if session is not None:
+        from start.governance.challenge_disposition import (
+            ChallengeDisposition,
+            challenge_factor,
+            classify_challenge,
+            classify_override,
+            override_factor,
+        )
+
+        verdicts = [classify_challenge(c) for c in session.challenges]
+        status, detail, evidence = challenge_factor(verdicts)
+        factors.append(SignoffFactor("Reviewer challenges", status, detail, evidence))
+        if status == "blocker":
+            blockers += 1
+        elif status == "concern":
             concerns += 1
-        else:
-            factors.append(SignoffFactor("Reviewer overrides", "ok",
-                "no overrides; reviewer accepted recommendations", "review_session"))
+
+        conceded_keys = {
+            v.agent for v in verdicts if v.disposition is ChallengeDisposition.CONCEDED
+        }
+        checkpoint_agent_map = {
+            "architecture": "ArchitectureReviewAgent",
+            "metric_priority": "HyperparameterTuningAgent",
+            "target": "DatasetDiscoveryAgent",
+            "outliers": "FeatureEngineeringAgent",
+            "imputation": "FeatureEngineeringAgent",
+            "encoding": "FeatureEngineeringAgent",
+            "scaling": "FeatureEngineeringAgent",
+            "imbalance": "FeatureEngineeringAgent",
+        }
+        conceded_all = set(conceded_keys)
+        for ch in session.challenges:
+            if getattr(ch, "conceded", False) or getattr(ch, "changes_disposition", False):
+                conceded_all.add(ch.agent)
+                if getattr(ch, "checkpoint", None):
+                    conceded_all.add(ch.checkpoint)
+                for cp, ag in checkpoint_agent_map.items():
+                    if ag == ch.agent:
+                        conceded_all.add(cp)
+
+        ov = [classify_override(d, conceded_keys=conceded_all) for d in session.overrides()]
+        status, detail, evidence = override_factor(ov)
+        factors.append(SignoffFactor("Reviewer overrides", status, detail, evidence))
+        if status == "concern":
+            concerns += 1
+        # "informational" contributes to NEITHER blockers nor concerns — that is A2.
 
     # --- verdict ---
     if blockers:
@@ -205,7 +241,7 @@ def evaluate_signoff(
     else:
         verdict = READY
 
-    ok_n = sum(1 for f in factors if f.status == "ok")
+    ok_n = sum(1 for f in factors if f.status in ("ok", "informational"))
     rationale = (
         f"{verdict}: {blockers} blocker(s), {concerns} concern(s), {ok_n} factor(s) "
         f"clear across performance, generalization, calibration, feature "
@@ -231,7 +267,13 @@ def render_signoff_rich(decision: SignoffDecision) -> Any:
     table.add_column("Status")
     table.add_column("Detail")
     table.add_column("Evidence")
-    style = {"ok": "green", "concern": "yellow", "blocker": "red", "unknown": "dim"}
+    style = {
+        "ok": "green",
+        "concern": "yellow",
+        "blocker": "red",
+        "unknown": "dim",
+        "informational": "cyan",
+    }
     for f in decision.factors:
         table.add_row(f.name, f"[{style.get(f.status, 'white')}]{f.status}[/]",
                       f.detail, f.evidence)

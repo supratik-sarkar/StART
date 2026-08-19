@@ -1,6 +1,0 @@
-{
-  "policy_engine": "opa",
-  "evaluated": true,
-  "violations": [],
-  "evidence_context": 6
-}

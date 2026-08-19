@@ -15,6 +15,7 @@ def test_none_provider_is_deterministic():
 
 
 def test_unavailable_public_provider_is_explicit_fallback(monkeypatch):
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     for var in ("OPENAI_API_KEY", "OPENAI_KEY", "AZURE_OPENAI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     llm = get_llm_provider(LLMConfig(provider="openai"), expected_domain="public")
@@ -26,6 +27,7 @@ def test_unavailable_public_provider_is_explicit_fallback(monkeypatch):
 
 
 def test_activation_report_shows_endpoint_and_model(monkeypatch):
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     for var in ("OPENAI_API_KEY",):
         monkeypatch.delenv(var, raising=False)
     llm = get_llm_provider(LLMConfig(provider="openai"), expected_domain="public")
@@ -89,6 +91,7 @@ def test_probe_failure_is_surfaced_not_hidden():
 
 
 def test_gemini_and_deepseek_trust_domains_and_endpoints(monkeypatch):
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     

@@ -17,9 +17,17 @@ from typing import Any
 from start.review_session import ReviewSession
 
 
-def render_transcript_markdown(session: ReviewSession) -> str:
+def render_transcript_markdown(session: ReviewSession, inner_run_id: str | None = None) -> str:
     d = session.to_dict()
-    lines = [f"# Review committee transcript — {session.run_id}", ""]
+    inner_str = f" · Inner Pipeline ID: {inner_run_id}" if inner_run_id else ""
+    id_line = f"**Enterprise Run ID**: `{session.run_id}`"
+    if inner_run_id:
+        id_line += f" | **Inner Run ID**: `{inner_run_id}`"
+    lines = [
+        f"# Review committee transcript — {session.run_id}{inner_str}",
+        id_line,
+        "",
+    ]
 
     lines += ["## Decisions", ""]
     if d["decisions"]:
@@ -165,7 +173,8 @@ def render_transcript_html(session: ReviewSession) -> str:
 
 
 def write_transcript(session: ReviewSession, output_root: str, run_id: str,
-                     sensitivity: Any = None, kfold: Any = None) -> dict[str, str]:
+                     sensitivity: Any = None, kfold: Any = None,
+                     inner_run_id: str | None = None) -> dict[str, str]:
     """Write transcript.md/.html/.json next to the dashboards; return paths.
 
     If ``sensitivity`` (a SensitivityResult) is provided, its table is appended
@@ -174,7 +183,7 @@ def write_transcript(session: ReviewSession, output_root: str, run_id: str,
     per-fold metrics are appended (v2.3.1 #7)."""
     out_dir = Path(output_root) / "transcripts" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    md = render_transcript_markdown(session)
+    md = render_transcript_markdown(session, inner_run_id=inner_run_id)
     if sensitivity is not None:
         try:
             from start.modeling.sensitivity_analysis import render_sensitivity_markdown
@@ -194,5 +203,10 @@ def write_transcript(session: ReviewSession, output_root: str, run_id: str,
     }
     paths["md"].write_text(md)
     paths["html"].write_text(render_transcript_html(session))
-    paths["json"].write_text(json.dumps(session.to_dict(), indent=2))
+    
+    json_data = session.to_dict()
+    json_data["enterprise_run_id"] = run_id
+    json_data["inner_run_id"] = inner_run_id or ""
+    paths["json"].write_text(json.dumps(json_data, indent=2))
     return {k: str(v) for k, v in paths.items()}
+

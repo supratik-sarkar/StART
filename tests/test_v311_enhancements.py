@@ -331,7 +331,7 @@ class TestCheckpointDialogue:
             agent_calls.append(question)
             return "answer"
 
-        decision = resolve_checkpoint(
+        resolve_checkpoint(
             "arch", "mlp", "rf", "reason",
             interactive=True, ask=lambda _: next(responses),
             emit=lambda _: None, on_ask=on_ask,
@@ -350,7 +350,7 @@ class TestCheckpointDialogue:
             agent_calls.append(question)
             return "answer"
 
-        decision = resolve_checkpoint(
+        resolve_checkpoint(
             "arch", "mlp", "rf", "reason",
             interactive=True, ask=lambda _: next(responses),
             emit=lambda _: None, on_ask=on_ask,
@@ -374,7 +374,7 @@ class TestCheckpointDialogue:
         def on_ask(q: str) -> str:
             return "test answer"
 
-        decision = resolve_checkpoint(
+        resolve_checkpoint(
             "arch", "mlp", "rf", "reason",
             interactive=True, ask=lambda _: next(responses),
             emit=lambda msg: emitted.append(msg), on_ask=on_ask,
@@ -394,7 +394,7 @@ class TestCheckpointDialogue:
         def on_ask(q: str) -> str:
             return "agent answer"
 
-        decision = resolve_checkpoint(
+        resolve_checkpoint(
             "arch", "mlp", "rf", "reason",
             evidence_id="EV-001",
             interactive=True, ask=lambda _: next(responses),
@@ -589,7 +589,7 @@ class TestTuningFoldTelemetry:
 
         from start.modeling.tuning_run import run_tuning
 
-        result = run_tuning(
+        run_tuning(
             multiclass_df, "target", [f"f{i}" for i in range(5)],
             strategy="bounded_random_search",
             n_trials=1,

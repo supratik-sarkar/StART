@@ -1,4 +1,0 @@
-split,rows,percent,positive_rate,negative_rate
-train,341,59.93,0.3724,0.6276
-test,113,19.86,0.3717,0.6283
-oos,115,20.21,0.3739,0.6261

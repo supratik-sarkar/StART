@@ -1,7 +1,0 @@
-{
-  "device": "mps",
-  "best_epoch": 8,
-  "stopped_early": false,
-  "epochs_run": 8,
-  "architecture": "dcn"
-}

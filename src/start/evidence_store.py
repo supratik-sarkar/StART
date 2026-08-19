@@ -64,13 +64,14 @@ class EvidenceStore:
     max_abs_drift: float | None = None
     tuning_trials: list[dict[str, Any]] = field(default_factory=list)
     best_params: dict[str, Any] = field(default_factory=dict)
+    benchmark: dict[str, Any] | None = None
 
     # ----- construction from existing artifacts ----------------------------- #
     @classmethod
     def from_artifacts(
         cls,
         data_stats: Any = None,
-        copilot_exec: Any = None,
+        model_exec: Any = None,
         sensitivity: Any = None,
         tuning_run: Any = None,
         candidate_targets: list[str] | None = None,
@@ -92,9 +93,10 @@ class EvidenceStore:
             # correlation_summary may hold a list of high-correlation pairs
             pairs = corr.get("high_correlation_pairs") or corr.get("pairs") or []
             store.correlations = list(pairs)
-        if copilot_exec is not None:
-            store.feature_importance = list(getattr(copilot_exec, "global_importance", []) or [])
-            store.cohort_metrics = dict(getattr(copilot_exec, "metrics_by_split", {}) or {})
+        if model_exec is not None:
+            store.feature_importance = list(getattr(model_exec, "global_importance", []) or [])
+            store.cohort_metrics = dict(getattr(model_exec, "metrics_by_split", {}) or {})
+            store.benchmark = getattr(model_exec, "benchmark", None)
         if sensitivity is not None:
             sd = sensitivity.to_dict() if hasattr(sensitivity, "to_dict") else sensitivity
             store.sensitivity_rows = list(sd.get("rows", []) or [])
@@ -154,7 +156,7 @@ class EvidenceStore:
             if feat is not None and imp is not None:
                 items.append(EvidenceItem(
                     "importance", f"{feat}: importance={imp}", row,
-                    "copilot_execution.global_importance"))
+                    "model_execution.global_importance"))
         return items
 
     def sensitivity_evidence(self, n: int = 20) -> list[EvidenceItem]:
@@ -178,7 +180,7 @@ class EvidenceStore:
                 "metrics", f"{split}: " + ", ".join(
                     f"{k}={v:.4f}" for k, v in m.items()
                     if isinstance(v, (int, float))),
-                m, "copilot_execution.metrics_by_split"))
+                m, "model_execution.metrics_by_split"))
         return items
 
     def has_any(self) -> bool:

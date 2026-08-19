@@ -50,7 +50,7 @@ def read_multiline_paste_normalized(prompt: str) -> str:
     except (OSError, AttributeError, ValueError):
         pass
 
-    return " ".join([l for l in lines if l]).strip()
+    return " ".join([line for line in lines if line]).strip()
 
 
 @dataclass
@@ -60,8 +60,10 @@ class CheckpointDecision:
     recommended_value: str
     reason: str
     evidence_id: str
-    choice: str  # "accept" | "keep" | "auto_accept" | "non_interactive_keep"
+    choice: str  # "accept" | "keep" | "override" | "auto_accept" | "non_interactive_keep"
     effective_value: str
+    rationale: str = ""
+    agent_rationale: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -72,7 +74,10 @@ class CheckpointDecision:
             "evidence_id": self.evidence_id,
             "choice": self.choice,
             "effective_value": self.effective_value,
+            "rationale": self.rationale,
+            "agent_rationale": self.agent_rationale,
         }
+
 
 
 def render_checkpoint(
@@ -250,34 +255,86 @@ def resolve_checkpoint(
                 say(f"    {explanation or reason}")
                 if evidence_id:
                     say(f"    Evidence basis: {evidence_id}")
+
+            if session and getattr(session, "challenges", None):
+                from start.governance.challenge_disposition import CONCESSION_PROMPT
+
+                if ask is input:
+                    ans_raw = read_multiline_paste_normalized(CONCESSION_PROMPT)
+                else:
+                    try:
+                        ans_raw = ask(CONCESSION_PROMPT)
+                    except (StopIteration, Exception):
+                        ans_raw = ""
+                ans_conceded = (ans_raw or "").strip().lower() in {"y", "yes"}
+                last_ch = session.challenges[-1]
+                last_ch.conceded = ans_conceded
+                last_ch.changes_disposition = ans_conceded
+            elif ask is input:
+                from start.governance.challenge_disposition import CONCESSION_PROMPT
+
+                read_multiline_paste_normalized(CONCESSION_PROMPT)
             continue
 
         if answer in ("a", "accept"):
             return CheckpointDecision(
-                name, user_value, recommended_value, reason, evidence_id,
-                choice="accept", effective_value=recommended_value,
+                name,
+                user_value=recommended_value,
+                recommended_value=recommended_value,
+                reason=reason,
+                evidence_id=evidence_id,
+                choice="accept",
+                effective_value=recommended_value,
+                rationale="Accepted agent recommendation",
+                agent_rationale=reason,
             )
-        # v3.1.1: Override replaces Accept + Keep. If values agree, override
-        # still prompts for a new value.
+        # v3.1.1 / v4.0.1: Override prompts for a new value and reviewer rationale
         if answer in ("o", "override"):
             if ask is input:
                 new_val = read_multiline_paste_normalized("    Override value: ")
+                rev_rationale = read_multiline_paste_normalized("    Reviewer rationale for override: ")
             else:
                 new_val = ask("    Override value: ")
+                try:
+                    rev_rationale = ask("    Reviewer rationale for override: ")
+                except (StopIteration, Exception):
+                    rev_rationale = ""
             new_val = (new_val or "").strip()
+            rev_rationale = (rev_rationale or "").strip()
             if not new_val:
                 new_val = user_value
+            is_noop = (new_val == recommended_value)
+            if not rev_rationale:
+                rev_rationale = "Accepted agent recommendation" if is_noop else f"Reviewer overridden to {new_val}"
             return CheckpointDecision(
-                name, user_value, recommended_value, reason, evidence_id,
-                choice="override", effective_value=new_val,
+                name,
+                user_value=new_val,
+                recommended_value=recommended_value,
+                reason=reason,
+                evidence_id=evidence_id,
+                choice="accept" if is_noop else "override",
+                effective_value=new_val,
+                rationale=rev_rationale,
+                agent_rationale=reason,
             )
         if answer in ("k", "keep", ""):
+            is_noop = (user_value == recommended_value)
             return CheckpointDecision(
-                name, user_value, recommended_value, reason, evidence_id,
-                choice="keep", effective_value=user_value,
+                name,
+                user_value=user_value,
+                recommended_value=recommended_value,
+                reason=reason,
+                evidence_id=evidence_id,
+                choice="accept" if is_noop else "keep",
+                effective_value=user_value,
+                rationale="Accepted agent recommendation" if is_noop else "Kept original reviewer choice",
+                agent_rationale=reason,
             )
         if answer in ("e", "explain"):
             say(f"    {explanation or reason}")
+            continue
+
+        if not answer:
             continue
 
         say(f"    Please answer A, O, C{', or Q to ask' if on_ask else ''}.")

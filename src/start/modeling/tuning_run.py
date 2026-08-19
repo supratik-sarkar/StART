@@ -202,14 +202,18 @@ def run_tuning(
         return None
 
     metric_name = primary_metric if primary_metric in ("auc_roc", "pr_auc", "recall", "f1", "rmse", "mae", "r2") else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
-    score = _scorer(metric_name)
+
+    rng = np.random.default_rng(seed)
 
     # train-internal holdout (stratified) — never touches test/OOS
-    rng = np.random.default_rng(seed)
-    idx = df.index.to_numpy().copy()
-    rng.shuffle(idx)
-    cut = int(len(idx) * 0.8)
-    tr, va = df.loc[idx[:cut]], df.loc[idx[cut:]]
+    if task_type not in ("regression", "forecasting") and df[target].nunique() > 1:
+        from sklearn.model_selection import train_test_split
+        tr, va = train_test_split(df, test_size=0.25, random_state=seed, stratify=df[target])
+    else:
+        idx = df.index.to_numpy().copy()
+        rng.shuffle(idx)
+        cut = int(len(idx) * 0.75)
+        tr, va = df.loc[idx[:cut]], df.loc[idx[cut:]]
     if family == "sklearn":
         from sklearn.impute import SimpleImputer
         imputer = SimpleImputer(strategy="median")
@@ -399,7 +403,6 @@ def run_tuning(
 
     minimize = metric_name in ("rmse", "mae")
     best_metric = float("inf") if minimize else -1.0
-    best_params = {}
 
     if validation == "k_fold":
         if task_type in ("regression", "forecasting"):
@@ -422,9 +425,10 @@ def run_tuning(
     with progress_bar(len(chosen), f"Tuning {architecture} ({len(chosen)} trials)") as adv:
         for i, params in enumerate(chosen, start=1):
             is_multiclass = (task_type == "multiclass_classification")
+            trial_failed = False
+            fold_status_h = "ok"
             if validation == "k_fold":
                 fold_metrics = []
-                trial_failed = False
                 for fold_idx, (train_idx, val_idx) in enumerate(folds, start=1):
                     import time as _time
                     import warnings as _warnings
@@ -489,6 +493,10 @@ def run_tuning(
                             if not np.isfinite(fold_metric):
                                 fold_status = "failed"
                                 fold_warnings.append("CRITICAL: NaN or infinite metric value")
+                                trial_failed = True
+                            elif task_type not in ("regression", "forecasting") and (va_fold[target] == 1).sum() < 5:
+                                fold_status = "degenerate"
+                                fold_warnings.append("Degenerate fold: fewer than 5 positive cases in validation fold")
                                 trial_failed = True
 
                         # Classify and deduplicate captured warnings
@@ -570,6 +578,9 @@ def run_tuning(
                         if not np.isfinite(metric):
                             fold_status_h = "failed"
                             fold_warnings_list.append("CRITICAL: NaN or infinite metric value")
+                        elif task_type not in ("regression", "forecasting") and (va[target] == 1).sum() < 5:
+                            fold_status_h = "degenerate"
+                            fold_warnings_list.append("Degenerate holdout: fewer than 5 positive cases in validation set")
 
                     _seen = set()
                     for w in caught:
@@ -598,23 +609,26 @@ def run_tuning(
                     "failure_reason": fold_warnings_list[0] if fold_status_h == "failed" and fold_warnings_list else "",
                 })
 
-            # Only consider non-NaN trials for best
-            is_valid = np.isfinite(metric) if isinstance(metric, float) else True
+            # Only consider non-NaN and non-degenerate trials for best
+            is_valid = (
+                np.isfinite(metric) if isinstance(metric, float) else True
+            ) and fold_status_h != "degenerate" and not trial_failed
             if is_valid:
                 is_best = (metric < best_metric) if minimize else (metric > best_metric)
                 if is_best:
-                    best_metric, best_params = metric, dict(params)
+                    best_metric = metric
 
             # Ensure hidden_dims remains a list if stored in params for deep learning
             saved_params = dict(params)
             if "hidden_dims" in saved_params and isinstance(saved_params["hidden_dims"], tuple):
                 saved_params["hidden_dims"] = list(saved_params["hidden_dims"])
 
+            t_status = "degenerate" if (fold_status_h == "degenerate" or trial_failed) else ("ok" if is_valid else "failed")
             run.trials.append(TuningTrial(
                 trial=i,
                 params=saved_params,
                 validation_metric=metric if is_valid else float("nan"),
-                status="ok" if is_valid else "failed",
+                status=t_status,
             ))
             adv(1)
 
@@ -636,38 +650,21 @@ def run_tuning(
         if len(_unique_warnings) > 10:
             print(f"    ... and {len(_unique_warnings) - 10} more", file=sys.stderr)
 
-    # mark best + rejected — failed trials cannot be best
-    eligible_trials = [
-        trial
-        for trial in run.trials
-        if trial.status != "failed"
-    ]
-
-    canonical_best = None
-    if eligible_trials:
-        canonical_best = (
-            min(
-                eligible_trials,
-                key=lambda trial: trial.validation_metric,
-            )
-            if minimize
-            else max(
-                eligible_trials,
-                key=lambda trial: trial.validation_metric,
-            )
-        )
-
-    for trial in run.trials:
-        if trial.status == "failed":
+    # mark best + rejected — single best trial only
+    found_best = False
+    for t in run.trials:
+        if t.status in ("failed", "degenerate"):
+            run.rejected_params.append(t.params)
             continue
-
-        if trial is canonical_best:
-            trial.status = "best"
-            run.best_params = trial.params
-            run.best_metric = trial.validation_metric
+        is_best = (not found_best and t.validation_metric == best_metric)
+        if is_best:
+            t.status = "best"
+            run.best_params = t.params
+            run.best_metric = t.validation_metric
+            found_best = True
         else:
-            trial.status = "ok"
-            run.rejected_params.append(trial.params)
+            t.status = "ok"
+            run.rejected_params.append(t.params)
 
     # write artifacts
     out_dir = Path(output_root) / "tuning" / run_id

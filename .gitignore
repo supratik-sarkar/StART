@@ -1,40 +1,84 @@
-# Python
+# ── Virtual environments ────────────────────────────────────────────────────
+# The canonical name is .venv-start. Every other common name is listed too,
+# because a previous release accidentally staged thousands of files from an
+# environment that had become Git-visible.
+.venv-start/
+.venv-bootstrap-test/
+.venv*/
+venv/
+env/
+ENV/
+pyvenv.cfg
+bin/
+lib/
+lib64/
+Scripts/
+Include/
+
+# ── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*.egg-info/
+*$py.class
+*.so
+.Python
 build/
 dist/
-.venv/
-.venv-start/
-start/bin/
-start/lib/
-start/pyvenv.cfg
+sdist/
+wheels/
+*.egg-info/
+*.egg
+.installed.cfg
+MANIFEST
 
-# Environments & secrets
+# ── Secrets ─────────────────────────────────────────────────────────────────
+# .env.example is the ONLY environment file that may be committed.
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.yaml
+secrets.yml
 
-# StART outputs
+# ── StART outputs ───────────────────────────────────────────────────────────
 start_output/
+test_dl_output/
+.venv-bootstrap-test/
+bootstrap-report.json
 mlruns/
+ledger.jsonl
+evidence_store/
 
-# Tooling
+# ── Tooling caches ──────────────────────────────────────────────────────────
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
 .ipynb_checkpoints/
-.DS_Store
 
-.venv-start/
-.venv/
-venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-build/
-dist/
-*.egg-info/
-start_output/
+# ── Editors and OS ──────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Recording intermediates ─────────────────────────────────────────────────
+# The rendered demo assets under docs/media/ ARE committed — the README links
+# them. Only the raw capture is ignored, because it re-renders from the cast.
+docs/media/*.cast
+!docs/media/start-demo.cast
+*.mov
+*.MOV
+
+# ── Third-party AI/LLM tooling residues ─────────────────────────────────────
+.deepeval/
+.langchain/
+.langsmith/

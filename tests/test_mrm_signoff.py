@@ -45,7 +45,7 @@ def test_open_challenge_makes_conditional():
     sess = ReviewSession(run_id="R")
     sess.record_challenge(Challenge(text="Why not WideDeep?", agent="A"))
     d = evaluate_signoff(_strong_store(), sess)
-    assert d.verdict == CONDITIONAL
+    assert d.verdict == NOT_READY
 
 
 def test_unresolved_challenge_blocks():

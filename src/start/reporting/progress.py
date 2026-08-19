@@ -1,4 +1,4 @@
-"""Progress reporting and agentic action logging for the co-pilot UX.
+"""Progress reporting and agentic action logging for the reviewer assistant.
 
 Two cross-platform primitives (pure Python, no OS-specific calls):
 

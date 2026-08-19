@@ -120,6 +120,8 @@ class ReviewOrchestrator:
         architecture: str = "mlp",
         activation: str = "relu",
         custom_space: dict[str, Any] | None = None,
+        class_weight: str | None = None,
+        enterprise_run_id: str | None = None,
     ) -> ReviewOutcome:
         import uuid
 
@@ -188,7 +190,9 @@ class ReviewOrchestrator:
         cohort_metrics: dict[str, dict[str, float]] = {}
         if modality == "tabular" and run_dl and inference.task_type in ("binary_classification", "multiclass_classification", "regression", "forecasting"):
             cohort_metrics = self._run_tabular_dl(
-                plan, single_target, evidence, seed, architecture=architecture, task_type=inference.task_type, activation=activation, custom_space=custom_space
+                plan, single_target, evidence, seed, architecture=architecture,
+                task_type=inference.task_type, activation=activation,
+                custom_space=custom_space, class_weight=class_weight,
             )
         else:
             self._emit("model_execution", "skipped", "diagnostics-only review (no model trained)")
@@ -197,7 +201,7 @@ class ReviewOrchestrator:
 
         # 13. evidence ledger
         self._emit("evidence_ledger", "running")
-        records = self._persist(evidence, run_id, output_root)
+        records = self._persist(evidence, run_id, output_root, enterprise_run_id=enterprise_run_id)
         self._emit("evidence_ledger", "complete", f"{len(records)} records sealed")
 
         # 14-20. agentic governance review
@@ -254,7 +258,11 @@ class ReviewOrchestrator:
         )
 
     # -- helpers ----------------------------------------------------------- #
-    def _run_tabular_dl(self, plan, target, evidence, seed, architecture="mlp", task_type="binary_classification", activation="relu", custom_space=None) -> dict[str, dict[str, float]]:
+    def _run_tabular_dl(
+        self, plan, target, evidence, seed, architecture="mlp",
+        task_type="binary_classification", activation="relu",
+        custom_space=None, class_weight=None,
+    ) -> dict[str, dict[str, float]]:
         from start.modeling.models import resolve_model
         from start.modeling.tabular_dl_metrics import dl_task_metrics
         from start.modeling.tuning_run import _model_family
@@ -282,7 +290,8 @@ class ReviewOrchestrator:
                 "family": architecture,
                 "activation": activation,
                 "epochs": 8,
-                "random_state": seed
+                "random_state": seed,
+                "class_weight": class_weight,
             }
             if custom_space:
                 if "hidden_dims" in custom_space:
@@ -301,7 +310,8 @@ class ReviewOrchestrator:
             kwargs = {
                 "family": architecture,
                 "epochs": 8,
-                "random_state": seed
+                "random_state": seed,
+                "class_weight": class_weight,
             }
             if custom_space:
                 for param in ("hidden_size", "learning_rate", "dropout", "epochs"):
@@ -317,7 +327,7 @@ class ReviewOrchestrator:
             kwargs = {
                 "architecture": arch,
                 "epochs": 8,
-                "random_state": seed
+                "class_weight": class_weight,
             }
             if custom_space:
                 for param in ("learning_rate", "batch_size", "epochs"):
@@ -329,6 +339,11 @@ class ReviewOrchestrator:
             clf = VisionCNNClassifier(**kwargs)
         else:
             clf, _, _ = resolve_model(architecture, seed)
+            if class_weight and hasattr(clf, "class_weight"):
+                try:
+                    clf.set_params(class_weight=class_weight)
+                except Exception:
+                    pass
             if custom_space:
                 scalar_space = {}
                 for k, v in custom_space.items():
@@ -387,10 +402,20 @@ class ReviewOrchestrator:
             self._emit(s, "complete", "computed")
         return cohort_metrics
 
-    def _persist(self, results: list[TestResult], run_id: str, output_root: str | None):
+    def _persist(
+        self,
+        results: list[TestResult],
+        run_id: str,
+        output_root: str | None,
+        enterprise_run_id: str | None = None,
+    ):
         records = [
             EvidenceRecord.from_result(
-                r, model_id="mros-review", dataset_id="review", run_id=run_id
+                r,
+                model_id="mros-review",
+                dataset_id="review",
+                run_id=run_id,
+                enterprise_run_id=enterprise_run_id,
             )
             for r in results
         ]

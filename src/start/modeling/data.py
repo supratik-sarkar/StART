@@ -1,9 +1,8 @@
-"""Datasets and cohort splitting for the propensity-style demo.
+"""Datasets and cohort splitting for modeling and benchmark suites.
 
-The default dataset is sklearn's public breast-cancer dataset, reframed as a
-generic "client attrition / propensity" binary classification case: the
-positive class represents the event of interest. No client data is involved.
-A synthetic make_classification fallback is provided.
+Benchmark binary classification utilities load sklearn's breast cancer dataset
+explicitly and truthfully. For the demo and wizard workflows, synthetic
+transactions generated locally are used as fallback.
 """
 
 from __future__ import annotations
@@ -15,20 +14,21 @@ TARGET_COLUMN = "attrition"
 SCORE_COLUMN = "score"
 
 
-def load_attrition_dataset(seed: int = 42) -> pd.DataFrame:
-    """Public binary-classification dataset framed as a propensity case."""
+def load_breast_cancer_diagnostic_dataset(seed: int = 42) -> pd.DataFrame:
+    """Public binary-classification benchmark from scikit-learn."""
     try:
         from sklearn.datasets import load_breast_cancer
 
         bundle = load_breast_cancer(as_frame=True)
         df = bundle.data.copy()
         df.columns = [c.replace(" ", "_") for c in df.columns]
-        # sklearn encodes 0 = malignant; treat that as the positive event so
-        # the demo has a realistic ~37% event rate.
         df[TARGET_COLUMN] = (bundle.target == 0).astype(int)
         return df
     except Exception:
         return _synthetic_fallback(seed)
+
+
+load_attrition_dataset = load_breast_cancer_diagnostic_dataset
 
 
 def _synthetic_fallback(seed: int, n: int = 2000, n_features: int = 20) -> pd.DataFrame:
@@ -198,5 +198,9 @@ def load_preset_dataset(preset_key: str, seed: int = 42) -> pd.DataFrame:
         return df
 
     else:
-        return load_attrition_dataset(seed)
+        # Fallback: locally generated transaction data. Never a medical dataset
+        # relabelled as something else — see tests/test_v401_contracts.py.
+        from start.data.synthetic import generate_synthetic_transactions
+
+        return generate_synthetic_transactions(n_rows=1000, prevalence=0.055, n_features=25, seed=seed)
 

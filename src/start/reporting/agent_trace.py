@@ -6,7 +6,7 @@ its confidence, the alternative it considered, and the action it took — withou
 reading source code.
 
 This is additive: the v2.1.0 ``ActionLog`` is unchanged. ``AgentTrace`` carries
-the richer "thinking" fields the co-pilot UX needs, and a ``TraceLog`` collects
+the richer "thinking" fields the reviewer assistant needs, and a ``TraceLog`` collects
 them for terminal, notebook, dashboard, and report rendering.
 """
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# Canonical agents the co-pilot makes visible (Section K).
+# Canonical agents the review execution layer makes visible (Section K).
 TRACEABLE_AGENTS = (
     "DatasetDiscoveryAgent",
     "TargetDiscoveryAgent",

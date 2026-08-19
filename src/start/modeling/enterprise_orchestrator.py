@@ -94,10 +94,11 @@ class EnterpriseOutcome:
     trace_log: Any = None
     artifact_registry: Any = None
     activation_report: Any = None
-    copilot_execution: Any = None
+    model_execution: Any = None
     tuning_run: Any = None
     kfold_tuning: Any = None
     review_session: Any = None
+    inner_run_id: str | None = None
 
     @property
     def critique_ok(self) -> bool:
@@ -146,7 +147,7 @@ class EnterpriseReviewOrchestrator:
         self,
         df: pd.DataFrame,
         *,
-        user_target: str | list[str] | None = None,
+        user_target: str | None = None,
         task_override: str | None = None,
         split_strategy: str = "stratified",
         agent_mode: str = "deterministic",
@@ -171,6 +172,7 @@ class EnterpriseReviewOrchestrator:
         class_weight: str | None = None,
         custom_space: dict[str, Any] | None = None,
         cost_specification: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> EnterpriseOutcome:
         from start.agents.engineering_agents import (
             ArchitectureReviewAgent,
@@ -184,7 +186,8 @@ class EnterpriseReviewOrchestrator:
         from start.reporting.artifacts import ArtifactRegistry
         from start.reporting.progress import ActionLog
 
-        run_id = "RUN-ENT-" + uuid.uuid4().hex[:8]
+        if run_id is None:
+            run_id = "RUN-ENT-" + uuid.uuid4().hex[:8]
         register = FindingsRegister()
         action_log = ActionLog()
         trace_log = TraceLog()
@@ -227,6 +230,9 @@ class EnterpriseReviewOrchestrator:
             seed=seed,
             architecture=architecture,
             activation=activation,
+            custom_space=custom_space,
+            class_weight=class_weight,
+            enterprise_run_id=run_id,
         )
         evidence_ids = [getattr(r, "evidence_id", r.test_id) for r in base_outcome.evidence]
 
@@ -298,6 +304,11 @@ class EnterpriseReviewOrchestrator:
             )
 
         # --- Co-pilot: metric choice + architecture review + tuning plan ---
+        if session is not None:
+            metric_dec = session.decision_for("metric_priority")
+            if metric_dec and metric_dec.effective:
+                costlier_errors = str(metric_dec.effective)
+
         metric_choice = select_primary_metric(
             base_outcome.task_type, costlier_errors=costlier_errors
         )
@@ -383,9 +394,9 @@ class EnterpriseReviewOrchestrator:
             if r.test_id.startswith(("execution", "deep_learning"))
         ]
         val_layer.evidence_ids = val_ids
-        # --- Co-pilot: sensitivity analysis (real, when a tabular model trained) ---
+        # --- Model execution: sensitivity analysis (real, when a tabular model trained) ---
         sensitivity_result = None
-        copilot_exec = None
+        model_exec = None
         tuning_run = None
         kfold_tuning = None
         if run_dl and base_outcome.cohort_metrics and base_outcome.modality == "tabular":
@@ -406,16 +417,16 @@ class EnterpriseReviewOrchestrator:
                     recommendation=f"most sensitive: {sensitivity_result.most_sensitive_feature}",
                     evidence_ids=val_ids[:1],
                 )
-            # --- Co-pilot execution: split table, metrics-by-split, training,
+            # --- Model execution: split table, metrics-by-split, training,
             # explainability (Sections D/G/I/J/K), all as registered artifacts ---
-            from start.modeling.copilot_execution import run_copilot_execution
+            from start.modeling.model_execution import run_model_execution
 
             # #2: the user's FE decision on correlation pruning drives execution.
             # Default is to prune; if the user explicitly rejected it, keep all.
             _apply_pruning = True
             if session is not None and session.rejected("fe:correlation_pruning"):
                 _apply_pruning = False
-            copilot_exec = run_copilot_execution(
+            model_exec = run_model_execution(
                 df, single_target, split_props=split_props,
                 metric_name=metric_choice["primary_metric"],
                 explain_method=explain_method, seed=seed,
@@ -428,13 +439,15 @@ class EnterpriseReviewOrchestrator:
                 activation=activation,
                 winsorize=_apply_winsorize,
                 custom_space=custom_space,
+                costlier_errors=costlier_errors,
+                tuning_params={"strategy": tuning_strategy, "trials": tuning_trials, "validation": validation},
             )
-            if copilot_exec:
-                if copilot_exec.pruned_features:
+            if model_exec:
+                if model_exec.pruned_features:
                     trace_log.record(
                         "FeatureEngineeringAgent",
-                        inputs=f"{len(copilot_exec.feature_columns)} features after pruning",
-                        decision=f"dropped {len(copilot_exec.pruned_features)} "
+                        inputs=f"{len(model_exec.feature_columns)} features after pruning",
+                        decision=f"dropped {len(model_exec.pruned_features)} "
                         "highly-correlated feature(s)",
                         reasoning="Correlation pruning applied (>0.95); user did not reject it.",
                         evidence_ids=[], confidence=0.8,
@@ -455,14 +468,14 @@ class EnterpriseReviewOrchestrator:
                 trace_log.record(
                     "ModelExecutionAgent",
                     inputs=f"train/test/oos split {split_props}",
-                    decision=f"trained {architecture}; explainability via {copilot_exec.explainability_method}",
-                    reasoning=f"generalization gap {copilot_exec.generalization_gap}",
+                    decision=f"trained {architecture}; explainability via {model_exec.explainability_method}",
+                    reasoning=f"generalization gap {model_exec.generalization_gap}",
                     evidence_ids=val_ids[:1], confidence=0.85,
                     alternative_considered="diagnostics-only (no training)",
-                    action_taken=f"emitted {len(copilot_exec.artifacts)} execution artifact(s)",
+                    action_taken=f"emitted {len(model_exec.artifacts)} execution artifact(s)",
                 )
                 # --- Real hyperparameter tuning (Section H): actually runs ---
-                from start.modeling.copilot_execution import _stratified_split
+                from start.modeling.model_execution import _stratified_split
                 from start.modeling.tuning_run import run_tuning
 
                 _effective_stratify = (split_strategy == "stratified") and (base_outcome.task_type not in ("regression", "forecasting"))
@@ -470,7 +483,7 @@ class EnterpriseReviewOrchestrator:
                 _train_only = _splits["train"]
 
                 tuning_run = run_tuning(
-                    _train_only, single_target, copilot_exec.feature_columns,
+                    _train_only, single_target, model_exec.feature_columns,
                     strategy=tuning_strategy, n_trials=tuning_trials,
                     primary_metric=metric_choice["primary_metric"], seed=seed,
                     output_root=output_root, run_id=run_id, registry=artifact_registry,
@@ -624,7 +637,7 @@ class EnterpriseReviewOrchestrator:
             action_log=action_log, metric_choice=metric_choice,
             dataset_source=dataset_source, trace_log=trace_log,
             activation_report=activation_report, artifact_registry=artifact_registry,
-            copilot_exec=copilot_exec, tuning_run=tuning_run,
+            model_exec=model_exec, tuning_run=tuning_run,
             review_session=session,
         )
         for dp in dashboard_paths.values():
@@ -656,10 +669,11 @@ class EnterpriseReviewOrchestrator:
             trace_log=trace_log,
             artifact_registry=artifact_registry,
             activation_report=activation_report,
-            copilot_execution=copilot_exec,
+            model_execution=model_exec,
             tuning_run=tuning_run,
             kfold_tuning=kfold_tuning,
             review_session=session,
+            inner_run_id=base_outcome.run_id,
         )
 
     def _run_sensitivity(self, df, target, metric_name, seed, architecture="mlp", task_type="binary_classification", activation="relu", winsorize=False):
@@ -730,7 +744,7 @@ class EnterpriseReviewOrchestrator:
         *, data_stats=None, fe_recs=None, arch_review=None, tuning_plan=None,
         sensitivity=None, action_log=None, metric_choice=None, dataset_source=None,
         trace_log=None, activation_report=None, artifact_registry=None,
-        copilot_exec=None, tuning_run=None, review_session=None,
+        model_exec=None, tuning_run=None, review_session=None,
     ) -> dict[str, str]:
         ai_rows = ai_report.summary_rows()
         evidence_rows = [
@@ -757,8 +771,8 @@ class EnterpriseReviewOrchestrator:
             cnn_config=cnn_config,
             explainability=(
                 {"note": f"Global feature importance shown below "
-                 f"({copilot_exec.explainability_method})."}
-                if copilot_exec and copilot_exec.global_importance
+                 f"({model_exec.explainability_method})."}
+                if model_exec and model_exec.global_importance
                 else {"note": "No model execution (diagnostics-only review)."}
             ),
             robustness=(
@@ -788,7 +802,7 @@ class EnterpriseReviewOrchestrator:
             activation_report=activation_report.to_dict() if activation_report else None,
             control_surface=ai_report.control_surface(),
             artifact_catalog=artifact_registry.to_list() if artifact_registry else [],
-            copilot_execution=copilot_exec.to_dict() if copilot_exec else None,
+            model_execution=model_exec.to_dict() if model_exec else None,
             tuning_run=tuning_run.to_dict() if tuning_run else None,
             review_journey=review_session.to_dict() if review_session else None,
         )

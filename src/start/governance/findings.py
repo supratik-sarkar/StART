@@ -14,11 +14,11 @@ EvidenceCritic gate downstream.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     LOW = "Low"
     MEDIUM = "Medium"
     HIGH = "High"
@@ -29,7 +29,7 @@ class Severity(str, Enum):
         return {"Low": 1, "Medium": 2, "High": 3, "Critical": 4}[self.value]
 
 
-class Materiality(str, Enum):
+class Materiality(StrEnum):
     LOW = "Low"
     MEDIUM = "Medium"
     HIGH = "High"

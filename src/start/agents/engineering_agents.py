@@ -1,6 +1,6 @@
 """Architecture review, hyperparameter tuning, and metric-priority agents.
 
-Three co-pilot agents that make model-engineering decisions visible and
+Three review execution agents that make model-engineering decisions visible and
 reviewable:
 
   * ``select_primary_metric`` — routes task type + cost preference to a primary
@@ -30,16 +30,26 @@ def select_primary_metric(
 ) -> dict[str, Any]:
     """Route task type + which errors are costlier to a primary metric.
 
-    costlier_errors: 'false_negatives' | 'false_positives' | 'balanced'.
+    costlier_errors: 'false_negatives' | 'false_positives' | 'balanced' | 'recall' | 'precision' | 'f1'.
     """
     costlier = (costlier_errors or "balanced").lower()
     if task_type == "binary_classification":
-        if costlier == "false_negatives":
-            metric, reason = "pr_auc", "False negatives are costlier; prioritize recall/PR-AUC."
+        if costlier in ("false_negatives", "fn", "recall", "pr_auc"):
+            metric = "recall" if costlier == "recall" else "pr_auc"
+            reason = "False negatives are costlier; prioritize recall/PR-AUC."
             secondary = ["recall", "auc_roc", "f1"]
-        elif costlier == "false_positives":
-            metric, reason = "precision", "False positives are costlier; prioritize precision."
+        elif costlier in ("false_positives", "fp", "precision"):
+            metric = "precision"
+            reason = "False positives are costlier; prioritize precision."
             secondary = ["auc_roc", "f1", "specificity"]
+        elif costlier in ("f1", "f1_score"):
+            metric = "f1"
+            reason = "F1 score selected as primary balance metric."
+            secondary = ["auc_roc", "pr_auc"]
+        elif costlier in ("auc_roc", "roc_auc", "auc"):
+            metric = "auc_roc"
+            reason = "AUC-ROC selected as primary ranking metric."
+            secondary = ["pr_auc", "f1"]
         else:
             metric, reason = "auc_roc", "Balanced error costs; AUC-ROC is the default ranking metric."
             secondary = ["pr_auc", "f1", "brier_score"]

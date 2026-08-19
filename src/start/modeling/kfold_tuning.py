@@ -3,7 +3,7 @@
 Real K-fold model selection that operates STRICTLY inside the training split:
 
 - The train/test/OOS split is reproduced deterministically (identical to the
-  copilot execution split), and only the training rows are passed to K-fold.
+  model execution split), and only the training rows are passed to K-fold.
 - Stratified K-fold folds are created over those training rows only. Test and
   OOS rows never enter any fold, so they are never used for model selection.
 - Each candidate is scored by the primary metric routed from the reviewer's

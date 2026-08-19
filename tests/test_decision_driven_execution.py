@@ -24,7 +24,7 @@ def test_rejecting_correlation_pruning_keeps_all_features():
         df, user_target="attrition", output_root=tempfile.mkdtemp(),
         run_dl=True, session=s, seed=0,
     )
-    assert out.copilot_execution.pruned_features == []
+    assert out.model_execution.pruned_features == []
     honored = [t for t in out.trace_log.traces
                if "honored user rejection" in t.to_dict().get("action_taken", "")]
     assert len(honored) == 1
@@ -37,7 +37,7 @@ def test_not_rejecting_pruning_drops_correlated_features():
         df, user_target="attrition", output_root=tempfile.mkdtemp(),
         run_dl=True, session=s, seed=0,
     )
-    assert len(out.copilot_execution.pruned_features) > 0
+    assert len(out.model_execution.pruned_features) > 0
 
 
 def test_architecture_override_produces_honored_trace():

@@ -355,6 +355,9 @@ def ask_agent(
             pass
 
     # 7. Persist the same telemetry and full exchange in the transcript / session
+    from datetime import UTC, datetime
+
+    now_iso = datetime.now(UTC).isoformat(timespec="seconds")
     exchange_backend = "deterministic" if backend == "fallback" else (provider if backend == "llm" else backend)
     exchange = Exchange(
         agent=agent,
@@ -362,6 +365,13 @@ def ask_agent(
         answer=answer,
         checkpoint=ctx.checkpoint,
         backend=exchange_backend,
+        provider=provider,
+        model=selected_model,
+        response_id=response_id,
+        latency_seconds=latency,
+        input_tokens=in_tokens,
+        output_tokens=out_tokens,
+        evidence_used=evidence_ids or (["agent_reasoning"] if backend != "deterministic" else []),
     )
     session.record_exchange(exchange)
 
@@ -380,6 +390,17 @@ def ask_agent(
             pass
 
     if is_challenge:
-        session.close_challenge(question, response=answer, evidence_used=evidence_ids or ["agent_reasoning"])
+        session.close_challenge(
+            question,
+            response=answer,
+            evidence_used=evidence_ids or ["agent_reasoning"],
+            provider=provider,
+            model=selected_model,
+            response_id=response_id,
+            latency_seconds=latency,
+            input_tokens=in_tokens,
+            output_tokens=out_tokens,
+            timestamp=now_iso,
+        )
 
     return exchange

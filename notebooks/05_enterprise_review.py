@@ -184,7 +184,7 @@ for lr in outcome.layers:
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ## 7. Visible co-pilot (v2.1.1): LLM activation, agent reasoning, control surface, artifacts
+# MAGIC ## 7. Visible review execution (v2.1.1): LLM activation, agent reasoning, control surface, artifacts
 # MAGIC The same visibility the terminal shows — nothing important happens silently.
 
 # COMMAND ----------
@@ -214,15 +214,15 @@ if outcome.artifact_registry is not None:
 
 # COMMAND ----------
 # Sections D/G/I/J/K: train/test/OOS split, metrics-by-split, training, explainability
-ce = outcome.copilot_execution
-if ce is not None:
+me = outcome.model_execution
+if me is not None:
     print("Train/Test/OOS split:")
-    display(pd.DataFrame(ce.split_table))
+    display(pd.DataFrame(me.split_table))
     print("Metrics by split:")
-    display(pd.DataFrame(ce.metrics_by_split).T)
-    print(f"Generalization gap (train - OOS): {ce.generalization_gap}")
-    print(f"Explainability method: {ce.explainability_method}")
-    display(pd.DataFrame(ce.global_importance))
+    display(pd.DataFrame(me.metrics_by_split).T)
+    print(f"Generalization gap (train - OOS): {me.generalization_gap}")
+    print(f"Explainability method: {me.explainability_method}")
+    display(pd.DataFrame(me.global_importance))
 else:
     print("Model execution skipped (run_dl=False or non-tabular). Enable training to see"
           " split, metrics, training history, and explainability.")
@@ -292,7 +292,7 @@ print("Transcript written:", paths)
 from start.evidence_store import EvidenceStore
 
 ev = EvidenceStore.from_artifacts(
-    copilot_exec=outcome.copilot_execution,
+    model_exec=outcome.model_execution,
     sensitivity=outcome.sensitivity,
     tuning_run=outcome.tuning_run,
 )

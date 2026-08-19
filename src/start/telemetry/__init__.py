@@ -1,3 +1,3 @@
-from start.telemetry.bus import CopilotMessageTrace, TelemetryBus, TelemetryEvent
+from start.telemetry.bus import AgentMessageTrace, TelemetryBus, TelemetryEvent
 
-__all__ = ["TelemetryBus", "TelemetryEvent", "CopilotMessageTrace"]
+__all__ = ["TelemetryBus", "TelemetryEvent", "AgentMessageTrace"]

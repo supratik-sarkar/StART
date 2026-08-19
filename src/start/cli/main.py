@@ -125,12 +125,28 @@ def report(
 
 
 @app.command()
-def doctor(config: str = typer.Option(None, help="Optional YAML config to validate.")) -> None:
-    """Diagnose environment: devices, runtimes, providers, ledger integrity."""
+def doctor(
+    config: str = typer.Option(None, help="Optional YAML config to validate."),
+    adapters: bool = typer.Option(False, "--adapters", help="Display full AI-engineering adapter matrix."),
+) -> None:
+    """Diagnose environment: devices, runtimes, providers, ledger integrity, adapters."""
+    from start.ai_engineering import build_adapters
+    from start.cli.panels import render_adapters_table
     from start.providers.compute import detect_device, is_databricks_runtime, mlflow_available
     from start.providers.llm import _PROVIDERS
     from start.registry import list_families, list_tests
+    from start.runtime_profile import profile_banner
 
+    if adapters:
+        adapters_info = []
+        for a in build_adapters():
+            desc = a.describe()
+            desc["name"] = a.name
+            adapters_info.append(desc)
+        console.print(render_adapters_table(adapters_info))
+        return
+
+    console.print(f"[dim]{profile_banner()}[/dim]\n")
     table = Table(title="start doctor")
     table.add_column("Check")
     table.add_column("Result")
@@ -584,6 +600,16 @@ review_app = typer.Typer(
 )
 app.add_typer(review_app, name="review")
 
+# Stripe-agnostic surface. Imported here rather than defined inline because
+# everything it reaches is standard-library only, so `start risk` and
+# `start attest` keep working when the modelling stack is absent or broken —
+# which is exactly when someone needs to ask what a review owes, or whether an
+# archived seal still verifies.
+from start.cli.risk_cli import attest_app, risk_app  # noqa: E402
+
+app.add_typer(risk_app, name="risk")
+app.add_typer(attest_app, name="attest")
+
 @review_app.callback(invoke_without_command=True)
 def review_callback(
     ctx: typer.Context,
@@ -612,7 +638,16 @@ def review_callback(
         "deterministic", "--agent-mode", help="deterministic | llm (evidence-grounded)."
     ),
     llm_provider: str = typer.Option(
-        "none", help="LLM provider (none | openai | anthropic | grok | enterprise_llm_gateway)."
+        "none", "--llm-provider", "--provider", help="LLM provider (none | openai | anthropic | grok | gateway | enterprise_llm_gateway)."
+    ),
+    model: str = typer.Option(
+        None, "--model", help="Model name for the chosen LLM provider."
+    ),
+    answers: str = typer.Option(
+        None, "--answers", help="File with newline-delimited answers (test affordance only; refused in enterprise)."
+    ),
+    transcript: str = typer.Option(
+        None, "--transcript", help="File to save the review interaction transcript."
     ),
     run_dl: bool = typer.Option(
         False, "--run-dl/--no-run-dl", help="Train a tabular DL model (binary classification)."
@@ -638,17 +673,32 @@ def review_callback(
     ),
     output_root: str = typer.Option("start_output", help="Output directory root."),
     seed: int = typer.Option(42, help="Random seed."),
+    open_figures: bool = typer.Option(
+        True, "--open-figures/--no-open-figures", help="Open generated PNG figures in the system viewer."
+    ),
+    figure_delay: float = typer.Option(
+        1.5, "--figure-delay", help="Delay between opening figures in seconds."
+    ),
 ) -> None:
     """Run the StART model review setup wizard or run a standard non-interactive review."""
     if ctx.invoked_subcommand is not None:
         return
+
+    import os
+    if answers and os.environ.get("START_PROFILE") == "enterprise":
+        console.print("[red]--answers is a test-harness affordance and is refused under the enterprise profile.[/red]")
+        raise typer.Exit(code=1)
+
+    if llm_provider not in ("none", "") and agent_mode == "deterministic":
+        agent_mode = "llm"
 
     # If it is interactive:
     config_state = None
     if not non_interactive:
         from start.main import run_interactive_setup_wizard
         config_state = run_interactive_setup_wizard()
-        data = None if "Built-In" in config_state["dataset_vector"] else config_state["dataset_vector"].split(": ", 1)[1]
+        selection = config_state.get("dataset_selection")
+        data = selection.source_path if selection else None
         target = config_state["target_column"]
         run_dl = True
 
@@ -662,6 +712,7 @@ def review_callback(
         cfg = ReviewConfig(
             data_path=data,
             target=target,
+            dataset_selection=selection,
             task_override=config_state.get("task_type", task),
             split_strategy=config_state["split_strategy_name"],
             architecture_family=config_state["model"],
@@ -686,7 +737,9 @@ def review_callback(
             k_folds=config_state.get("k_folds", 3),
             validation_scheme=config_state.get("validation_scheme", "holdout"),
             objective=config_state.get("objective", ""),
-            llm_model=config_state.get("llm_model"),
+            llm_model=config_state.get("llm_model") or model,
+            open_figures=open_figures,
+            figure_delay=figure_delay,
         )
         cfg.train_prop = config_state["split_proportions"][0]
         cfg.test_prop = config_state["split_proportions"][1]
@@ -710,6 +763,7 @@ def review_callback(
             robustness_suite=robustness,
             agent_mode=agent_mode,
             llm_provider=llm_provider,
+            llm_model=model,
             run_dl=run_dl,
             enterprise_mode=enterprise,
             costlier_errors=cost,
@@ -718,6 +772,8 @@ def review_callback(
             non_interactive=non_interactive,
             output_root=output_root,
             seed=seed,
+            open_figures=open_figures,
+            figure_delay=figure_delay,
         )
         if not non_interactive:
             cfg = prompt_review_config(initial=cfg)
