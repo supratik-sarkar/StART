@@ -12,16 +12,11 @@
 <br/>
 
 <a href="docs/media/start-demo.mp4">
-  <img src="docs/media/start-demo-poster.png" alt="StART Demo Flight" width="100%" style="border-radius: 8px;" />
+  <img src="docs/media/start-demo.gif" alt="StART Demo Flight" width="100%" style="border-radius: 8px;" />
 </a>
 
-<video src="docs/media/start-demo.mp4" poster="docs/media/start-demo-poster.png" controls="controls" width="100%" style="max-height: 640px; border-radius: 8px;" playsinline>
-  <source src="docs/media/start-demo.mp4" type="video/mp4">
-  Your browser does not support the video tag. <a href="docs/media/start-demo.mp4">Click here to watch the demonstration (start-demo.mp4)</a>.
-</video>
-
 <br/>
-<sub><i>Click poster or player above to watch the full StART review demonstration (1080p).</i></sub>
+<sub><i>Live interactive review demonstration — playing directly in README (click image for full 1080p recording).</i></sub>
 
 </div>
 
