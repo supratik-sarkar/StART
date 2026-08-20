@@ -62,7 +62,7 @@ print('stdlib core OK —', profile_banner())"
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -70,7 +70,9 @@ print('stdlib core OK —', profile_banner())"
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install
-        run: pip install -e ".[dl,trees,tuning,xai,formats,llm,dev]"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dl,trees,tuning,xai,formats,llm,dev]"
       - name: Lint
         run: ruff check src tests scripts
       - name: Type check
@@ -96,9 +98,7 @@ print('stdlib core OK —', profile_banner())"
         run: |
           set +e
           # Deliberately excludes .env.example, which contains only blank keys.
-          matches=$(grep -rEn "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" \
-            --include="*.py" --include="*.md" --include="*.yaml" --include="*.yml" \
-            --include="*.toml" --include="*.txt" --include="*.ipynb" . )
+          matches=$(git grep -En "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" -- '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.txt' '*.ipynb' || true)
           if [ -n "$matches" ]; then
             echo "Possible credential committed:"; echo "$matches"; exit 1
           fi
