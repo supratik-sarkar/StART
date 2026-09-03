@@ -597,6 +597,7 @@ def test_provider_failure_message_does_not_print_token(monkeypatch):
 
 def test_openai_works_through_mocked_keychain_resolver(monkeypatch):
     """16. OpenAI provider functions seamlessly when key resolved from Keychain."""
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     monkeypatch.setattr(
         "start.providers.keys.keychain_get_key", lambda p: "sk-mock-openai-key" if p == "openai" else None
     )
@@ -612,6 +613,7 @@ def test_openai_works_through_mocked_keychain_resolver(monkeypatch):
 
 def test_anthropic_works_through_mocked_keychain_resolver(monkeypatch):
     """17. Anthropic provider functions seamlessly when key resolved from Keychain."""
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     monkeypatch.setattr(
         "start.providers.keys.keychain_get_key", lambda p: "sk-ant-mock-key" if p == "anthropic" else None
     )
@@ -627,6 +629,7 @@ def test_anthropic_works_through_mocked_keychain_resolver(monkeypatch):
 
 def test_deepseek_works_through_mocked_keychain_resolver(monkeypatch):
     """18. DeepSeek provider functions seamlessly when key resolved from Keychain."""
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     monkeypatch.setattr(
         "start.providers.keys.keychain_get_key", lambda p: "sk-deepseek-mock-key" if p == "deepseek" else None
     )

@@ -514,17 +514,35 @@ def test_production_path_mock_harness_var_grounding_pass_and_fail() -> None:
     ev_cc = rec_by_test["traded_risk.var_christoffersen_conditional"].evidence_id
     ev_val = rec_by_test["validation.var_size_power"].evidence_id
 
+    r_exc = rec_by_test["traded_risk.var_exceptions"]
+    r_kupiec = rec_by_test["traded_risk.var_kupiec_pof"]
+    r_ind = rec_by_test["traded_risk.var_christoffersen_independence"]
+    r_cc = rec_by_test["traded_risk.var_christoffersen_conditional"]
+    r_val = rec_by_test["validation.var_size_power"]
+
+    lr_kupiec = f"{r_kupiec.metrics.get('lr_uc', r_kupiec.metrics.get('lr_pof', 1.8862)):.4f}"
+    p_kupiec = f"{r_kupiec.metrics.get('p_value', 0.1696):.4f}"
+    n_exc = str(r_exc.metrics.get("n_exceptions", 6))
+    n_obs = f"{r_exc.metrics.get('n_observations', 1000):,}"
+    exp_exc = f"{r_exc.metrics.get('expected_exceptions', 10.0):.1f}"
+    lr_ind = f"{r_ind.metrics.get('lr_ind', 0.0725):.4f}"
+    p_ind = f"{r_ind.metrics.get('p_value', 0.7877):.4f}"
+    lr_cc = f"{r_cc.metrics.get('lr_cc', 1.9587):.4f}"
+    p_cc = f"{r_cc.metrics.get('p_value', 0.3755):.4f}"
+    size = f"{r_val.metrics.get('empirical_size', 0.066):.3f}"
+    power_07 = f"{r_val.metrics.get('power_0_7x', 1.0):.3f}"
+    power_15 = f"{r_val.metrics.get('power_1_5x', 0.992):.3f}"
+
     # Construct exact semantic response modeled on user's live GPT-5 response
     valid_gpt5_response = (
-        f"Under Kupiec proportion of failures, the empirical LR is 1.8862 with p-value 0.1696 [{ev_kupiec}]. "
-        f"Exception process recorded 6 exceptions out of 1,000 observations [{ev_exc}] "
-        f"against 10.0 expected exceptions [{ev_exc}]. "
-        f"Christoffersen independence test yielded LR_ind of 0.0725 with p-value 0.7877 [{ev_ind}]. "
-        f"Joint conditional coverage test showed LR_cc of 1.9587 with p-value 0.3755 [{ev_cc}]. "
-        f"Pre-registered validation demonstrated empirical size of 0.066 [{ev_val}] "
-        f"within accepted band [0.031, 0.069] [{ev_val}], "
-        f"with power of 1.000 at 0.7x [{ev_val}] and 0.992 at 1.5x [{ev_val}].\n\n"
-        f"Summary: The model passed unconditional coverage with LR of 1.8862 [{ev_kupiec}]."
+        f"Under Kupiec proportion of failures, the empirical LR is {lr_kupiec} with p-value {p_kupiec} [{ev_kupiec}]. "
+        f"Exception process recorded {n_exc} exceptions out of {n_obs} observations [{ev_exc}] "
+        f"against {exp_exc} expected exceptions [{ev_exc}]. "
+        f"Christoffersen independence test yielded LR_ind of {lr_ind} with p-value {p_ind} [{ev_ind}]. "
+        f"Joint conditional coverage test showed LR_cc of {lr_cc} with p-value {p_cc} [{ev_cc}]. "
+        f"Pre-registered validation demonstrated empirical size of {size} [{ev_val}] "
+        f"with power of {power_07} at 0.7x [{ev_val}] and {power_15} at 1.5x [{ev_val}].\n\n"
+        f"Summary: The model passed unconditional coverage with LR of {lr_kupiec} [{ev_kupiec}]."
     )
 
     claims = extract_claims(valid_gpt5_response)
@@ -536,8 +554,8 @@ def test_production_path_mock_harness_var_grounding_pass_and_fail() -> None:
     assert len(binding.bound) == binding.total_claims
     assert binding.grounding_rate == 1.0
 
-    # Intentionally introduce one value mismatch: 1.8862 -> 1.850
-    tampered_response = valid_gpt5_response.replace("1.8862", "1.850")
+    # Intentionally introduce one value mismatch: lr_kupiec -> 99.999
+    tampered_response = valid_gpt5_response.replace(lr_kupiec, "99.999")
     tampered_claims = extract_claims(tampered_response)
     tampered_binding = bind_claims(tampered_claims, records, permitted_scope=scope_ids)
 

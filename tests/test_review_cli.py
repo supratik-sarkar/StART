@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 from start.cli import app
 from start.interactive_review import ReviewConfig, prompt_review_config
 
-runner = CliRunner()
+runner = CliRunner(env={"COLUMNS": "240"})
 
 
 def test_review_command_non_interactive_demo(tmp_path):
@@ -202,11 +202,7 @@ def test_enterprise_review_command(tmp_path):
 
 
 def test_enterprise_help_documents_flag():
-    from typer.testing import CliRunner
-
-    from start.cli import app
-
-    result = CliRunner().invoke(app, ["review", "--help"])
+    result = runner.invoke(app, ["review", "--help"])
     assert result.exit_code == 0
     assert "--enterprise" in result.output
 
@@ -273,11 +269,7 @@ def test_review_cost_flag_routes_metric(tmp_path):
 
 
 def test_review_help_documents_new_flags():
-    from typer.testing import CliRunner
-
-    from start.cli import app
-
-    result = CliRunner().invoke(app, ["review", "--help"])
+    result = runner.invoke(app, ["review", "--help"])
     assert result.exit_code == 0
     for flag in ("--cost", "--accept-recommendat", "--show-progress"):
         assert flag in result.output
