@@ -1,28 +1,29 @@
 name: ci
 
 on:
-  push: { branches: [main] }
-  pull_request: { branches: [main] }
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  # CI is not a demo machine. Pin the profile so no test can reach a public
-  # inference endpoint even if a credential is present in the environment.
   START_PROFILE: airgapped
 
 jobs:
-  # The zero-dependency guarantee. If this job needs an install step, the
-  # guarantee has been broken — that is the whole point of running it first.
   stdlib-core:
     name: risk + attestation core with nothing installed
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
+        with:
+          python-version: "3.12"
       - name: Import the core with no dependencies present
         run: |
           cd src
@@ -76,7 +77,7 @@ print('stdlib core OK —', profile_banner())"
       - name: Lint
         run: ruff check src tests scripts
       - name: Type check
-        run: mypy || true   # advisory until annotations stabilise
+        run: mypy || true
       - name: Tests
         run: pytest
       - name: Compile all sources
@@ -97,7 +98,6 @@ print('stdlib core OK —', profile_banner())"
       - name: Scan for committed credentials
         run: |
           set +e
-          # Deliberately excludes .env.example, which contains only blank keys.
           matches=$(git grep -En "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" -- '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.txt' '*.ipynb' || true)
           if [ -n "$matches" ]; then
             echo "Possible credential committed:"; echo "$matches"; exit 1
@@ -106,6 +106,6 @@ print('stdlib core OK —', profile_banner())"
       - name: Refuse committed environments and outputs
         run: |
           set +e
-          bad=$(git ls-files | grep -E "^(\.venv|venv|\.env$|start_output/|dist/|build/)" )
+          bad=$(git ls-files | grep -E "^(\.venv|venv|\.env$|start_output/|dist/|build/)" || true)
           if [ -n "$bad" ]; then echo "Must not be tracked:"; echo "$bad"; exit 1; fi
           echo "working tree clean of environments and artefacts"
