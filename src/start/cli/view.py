@@ -92,12 +92,12 @@ class ProgressDashboardUI:
         
         # Header global component configuration
         g_prog = Progress(TextColumn("[bold blue]{task.description}"), BarColumn(), TextColumn("{task.percentage:>3.0f}%"))
-        g_prog.add_task("Global Evaluation Progress", total=100, completed=self.global_pct)
+        g_prog.add_task("Global Evaluation Progress", total=100, completed=int(self.global_pct))
         layout["header"].update(Panel(g_prog, title="Global Engine Vector"))
 
         # Stage component configuration
         s_prog = Progress(TextColumn("[bold green]{task.description}"), BarColumn(), TextColumn("{task.percentage:>3.0f}%"))
-        s_prog.add_task(f"Stage: {self.active_stage}", total=100, completed=self.stage_pct)
+        s_prog.add_task(f"Stage: {self.active_stage}", total=100, completed=int(self.stage_pct))
         layout["stage"].update(Panel(s_prog, title="Pipeline Stage Vector"))
 
         # Agent tracking metadata panel layout

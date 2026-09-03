@@ -92,10 +92,12 @@ class ThresholdSpec(BaseModel):
 class TestResult(BaseModel):
     """Output of a single deterministic test invocation."""
 
+    __test__ = False  # not a pytest class
+
     test_id: str
     test_name: str
     status: Status = Status.PASS
-    metrics: dict[str, float | int | str | None] = Field(default_factory=dict)
+    metrics: dict[str, bool | float | int | str | None] = Field(default_factory=dict)
     thresholds: list[ThresholdSpec] = Field(default_factory=list)
     params: dict[str, Any] = Field(default_factory=dict)
     interpretation: str = ""
@@ -150,7 +152,7 @@ class EvidenceRecord(BaseModel):
     enterprise_run_id: str | None = None
     timestamp: datetime = Field(default_factory=_utcnow)
     params: dict[str, Any] = Field(default_factory=dict)
-    metrics: dict[str, float | int | str | None] = Field(default_factory=dict)
+    metrics: dict[str, bool | float | int | str | None] = Field(default_factory=dict)
     thresholds: list[ThresholdSpec] = Field(default_factory=list)
     status: Status
     interpretation: str = ""
@@ -173,6 +175,26 @@ class EvidenceRecord(BaseModel):
         policy_hash: str | None = None,
         repro: ReproducibilityMeta | None = None,
     ) -> EvidenceRecord:
+        norm_metrics = dict(result.metrics) if result.metrics else {}
+        if result.test_id in {
+            "traded_risk.var_kupiec_pof",
+            "traded_risk.var_christoffersen_independence",
+            "traded_risk.var_christoffersen_conditional",
+        }:
+            # Evidence bridge normalization: map statistical alpha to gamma_test with provenance
+            if "gamma_test" not in norm_metrics and "statistical_gamma_test" not in norm_metrics:
+                if "alpha" in norm_metrics:
+                    norm_metrics["gamma_test"] = norm_metrics["alpha"]
+                    norm_metrics["statistical_gamma_test"] = norm_metrics["alpha"]
+                    norm_metrics["statistical_criterion_source"] = "STATISTICAL_TEST_SPECIFICATION"
+                elif result.params and "alpha" in result.params:
+                    norm_metrics["gamma_test"] = result.params["alpha"]
+                    norm_metrics["statistical_gamma_test"] = result.params["alpha"]
+                    norm_metrics["statistical_criterion_source"] = "STATISTICAL_TEST_SPECIFICATION"
+            # Separate VaR tail probability from test significance (never normalize into gamma_test)
+            if "alpha_var" not in norm_metrics and "expected_probability" in norm_metrics:
+                norm_metrics["alpha_var"] = norm_metrics["expected_probability"]
+
         return cls(
             test_id=result.test_id,
             test_name=result.test_name,
@@ -181,7 +203,7 @@ class EvidenceRecord(BaseModel):
             run_id=run_id,
             enterprise_run_id=enterprise_run_id,
             params=result.params,
-            metrics=result.metrics,
+            metrics=norm_metrics,
             thresholds=result.thresholds,
             status=result.status,
             interpretation=result.interpretation,
@@ -295,3 +317,15 @@ class RunResult(BaseModel):
     narrative: Narrative | None = None
     agent_review: AgentReview | None = None
     policy: PolicyDecision | None = None
+
+
+class VisualArtifact(BaseModel):
+    """Audit-grade visualization/tabular artifact record with Merkle evidence linkage."""
+
+    artifact_id: str
+    title: str
+    artifact_type: str = "svg"
+    file_path: str
+    evidence_ids: tuple[str, ...] = Field(default_factory=tuple)
+    description: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)

@@ -44,6 +44,18 @@ _static_map: dict[str, str] = {
     "ValidationPlannerAgent": "legacy_governance",
     "TestSuggestionAgent": "legacy_governance",
     "ModelRiskFindingAgent": "legacy_governance",
+    "MarketReviewDirector": "market_review",
+    "MarketReviewDirectorAgent": "market_review",
+    "PortfolioConstruction": "market_review",
+    "PortfolioConstructionAgent": "market_review",
+    "HierarchicalAllocation": "market_review",
+    "HierarchicalAllocationAgent": "market_review",
+    "AdversarialChallenge": "market_review",
+    "AdversarialChallengeAgent": "market_review",
+    "TailRiskAgent": "market_review",
+    "ScenarioStressAgent": "market_review",
+    "CrossAnalyticalCommittee": "committee",
+    "CommitteeReviewResult": "committee",
 }
 
 __all__ = list(_static_map.keys())

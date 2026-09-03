@@ -6,7 +6,7 @@ its confidence, the alternative it considered, and the action it took — withou
 reading source code.
 
 This is additive: the v2.1.0 ``ActionLog`` is unchanged. ``AgentTrace`` carries
-the richer "thinking" fields the reviewer assistant needs, and a ``TraceLog`` collects
+the richer analytical fields the reviewer workflow needs, and a ``TraceLog`` collects
 them for terminal, notebook, dashboard, and report rendering.
 """
 

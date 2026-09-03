@@ -128,7 +128,7 @@ def preflight_llm(provider_name: str, llm: Any = None, *, probe: bool = False) -
 
     if probe:
         try:
-            llm.complete("You are a connectivity probe.", "Reply with: ok", max_tokens=5)
+            llm.complete("You are a connectivity probe.", "Reply with: ok", output_token_budget=5)
             return ActivationReport(
                 provider=provider_name, model=model, trust_domain=domain, endpoint=endpoint,
                 status="CONNECTED", detail="Connectivity probe succeeded.",

@@ -302,7 +302,7 @@ def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
         def __init__(self) -> None:
             self.calls: list[tuple[str, str]] = []
 
-        def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+        def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             import re
 
             self.calls.append((system, user))

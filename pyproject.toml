@@ -19,12 +19,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "4.0.2"
+version = "4.5.0"
 description = "StART: risk-stripe-agnostic agentic review platform — deterministic engines compute, agents reason, evidence proves, seals attest."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Supratik Sarkar" }]
+authors = [{ name = "StART contributors" }]
 keywords = [
   "model-risk",
   "model-risk-management",
@@ -164,9 +164,9 @@ all = [
 start = "start.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/supratik-sarkar/StART"
-Issues = "https://github.com/supratik-sarkar/StART/issues"
-Documentation = "https://github.com/supratik-sarkar/StART#readme"
+Homepage = "https://github.com/start-project/start"
+Issues = "https://github.com/start-project/start/issues"
+Documentation = "https://github.com/start-project/start#readme"
 
 # ---------------------------------------------------------------------------
 # Plugin contracts.
@@ -193,6 +193,7 @@ include = ["src/start", "tests", "configs", "scripts", "README.md", "LICENSE", "
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "src"]
 addopts = "-q"
 markers = [
   "network: test requires outbound network access (deselected by default in CI)",
@@ -235,11 +236,19 @@ ignore = ["B008"]  # typer uses function calls in defaults by design
 "src/start/agent_dialogue.py" = ["E501"]
 "src/start/core/metrics.py" = ["E501"]
 "src/start/agents/*.py" = ["E501"]
+"src/start/portfolio/*.py" = ["E501"]
 "src/start/modeling/*.py" = ["E501"]
 "src/start/orchestration/*.py" = ["E501"]
 "src/start/reporting/*.py" = ["E501"]
+"src/start/review/*.py" = ["E501"]
+"src/start/data/*.py" = ["E501"]
+"src/start/core/*.py" = ["E501"]
+"src/start/ai_engineering/*.py" = ["E501"]
+"src/start/policies/*.py" = ["E501"]
+"src/start/telemetry/*.py" = ["E501"]
 "src/start/providers/model_discovery.py" = ["E501"]
 "src/start/telemetry/bus.py" = ["E501"]
+"scripts/*.py" = ["E501"]
 "tests/*.py" = ["E501"]
 
 [tool.mypy]

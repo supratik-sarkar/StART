@@ -67,7 +67,7 @@ class _FakeConnected:
     available = True
     model = "fake-model"
 
-    def complete(self, system, user, *, max_tokens=5):
+    def complete(self, system, user, *, output_token_budget=5, **kwargs):
         return "ok"
 
 
@@ -75,7 +75,7 @@ class _FakeBroken:
     available = True
     model = "fake-model"
 
-    def complete(self, system, user, *, max_tokens=5):
+    def complete(self, system, user, *, output_token_budget=5, **kwargs):
         raise RuntimeError("network down")
 
 
@@ -92,6 +92,7 @@ def test_probe_failure_is_surfaced_not_hidden():
 
 def test_gemini_and_deepseek_trust_domains_and_endpoints(monkeypatch):
     monkeypatch.setenv("START_PROFILE", "public_demo")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     

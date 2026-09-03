@@ -3,12 +3,12 @@
 A single ``ReviewSession`` is the one workflow engine that both front-ends (the
 terminal and notebook 05) drive. It records, in order:
 
-- **decisions** — what each checkpoint offered, what the user chose, and the
+- **decisions** — what each checkpoint offered, what the reviewer selected, and the
   effective value (accept / keep / modify / reject), so downstream agents can
-  see e.g. "correlation pruning rejected by user".
-- **conversations** — every freeform question the user asked an agent and the
+  see e.g. "correlation pruning rejected by reviewer".
+- **conversations** — every freeform question the reviewer prompted to an agent and the
   agent's reply (the committee transcript).
-- **overrides** — explicit user overrides of an agent recommendation.
+- **overrides** — explicit reviewer overrides of an agent recommendation.
 
 State is additive and queryable: an agent calls ``session.decision_for(key)``
 or ``session.rejected("correlation_pruning")`` to adapt its behavior. Nothing is

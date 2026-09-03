@@ -83,4 +83,4 @@ def test_missing_key_non_interactive_does_not_prompt():
 
     # non-interactive + no key => status missing, never prompts/raises
     status = ensure_provider_key("openai", prompt_for_key=False, interactive=False)
-    assert status.source in ("missing", "env")
+    assert status.source in ("missing", "env", "keychain")

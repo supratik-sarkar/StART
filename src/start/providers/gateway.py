@@ -153,7 +153,7 @@ class OpenAICompatibleGatewayProvider(LLMProvider):
             kwargs["default_headers"] = s["_extra_headers"]
         return OpenAI(**kwargs)
 
-    def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+    def complete(self, system: str, user: str, *, output_token_budget: int = 1024) -> str:
         if not self.model:
             raise GatewayConfigurationError(
                 f"No model selected. Set {ENV_MODEL} or pass --model. StART will not "
@@ -163,7 +163,7 @@ class OpenAICompatibleGatewayProvider(LLMProvider):
         t0 = time.perf_counter()
         resp = client.chat.completions.create(
             model=self.model,
-            max_tokens=max_tokens,
+            max_tokens=output_token_budget,
             temperature=self.temperature,
             messages=[
                 {"role": "system", "content": system},
@@ -181,8 +181,9 @@ class OpenAICompatibleGatewayProvider(LLMProvider):
     def generate(
         self, prompt: str, *, system: str | None = None, metadata: dict | None = None
     ) -> str:
-        max_tokens = int((metadata or {}).get("max_tokens", 1024))
-        return self.complete(system or "", prompt, max_tokens=max_tokens)
+        meta = metadata or {}
+        budget = int(meta.get("output_token_budget", meta.get("max_tokens", 1024)))
+        return self.complete(system or "", prompt, output_token_budget=budget)
 
 
 # --------------------------------------------------------------------------- #
@@ -214,13 +215,17 @@ class PluginGatewayProvider(LLMProvider):
         except Exception:
             return False
 
-    def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+    def complete(self, system: str, user: str, *, output_token_budget: int = 1024) -> str:
         impl = self._get()
         if impl is None:
             raise GatewayConfigurationError(
                 f"Gateway '{self.name}' could not be loaded: {self._load_error}"
             )
-        return impl.generate(user, system=system, metadata={"max_tokens": max_tokens})
+        return impl.generate(
+            user,
+            system=system,
+            metadata={"output_token_budget": output_token_budget, "max_tokens": output_token_budget},
+        )
 
     def generate(
         self, prompt: str, *, system: str | None = None, metadata: dict | None = None

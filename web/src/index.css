@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 224 25% 6%;
+    --foreground: 210 20% 98%;
+
+    --card: 224 25% 8%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 224 25% 8%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 19% 18%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 217 19% 14%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 19% 18%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 217 19% 18%;
+    --input: 217 19% 18%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.5rem;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* ReactFlow dark mode styling */
+.react-flow__node {
+  border-radius: 8px;
+  font-family: inherit;
+}
+.react-flow__edge-path {
+  stroke: hsl(var(--border));
+  stroke-width: 2;
+}
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: hsl(var(--primary));
+  stroke-dasharray: 5;
+  animation: react-flow__dashdraw 0.5s linear infinite;
+}

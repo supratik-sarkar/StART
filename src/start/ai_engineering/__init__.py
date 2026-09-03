@@ -18,8 +18,6 @@ from start.ai_engineering.base import (
     ValidationResult,
 )
 from start.ai_engineering.layer import AIEngineeringReport, run_ai_engineering_layer
-
-# Backward-compatible legacy API.
 from start.ai_engineering.stages import (
     STAGE_ADAPTERS,
     StageAdapter,
@@ -27,6 +25,12 @@ from start.ai_engineering.stages import (
     available_stages,
     run_all_stages,
     run_stage,
+)
+from start.ai_engineering.tracking import (
+    ExperimentTracker,
+    MLflowExperimentTracker,
+    NoOpExperimentTracker,
+    TrackingStatus,
 )
 
 __all__ = [
@@ -39,6 +43,11 @@ __all__ = [
     "ValidationResult",
     "build_adapters",
     "run_ai_engineering_layer",
+    # experiment tracking
+    "ExperimentTracker",
+    "NoOpExperimentTracker",
+    "MLflowExperimentTracker",
+    "TrackingStatus",
     # legacy API (preserved)
     "STAGE_ADAPTERS",
     "StageAdapter",

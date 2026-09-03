@@ -1,10 +1,15 @@
-"""Data layer: explicit multi-format loaders and image-folder discovery.
+"""Data layer: explicit multi-format loaders, public data adapters, and deterministic schema contracts."""
 
-This package sits beneath the connectors and the modality tracks. It knows how
-to turn a path (or folder) into a pandas DataFrame (tabular) or an image
-manifest DataFrame (vision), with honest, gated handling of optional formats.
-"""
-
+from start.data.adapters import (
+    ChunkClassification,
+    DataFrameAdapter,
+    DataSchema,
+    DataSourceAdapter,
+    LocalFileAdapter,
+    SQLDataSourceAdapter,
+    WarehouseAdapter,
+    execute_chunked,
+)
 from start.data.loaders import (
     SUPPORTED_TABULAR_FORMATS,
     discover_image_folder,
@@ -17,4 +22,12 @@ __all__ = [
     "discover_image_folder",
     "load_any_tabular",
     "sniff_format",
+    "ChunkClassification",
+    "DataSchema",
+    "DataSourceAdapter",
+    "DataFrameAdapter",
+    "LocalFileAdapter",
+    "SQLDataSourceAdapter",
+    "WarehouseAdapter",
+    "execute_chunked",
 ]

@@ -44,6 +44,7 @@ __all__ = [
     "LEAF_ORDER",
     "LEAF_ORDER_V1",
     "LEAF_ORDER_V2",
+    "LEAF_ORDER_V3",
     "SealLeaf",
     "ReviewSeal",
     "merkle_root",
@@ -53,7 +54,7 @@ __all__ = [
     "verify_seal",
 ]
 
-SEAL_VERSION = "start-seal/2"
+SEAL_VERSION = "start-seal/3"
 
 LEAF_ORDER_V1: tuple[str, ...] = (
     "plan",
@@ -76,7 +77,19 @@ LEAF_ORDER_V2: tuple[str, ...] = (
     "adjudications",
 )
 
-LEAF_ORDER: tuple[str, ...] = LEAF_ORDER_V2
+LEAF_ORDER_V3: tuple[str, ...] = (
+    "plan",
+    "policy",
+    "evidence_head",
+    "attestations",
+    "profile",
+    "environment",
+    "controls",
+    "adjudications",
+    "execution_path",
+)
+
+LEAF_ORDER: tuple[str, ...] = LEAF_ORDER_V3
 
 
 def _h(data: bytes) -> str:
@@ -243,6 +256,7 @@ def build_seal(
     environment: Any = None,
     controls: Any = None,
     adjudications: Any = None,
+    execution_path: Any = None,
     created_utc: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> ReviewSeal:
@@ -264,6 +278,7 @@ def build_seal(
         "environment": environment,
         "controls": controls,
         "adjudications": adjudications,
+        "execution_path": execution_path,
     }
     leaves = tuple(SealLeaf(name=name, payload=payloads[name]) for name in LEAF_ORDER)
 
@@ -435,7 +450,12 @@ def verify_seal(manifest: dict[str, Any], expected_seal: str | None = None) -> d
         }
 
     version = manifest.get("version", SEAL_VERSION)
-    leaf_order = LEAF_ORDER_V1 if version == "start-seal/1" else LEAF_ORDER_V2
+    if version == "start-seal/1":
+        leaf_order = LEAF_ORDER_V1
+    elif version == "start-seal/2":
+        leaf_order = LEAF_ORDER_V2
+    else:
+        leaf_order = LEAF_ORDER_V3
 
     recomputed = ReviewSeal(
         version=version,

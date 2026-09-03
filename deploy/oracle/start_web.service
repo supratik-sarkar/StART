@@ -1,0 +1,21 @@
+[Unit]
+Description=StART v4.5 Institutional Model Validation Web Service
+After=network.target
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/opt/start
+Environment="PATH=/opt/start/.venv-start/bin:/usr/local/bin:/usr/bin"
+Environment="START_ORACLE_DEPLOYMENT=true"
+Environment="START_REQUIRE_ORIGIN_AUTH=true"
+ExecStart=/opt/start/.venv-start/bin/uvicorn start.web.app:app --host 0.0.0.0 --port 8000 --workers 1 --log-level info
+Restart=always
+RestartSec=5
+
+# Resource Limits (Oracle A1 Governance)
+MemoryMax=8G
+CPUQuota=180%
+
+[Install]
+WantedBy=multi-user.target

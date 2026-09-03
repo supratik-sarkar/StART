@@ -290,6 +290,53 @@ def test_v1_seal_manifest_backward_compatibility() -> None:
     assert res["recomputed_seal"] == v1_seal.seal_string()
 
 
+def test_v2_seal_manifest_backward_compatibility() -> None:
+    """Archived v2 seals (8 leaves) must verify identically under start-seal/3."""
+    from start.attestation.seal import LEAF_ORDER_V2, ReviewSeal, SealLeaf
+
+    payloads = {
+        "plan": {"scope": "v2_plan"},
+        "policy": {"policy": "v2_policy"},
+        "evidence_head": "22" * 32,
+        "attestations": [{"section": "v2"}],
+        "profile": {"profile": "public_demo"},
+        "environment": {"python": "3.12"},
+        "controls": {"threshold": 0.05},
+        "adjudications": {"decisions": []},
+    }
+    leaves = tuple(SealLeaf(name=name, payload=payloads[name]) for name in LEAF_ORDER_V2)
+    v2_seal = ReviewSeal(
+        version="start-seal/2",
+        review_id="R-V2-ARCHIVE",
+        created_utc="2026-08-10T12:00:00+00:00",
+        leaves=leaves,
+    )
+    v2_manifest = v2_seal.manifest()
+    assert len(v2_manifest["leaves"]) == 8
+
+    res = verify_seal(v2_manifest, v2_seal.seal_string())
+    assert res["verified"] is True
+    assert res["recomputed_seal"] == v2_seal.seal_string()
+
+
+def test_v3_seal_manifest_includes_execution_path() -> None:
+    """v3 seals (9 leaves) commit to the execution path."""
+    from start.attestation.seal import build_seal
+
+    seal = build_seal(
+        review_id="R-V3-TEST",
+        plan={"scope": "v3_plan"},
+        execution_path={"path": [{"node": "start"}]},
+        created_utc="2026-08-20T12:00:00+00:00",
+    )
+    manifest = seal.manifest()
+    assert len(manifest["leaves"]) == 9
+    assert manifest["leaves"][-1]["name"] == "execution_path"
+    res = verify_seal(manifest, seal.seal_string())
+    assert res["verified"] is True
+    assert res["recomputed_seal"] == seal.seal_string()
+
+
 # --------------------------------------------------------------------------- #
 # Replay
 # --------------------------------------------------------------------------- #

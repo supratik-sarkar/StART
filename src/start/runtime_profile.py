@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from hashlib import sha256
@@ -111,7 +112,7 @@ ENV_ALLOW_TELEMETRY_EGRESS = "START_ALLOW_TELEMETRY_EGRESS"
 # --------------------------------------------------------------------------- #
 # Detection
 # --------------------------------------------------------------------------- #
-def _explicit_profile(env: dict[str, str]) -> RuntimeProfile | None:
+def _explicit_profile(env: Mapping[str, str]) -> RuntimeProfile | None:
     raw = (env.get(ENV_PROFILE) or "").strip().lower()
     if not raw:
         return None
@@ -138,7 +139,7 @@ def _private_gateway_registered() -> bool:
         return False
 
 
-def active_profile(env: dict[str, str] | None = None) -> RuntimeProfile:
+def active_profile(env: Mapping[str, str] | None = None) -> RuntimeProfile:
     """Resolve the active profile.
 
     Resolution order, most explicit first:
@@ -154,13 +155,13 @@ def active_profile(env: dict[str, str] | None = None) -> RuntimeProfile:
     when the truth is ``enterprise`` costs an organisation a disclosure
     incident. So ambiguity resolves toward containment.
     """
-    env = os.environ if env is None else env  # type: ignore[assignment]
+    real_env: Mapping[str, str] = os.environ if env is None else env
 
-    explicit = _explicit_profile(env)  # type: ignore[arg-type]
+    explicit = _explicit_profile(real_env)
     if explicit is not None:
         return explicit
 
-    if env.get(ENV_GATEWAY_BASE_URL, "").strip():
+    if real_env.get(ENV_GATEWAY_BASE_URL, "").strip():
         return RuntimeProfile.ENTERPRISE
     if _private_gateway_registered():
         return RuntimeProfile.ENTERPRISE
@@ -194,10 +195,10 @@ class EgressPolicy:
         }
 
 
-def egress_policy(env: dict[str, str] | None = None) -> EgressPolicy:
+def egress_policy(env: Mapping[str, str] | None = None) -> EgressPolicy:
     """Build the policy for the active profile."""
-    env = os.environ if env is None else env  # type: ignore[assignment]
-    profile = active_profile(env)  # type: ignore[arg-type]
+    real_env: Mapping[str, str] = os.environ if env is None else env
+    profile = active_profile(real_env)
     everything = PUBLIC_SAAS_PROVIDERS | PRIVATE_GATEWAY_PROVIDERS | LOCAL_PROVIDERS
     overrides: list[str] = []
 
@@ -220,7 +221,7 @@ def egress_policy(env: dict[str, str] | None = None) -> EgressPolicy:
         # team may need to A/B a public model during onboarding; it is recorded
         # in the manifest and therefore in the evidence chain, so nobody can use
         # it quietly.
-        if env.get(ENV_ALLOW_PUBLIC_EGRESS, "").strip().lower() in {"1", "true", "yes"}:
+        if real_env.get(ENV_ALLOW_PUBLIC_EGRESS, "").strip().lower() in {"1", "true", "yes"}:
             allowed = allowed | PUBLIC_SAAS_PROVIDERS
             overrides.append(ENV_ALLOW_PUBLIC_EGRESS)
             rationale += (
@@ -245,9 +246,19 @@ def egress_policy(env: dict[str, str] | None = None) -> EgressPolicy:
     )
 
 
-def assert_provider_allowed(provider: str, env: dict[str, str] | None = None) -> None:
+def assert_provider_allowed(
+    provider: str,
+    env: Mapping[str, str] | None = None,
+    profile: RuntimeProfile | str | None = None,
+) -> None:
     """Guard at the routing boundary. Raises :class:`ProfileViolation` if denied."""
-    policy = egress_policy(env)
+    if profile is not None:
+        p_val = profile.value if isinstance(profile, RuntimeProfile) else str(profile)
+        effective_env = dict(env or {})
+        effective_env[ENV_PROFILE] = p_val
+        policy = egress_policy(effective_env)
+    else:
+        policy = egress_policy(env)
     if policy.permits(provider):
         return
 
@@ -278,20 +289,30 @@ def assert_provider_allowed(provider: str, env: dict[str, str] | None = None) ->
     raise ProfileViolation(f"{detail}\n\nActive policy: {policy.rationale}")
 
 
-def assert_sink_allowed(sink: str, env: dict[str, str] | None = None) -> None:
+def assert_sink_allowed(
+    sink: str,
+    env: Mapping[str, str] | None = None,
+    profile: RuntimeProfile | str | None = None,
+) -> None:
     """Guard against uncontained telemetry / observability egress.
 
     Raises :class:`ProfileViolation` if the sink is not permitted under the active profile.
     """
-    env = os.environ if env is None else env  # type: ignore[assignment]
-    prof = active_profile(env)  # type: ignore[arg-type]
+    if profile is not None:
+        p_val = profile.value if isinstance(profile, RuntimeProfile) else str(profile)
+        effective_env: Mapping[str, str] = {**(dict(env or {})), ENV_PROFILE: p_val}
+    else:
+        effective_env = os.environ if env is None else env
+    prof = active_profile(effective_env)
 
     if prof is RuntimeProfile.PUBLIC_DEMO:
         return
 
     # In enterprise or airgapped profiles, third-party SaaS telemetry egress is forbidden
     # unless START_ALLOW_TELEMETRY_EGRESS is explicitly enabled.
-    allowed_override = env.get(ENV_ALLOW_TELEMETRY_EGRESS, "").strip().lower() in {"1", "true", "yes"}
+    allowed_override = effective_env.get(
+        ENV_ALLOW_TELEMETRY_EGRESS, ""
+    ).strip().lower() in {"1", "true", "yes"}
     if allowed_override:
         return
 
@@ -314,10 +335,10 @@ def profile_manifest(env: dict[str, str] | None = None) -> dict[str, Any]:
     while concluding it — including whether the public-egress override was in
     effect.
     """
-    env = os.environ if env is None else env  # type: ignore[assignment]
-    policy = egress_policy(env)
+    real_env = dict(os.environ) if env is None else env
+    policy = egress_policy(real_env)
     body = policy.as_dict()
-    body["gateway_configured"] = bool(env.get(ENV_GATEWAY_BASE_URL, "").strip())
+    body["gateway_configured"] = bool(real_env.get(ENV_GATEWAY_BASE_URL, "").strip())
     try:
         from start.providers.gateway_discovery import registered_gateway_names
 
@@ -325,7 +346,7 @@ def profile_manifest(env: dict[str, str] | None = None) -> dict[str, Any]:
     except Exception:  # pragma: no cover
         body["registered_gateways"] = []
 
-    telemetry_override = env.get(ENV_ALLOW_TELEMETRY_EGRESS, "").strip().lower() in {"1", "true", "yes"}
+    telemetry_override = real_env.get(ENV_ALLOW_TELEMETRY_EGRESS, "").strip().lower() in {"1", "true", "yes"}
     body["telemetry_egress_permitted"] = (policy.profile is RuntimeProfile.PUBLIC_DEMO) or telemetry_override
     body["telemetry_overrides"] = [ENV_ALLOW_TELEMETRY_EGRESS] if telemetry_override else []
 

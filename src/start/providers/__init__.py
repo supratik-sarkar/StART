@@ -21,6 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DataProvider,
         EvidenceProvider,
         ExperimentProvider,
+        GenerationRequest,
         LLMProvider,
         StorageProvider,
     )
@@ -30,6 +31,7 @@ _LAZY = {
     "DataProvider": "start.providers.base",
     "EvidenceProvider": "start.providers.base",
     "ExperimentProvider": "start.providers.base",
+    "GenerationRequest": "start.providers.base",
     "LLMProvider": "start.providers.base",
     "StorageProvider": "start.providers.base",
 }
@@ -39,6 +41,7 @@ __all__ = [
     "DataProvider",
     "EvidenceProvider",
     "ExperimentProvider",
+    "GenerationRequest",
     "LLMProvider",
     "StorageProvider",
 ]

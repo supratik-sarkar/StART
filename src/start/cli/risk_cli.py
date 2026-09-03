@@ -30,6 +30,7 @@ from start.risk import (
     stripe_ids,
     synthesise_plan,
 )
+from start.risk.coverage import coverage_for_plan
 from start.runtime_profile import egress_policy, profile_manifest
 
 risk_app = typer.Typer(
@@ -135,6 +136,16 @@ def plan_command(
     kind: str = typer.Option(..., "--kind", help="Object kind (see: start risk objects)."),
     object_id: str = typer.Option("OBJ-1", "--object-id", help="Identifier for the artefact."),
     materiality: str = typer.Option("medium", "--materiality", help="low | medium | high"),
+    show_tests: bool = typer.Option(
+        False,
+        "--show-tests",
+        help="Show which registered tests could supply evidence for each dimension.",
+    ),
+    context: str = typer.Option(
+        "tabular",
+        "--context",
+        help="Context type to filter candidate tests by (tabular | market | short_rate).",
+    ),
     affects_individuals: bool = typer.Option(
         False,
         "--affects-individuals/--no-affects-individuals",
@@ -159,6 +170,9 @@ def plan_command(
 
     payload = plan.as_dict()
     payload["plan_hash"] = plan.plan_hash()
+    coverage = coverage_for_plan(plan, context_type=context) if show_tests else None
+    if coverage is not None:
+        payload["test_coverage"] = coverage.as_dict()
 
     if out:
         out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -185,6 +199,10 @@ def plan_command(
         for exc_row in plan.excluded:
             _echo(f"    {exc_row['dimension']:<34} {exc_row['reason']}")
     _echo(f"\n  plan hash  {plan.plan_hash()}")
+    if coverage is not None:
+        _echo()
+        for line in coverage.summary_lines():
+            _echo(line)
     _echo()
 
 

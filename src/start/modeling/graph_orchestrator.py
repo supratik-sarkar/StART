@@ -165,13 +165,20 @@ class GraphReviewOrchestrator:
         json_path.write_text(json.dumps(graph, indent=2))
         paths.append(str(json_path))
 
-        # Visualization: PNG via matplotlib if available, else .dot + .mmd.
+        # Visualization: PNG via matplotlib if available, plus .dot + .mmd from REVIEW_GRAPH.
+        from start.orchestration.review_graph_spec import REVIEW_GRAPH
+
+        dot_path = out_dir / "review_graph.dot"
+        dot_path.write_text(REVIEW_GRAPH.to_dot())
+        paths.append(str(dot_path))
+
+        mmd_path = out_dir / "review_graph.mmd"
+        mmd_path.write_text(REVIEW_GRAPH.to_mermaid())
+        paths.append(str(mmd_path))
+
         png = self._render_png(graph, out_dir)
         if png:
             paths.append(png)
-        else:
-            paths.append(self._render_dot(graph, out_dir))
-            paths.append(self._render_mermaid(graph, out_dir))
         return paths
 
     def _render_png(self, graph: dict[str, Any], out_dir: Path) -> str | None:

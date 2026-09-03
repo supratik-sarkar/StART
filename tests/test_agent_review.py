@@ -53,7 +53,7 @@ class FakeLLM(LLMProvider):
     def available(self) -> bool:
         return True
 
-    def complete(self, system: str, user: str, *, max_tokens: int = 1024) -> str:
+    def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
         self.calls.append((system, user))
         return self._responses.pop(0) if self._responses else self._responses_exhausted()
 

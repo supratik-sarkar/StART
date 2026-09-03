@@ -65,7 +65,7 @@ VOLATILE_FIELDS: frozenset[str] = frozenset(
 
 def canonical_json(obj: Any) -> str:
     """Stable JSON rendering used for every hash in this module."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str, ensure_ascii=False)
 
 
 def _sha(text: str) -> str:

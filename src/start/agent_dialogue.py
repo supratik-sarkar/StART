@@ -189,8 +189,11 @@ def _llm_answer(question: str, ctx: AgentContext, llm: Any) -> str | None:
         f"{HUMAN_QUERY_REASONING_DIRECTIVE}"
     )
     try:
-        text = llm.generate(prompt, system=f"StART review agent. Be concise and honest.\n\n{HUMAN_QUERY_REASONING_DIRECTIVE}",
-                            metadata={"max_tokens": 256})
+        text = llm.generate(
+            prompt,
+            system=f"StART review agent. Be concise and honest.\n\n{HUMAN_QUERY_REASONING_DIRECTIVE}",
+            metadata={"output_token_budget": 256},
+        )
         return text.strip() if text else None
     except Exception:
         return None
@@ -294,7 +297,7 @@ def ask_agent(
             text = llm.generate(
                 prompt,
                 system="StART review agent. Be concise and honest.",
-                metadata={"max_tokens": 512}
+                metadata={"output_token_budget": 512},
             )
             latency = time.perf_counter() - start_time
             provider = getattr(llm, "name", "unknown")

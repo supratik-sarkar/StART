@@ -155,6 +155,7 @@ class PolicyConfig(BaseModel):
     max_materiality_without_review: str = "high"
     require_citations: bool = True
     thresholds: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    remediation_budgets: dict[str, int] = Field(default_factory=dict)
 
     def content_hash(self) -> str:
         return hash_obj(self.model_dump())

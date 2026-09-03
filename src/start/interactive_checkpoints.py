@@ -203,7 +203,7 @@ def resolve_checkpoint(
         stripped = (answer_raw or "").strip()
         answer = stripped.lower()
 
-        # Check if the user wants to ask a question
+        # Check if a freeform question was prompted
         is_q = False
         question = ""
         if answer in ("q", "ask", "?"):

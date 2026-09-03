@@ -1,11 +1,11 @@
-"""Progress reporting and agentic action logging for the reviewer assistant.
+"""Progress reporting and action logging for the review execution pipeline.
 
 Two cross-platform primitives (pure Python, no OS-specific calls):
 
   * ``ProgressReporter`` renders horizontal bars + percentages for the visible
     phases of a review, in the terminal and (as a table) in notebooks.
   * ``ActionLog`` records what each agent did — input reviewed, action taken,
-    recommendation, evidence used, user decision, output artifact — and renders
+    recommendation, evidence used, decision recorded, output artifact — and renders
     it to terminal/markdown/dashboard.
 """
 

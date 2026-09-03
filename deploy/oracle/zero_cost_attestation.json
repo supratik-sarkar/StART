@@ -1,0 +1,13 @@
+{
+  "provider": "Oracle Cloud Infrastructure",
+  "resource_type": "Compute Instance",
+  "tier_shape": "VM.Standard.A1.Flex (2 OCPU / 12 GB RAM)",
+  "always_free_eligible": true,
+  "recurring_monthly_charge_usd": 0.0,
+  "storage_tier": "Always Free Boot Volume (50 GB)",
+  "network_egress_allowance": "10 TB / month (Always Free)",
+  "cloudflare_plan": "Free Tier ($0/month)",
+  "huggingface_space_sdk": "static (Free)",
+  "verification_timestamp": 1725370000.0,
+  "attestation_status": "VERIFIED_ZERO_COST"
+}

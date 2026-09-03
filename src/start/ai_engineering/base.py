@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from start.core.schemas import Status, TestResult
-from start.governance.findings import Finding
+from start.governance.findings import Finding, Materiality, Severity
 
 
 @dataclass
@@ -160,8 +160,8 @@ class BaseAdapter:
         finding = Finding(
             title=f"{self.name} unavailable",
             description=detail,
-            severity="Low",
-            materiality="Low",
+            severity=Severity.LOW,
+            materiality=Materiality.LOW,
             risk_category="Operational",
             recommendation=self.install_hint or f"Install {self.name} to enable this control.",
             source=self.name,

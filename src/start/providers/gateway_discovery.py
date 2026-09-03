@@ -60,10 +60,10 @@ def gateway_settings(env: dict[str, str] | None = None) -> dict[str, Any]:
     which is prefixed with an underscore and stripped by
     :func:`redacted_settings`.
     """
-    env = os.environ if env is None else env  # type: ignore[assignment]
+    env_map: os._Environ[str] | dict[str, str] = os.environ if env is None else env
 
-    key_var = (env.get(ENV_API_KEY_ENV) or ENV_API_KEY_FALLBACK).strip()
-    raw_headers = (env.get(ENV_HEADERS) or "").strip()
+    key_var = (env_map.get(ENV_API_KEY_ENV) or ENV_API_KEY_FALLBACK).strip()
+    raw_headers = (env_map.get(ENV_HEADERS) or "").strip()
     headers: dict[str, str] = {}
     header_error = ""
     if raw_headers:
@@ -76,15 +76,15 @@ def gateway_settings(env: dict[str, str] | None = None) -> dict[str, Any]:
             header_error = f"{ENV_HEADERS} is not a JSON object: {exc}"
 
     try:
-        timeout = float(env.get(ENV_TIMEOUT) or "60")
+        timeout = float(env_map.get(ENV_TIMEOUT) or "60")
     except ValueError:
         timeout = 60.0
 
     return {
-        "base_url": (env.get(ENV_BASE_URL) or "").strip(),
+        "base_url": (env_map.get(ENV_BASE_URL) or "").strip(),
         "credential_env_var": key_var,
-        "credential_present": bool((env.get(key_var) or "").strip()),
-        "model": (env.get(ENV_MODEL) or "").strip(),
+        "credential_present": bool((env_map.get(key_var) or "").strip()),
+        "model": (env_map.get(ENV_MODEL) or "").strip(),
         "extra_header_keys": sorted(headers),  # keys only; values may be sensitive
         "_extra_headers": headers,
         "header_error": header_error,

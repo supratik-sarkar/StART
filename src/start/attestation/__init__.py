@@ -72,6 +72,9 @@ from start.attestation.replay import (
 )
 from start.attestation.seal import (
     LEAF_ORDER,
+    LEAF_ORDER_V1,
+    LEAF_ORDER_V2,
+    LEAF_ORDER_V3,
     SEAL_VERSION,
     ReviewSeal,
     SealLeaf,
@@ -116,5 +119,8 @@ __all__ = [
     "inclusion_proof",
     "verify_inclusion",
     "LEAF_ORDER",
+    "LEAF_ORDER_V1",
+    "LEAF_ORDER_V2",
+    "LEAF_ORDER_V3",
     "SEAL_VERSION",
 ]

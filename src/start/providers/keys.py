@@ -1,43 +1,72 @@
-"""Secure, session-only LLM API key handling.
+"""Secure, persistent LLM API key handling.
 
-Keys are never written to disk, YAML, logs, reports, evidence records, or the
-ledger. The only mutation this module performs is setting an environment
-variable for the *current process*, either from an existing environment value
-or from a hidden ``getpass`` prompt. Default behavior across StART remains
-no-LLM deterministic verification: nothing here runs unless the user opts
-into LLM mode.
+Keys are managed securely with a strict precedence model:
+  1. Explicit process environment (highest priority, e.g. for CI/containers)
+  2. macOS Keychain (preferred persistent local-user store on macOS)
+  3. Interactive hidden session prompt (fallback during interactive review)
+  4. Missing (degrades safely to deterministic fallback)
 
-Provider → key mapping (public providers only):
-
-    openai                 -> OPENAI_API_KEY
-    anthropic              -> ANTHROPIC_API_KEY
-    grok                   -> GROK_API_KEY
-    huggingface            -> HF_TOKEN
-    hf_local               -> no API key (local transformers dependencies)
-    enterprise_llm_gateway -> no public key handling (private implementation)
-    none                   -> no key (deterministic mode only)
-
-On Databricks, prefer secret scopes over any visible widget:
-``dbutils.secrets.get(scope, key)`` first, environment second, deterministic
-fallback with an explicit warning last.
+Keys are never written to repository files, git, logs, reports, evidence records,
+transcripts, or ledgers. On macOS, credentials persist in the system Keychain
+under the canonical 'StART' service namespace.
 """
 
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
+
+KEYCHAIN_SERVICE: str = "StART"
+
+
+def load_private_env_if_present() -> None:
+    """Load credentials from external private runtime if available."""
+    env_override = os.environ.get("START_ENV_FILE")
+    candidate_paths = [
+        Path(env_override) if env_override else None,
+        Path(__file__).resolve().parent.parent.parent.parent / "StART_Private_Runtime" / ".env",
+    ]
+    for p in candidate_paths:
+        if p and p.is_file():
+            try:
+                for line in p.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except Exception:
+                pass
+            break
 
 PROVIDER_KEY_ENV: dict[str, str | None] = {
     "none": None,
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
-    "grok": "GROK_API_KEY",
-    "gemini": "GEMINI_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "grok": "XAI_API_KEY",
     "huggingface": "HF_TOKEN",
+    "langsmith": "LANGSMITH_API_KEY",
     "hf_local": None,
     "enterprise_llm_gateway": None,
+}
+
+PROVIDER_DISPLAY_NAMES: dict[str, str] = {
+    "openai": "OpenAI",
+    "anthropic": "Anthropic",
+    "deepseek": "DeepSeek",
+    "gemini": "Gemini",
+    "grok": "Grok",
+    "huggingface": "Hugging Face",
+    "langsmith": "LangSmith",
+    "enterprise_llm_gateway": "Enterprise LLM Gateway",
+    "none": "None",
 }
 
 # python packages required per provider (dependency check for llm-check)
@@ -49,6 +78,7 @@ PROVIDER_DEPENDENCY: dict[str, str | None] = {
     "gemini": "openai",  # Gemini OpenAI compatibility endpoint
     "deepseek": "openai",  # DeepSeek OpenAI compatibility endpoint
     "huggingface": "huggingface_hub",
+    "langsmith": "langsmith",
     "hf_local": "transformers",
     "enterprise_llm_gateway": None,
 }
@@ -58,7 +88,7 @@ PROVIDER_DEPENDENCY: dict[str, str | None] = {
 class KeyStatus:
     provider: str
     env_var: str | None
-    source: str  # "env" | "hidden prompt/session env" | "not required" | "missing"
+    source: str  # "env" | "keychain" | "hidden prompt/session env" | "not required" | "missing"
 
     @property
     def ok(self) -> bool:
@@ -69,6 +99,116 @@ def key_required(provider: str) -> bool:
     return PROVIDER_KEY_ENV.get(provider) is not None
 
 
+# --------------------------------------------------------------------------- #
+# macOS Keychain Persistent Store
+# --------------------------------------------------------------------------- #
+def keychain_is_supported() -> bool:
+    """Return True if running on macOS with the security CLI available."""
+    return sys.platform == "darwin" and os.path.exists("/usr/bin/security")
+
+
+def keychain_get_key(provider: str, service: str = KEYCHAIN_SERVICE) -> str | None:
+    """Retrieve an API key for the given provider from macOS Keychain."""
+    if not keychain_is_supported():
+        return None
+    try:
+        res = subprocess.run(
+            [
+                "/usr/bin/security",
+                "find-generic-password",
+                "-s",
+                service,
+                "-a",
+                provider.lower(),
+                "-w",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0:
+            secret = res.stdout.strip()
+            return secret if secret else None
+        return None
+    except Exception:
+        return None
+
+
+def keychain_set_key(provider: str, secret: str, service: str = KEYCHAIN_SERVICE) -> bool:
+    """Store or update an API key for the given provider in macOS Keychain."""
+    if not keychain_is_supported() or not secret:
+        return False
+    try:
+        res = subprocess.run(
+            [
+                "/usr/bin/security",
+                "add-generic-password",
+                "-U",
+                "-s",
+                service,
+                "-a",
+                provider.lower(),
+                "-w",
+                secret,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def keychain_delete_key(provider: str, service: str = KEYCHAIN_SERVICE) -> bool:
+    """Delete an API key for the given provider from macOS Keychain."""
+    if not keychain_is_supported():
+        return False
+    try:
+        res = subprocess.run(
+            [
+                "/usr/bin/security",
+                "delete-generic-password",
+                "-s",
+                service,
+                "-a",
+                provider.lower(),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def keychain_has_key(provider: str, service: str = KEYCHAIN_SERVICE) -> bool:
+    """Check if an API key exists in macOS Keychain for the provider without exposing it."""
+    if not keychain_is_supported():
+        return False
+    try:
+        res = subprocess.run(
+            [
+                "/usr/bin/security",
+                "find-generic-password",
+                "-s",
+                service,
+                "-a",
+                provider.lower(),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+# --------------------------------------------------------------------------- #
+# Key Resolution
+# --------------------------------------------------------------------------- #
 def ensure_provider_key(
     provider: str,
     *,
@@ -77,10 +217,14 @@ def ensure_provider_key(
 ) -> KeyStatus:
     """Make sure the provider's API key is available for this session.
 
-    prompt_for_key: True forces prompting when missing; False forbids it;
-    None means auto — prompt only on an interactive terminal, never in CI.
-    The entered key is set via ``os.environ`` for the current process only
-    and is never echoed, logged, or persisted.
+    Resolution Precedence:
+      1. Explicit process environment (e.g. os.environ['OPENAI_API_KEY'])
+      2. macOS Keychain (persisted across sessions via start keys configure)
+      3. Interactive hidden prompt (if prompt_for_key=True or interactive TTY)
+      4. Missing
+
+    When resolved from Keychain or prompt, the key is set via ``os.environ``
+    for the current process only and is never written to project files or logs.
     """
     if provider not in PROVIDER_KEY_ENV:
         raise ValueError(
@@ -89,9 +233,39 @@ def ensure_provider_key(
     env_var = PROVIDER_KEY_ENV[provider]
     if env_var is None:
         return KeyStatus(provider=provider, env_var=None, source="not required")
-    if os.environ.get(env_var):
-        return KeyStatus(provider=provider, env_var=env_var, source="env")
 
+    load_private_env_if_present()
+
+    # 1. Explicit process environment (with official precedence rules)
+    if provider == "gemini":
+        if os.environ.get("GOOGLE_API_KEY"):
+            return KeyStatus(provider="gemini", env_var="GOOGLE_API_KEY", source="env")
+        if os.environ.get("GEMINI_API_KEY"):
+            return KeyStatus(provider="gemini", env_var="GEMINI_API_KEY", source="env")
+    elif provider == "grok":
+        if os.environ.get("XAI_API_KEY"):
+            return KeyStatus(provider="grok", env_var="XAI_API_KEY", source="env")
+        if os.environ.get("GROK_API_KEY"):
+            return KeyStatus(provider="grok", env_var="GROK_API_KEY", source="env")
+    else:
+        if os.environ.get(env_var):
+            return KeyStatus(provider=provider, env_var=env_var, source="env")
+
+    # 2. macOS Keychain
+    keychain_secret = keychain_get_key(provider)
+    if keychain_secret:
+        if provider == "gemini":
+            if not os.environ.get("GOOGLE_API_KEY"):
+                os.environ["GOOGLE_API_KEY"] = keychain_secret
+            os.environ["GEMINI_API_KEY"] = keychain_secret
+        elif provider == "grok":
+            os.environ["XAI_API_KEY"] = keychain_secret
+            os.environ["GROK_API_KEY"] = keychain_secret
+        else:
+            os.environ[env_var] = keychain_secret
+        return KeyStatus(provider=provider, env_var=env_var, source="keychain")
+
+    # 3. Interactive hidden prompt
     if interactive is None:
         interactive = sys.stdin.isatty()
     should_prompt = interactive if prompt_for_key is None else prompt_for_key
@@ -103,33 +277,49 @@ def ensure_provider_key(
     entered = getpass.getpass(f"Enter {env_var}: ").strip()
     if not entered:
         return KeyStatus(provider=provider, env_var=env_var, source="missing")
-    os.environ[env_var] = entered  # session-only; never written anywhere else
+
+    if provider == "gemini":
+        os.environ["GEMINI_API_KEY"] = entered
+        if not os.environ.get("GOOGLE_API_KEY"):
+            os.environ["GOOGLE_API_KEY"] = entered
+    elif provider == "grok":
+        os.environ["XAI_API_KEY"] = entered
+        os.environ["GROK_API_KEY"] = entered
+    else:
+        os.environ[env_var] = entered
     return KeyStatus(provider=provider, env_var=env_var, source="hidden prompt/session env")
 
 
 def resolve_key_databricks(
     provider: str, dbutils: object = None, scope: str = "start"
 ) -> KeyStatus:
-    """Databricks key resolution: secret scope -> environment -> missing.
-
-    Never uses visible widgets for secrets and never returns the key itself —
-    only sets the session environment variable. Callers must not print keys
-    to notebook output."""
-    env_var = PROVIDER_KEY_ENV.get(provider)
+    """Databricks key resolution: secret scope -> environment -> missing."""
     if provider not in PROVIDER_KEY_ENV:
         raise ValueError(f"Unknown LLM provider '{provider}'.")
+    env_var = PROVIDER_KEY_ENV.get(provider)
     if env_var is None:
         return KeyStatus(provider=provider, env_var=None, source="not required")
+
+    vars_to_check = [env_var]
+    if provider == "gemini":
+        vars_to_check = ["GOOGLE_API_KEY", "GEMINI_API_KEY"]
+    elif provider == "grok":
+        vars_to_check = ["XAI_API_KEY", "GROK_API_KEY"]
+
     if dbutils is not None:
-        try:
-            secret = dbutils.secrets.get(scope=scope, key=env_var)  # type: ignore[attr-defined]
-            if secret:
-                os.environ[env_var] = secret
-                return KeyStatus(provider=provider, env_var=env_var, source="secret scope")
-        except Exception:
-            pass  # scope/key absent; fall through to environment
-    if os.environ.get(env_var):
-        return KeyStatus(provider=provider, env_var=env_var, source="env")
+        for var_name in vars_to_check:
+            try:
+                secret = dbutils.secrets.get(scope=scope, key=var_name)  # type: ignore[attr-defined]
+                if secret:
+                    os.environ[var_name] = secret
+                    return KeyStatus(provider=provider, env_var=var_name, source="secret scope")
+            except Exception:
+                pass
+
+    for var_name in vars_to_check:
+        if os.environ.get(var_name):
+            return KeyStatus(provider=provider, env_var=var_name, source="env")
+
     return KeyStatus(provider=provider, env_var=env_var, source="missing")
 
 
@@ -146,11 +336,7 @@ def dependency_available(provider: str) -> tuple[bool, str]:
 
 
 def run_llm_check(provider_name: str, llm: object | None = None) -> dict[str, str]:
-    """Evidence-grounded provider health check.
-
-    Sends ONE synthetic evidence record — never any user data — asks the
-    provider for a single cited sentence, and verifies the output passes the
-    evidence citation gate. ``llm`` is injectable for testing."""
+    """Evidence-grounded provider health check."""
     from start.agents import EvidenceCriticAgent
     from start.agents.prompts import SYSTEM_PROMPT, build_evidence_bundle
     from start.core.schemas import EvidenceRecord, Status, TestResult
@@ -185,7 +371,7 @@ def run_llm_check(provider_name: str, llm: object | None = None) -> dict[str, st
         "Summarize the single evidence record in one sentence, citing its "
         "evidence ID.\n\n" + bundle
     )
-    text = llm.generate(prompt, system=SYSTEM_PROMPT, metadata={"max_tokens": 128})  # type: ignore[attr-defined]
+    text = llm.generate(prompt, system=SYSTEM_PROMPT, metadata={"output_token_budget": 128})  # type: ignore[attr-defined]
     critique = EvidenceCriticAgent().critique_section(text, [synthetic])
     return {
         "provider": provider_name,

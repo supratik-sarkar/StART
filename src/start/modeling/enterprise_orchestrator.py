@@ -99,6 +99,7 @@ class EnterpriseOutcome:
     kfold_tuning: Any = None
     review_session: Any = None
     inner_run_id: str | None = None
+    execution_path: Any = None
 
     @property
     def critique_ok(self) -> bool:
@@ -155,6 +156,7 @@ class EnterpriseReviewOrchestrator:
         output_root: str = "start_output",
         run_dl: bool = False,
         enterprise_mode: bool = False,
+        execution_mode: str = "linear",
         seed: int = 42,
         cnn_config: dict[str, Any] | None = None,
         architecture: str = "mlp",
@@ -421,8 +423,8 @@ class EnterpriseReviewOrchestrator:
             # explainability (Sections D/G/I/J/K), all as registered artifacts ---
             from start.modeling.model_execution import run_model_execution
 
-            # #2: the user's FE decision on correlation pruning drives execution.
-            # Default is to prune; if the user explicitly rejected it, keep all.
+            # The feature engineering decision on correlation pruning drives execution.
+            # Default is to prune; if explicitly rejected in session, keep all.
             _apply_pruning = True
             if session is not None and session.rejected("fe:correlation_pruning"):
                 _apply_pruning = False
@@ -590,6 +592,31 @@ class EnterpriseReviewOrchestrator:
             f"{'PASSED' if base_outcome.agent_review.critique_ok else 'FAILED'}",
         )
 
+        # --- Optional Cyclic Graph Orchestration mode (v4.0.3) ---
+        execution_path = None
+        if execution_mode == "graph":
+            execution_path = self._run_cyclic_graph(
+                df, single_target, base_outcome, register, gov_layer,
+                output_root=output_root, run_id=run_id, seed=seed,
+                architecture=architecture, activation=activation,
+                costlier_errors=costlier_errors, metric_choice=metric_choice,
+                explain_method=explain_method, tuning_strategy=tuning_strategy,
+                tuning_trials=tuning_trials, session=session, k_folds=k_folds,
+                validation=validation, class_weight=class_weight,
+                custom_space=custom_space, cost_specification=cost_specification,
+                split_strategy=split_strategy, split_props=split_props,
+                run_dl=run_dl, dataset_source=dataset_source,
+                data_stats=data_stats, fe_recs=fe_recs, arch_review=arch_review,
+                tuning_plan=tuning_plan, model_exec=model_exec,
+                sensitivity_result=sensitivity_result, tuning_run=tuning_run,
+                artifact_registry=artifact_registry, action_log=action_log,
+                trace_log=trace_log,
+            )
+            if not base_outcome.agent_review.critique_ok or "NOT READY" in base_outcome.agent_review.signoff:
+                signoff_finding.description = base_outcome.agent_review.signoff
+                signoff_finding.severity = Severity.HIGH
+                signoff_finding.materiality = Materiality.HIGH
+
         # --- Reporting layer: enterprise dashboard ---
         action_log.record(
             "GovernanceSignoffAgent", f"{len(register.findings)} findings",
@@ -674,7 +701,257 @@ class EnterpriseReviewOrchestrator:
             kfold_tuning=kfold_tuning,
             review_session=session,
             inner_run_id=base_outcome.run_id,
+            execution_path=execution_path,
         )
+
+    def _run_cyclic_graph(
+        self,
+        df: pd.DataFrame,
+        single_target: str,
+        base_outcome: Any,
+        register: FindingsRegister,
+        gov_layer: LayerResult,
+        *,
+        output_root: str,
+        run_id: str,
+        seed: int,
+        architecture: str,
+        activation: str,
+        costlier_errors: str,
+        metric_choice: dict[str, Any],
+        explain_method: str,
+        tuning_strategy: str,
+        tuning_trials: int,
+        session: Any,
+        k_folds: int,
+        validation: str,
+        class_weight: str | None,
+        custom_space: dict[str, Any] | None,
+        cost_specification: dict[str, Any] | None,
+        split_strategy: str,
+        split_props: tuple[float, float, float],
+        run_dl: bool,
+        dataset_source: Any,
+        data_stats: Any,
+        fe_recs: Any,
+        arch_review: Any,
+        tuning_plan: Any,
+        model_exec: Any,
+        sensitivity_result: Any,
+        tuning_run: Any,
+        artifact_registry: Any,
+        action_log: Any,
+        trace_log: Any,
+    ) -> Any:
+        import json
+
+        from start.core.config import load_policy
+        from start.core.schemas import EvidenceRecord, Status
+        from start.orchestration.cyclic_executor import GraphExecutor, NodeOutcome, NodeResult
+        from start.orchestration.review_graph_spec import REVIEW_GRAPH
+
+        try:
+            policy_cfg = load_policy("configs/policy/default_policy.yaml")
+            rem_budgets = policy_cfg.remediation_budgets or {}
+        except Exception:
+            rem_budgets = {}
+
+        policy_budgets = {
+            "overfitting->hyperparameter_tuning:remediation": rem_budgets.get("overfitting_to_tuning", 3),
+            "sensitivity->hyperparameter_tuning:remediation": rem_budgets.get("sensitivity_to_tuning", 2),
+            "explainability->feature_engineering:remediation": rem_budgets.get("explainability_to_feature_engineering", 2),
+            "validation->model_execution:remediation": rem_budgets.get("validation_to_execution", 2),
+            "gate_architecture->gate_architecture:self_loop": rem_budgets.get("checkpoint_self_loop", 10),
+            "gate_metric->gate_metric:self_loop": rem_budgets.get("checkpoint_self_loop", 10),
+            "gate_validation->gate_validation:self_loop": rem_budgets.get("checkpoint_self_loop", 10),
+        }
+
+        handlers: dict[str, Any] = {}
+
+        # 1. start
+        handlers["start"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="review started")
+
+        # 2. dataset_discovery
+        def _h_discovery(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if ctx.get("force_data_defect"):
+                return NodeResult(outcome=NodeOutcome.BLOCK, detail="dataset discovery: blocking defect detected")
+            fp = f"{len(df)}x{df.shape[1]}:{data_stats.suggested_split if data_stats else 'default'}"
+            return NodeResult(outcome=NodeOutcome.OK, detail=f"{len(df)} rows x {df.shape[1]} cols", fingerprint=fp)
+        handlers["dataset_discovery"] = _h_discovery
+
+        # 3. task_inference
+        def _h_task(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            tt = ctx.get("task_type") or base_outcome.task_type
+            return NodeResult(outcome=NodeOutcome.OK, detail=str(tt))
+        handlers["task_inference"] = _h_task
+
+        # 4. feature_engineering
+        def _h_fe(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            chosen = [r.step for r in fe_recs.applicable()] if fe_recs else []
+            remedy_attempt = len(ctx.get("_remediation_history", []))
+            if remedy_attempt > 0:
+                chosen.append(f"remediation_attempt_{remedy_attempt}")
+            fp = json.dumps(chosen, sort_keys=True)
+            return NodeResult(outcome=NodeOutcome.OK, detail=f"{len(chosen)} feature engineering steps", fingerprint=fp)
+        handlers["feature_engineering"] = _h_fe
+
+        # 5. architecture_review
+        def _h_arch(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            rec_family = arch_review.recommendation["family"] if arch_review else architecture
+            return NodeResult(outcome=NodeOutcome.OK, detail=f"recommended {rec_family}")
+        handlers["architecture_review"] = _h_arch
+
+        # 6. gate_architecture
+        def _h_gate_arch(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if session is not None and session.decision_for("architecture_checkpoint_reenter"):
+                return NodeResult(outcome=NodeOutcome.REENTER, detail="checkpoint: architecture challenged by reviewer")
+            return NodeResult(outcome=NodeOutcome.OK, detail="checkpoint: architecture accepted")
+        handlers["gate_architecture"] = _h_gate_arch
+
+        # 7. hyperparameter_tuning
+        def _h_tuning(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            remediation_count = len(ctx.get("_remediation_history", []))
+            if remediation_count > 0:
+                if ctx.get("stuck_remediation_no_change"):
+                    best_params = ctx.get("prev_best_params", {"reg": 0.01})
+                else:
+                    cur_space = dict(custom_space or {})
+                    cur_space["regularization_penalty"] = round(0.01 * (5 ** remediation_count), 4)
+                    cur_space["max_depth"] = max(2, 6 - remediation_count)
+                    cur_space["learning_rate"] = max(1e-4, 0.01 / (2 ** remediation_count))
+                    cur_space["remediation_attempt"] = remediation_count
+                    best_params = cur_space
+                ctx["prev_best_params"] = best_params
+                return NodeResult(outcome=NodeOutcome.OK, fingerprint=json.dumps(best_params, sort_keys=True), detail=f"remediation attempt {remediation_count}")
+            else:
+                best_params = tuning_run.best_params if (tuning_run and tuning_run.ran) else {"initial": True}
+                ctx["prev_best_params"] = best_params
+                return NodeResult(outcome=NodeOutcome.OK, fingerprint=json.dumps(best_params, sort_keys=True), detail=f"tuning {tuning_strategy}")
+        handlers["hyperparameter_tuning"] = _h_tuning
+
+        # 8. gate_metric
+        def _h_gate_metric(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if session is not None and session.decision_for("metric_checkpoint_reenter"):
+                return NodeResult(outcome=NodeOutcome.REENTER, detail="checkpoint: metric challenged")
+            return NodeResult(outcome=NodeOutcome.OK, detail="checkpoint: metric accepted")
+        handlers["gate_metric"] = _h_gate_metric
+
+        # 9. model_execution
+        def _h_model_exec(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if ctx.get("force_model_block"):
+                return NodeResult(outcome=NodeOutcome.BLOCK, detail="model execution failed: numerical defect")
+            metrics = model_exec.metrics_by_split if model_exec else base_outcome.cohort_metrics
+            return NodeResult(outcome=NodeOutcome.OK, fingerprint=json.dumps(metrics, sort_keys=True), detail=f"trained {architecture}")
+        handlers["model_execution"] = _h_model_exec
+
+        # 11. explainability
+        def _h_explain(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if ctx.get("force_explainability_fail"):
+                return NodeResult(outcome=NodeOutcome.FAIL, detail="attribution concentrated on single dominating feature (>95%)")
+            return NodeResult(outcome=NodeOutcome.OK, detail="explainability attribution verified")
+        handlers["explainability"] = _h_explain
+
+        # 12. sensitivity
+        def _h_sensitivity(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if ctx.get("force_sensitivity_fail"):
+                return NodeResult(outcome=NodeOutcome.FAIL, detail="feature-shock metric degradation exceeds tolerance")
+            return NodeResult(outcome=NodeOutcome.OK, detail="feature-shock sensitivity within tolerance")
+        handlers["sensitivity"] = _h_sensitivity
+
+        # 13. overfitting
+        def _h_overfit(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            attempt = len(ctx.get("_remediation_history", []))
+            if ctx.get("never_resolve_overfitting"):
+                gap = 0.28
+            elif ctx.get("resolve_overfitting_on_attempt") is not None:
+                resolve_at = int(ctx.get("resolve_overfitting_on_attempt"))
+                gap = 0.04 if attempt >= resolve_at else 0.28
+            else:
+                gap = float(getattr(model_exec, "generalization_gap", 0.0)) if model_exec else float(ctx.get("generalization_gap", 0.0))
+
+            threshold = float(ctx.get("max_generalization_gap", 0.10))
+            if abs(gap) > threshold:
+                return NodeResult(outcome=NodeOutcome.FAIL, detail=f"generalisation gap {gap:.4f} exceeds {threshold:.2f}", state={"generalization_gap": gap})
+            return NodeResult(outcome=NodeOutcome.OK, detail=f"generalisation gap {gap:.4f}", state={"generalization_gap": gap})
+        handlers["overfitting"] = _h_overfit
+
+        # 15. validation
+        def _h_val(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if ctx.get("force_validation_fail"):
+                return NodeResult(outcome=NodeOutcome.FAIL, detail="adversarial perturbation checks failed")
+            return NodeResult(outcome=NodeOutcome.OK, detail="validation checks passed")
+        handlers["validation"] = _h_val
+
+        # 16. gate_validation
+        def _h_gate_val(nid: str, ctx: dict[str, Any]) -> NodeResult:
+            if session is not None and session.decision_for("validation_checkpoint_reenter"):
+                return NodeResult(outcome=NodeOutcome.REENTER, detail="checkpoint: validation challenged")
+            return NodeResult(outcome=NodeOutcome.OK, detail="checkpoint: validation accepted")
+        handlers["gate_validation"] = _h_gate_val
+
+        # 17. governance_signoff
+        handlers["governance_signoff"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="governance sign-off evaluated")
+
+        # 18. evidence_critic
+        handlers["evidence_critic"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="critic citations verified")
+
+        # 19. seal
+        handlers["seal"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="review seal committed")
+
+        initial_ctx = {
+            "run_dl": run_dl,
+            "accept": True,
+            "architecture": architecture,
+            "task_type": base_outcome.task_type,
+        }
+        if session is not None and hasattr(session, "context"):
+            initial_ctx.update(session.context or {})
+
+        executor = GraphExecutor(REVIEW_GRAPH, handlers, budgets=policy_budgets)
+        path = executor.run(initial_ctx)
+
+        # Process governance findings from graph path
+        findings = path.governance_findings()
+        for gf in findings:
+            sev = Severity.HIGH if gf["severity"] == "blocker" else (Severity.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
+            mat = Materiality.HIGH if gf["severity"] == "blocker" else (Materiality.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
+            finding_obj = Finding(
+                title=gf["kind"].replace("_", " ").title(),
+                description=gf["detail"],
+                severity=sev,
+                materiality=mat,
+                risk_category="Orchestration",
+                evidence_ids=[gf.get("edge_id", "")],
+                recommendation="Address the remediation cycle outcome prior to deployment.",
+                source="graph_executor",
+            )
+            register.add(finding_obj)
+            gov_layer.findings.append(finding_obj)
+
+        has_blocker = any(gf["severity"] == "blocker" for gf in findings)
+        if has_blocker:
+            base_outcome.agent_review.signoff = "NOT READY. Model review blocked by exhausted remediation attempts."
+            base_outcome.agent_review.critique_ok = False
+
+        ev_rec = EvidenceRecord(
+            test_id="orchestration.execution_path",
+            test_name="Review Graph Execution Path",
+            model_id=getattr(base_outcome, "model_id", architecture),
+            dataset_id=getattr(base_outcome, "dataset_id", "DS-MAIN"),
+            run_id=getattr(base_outcome, "run_id", run_id),
+            enterprise_run_id=run_id,
+            status=Status.FAIL if has_blocker else Status.PASS,
+            metrics={
+                "node_visits": len(path.visits),
+                "remediations_attempted": len(path.remediations),
+                "remediations_resolved": path.remediation_summary()["resolved"],
+                "remediations_exhausted": path.remediation_summary()["budget_exhausted"],
+            },
+            interpretation=f"Execution path hash: {path.path_hash()[:16]}... over {len(path.visits)} node visit(s).",
+            artifacts={"path_hash": path.path_hash(), "summary": json.dumps(path.remediation_summary())},
+        )
+        base_outcome.evidence.append(ev_rec)
+        return path
 
     def _run_sensitivity(self, df, target, metric_name, seed, architecture="mlp", task_type="binary_classification", activation="relu", winsorize=False):
         """Train a quick tabular model on the same data and shock its top

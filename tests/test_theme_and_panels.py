@@ -113,7 +113,7 @@ def test_all_eight_panels_render_cleanly() -> None:
         console.print(p7)
     out7 = cap.get()
     assert "Merkle Root" in out7
-    assert "start-seal/2:R-TEST" in out7
+    assert f"{seal.version}:R-TEST" in out7
 
     # 8. Adapters Table
     adapters = [

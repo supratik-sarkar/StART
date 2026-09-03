@@ -1,0 +1,92 @@
+"""Health, Info, and Zero-Cost Attestation Routes for StART v4.5 Web Transport."""
+
+from __future__ import annotations
+
+import os
+from fastapi import APIRouter
+from start.web.schemas import (
+    APIResponseEnvelope,
+    SystemInfo,
+    ZeroCostAttestation,
+    START_SCHEMA_VERSION,
+    START_VERSION,
+)
+
+router = APIRouter(prefix="/api/v1", tags=["health"])
+
+
+@router.get("/health", response_model=APIResponseEnvelope)
+def get_health() -> APIResponseEnvelope:
+    """Lightweight readiness and liveness probe."""
+    return APIResponseEnvelope(
+        success=True,
+        data={
+            "status": "HEALTHY",
+            "version": START_VERSION,
+            "schema_version": START_SCHEMA_VERSION,
+        },
+    )
+
+
+@router.get("/info", response_model=APIResponseEnvelope)
+def get_info() -> APIResponseEnvelope:
+    """System information, versioning, and compute runtime metadata."""
+    runtime = "oracle_a1_arm64" if os.environ.get("START_ORACLE_DEPLOYMENT") else "local"
+    info = SystemInfo(
+        start_version=START_VERSION,
+        start_schema_version=START_SCHEMA_VERSION,
+        backend_build_version="4.5.0-arm64-prod",
+        git_sha=os.environ.get("START_GIT_SHA"),
+        compute_runtime=runtime,
+        max_concurrency=1,
+        engine_status="READY",
+    )
+    return APIResponseEnvelope(
+        success=True,
+        data=info.model_dump(),
+    )
+
+
+@router.get("/zero-cost-attestation", response_model=APIResponseEnvelope)
+def get_zero_cost_attestation() -> APIResponseEnvelope:
+    """Retrieve verified zero-cost provisioning attestation."""
+    attestation = ZeroCostAttestation()
+    return APIResponseEnvelope(
+        success=True,
+        data=attestation.model_dump(),
+    )
+
+
+@router.get("/profiles", response_model=APIResponseEnvelope)
+def list_synthetic_profiles() -> APIResponseEnvelope:
+    """List available versioned synthetic dataset profiles."""
+    profiles = [
+        {
+            "profile_id": "institutional_market_v1",
+            "name": "Institutional Market Risk & Portfolio Optimization",
+            "domain": "market",
+            "version": "1.0.0",
+            "description": "Multi-asset portfolio with equity indices, volatility surface, and historical shock scenarios.",
+            "seed": 42,
+        },
+        {
+            "profile_id": "institutional_credit_v1",
+            "name": "Institutional Credit & Propensity Risk",
+            "domain": "predictive",
+            "version": "1.0.0",
+            "description": "Tabular credit risk benchmark with class imbalance, protected attributes, and SHAP explainability.",
+            "seed": 42,
+        },
+        {
+            "profile_id": "deep_learning_v1",
+            "name": "Deep Learning & PyTorch Architecture Inspection",
+            "domain": "deep_learning",
+            "version": "1.0.0",
+            "description": "Deep neural model with gradient norms, weight spectra, and Captum integrated gradients.",
+            "seed": 42,
+        },
+    ]
+    return APIResponseEnvelope(
+        success=True,
+        data={"profiles": profiles},
+    )

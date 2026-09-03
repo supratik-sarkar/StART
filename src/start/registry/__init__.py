@@ -13,11 +13,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from importlib import import_module, metadata
-from typing import Any, Protocol
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from start.core.schemas import TestResult
+from start.registry.contexts import context_methods_for_test_context
 
 
 class TestContext(BaseModel):
@@ -38,12 +39,17 @@ class TestContext(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
-class TestFn(Protocol):
-    def __call__(self, ctx: TestContext, **params: Any) -> TestResult: ...
+for _name, _fn in context_methods_for_test_context().items():
+    setattr(TestContext, _name, _fn)
+
+
+TestFn = Callable[..., TestResult]
 
 
 @dataclass(frozen=True)
 class TestSpec:
+    __test__ = False
+
     test_id: str
     family: str
     name: str
@@ -51,11 +57,21 @@ class TestSpec:
     description: str = ""
     requires: tuple[str, ...] = field(default_factory=tuple)
     default_params: dict[str, Any] = field(default_factory=dict)
+    context_type: str = "tabular"
+    risk_stripes: tuple[str, ...] = ()
+    risk_dimensions: tuple[str, ...] = ()
+    object_kinds: tuple[str, ...] = ()
 
 
 _REGISTRY: dict[str, TestSpec] = {}
 _BUILTIN_FAMILY_MODULES = (
     "start.tests.preprocessing",
+    "start.tests.eda",
+    "start.tests.feature_engineering",
+    "start.tests.portfolio",
+    "start.tests.attribution",
+    "start.tests.traded_risk",
+    "start.tests.covariance",
     "start.tests.supervised",
     "start.tests.xai",
     "start.tests.genai",
@@ -71,6 +87,10 @@ def register_test(
     description: str = "",
     requires: tuple[str, ...] = (),
     default_params: dict[str, Any] | None = None,
+    context_type: str = "tabular",
+    risk_stripes: tuple[str, ...] = (),
+    risk_dimensions: tuple[str, ...] = (),
+    object_kinds: tuple[str, ...] = (),
 ) -> Callable[[TestFn], TestFn]:
     def decorator(fn: TestFn) -> TestFn:
         if test_id in _REGISTRY:
@@ -83,6 +103,10 @@ def register_test(
             description=description or (fn.__doc__ or "").strip().split("\n")[0],
             requires=requires,
             default_params=default_params or {},
+            context_type=context_type,
+            risk_stripes=risk_stripes,
+            risk_dimensions=risk_dimensions,
+            object_kinds=object_kinds,
         )
         return fn
 
@@ -96,6 +120,13 @@ def load_builtin_tests() -> None:
     for module in _BUILTIN_FAMILY_MODULES:
         import_module(module)
     _load_entry_point_packs()
+    # F1 (v4.2.0 Gate A closeout): attach risk metadata to the 19 pre-v4.2.0
+    # registrations. Declared as data in legacy_metadata.py and applied here so the
+    # legacy family modules are not edited at all. Metadata only — no test function,
+    # parameter, threshold or result behaviour is touched.
+    from start.registry.legacy_metadata import apply_legacy_metadata
+
+    apply_legacy_metadata()
     _loaded = True
 
 

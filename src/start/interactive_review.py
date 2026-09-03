@@ -41,6 +41,7 @@ class ReviewConfig:
     objective: str = ""  # LLM-mode free-form objective
     run_dl: bool = False
     enterprise_mode: bool = False  # layered orchestrator + dashboard + graph
+    execution_mode: str = "linear"  # linear (default) | graph (cyclic remediation)
     governance_mode: bool = False  # surface governance findings prominently
     costlier_errors: str = "balanced"  # balanced | false_negatives | false_positives
     accept_recommendations: bool = False  # auto-accept agent recommendations
@@ -161,11 +162,11 @@ def prompt_review_config(
         _available_models = _discovery.list_models(cfg.llm_provider)
         if not _available_models and cfg.llm_provider in ("openai", "anthropic", "deepseek", "gemini", "grok"):
             fallback = {
-                "openai": ["gpt-4o-mini", "gpt-4o"],
-                "anthropic": ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
-                "deepseek": ["deepseek-chat"],
-                "gemini": ["gemini-2.0-flash"],
-                "grok": ["grok-2-latest"],
+                "openai": ["gpt-5-mini", "gpt-5", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o3-mini", "o1"],
+                "anthropic": ["claude-sonnet-4-6", "claude-3-7-sonnet-latest", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+                "gemini": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+                "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+                "grok": ["grok-2-latest", "grok-3-mini", "grok-3"],
             }.get(cfg.llm_provider, [])
             _available_models = fallback
 
@@ -931,7 +932,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             k_folds=cfg.k_folds,
             cost_specification=cfg.cost_specification,
             run_id=enterprise_run_id,
+            execution_mode=getattr(cfg, "execution_mode", "linear"),
         )
+    if getattr(outcome, "execution_path", None) is not None:
+        console.print("\n[bold]Execution path[/bold]")
+        for line in outcome.execution_path.summary_lines():
+            console.print(line)
     # Section K: agent reasoning traces (thinking visibility)
     if outcome.trace_log and outcome.trace_log.traces:
         console.print("\n[bold]Agent reasoning traces[/bold]")
@@ -1224,6 +1230,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         evidence_head=evidence_head_hash,
         attestations=attestations_list if attestations_list else None,
         adjudications=adjudications_payload,
+        execution_path=outcome.execution_path.as_dict() if getattr(outcome, "execution_path", None) else None,
         metadata={"enterprise_run_id": outcome.run_id, "inner_run_id": inner_run_id},
     )
 

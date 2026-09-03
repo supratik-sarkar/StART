@@ -47,7 +47,7 @@ def test_deprecated_alias_resolves_with_warning():
 
 
 def test_alias_does_not_override_explicit_activation():
-    # If the user explicitly passes activation, the alias default yields to it.
+    # If explicit activation is provided, the alias default yields to it.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         r = resolve_architecture("leaky_relu_mlp", activation="gelu")

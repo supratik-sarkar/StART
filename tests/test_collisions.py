@@ -136,8 +136,9 @@ def test_adjudications_commit_as_eighth_seal_leaf() -> None:
         adjudications=[rec.as_evidence_record()],
     )
     manifest = seal.manifest()
-    assert len(manifest["leaves"]) == 8
+    assert len(manifest["leaves"]) == 9
     assert manifest["leaves"][7]["name"] == "adjudications"
+    assert manifest["leaves"][8]["name"] == "execution_path"
 
     res = verify_seal(manifest, seal.seal_string())
     assert res["verified"] is True

@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# Map common extensions to a human-readable type.
+from start.portfolio.artifacts import ArtifactRecord, ArtifactSpec
+
 _TYPE_BY_EXT = {
     ".csv": "table (CSV)",
     ".tsv": "table (TSV)",
@@ -29,6 +30,14 @@ _TYPE_BY_EXT = {
     ".txt": "text",
     ".pdf": "document (PDF)",
 }
+
+__all__ = [
+    "Artifact",
+    "ArtifactRegistry",
+    "ArtifactSpec",
+    "ArtifactRecord",
+    "render_artifact_catalog_markdown",
+]
 
 
 @dataclass

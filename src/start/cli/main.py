@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -313,7 +314,7 @@ def _resolve_agent_llm(
             if allow_fallback:
                 console.print(
                     f"[yellow]WARNING: {status.env_var} is not set and prompting is "
-                    f"disabled; falling back to deterministic mode as requested.[/yellow]"
+                    f"disabled; falling back to deterministic mode per configuration.[/yellow]"
                 )
                 return "none", get_llm_provider(LLMConfig(provider="none")), True
             console.print(
@@ -322,7 +323,7 @@ def _resolve_agent_llm(
                 f"securely, or pass --allow-deterministic-fallback.[/red]"
             )
             raise typer.Exit(code=1)
-    return name, get_llm_provider(LLMConfig(provider=name, model=cfg.llm.model)), False
+    return name, get_llm_provider(LLMConfig(provider=cast(Any, name), model=cfg.llm.model)), False
 
 
 def _load_review(
@@ -603,12 +604,14 @@ app.add_typer(review_app, name="review")
 # Stripe-agnostic surface. Imported here rather than defined inline because
 # everything it reaches is standard-library only, so `start risk` and
 # `start attest` keep working when the modelling stack is absent or broken —
-# which is exactly when someone needs to ask what a review owes, or whether an
-# archived seal still verifies.
+from start.cli.keys_cli import keys_app  # noqa: E402
+from start.cli.provider_cli import provider_app  # noqa: E402
 from start.cli.risk_cli import attest_app, risk_app  # noqa: E402
 
 app.add_typer(risk_app, name="risk")
 app.add_typer(attest_app, name="attest")
+app.add_typer(keys_app, name="keys")
+app.add_typer(provider_app, name="provider")
 
 @review_app.callback(invoke_without_command=True)
 def review_callback(
@@ -679,6 +682,9 @@ def review_callback(
     figure_delay: float = typer.Option(
         1.5, "--figure-delay", help="Delay between opening figures in seconds."
     ),
+    execution_mode: str = typer.Option(
+        "linear", "--execution-mode", help="Execution mode: linear (default) | graph (cyclic remediation)."
+    ),
 ) -> None:
     """Run the StART model review setup wizard or run a standard non-interactive review."""
     if ctx.invoked_subcommand is not None:
@@ -693,14 +699,104 @@ def review_callback(
         agent_mode = "llm"
 
     # If it is interactive:
-    config_state = None
     if not non_interactive:
-        from start.main import run_interactive_setup_wizard
-        config_state = run_interactive_setup_wizard()
-        selection = config_state.get("dataset_selection")
-        data = selection.source_path if selection else None
-        target = config_state["target_column"]
-        run_dl = True
+        from start.review.architecture import ReviewDomain
+        from start.review.executor import run_market_treasury_review
+        from start.review.multiline_input import ReviewCancelled
+        from start.review.wizard import run_review_wizard
+
+        try:
+            wizard_state = run_review_wizard(seed=seed)
+            bundle = wizard_state["bundle"]
+            if ReviewDomain.PREDICTIVE in bundle.domains and (ReviewDomain.MARKET not in bundle.domains and ReviewDomain.TREASURY not in bundle.domains):
+                # Pure Predictive
+                config_state = wizard_state["predictive_config"]
+                selection = config_state.get("dataset_selection")
+                data_path_sel = selection.source_path if selection else None
+                target = config_state.get("target_column")
+                run_dl = (config_state.get("workflow_mode") == "Deep Learning Suite")
+
+                from start.interactive_review import (
+                    ReviewConfig,
+                    run_interactive_review,
+                )
+
+                cfg = ReviewConfig(
+                    data_path=data_path_sel,
+                    target=target,
+                    dataset_selection=selection,
+                    task_override=config_state.get("task_type", task),
+                    split_strategy=config_state.get("split_strategy_name", "stratified"),
+                    architecture_family=config_state.get("model", architecture),
+                    activation=config_state.get("activation", activation),
+                    explain_method=config_state.get("explain_method", explain_method),
+                    robustness_suite=robustness,
+                    agent_mode=config_state.get("agent_mode", agent_mode),
+                    llm_provider=config_state.get("llm_provider", llm_provider),
+                    run_dl=run_dl,
+                    enterprise_mode=enterprise,
+                    execution_mode=execution_mode,
+                    costlier_errors=cost,
+                    accept_recommendations=accept_recommendations,
+                    show_progress=show_progress,
+                    non_interactive=non_interactive,
+                    output_root=output_root,
+                    seed=seed,
+                    class_weight=config_state.get("class_weight"),
+                    preset_key=config_state.get("preset_key"),
+                    custom_space=config_state.get("custom_tuning_params"),
+                    tuning_strategy=config_state.get("tuning_strategy", "none"),
+                    tuning_trials=config_state.get("tuning_trials", 0),
+                    k_folds=config_state.get("k_folds", 3),
+                    validation_scheme=config_state.get("validation_scheme", "holdout"),
+                    objective=config_state.get("business_context", ""),
+                    llm_model=config_state.get("llm_model") or model,
+                    open_figures=open_figures,
+                    figure_delay=figure_delay,
+                )
+                cfg.train_prop = config_state.get("split_proportions", (0.60, 0.20, 0.20))[0]
+                cfg.test_prop = config_state.get("split_proportions", (0.60, 0.20, 0.20))[1]
+                cfg.oos_prop = config_state.get("split_proportions", (0.60, 0.20, 0.20))[2]
+
+                if config_state.get("clarification"):
+                    cfg.notes.append(f"User clarification: {config_state['clarification']}")
+                    from start.interactive_review import _infer_cost_priority
+                    inferred = _infer_cost_priority(config_state["clarification"])
+                    if inferred:
+                        cfg.costlier_errors = inferred
+                run_interactive_review(cfg)
+                return
+
+            elif ReviewDomain.MARKET in bundle.domains or ReviewDomain.TREASURY in bundle.domains:
+                # Market / Treasury / Cross-domain Market+Treasury
+                if ReviewDomain.PREDICTIVE in bundle.domains:
+                    config_state = wizard_state["predictive_config"]
+                    selection = config_state.get("dataset_selection")
+                    data_path_sel = selection.source_path if selection else None
+                    target = config_state.get("target_column")
+                    run_dl = (config_state.get("workflow_mode") == "Deep Learning Suite")
+                    from start.interactive_review import (
+                        ReviewConfig,
+                        run_interactive_review,
+                    )
+                    p_cfg = ReviewConfig(
+                        data_path=data_path_sel,
+                        target=target,
+                        dataset_selection=selection,
+                        architecture_family=config_state.get("model", architecture),
+                        activation=config_state.get("activation", activation),
+                        run_dl=run_dl,
+                        enterprise_mode=enterprise,
+                        output_root=output_root,
+                        seed=seed,
+                    )
+                    run_interactive_review(p_cfg)
+
+                run_market_treasury_review(bundle, output_root=output_root, interactive=True)
+                return
+        except ReviewCancelled:
+            console.print("[yellow]Review cancelled by reviewer.[/yellow]")
+            raise typer.Exit(code=1) from None
 
     from start.interactive_review import (
         ReviewConfig,
@@ -708,76 +804,37 @@ def review_callback(
         run_interactive_review,
     )
 
-    if config_state:
-        cfg = ReviewConfig(
-            data_path=data,
-            target=target,
-            dataset_selection=selection,
-            task_override=config_state.get("task_type", task),
-            split_strategy=config_state["split_strategy_name"],
-            architecture_family=config_state["model"],
-            activation=config_state.get("activation", activation),
-            explain_method=config_state.get("explain_method", explain_method),
-            robustness_suite=robustness,
-            agent_mode=config_state.get("agent_mode", agent_mode),
-            llm_provider=config_state.get("llm_provider", llm_provider),
-            run_dl=run_dl,
-            enterprise_mode=enterprise,
-            costlier_errors=cost,
-            accept_recommendations=accept_recommendations,
-            show_progress=show_progress,
-            non_interactive=non_interactive,
-            output_root=output_root,
-            seed=seed,
-            class_weight=config_state["class_weight"],
-            preset_key=config_state.get("preset_key"),
-            custom_space=config_state.get("custom_tuning_params"),
-            tuning_strategy=config_state.get("tuning_strategy", "none"),
-            tuning_trials=config_state.get("tuning_trials", 0),
-            k_folds=config_state.get("k_folds", 3),
-            validation_scheme=config_state.get("validation_scheme", "holdout"),
-            objective=config_state.get("objective", ""),
-            llm_model=config_state.get("llm_model") or model,
-            open_figures=open_figures,
-            figure_delay=figure_delay,
-        )
-        cfg.train_prop = config_state["split_proportions"][0]
-        cfg.test_prop = config_state["split_proportions"][1]
-        cfg.oos_prop = config_state["split_proportions"][2]
-        
-        if config_state.get("clarification"):
-            cfg.notes.append(f"User clarification: {config_state['clarification']}")
-            from start.interactive_review import _infer_cost_priority
-            inferred = _infer_cost_priority(config_state["clarification"])
-            if inferred:
-                cfg.costlier_errors = inferred
-    else:
-        cfg = ReviewConfig(
-            data_path=data,
-            target=target,
-            task_override=task,
-            split_strategy=split_strategy,
-            architecture_family=architecture,
-            activation=activation,
-            explain_method=explain_method,
-            robustness_suite=robustness,
-            agent_mode=agent_mode,
-            llm_provider=llm_provider,
-            llm_model=model,
-            run_dl=run_dl,
-            enterprise_mode=enterprise,
-            costlier_errors=cost,
-            accept_recommendations=accept_recommendations,
-            show_progress=show_progress,
-            non_interactive=non_interactive,
-            output_root=output_root,
-            seed=seed,
-            open_figures=open_figures,
-            figure_delay=figure_delay,
-        )
+    cfg = ReviewConfig(
+        data_path=data,
+        target=target,
+        task_override=task,
+        split_strategy=split_strategy,
+        architecture_family=architecture,
+        activation=activation,
+        explain_method=explain_method,
+        robustness_suite=robustness,
+        agent_mode=agent_mode,
+        llm_provider=llm_provider,
+        llm_model=model,
+        run_dl=run_dl,
+        enterprise_mode=enterprise,
+        execution_mode=execution_mode,
+        costlier_errors=cost,
+        accept_recommendations=accept_recommendations,
+        show_progress=show_progress,
+        non_interactive=non_interactive,
+        output_root=output_root,
+        seed=seed,
+        open_figures=open_figures,
+        figure_delay=figure_delay,
+    )
+    try:
         if not non_interactive:
             cfg = prompt_review_config(initial=cfg)
-    run_interactive_review(cfg)
+        run_interactive_review(cfg)
+    except ReviewCancelled:
+        console.print("[yellow]Review cancelled by reviewer.[/yellow]")
+        raise typer.Exit(code=1) from None
 
 
 @review_app.command("propensity-demo")
@@ -975,7 +1032,7 @@ def verify_live_agents(
     )
 
     # 2. Resolve LLM provider
-    llm = get_llm_provider(LLMConfig(provider=provider, model=selected_model))
+    llm = get_llm_provider(LLMConfig(provider=cast(Any, provider), model=selected_model))
     if llm.name == "none":
         console.print("[red]Error: Failed to instantiate live LLM provider (returned NoLLMProvider).[/red]")
         raise typer.Exit(code=1)

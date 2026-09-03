@@ -15,6 +15,34 @@ from __future__ import annotations
 
 from typing import Any
 
+from start.review.tables import (
+    build_artifact_catalog_table,
+    build_attribution_table,
+    build_barrier_table,
+    build_covariance_table,
+    build_governance_table,
+    build_portfolio_table,
+    build_predictive_table,
+    build_preflight_data_summary_table,
+    build_scenario_table,
+    build_treasury_table,
+    render_checkpoint_panel,
+)
+
+__all__ = [
+    "build_artifact_catalog_table",
+    "build_attribution_table",
+    "build_barrier_table",
+    "build_covariance_table",
+    "build_governance_table",
+    "build_portfolio_table",
+    "build_predictive_table",
+    "build_preflight_data_summary_table",
+    "build_scenario_table",
+    "build_treasury_table",
+    "render_checkpoint_panel",
+]
+
 
 def _table(title: str, columns: list[str], header_style: str = "bold") -> Any:
     from rich.table import Table
@@ -127,11 +155,14 @@ def sensitivity_ranking_table(rows: list[dict[str, Any]]) -> Any:
     by_feat: dict[str, float] = {}
     risk: dict[str, str] = {}
     for r in rows:
-        f = r.get("feature")
+        feat_val = r.get("feature")
+        if not feat_val:
+            continue
+        f = str(feat_val)
         d = abs(float(r.get("drift", 0.0)))
         if f not in by_feat or d > by_feat[f]:
             by_feat[f] = d
-            risk[f] = r.get("risk_impact", "")
+            risk[f] = str(r.get("risk_impact", ""))
     ranked = sorted(by_feat.items(), key=lambda kv: kv[1], reverse=True)
     t = _table("ValidationAgent — feature sensitivity ranking",
                ["Rank", "Feature", "Max |drift|", "Risk level"])
@@ -148,7 +179,10 @@ def shock_table(rows: list[dict[str, Any]], features: list[str] | None = None) -
     # group drift by feature and shock
     grid: dict[str, dict[int, float]] = {}
     for r in rows:
-        f = r.get("feature")
+        feat_val = r.get("feature")
+        if not feat_val:
+            continue
+        f = str(feat_val)
         s = int(round(float(r.get("shock", 0)) * 100))
         grid.setdefault(f, {})[s] = float(r.get("drift", 0.0))
     feats = features or list(grid.keys())
@@ -231,8 +265,9 @@ def challenge_log_table(challenges: list[dict[str, Any]]) -> Any:
                ["Status", "Agent", "Challenge", "Evidence used"])
     style = {"open": "yellow", "closed": "green", "unresolved": "red"}
     for c in challenges:
+        st_val = str(c.get("status", "open"))
         t.add_row(
-            f"[{style.get(c.get('status'), 'white')}]{c.get('status')}[/]",
+            f"[{style.get(st_val, 'white')}]{st_val}[/]",
             get_styled_agent_name(str(c.get("agent"))),
             str(c.get("text"))[:50],
             ", ".join(c.get("evidence_used", [])) or "—",

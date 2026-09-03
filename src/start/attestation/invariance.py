@@ -56,7 +56,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any
 
-from start.attestation.claims import bind_claims, extract_claims, flatten_evidence_values
+from start.attestation.claims import bind_claims, extract_claims
 
 __all__ = [
     "Divergence",
@@ -197,13 +197,11 @@ def attest_narrative_invariance(
     models, or dataclasses — it is flattened to ``field path -> number`` before
     binding.
     """
-    evidence_values = flatten_evidence_values(evidence)
-
     det_claims = extract_claims(deterministic_narrative)
     mod_claims = extract_claims(model_narrative)
 
-    det_binding = bind_claims(det_claims, evidence_values, tolerance=tolerance)
-    mod_binding = bind_claims(mod_claims, evidence_values, tolerance=tolerance)
+    det_binding = bind_claims(det_claims, evidence, tolerance=tolerance)
+    mod_binding = bind_claims(mod_claims, evidence, tolerance=tolerance)
 
     divergences: list[Divergence] = []
 
