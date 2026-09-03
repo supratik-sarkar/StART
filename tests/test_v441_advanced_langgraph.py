@@ -13,6 +13,10 @@ Mandatory verification:
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("langgraph")
+
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 

@@ -8,6 +8,11 @@ Mandatory verification:
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("opentelemetry")
+pytest.importorskip("nemoguardrails")
+
 from start.ai_engineering.nemo_guardrails import NeMoGuardrailsEngine
 from start.core.schemas import EvidenceRecord, Status
 from start.policies.opa_policy_plane import OPAPolicyPlane

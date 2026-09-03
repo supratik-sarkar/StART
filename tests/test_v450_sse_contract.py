@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 
 import pytest
+
+pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
+
 from fastapi.testclient import TestClient
 
 from start.web.app import create_app
