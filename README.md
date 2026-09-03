@@ -12,7 +12,7 @@ Unlike conventional LLM-based assistants that perform hallucination-prone arithm
 
 ```bash
 # Clone repository
-git clone https://github.com/start-project/start.git
+git clone https://github.com/supratik-sarkar/StART.git
 cd StART
 
 # Create and activate Python 3.12 virtual environment
@@ -57,7 +57,8 @@ The **StART v4.5 Institutional Workstation** delivers an evidence-native interfa
 
 * **Zero-Cost Production Deployment ($0.00 / month)**:
   - **Primary Public Workstation**: [https://start-mrt-gateway.sapman.workers.dev](https://start-mrt-gateway.sapman.workers.dev)
-  - **Hugging Face Static Mirror**: [https://huggingface.co/spaces/sapman/start-mrt](https://huggingface.co/spaces/sapman/start-mrt) (Direct: [https://sapman-start-mrt.hf.space](https://sapman-start-mrt.hf.space))
+  - **Hugging Face Space**: [https://huggingface.co/spaces/sapman/start-mrt](https://huggingface.co/spaces/sapman/start-mrt)
+  - **Direct Static Application**: [https://sapman-start-mrt.static.hf.space/index.html](https://sapman-start-mrt.static.hf.space/index.html)
   - **Oracle Cloud ARM64 Origin**: `https://137.23.61.219.sslip.io` (`VM.Standard.A1.Flex` Always Free, Let's Encrypt TLS, HMAC origin authentication)
 
 ---

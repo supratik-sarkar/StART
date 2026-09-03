@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker Gateway for StART v4.5.
+ * Cloudflare Worker Gateway for StART v4.5.3.
  *
  * Directs:
  * - Static Assets -> Cloudflare Static Assets (zero worker executions for cached static files)
@@ -34,6 +34,16 @@ export default {
 
     // 1. Dynamic API routes: forward to Oracle backend with origin authentication
     if (url.pathname.startsWith("/api/")) {
+      const secret = env.START_ORIGIN_SECRET;
+      if (!secret || secret === "start-dev-origin-secret-local-only") {
+        if (env.ENVIRONMENT === "production") {
+          return new Response(
+            JSON.stringify({ success: false, error: "Production gateway origin secret unconfigured (Fail Closed)" }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       const originBase = env.ORACLE_ORIGIN_URL || "http://127.0.0.1:8000";
       const targetUrl = new URL(url.pathname + url.search, originBase);
 
@@ -46,8 +56,8 @@ export default {
       const bodyDigest = await sha256Hex(bodyBytes);
 
       const canonicalString = `${request.method.toUpperCase()}:${url.pathname}:${timestamp}:${nonce}:${bodyDigest}`;
-      const secret = env.START_ORIGIN_SECRET || "start-dev-origin-secret-local-only";
-      const signature = await hmacSha256Hex(secret, canonicalString);
+      const activeSecret = secret || "start-dev-origin-secret-local-only";
+      const signature = await hmacSha256Hex(activeSecret, canonicalString);
 
       const forwardHeaders = new Headers(request.headers);
       forwardHeaders.set("X-StART-Origin-Sig", signature);

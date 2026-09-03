@@ -26,16 +26,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Import the core with no dependencies present
-        run: |
-          cd src
-          python -c "import start
-from start.risk import RiskObject, synthesise_plan, stripe_ids
-from start.attestation import build_seal, verify_seal, attest_narrative_invariance
-from start.runtime_profile import profile_banner
-plan = synthesise_plan(stripe_id='credit', obj=RiskObject(object_id='X', kind='scorecard'))
-assert plan.plan_hash()
-assert len(stripe_ids()) >= 10
-print('stdlib core OK —', profile_banner())"
+        run: python scripts/verify_stdlib_core.py
       - name: Installer dry-run must work offline
         run: python scripts/bootstrap.py --dry-run --profile minimal
 

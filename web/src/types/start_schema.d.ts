@@ -157,6 +157,10 @@ export interface ZeroCostAttestation {
   provider?: string;
   resource_type?: string;
   tier_shape?: string;
+  oci_a1_ocpu?: number;
+  oci_a1_memory_gb?: number;
+  within_always_free_allowance?: "YES" | "NO";
+  expected_recurring_charge?: number;
   always_free_eligible?: boolean;
   recurring_monthly_charge_usd?: number;
   storage_tier?: string;

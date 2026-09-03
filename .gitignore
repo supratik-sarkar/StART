@@ -11,8 +11,9 @@ ENV/
 pyvenv.cfg
 bin/
 lib/
-lib64/
-Scripts/
+# Windows venv Scripts directory
+*/Scripts/
+!/scripts/
 Include/
 
 # ── Python ──────────────────────────────────────────────────────────────────

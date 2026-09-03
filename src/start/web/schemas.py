@@ -18,8 +18,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-START_SCHEMA_VERSION: str = "4.5.2"
-START_VERSION: str = "4.5.2"
+START_SCHEMA_VERSION: str = "4.5.3"
+START_VERSION: str = "4.5.3"
 
 
 # --------------------------------------------------------------------------- #
@@ -213,6 +213,10 @@ class ZeroCostAttestation(BaseModel):
     provider: str = "Oracle Cloud Infrastructure"
     resource_type: str = "Compute Instance"
     tier_shape: str = "VM.Standard.A1.Flex (2 OCPU / 12 GB RAM)"
+    oci_a1_ocpu: int = 2
+    oci_a1_memory_gb: int = 12
+    within_always_free_allowance: Literal["YES", "NO"] = "YES"
+    expected_recurring_charge: float = 0.0
     always_free_eligible: bool = True
     recurring_monthly_charge_usd: float = 0.0
     storage_tier: str = "Always Free Boot Volume (50 GB)"

@@ -27,7 +27,7 @@ def load_private_env_if_present() -> None:
     env_override = os.environ.get("START_ENV_FILE")
     candidate_paths = [
         Path(env_override) if env_override else None,
-        Path(__file__).resolve().parent.parent.parent.parent / "StART_Private_Runtime" / ".env",
+        Path.home() / ".start" / ".env",
     ]
     for p in candidate_paths:
         if p and p.is_file():

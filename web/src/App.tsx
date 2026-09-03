@@ -145,7 +145,7 @@ export function App() {
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-xs tracking-wider text-foreground">StART MRT</span>
-                <span className="text-[10px] font-mono text-muted-foreground">v4.5.0 Institutional</span>
+                <span className="text-[10px] font-mono text-muted-foreground">v4.5.3 Institutional</span>
               </div>
             </div>
             <span className="px-1.5 py-0.5 rounded bg-green-950/80 text-green-400 font-mono text-[9px] border border-green-800/80">

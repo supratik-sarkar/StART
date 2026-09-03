@@ -8,8 +8,7 @@ account_id = "ce0ed251afb1110fd68281f824baceea"
 directory = "../../web/dist"
 binding = "ASSETS"
 
-# Environment variables
+# Non-sensitive public environment variables
 [vars]
 ORACLE_ORIGIN_URL = "https://137.23.61.219.sslip.io"
-START_ORIGIN_SECRET = "start-v452-production-origin-hmac-secret-mumbai"
 ENVIRONMENT = "production"
