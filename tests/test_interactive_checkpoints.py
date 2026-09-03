@@ -28,8 +28,12 @@ def test_non_interactive_keeps_user_choice_not_silent():
 def test_interactive_accept():
     answers = iter(["A"])
     d = resolve_checkpoint(
-        "metric", "auc_roc", "pr_auc", "false negatives costly",
-        interactive=True, ask=lambda p: next(answers),
+        "metric",
+        "auc_roc",
+        "pr_auc",
+        "false negatives costly",
+        interactive=True,
+        ask=lambda p: next(answers),
     )
     assert d.choice == "accept"
     assert d.effective_value == "pr_auc"
@@ -38,8 +42,12 @@ def test_interactive_accept():
 def test_interactive_keep():
     answers = iter(["K"])
     d = resolve_checkpoint(
-        "metric", "auc_roc", "pr_auc", "reason",
-        interactive=True, ask=lambda p: next(answers),
+        "metric",
+        "auc_roc",
+        "pr_auc",
+        "reason",
+        interactive=True,
+        ask=lambda p: next(answers),
     )
     assert d.choice == "keep"
     assert d.effective_value == "auc_roc"
@@ -48,8 +56,12 @@ def test_interactive_keep():
 def test_interactive_empty_defaults_to_keep():
     answers = iter([""])
     d = resolve_checkpoint(
-        "split", "random", "stratified", "reason",
-        interactive=True, ask=lambda p: next(answers),
+        "split",
+        "random",
+        "stratified",
+        "reason",
+        interactive=True,
+        ask=lambda p: next(answers),
     )
     assert d.choice == "keep"
 
@@ -58,9 +70,14 @@ def test_interactive_explain_then_choose():
     answers = iter(["E", "A"])
     msgs = []
     d = resolve_checkpoint(
-        "architecture", "wide_deep", "mlp", "short reason",
+        "architecture",
+        "wide_deep",
+        "mlp",
+        "short reason",
         explanation="MLP lowers overfitting risk on small tabular data",
-        interactive=True, ask=lambda p: next(answers), emit=msgs.append,
+        interactive=True,
+        ask=lambda p: next(answers),
+        emit=msgs.append,
     )
     assert d.choice == "accept"
     assert any("overfitting" in m for m in msgs)
@@ -70,19 +87,32 @@ def test_interactive_invalid_then_valid():
     answers = iter(["x", "z", "K"])
     msgs = []
     d = resolve_checkpoint(
-        "metric", "auc_roc", "pr_auc", "reason",
-        interactive=True, ask=lambda p: next(answers), emit=msgs.append,
+        "metric",
+        "auc_roc",
+        "pr_auc",
+        "reason",
+        interactive=True,
+        ask=lambda p: next(answers),
+        emit=msgs.append,
     )
     assert d.choice == "keep"
     assert any("A, O, C" in m for m in msgs)
 
 
 def test_decision_to_dict():
-    d = resolve_checkpoint("architecture", "wide_deep", "mlp", "reason",
-                           evidence_id="ARCH-01", auto_accept=True)
+    d = resolve_checkpoint(
+        "architecture", "wide_deep", "mlp", "reason", evidence_id="ARCH-01", auto_accept=True
+    )
     out = d.to_dict()
-    for key in ("checkpoint", "user_value", "recommended_value", "reason",
-                "evidence_id", "choice", "effective_value"):
+    for key in (
+        "checkpoint",
+        "user_value",
+        "recommended_value",
+        "reason",
+        "evidence_id",
+        "choice",
+        "effective_value",
+    ):
         assert key in out
 
 

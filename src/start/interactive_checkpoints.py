@@ -34,7 +34,7 @@ def read_multiline_paste_normalized(prompt: str) -> str:
     first_line = sys.stdin.readline()
     if not first_line:
         return ""
-    
+
     lines = [first_line.strip()]
     try:
         if sys.stdin.isatty():
@@ -79,10 +79,13 @@ class CheckpointDecision:
         }
 
 
-
 def render_checkpoint(
-    name: str, user_value: str, recommended_value: str, reason: str,
-    evidence_id: str = "", extra: str = "",
+    name: str,
+    user_value: str,
+    recommended_value: str,
+    reason: str,
+    evidence_id: str = "",
+    extra: str = "",
 ) -> str:
     agree = user_value == recommended_value
     lines = [
@@ -163,15 +166,25 @@ def resolve_checkpoint(
 
     if auto_accept:
         return CheckpointDecision(
-            name, user_value, recommended_value, reason, evidence_id,
-            choice="auto_accept", effective_value=recommended_value,
+            name,
+            user_value,
+            recommended_value,
+            reason,
+            evidence_id,
+            choice="auto_accept",
+            effective_value=recommended_value,
         )
 
     if not interactive:
         # Non-interactive default keeps the user's explicit choice; visible, not silent.
         return CheckpointDecision(
-            name, user_value, recommended_value, reason, evidence_id,
-            choice="non_interactive_keep", effective_value=user_value,
+            name,
+            user_value,
+            recommended_value,
+            reason,
+            evidence_id,
+            choice="non_interactive_keep",
+            effective_value=user_value,
         )
 
     checkpoint_agent_map = {
@@ -186,6 +199,7 @@ def resolve_checkpoint(
             from rich.console import Console
 
             from start.cli.view import get_styled_agent_name
+
             c = Console()
             c.print(f"[{name}] Accept (A) / Override (O) / Challenge (C)", end="")
             if on_ask:
@@ -195,10 +209,9 @@ def resolve_checkpoint(
             answer_raw = read_multiline_paste_normalized("")
         else:
             from start.cli.view import get_ansi_agent_name
+
             ask_hint = f" / [Q] ask {get_ansi_agent_name(current_agent)}" if on_ask else ""
-            answer_raw = ask(
-                f"[{name}] Accept (A) / Override (O) / Challenge (C){ask_hint}? "
-            )
+            answer_raw = ask(f"[{name}] Accept (A) / Override (O) / Challenge (C){ask_hint}? ")
 
         stripped = (answer_raw or "").strip()
         answer = stripped.lower()
@@ -303,9 +316,11 @@ def resolve_checkpoint(
             rev_rationale = (rev_rationale or "").strip()
             if not new_val:
                 new_val = user_value
-            is_noop = (new_val == recommended_value)
+            is_noop = new_val == recommended_value
             if not rev_rationale:
-                rev_rationale = "Accepted agent recommendation" if is_noop else f"Reviewer overridden to {new_val}"
+                rev_rationale = (
+                    "Accepted agent recommendation" if is_noop else f"Reviewer overridden to {new_val}"
+                )
             return CheckpointDecision(
                 name,
                 user_value=new_val,
@@ -318,7 +333,7 @@ def resolve_checkpoint(
                 agent_rationale=reason,
             )
         if answer in ("k", "keep", ""):
-            is_noop = (user_value == recommended_value)
+            is_noop = user_value == recommended_value
             return CheckpointDecision(
                 name,
                 user_value=user_value,
@@ -338,4 +353,3 @@ def resolve_checkpoint(
             continue
 
         say(f"    Please answer A, O, C{', or Q to ask' if on_ask else ''}.")
-

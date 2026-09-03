@@ -44,10 +44,16 @@ from start.registry import register_test
 from start.registry.market_contexts import canonical_frame_bytes
 
 __all__ = [
-    "empirical", "ledoit_wolf_shrinkage", "regularized_em",
-    "run_regularized_em", "RegEMResult",
-    "PSD_EIGENVALUE_FLOOR", "REGEM_DEFAULT_RIDGE", "REGEM_DEFAULT_TOL",
-    "REGEM_DEFAULT_MAX_ITER", "REGEM_DDOF",
+    "empirical",
+    "ledoit_wolf_shrinkage",
+    "regularized_em",
+    "run_regularized_em",
+    "RegEMResult",
+    "PSD_EIGENVALUE_FLOOR",
+    "REGEM_DEFAULT_RIDGE",
+    "REGEM_DEFAULT_TOL",
+    "REGEM_DEFAULT_MAX_ITER",
+    "REGEM_DDOF",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -71,14 +77,22 @@ _OBJECTS = ("deterministic_calculator", "statistical_model")
 
 
 def _skip(test_id: str, name: str, reason: str, **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.SKIPPED,
-                      params=params, interpretation=reason)
+    return TestResult(
+        test_id=test_id, test_name=name, status=Status.SKIPPED, params=params, interpretation=reason
+    )
 
 
-def _error(test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None,
-           **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.ERROR,
-                      params=params, metrics=metrics or {}, interpretation=reason)
+def _error(
+    test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None, **params: Any
+) -> TestResult:
+    return TestResult(
+        test_id=test_id,
+        test_name=name,
+        status=Status.ERROR,
+        params=params,
+        metrics=metrics or {},
+        interpretation=reason,
+    )
 
 
 def _conditioning(matrix: np.ndarray) -> dict[str, Any]:
@@ -133,10 +147,13 @@ def empirical(ctx: Any, ddof: int = 1, missing_policy: str = "complete_case") ->
     output — which is why it is refused here rather than offered as a convenience.
     """
     if missing_policy != "complete_case":
-        return _error("covariance.empirical", "Empirical covariance",
-                      f"missing_policy={missing_policy!r} is not supported. Only "
-                      "'complete_case' is available; for genuinely incomplete data use "
-                      "covariance.regularized_em, which is built for it.")
+        return _error(
+            "covariance.empirical",
+            "Empirical covariance",
+            f"missing_policy={missing_policy!r} is not supported. Only "
+            "'complete_case' is available; for genuinely incomplete data use "
+            "covariance.regularized_em, which is built for it.",
+        )
 
     returns, reason = _returns_or_reason(ctx)
     if returns is None:
@@ -146,9 +163,13 @@ def empirical(ctx: Any, ddof: int = 1, missing_policy: str = "complete_case") ->
     complete = returns.dropna()
     n_complete = int(complete.shape[0])
     if n_complete < ddof + 2:
-        return _skip("covariance.empirical", "Empirical covariance",
-                     f"{n_complete} complete row(s) after dropping incomplete "
-                     f"observations; at least {ddof + 2} required", ddof=ddof)
+        return _skip(
+            "covariance.empirical",
+            "Empirical covariance",
+            f"{n_complete} complete row(s) after dropping incomplete "
+            f"observations; at least {ddof + 2} required",
+            ddof=ddof,
+        )
 
     matrix = complete.cov(ddof=ddof)
     values = matrix.to_numpy(dtype=float)
@@ -161,22 +182,22 @@ def empirical(ctx: Any, ddof: int = 1, missing_policy: str = "complete_case") ->
         "missing_fraction": round((n_rows - n_complete) / n_rows, 10) if n_rows > 0 else 0.0,
         "missing_policy": "complete_case",
         "ddof": ddof,
-        "estimand": "sample covariance (denominator n-1)" if ddof == 1
-                    else f"covariance with ddof={ddof}",
+        "estimand": "sample covariance (denominator n-1)" if ddof == 1 else f"covariance with ddof={ddof}",
         "covariance_hash": _matrix_hash(matrix),
         **_conditioning(values),
     }
     metrics["mean_variance"] = round(float(np.mean(np.diag(values))), 15)
 
     result = TestResult(
-        test_id="covariance.empirical", test_name="Empirical covariance",
-        params={"ddof": ddof, "missing_policy": missing_policy}, metrics=metrics,
+        test_id="covariance.empirical",
+        test_name="Empirical covariance",
+        params={"ddof": ddof, "missing_policy": missing_policy},
+        metrics=metrics,
         thresholds=[ThresholdSpec(metric="condition_number", warn=1e4, fail=1e8)],
         interpretation=(
             f"{matrix.shape[0]}x{matrix.shape[0]} sample covariance from {n_complete:,} "
             f"complete observation(s)"
-            + (f" ({n_rows - n_complete} incomplete row(s) dropped)"
-               if n_rows != n_complete else "")
+            + (f" ({n_rows - n_complete} incomplete row(s) dropped)" if n_rows != n_complete else "")
             + f"; condition number {metrics['condition_number']:.4g}."
         ),
         limitations=[
@@ -218,21 +239,23 @@ def ledoit_wolf_shrinkage(ctx: Any) -> TestResult:
     """
     returns, reason = _returns_or_reason(ctx)
     if returns is None:
-        return _skip("covariance.ledoit_wolf_shrinkage",
-                     "Ledoit-Wolf shrinkage covariance", reason)
+        return _skip("covariance.ledoit_wolf_shrinkage", "Ledoit-Wolf shrinkage covariance", reason)
 
     if returns.isna().to_numpy().any():
         return _skip(
-            "covariance.ledoit_wolf_shrinkage", "Ledoit-Wolf shrinkage covariance",
+            "covariance.ledoit_wolf_shrinkage",
+            "Ledoit-Wolf shrinkage covariance",
             f"{int(returns.isna().to_numpy().sum())} missing value(s) present. No "
             "imputation is applied here, because an undocumented fill would change the "
             "estimand while the output still said Ledoit-Wolf. Use "
             "covariance.regularized_em, or supply complete data.",
         )
     if returns.shape[0] < 3:
-        return _skip("covariance.ledoit_wolf_shrinkage",
-                     "Ledoit-Wolf shrinkage covariance",
-                     f"{returns.shape[0]} observation(s); at least 3 required")
+        return _skip(
+            "covariance.ledoit_wolf_shrinkage",
+            "Ledoit-Wolf shrinkage covariance",
+            f"{returns.shape[0]} observation(s); at least 3 required",
+        )
 
     from sklearn.covariance import LedoitWolf
 
@@ -240,9 +263,11 @@ def ledoit_wolf_shrinkage(ctx: Any) -> TestResult:
     try:
         fitted = LedoitWolf().fit(data)
     except Exception as exc:
-        return _error("covariance.ledoit_wolf_shrinkage",
-                      "Ledoit-Wolf shrinkage covariance",
-                      f"{type(exc).__name__}: {exc}")
+        return _error(
+            "covariance.ledoit_wolf_shrinkage",
+            "Ledoit-Wolf shrinkage covariance",
+            f"{type(exc).__name__}: {exc}",
+        )
 
     shrunk = pd.DataFrame(fitted.covariance_, index=returns.columns, columns=returns.columns)
     sample = returns.cov(ddof=1)
@@ -271,7 +296,8 @@ def ledoit_wolf_shrinkage(ctx: Any) -> TestResult:
         test_id="covariance.ledoit_wolf_shrinkage",
         test_name="Ledoit-Wolf shrinkage covariance",
         status=Status.RECORDED if after["is_psd"] else Status.FAIL,
-        params={}, metrics=metrics,
+        params={},
+        metrics=metrics,
         interpretation=(
             f"Shrinkage intensity {fitted.shrinkage_:.4f}; condition number moved "
             f"{before['condition_number']:.4g} -> {after['condition_number']:.4g} over "
@@ -283,8 +309,7 @@ def ledoit_wolf_shrinkage(ctx: Any) -> TestResult:
             "sample estimate may be preferable, and this test makes no claim either way.",
             "The shrinkage target is the scaled identity used by sklearn's LedoitWolf; "
             "a different target would give a different estimate.",
-            "Missing values are refused rather than imputed, so the estimand stays what "
-            "the name says it is.",
+            "Missing values are refused rather than imputed, so the estimand stays what the name says it is.",
             "Determinism: numerical.",
         ],
     )
@@ -409,7 +434,7 @@ def run_regularized_em(
             scatter += filled.T @ filled + extra
 
         new_mu = total_mean / n
-        new_sigma = scatter / n - np.outer(new_mu, new_mu)      # ML convention
+        new_sigma = scatter / n - np.outer(new_mu, new_mu)  # ML convention
         new_sigma = (new_sigma + new_sigma.T) / 2.0
         new_sigma += np.eye(p) * ridge
 
@@ -432,11 +457,18 @@ def run_regularized_em(
             break
 
     return RegEMResult(
-        mean=mu, covariance=sigma, n_iterations=n_iterations, converged=converged,
+        mean=mu,
+        covariance=sigma,
+        n_iterations=n_iterations,
+        converged=converged,
         final_change=history[-1] if history else float("nan"),
-        n_eigenvalue_clips=clips, min_eigenvalue_before_clip=min_before,
-        min_eigenvalue_after_clip=min_after, ridge_used=ridge,
-        n_patterns=len(patterns), n_pseudoinverse_fallbacks=fallbacks, history=history,
+        n_eigenvalue_clips=clips,
+        min_eigenvalue_before_clip=min_before,
+        min_eigenvalue_after_clip=min_after,
+        ridge_used=ridge,
+        n_patterns=len(patterns),
+        n_pseudoinverse_fallbacks=fallbacks,
+        history=history,
     )
 
 
@@ -446,7 +478,8 @@ def run_regularized_em(
     name="Regularized EM covariance",
     requires=("returns",),
     default_params={
-        "ridge": REGEM_DEFAULT_RIDGE, "tol": REGEM_DEFAULT_TOL,
+        "ridge": REGEM_DEFAULT_RIDGE,
+        "tol": REGEM_DEFAULT_TOL,
         "max_iterations": REGEM_DEFAULT_MAX_ITER,
     },
     context_type="market",
@@ -466,11 +499,13 @@ def regularized_em(
     """
     returns, reason = _returns_or_reason(ctx)
     if returns is None:
-        return _skip("covariance.regularized_em", "Regularized EM covariance", reason,
-                     ridge=ridge)
+        return _skip("covariance.regularized_em", "Regularized EM covariance", reason, ridge=ridge)
     if ridge < 0:
-        return _error("covariance.regularized_em", "Regularized EM covariance",
-                      f"ridge must be non-negative; got {ridge!r}")
+        return _error(
+            "covariance.regularized_em",
+            "Regularized EM covariance",
+            f"ridge must be non-negative; got {ridge!r}",
+        )
 
     data = returns.to_numpy(dtype=float)
     n_missing = int(np.isnan(data).sum())
@@ -479,8 +514,7 @@ def regularized_em(
     try:
         outcome = run_regularized_em(data, ridge=ridge, tol=tol, max_iter=max_iterations)
     except ValueError as exc:
-        return _error("covariance.regularized_em", "Regularized EM covariance", str(exc),
-                      ridge=ridge)
+        return _error("covariance.regularized_em", "Regularized EM covariance", str(exc), ridge=ridge)
 
     matrix = pd.DataFrame(outcome.covariance, index=returns.columns, columns=returns.columns)
     conditioning = _conditioning(outcome.covariance)
@@ -495,8 +529,7 @@ def regularized_em(
         "max_column_missing_fraction": round(float(per_column.max()), 10),
         "n_complete_rows": int((~np.isnan(data)).all(axis=1).sum()),
         "n_missingness_patterns": outcome.n_patterns,
-        "initialisation": "deterministic: observed column means, available-case "
-                          "covariance, ridge-stabilised",
+        "initialisation": "deterministic: observed column means, available-case covariance, ridge-stabilised",
         "estimand_convention": "ML covariance, denominator n (ddof=0)",
         "ddof": 0,
         "ridge_used": outcome.ridge_used,
@@ -519,14 +552,19 @@ def regularized_em(
         # A non-converged result reported green would be a covariance nobody should use,
         # wearing an ordinary status.
         return _error(
-            "covariance.regularized_em", "Regularized EM covariance",
+            "covariance.regularized_em",
+            "Regularized EM covariance",
             f"EM did not converge in {max_iterations} iteration(s); final relative "
             f"change {outcome.final_change:.3g} against tolerance {tol:g}",
-            metrics=metrics, ridge=ridge, tol=tol, max_iterations=max_iterations,
+            metrics=metrics,
+            ridge=ridge,
+            tol=tol,
+            max_iterations=max_iterations,
         )
 
     return TestResult(
-        test_id="covariance.regularized_em", test_name="Regularized EM covariance",
+        test_id="covariance.regularized_em",
+        test_name="Regularized EM covariance",
         status=Status.RECORDED if conditioning["is_psd"] else Status.FAIL,
         params={"ridge": ridge, "tol": tol, "max_iterations": max_iterations},
         metrics=metrics,

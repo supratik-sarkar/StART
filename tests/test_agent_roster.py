@@ -11,10 +11,16 @@ from start.agent_roster import (
 
 def test_roster_has_all_committee_agents():
     names = {r.name for r in AGENT_ROSTER}
-    for expected in ("DatasetDiscoveryAgent", "FeatureEngineeringAgent",
-                     "ArchitectureReviewAgent", "HyperparameterTuningAgent",
-                     "ModelExecutionAgent", "ValidationAgent",
-                     "GovernanceSignoffAgent", "EvidenceCriticAgent"):
+    for expected in (
+        "DatasetDiscoveryAgent",
+        "FeatureEngineeringAgent",
+        "ArchitectureReviewAgent",
+        "HyperparameterTuningAgent",
+        "ModelExecutionAgent",
+        "ValidationAgent",
+        "GovernanceSignoffAgent",
+        "EvidenceCriticAgent",
+    ):
         assert expected in names
 
 
@@ -31,13 +37,17 @@ def test_roster_as_list_shape():
 
 
 def test_adapter_panel_marks_available_and_absent():
-    cs = [{"adapter": "OPA", "status": "complete", "purpose": "gov"},
-          {"adapter": "Moonshot", "status": "not_installed", "purpose": "excluded"}]
+    cs = [
+        {"adapter": "OPA", "status": "complete", "purpose": "gov"},
+        {"adapter": "Moonshot", "status": "not_installed", "purpose": "excluded"},
+    ]
     out = render_adapter_panel(cs)
     assert "[+] OPA" in out
     assert "[-] Moonshot" in out
 
 
 def test_announce_adapter_activity_format():
-    assert announce_adapter_activity("DeepEval", "Running hallucination evaluation") == \
-        "[DeepEval] Running hallucination evaluation…"
+    assert (
+        announce_adapter_activity("DeepEval", "Running hallucination evaluation")
+        == "[DeepEval] Running hallucination evaluation…"
+    )

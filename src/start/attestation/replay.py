@@ -100,8 +100,7 @@ class ChainVerdict:
         if self.intact:
             return f"ledger intact: {self.entries} entries, head {self.head[:16]}…"
         return (
-            f"ledger DIVERGENT at entry {self.first_divergence_index} "
-            f"({self.divergence_kind}): {self.detail}"
+            f"ledger DIVERGENT at entry {self.first_divergence_index} ({self.divergence_kind}): {self.detail}"
         )
 
 
@@ -150,8 +149,9 @@ def replay_ledger(path: str | Path) -> ChainVerdict:
                     record_hashes=tuple(record_hashes),
                 )
 
-            missing = [k for k in ("index", "prev_hash", "record_hash", "entry_hash", "record")
-                       if k not in entry]
+            missing = [
+                k for k in ("index", "prev_hash", "record_hash", "entry_hash", "record") if k not in entry
+            ]
             if missing:
                 return ChainVerdict(
                     path=str(ledger_path),

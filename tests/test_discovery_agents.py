@@ -92,9 +92,7 @@ def test_task_inference_forecasting_with_timestamp():
 
 
 def test_task_inference_multilabel_and_override():
-    df = pd.DataFrame(
-        {"x": range(40), "a": [0, 1] * 20, "b": [1, 0] * 20}
-    )
+    df = pd.DataFrame({"x": range(40), "a": [0, 1] * 20, "b": [1, 0] * 20})
     multi = TaskInferenceAgent().infer(df, ["a", "b"])
     assert multi.task_type == "multilabel_classification"
     assert multi.target_type == "multi_output"

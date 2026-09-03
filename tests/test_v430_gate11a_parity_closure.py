@@ -127,6 +127,7 @@ def make_cross_domain_bundle() -> ReviewContextBundle:
 # 1. Execution Products Container & Single Source of Truth
 # ==============================================================================
 
+
 def test_execution_products_contract_and_single_source_of_truth():
     """Verify ExecutionProduct and ReviewExecutionProducts typed container contract."""
     products = ReviewExecutionProducts()
@@ -170,6 +171,7 @@ def test_execution_products_contract_and_single_source_of_truth():
 # 2. Zero Scientific Recomputation Spies
 # ==============================================================================
 
+
 def test_zero_scientific_recomputation_during_rendering_and_viewing():
     """Prove with spy counters that table rendering, artifact generation, and [V] browsing execute ZERO models."""
     from start.portfolio.scenario import apply_asset_return_scenario, solve_reverse_stress
@@ -199,9 +201,13 @@ def test_zero_scientific_recomputation_during_rendering_and_viewing():
 
     # Spies on expensive scientific engines across the WHOLE lifecycle
     with (
-        patch("start.portfolio.scenario.apply_asset_return_scenario", wraps=apply_asset_return_scenario) as spy_scen,
+        patch(
+            "start.portfolio.scenario.apply_asset_return_scenario", wraps=apply_asset_return_scenario
+        ) as spy_scen,
         patch("start.portfolio.scenario.solve_reverse_stress", wraps=solve_reverse_stress) as spy_rev,
-        patch("start.portfolio.tail_risk.run_comprehensive_tail_backtest", wraps=run_comprehensive_tail_backtest) as spy_bt,
+        patch(
+            "start.portfolio.tail_risk.run_comprehensive_tail_backtest", wraps=run_comprehensive_tail_backtest
+        ) as spy_bt,
         patch.object(pd.DataFrame, "cov", wraps=market.returns.cov) as spy_cov,
     ):
         # 1. Deterministic Review Execution: engines execute exactly once
@@ -241,7 +247,9 @@ def test_zero_scientific_recomputation_during_rendering_and_viewing():
             art_map = generate_review_artifacts(bundle, records, Path(tmpdir), products=products)
 
             assert spy_scen.call_count == exec_scen_count, "Scenario recomputed during artifact generation!"
-            assert spy_rev.call_count == exec_rev_count, "Reverse stress recomputed during artifact generation!"
+            assert spy_rev.call_count == exec_rev_count, (
+                "Reverse stress recomputed during artifact generation!"
+            )
             assert spy_bt.call_count == exec_bt_count, "Backtest recomputed during artifact generation!"
             assert spy_cov.call_count == exec_cov_count, "cov() recomputed during artifact generation!"
 
@@ -269,7 +277,9 @@ def test_zero_scientific_recomputation_during_rendering_and_viewing():
                     assert spec is not None, f"Artifact in {checkpoint_title} missing spec"
                     assert len(spec.evidence_ids) > 0, f"Artifact {art.artifact_id} has empty evidence_ids"
                     for ev_id in spec.evidence_ids:
-                        assert ev_id in rec_ids_set, f"Artifact {art.artifact_id} references unknown ID {ev_id}"
+                        assert ev_id in rec_ids_set, (
+                            f"Artifact {art.artifact_id} references unknown ID {ev_id}"
+                        )
                     assert art.data_fingerprint is not None and len(art.data_fingerprint) > 0
 
             # Verify specific evidence linkage
@@ -285,6 +295,7 @@ def test_zero_scientific_recomputation_during_rendering_and_viewing():
 # ==============================================================================
 # 3. Preflight Tables Describe Inputs Only
 # ==============================================================================
+
 
 def test_preflight_data_summary_table_descriptive_only():
     """Verify that build_preflight_data_summary_table strictly describes inputs with zero analytical modeling."""
@@ -305,6 +316,7 @@ def test_preflight_data_summary_table_descriptive_only():
 # 4. Challenge Non-Mutating Diagnostics
 # ==============================================================================
 
+
 def test_challenge_non_mutating_diagnostics():
     """Verify [C] challenge invokes only non-mutating diagnostics and does not repair PSD covariance."""
     world = generate_market_world(n_assets=3, n_periods=50, seed=42)
@@ -314,7 +326,9 @@ def test_challenge_non_mutating_diagnostics():
     records = [
         make_evidence_record("covariance.empirical", "EV-COV-1", metrics={"condition_number": 12.5}),
         make_evidence_record("scenario.linear_return", "EV-SCEN-1", metrics={"portfolio_loss": 0.05}),
-        make_evidence_record("portfolio.risk_statistics", "EV-PORT-1", metrics={"annualised_volatility": 0.10}),
+        make_evidence_record(
+            "portfolio.risk_statistics", "EV-PORT-1", metrics={"annualised_volatility": 0.10}
+        ),
     ]
 
     # Script:
@@ -324,10 +338,14 @@ def test_challenge_non_mutating_diagnostics():
     # Checkpoint 4 (Covariance): Challenge, then Accept
     # Remaining checkpoints: Accept
     scripted = [
-        "C", "Challenge portfolio", "A",  # Checkpoint 1: Portfolio
-        "A",                              # Checkpoint 2: Factor Modeling
-        "A",                              # Checkpoint 3: VaR Backtesting
-        "C", "Challenge covariance", "A", # Checkpoint 4: Covariance Structure
+        "C",
+        "Challenge portfolio",
+        "A",  # Checkpoint 1: Portfolio
+        "A",  # Checkpoint 2: Factor Modeling
+        "A",  # Checkpoint 3: VaR Backtesting
+        "C",
+        "Challenge covariance",
+        "A",  # Checkpoint 4: Covariance Structure
     ] + ["A"] * 20
     iter_in = iter(scripted)
 
@@ -352,6 +370,7 @@ def test_challenge_non_mutating_diagnostics():
 # ==============================================================================
 # 5. Strict Table Lineage & Zero Hard-Coded Floats
 # ==============================================================================
+
 
 def test_strict_table_lineage_and_dynamic_formatting():
     """Prove rendered table metrics dynamically update from EvidenceRecords without hardcoded constants."""
@@ -406,6 +425,7 @@ def test_strict_table_lineage_and_dynamic_formatting():
 # 6. Treasury Full Interactive Journey
 # ==============================================================================
 
+
 def test_treasury_full_interactive_journey():
     """Verify noninteractive end-to-end Treasury review preserving CEV=FAIL and Stanton=FAIL."""
     rates = pd.Series(np.linspace(0.01, 0.05, 252))
@@ -416,7 +436,9 @@ def test_treasury_full_interactive_journey():
     iter_in = iter(scripted)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        res = run_unified_review(bundle, output_root=tmpdir, interactive=True, ask=lambda _: next(iter_in, "A"))
+        res = run_unified_review(
+            bundle, output_root=tmpdir, interactive=True, ask=lambda _: next(iter_in, "A")
+        )
 
         records = res["records"]
         test_ids = {r.test_id for r in records}
@@ -441,6 +463,7 @@ def test_treasury_full_interactive_journey():
 # ==============================================================================
 # 7. Cross-Domain Market & Treasury End-to-End Execution
 # ==============================================================================
+
 
 def test_cross_domain_market_treasury_end_to_end():
     """Verify real multi-domain execution preserving negative Treasury evidence alongside Market findings."""
@@ -473,7 +496,9 @@ def test_cross_domain_market_treasury_end_to_end():
     iter_in = iter(scripted)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        res = run_unified_review(bundle, output_root=tmpdir, interactive=True, ask=lambda _: next(iter_in, "A"))
+        res = run_unified_review(
+            bundle, output_root=tmpdir, interactive=True, ask=lambda _: next(iter_in, "A")
+        )
 
         records = res["records"]
         # Census check
@@ -487,6 +512,7 @@ def test_cross_domain_market_treasury_end_to_end():
 # ==============================================================================
 # 8. Predictive ML & Deep Learning Unified Shell Parity
 # ==============================================================================
+
 
 def test_predictive_ml_unified_shell_parity(tmp_path):
     """Verify predictive domain review through the unified shell with real deterministic execution."""
@@ -640,6 +666,7 @@ def test_deep_learning_unified_shell_parity(tmp_path):
 # 9. Global Q / C / V / A / O Contract Across Domains
 # ==============================================================================
 
+
 @pytest.mark.parametrize(
     "domain_key",
     ["predictive", "deep_learning", "market", "treasury", "market_treasury"],
@@ -699,11 +726,14 @@ def test_global_q_c_v_a_o_contract_across_domains(domain_key, tmp_path):
         ]
 
     scripted = [
-        "V",                   # View checkpoint artifacts (non-terminal)
-        "VA",                  # View all run artifacts (non-terminal)
-        "Q", "Query agents",   # Question (non-terminal)
-        "C", "Challenge spec", # Challenge (non-terminal)
-        "O", "Override note",  # Override (terminal: advances)
+        "V",  # View checkpoint artifacts (non-terminal)
+        "VA",  # View all run artifacts (non-terminal)
+        "Q",
+        "Query agents",  # Question (non-terminal)
+        "C",
+        "Challenge spec",  # Challenge (non-terminal)
+        "O",
+        "Override note",  # Override (terminal: advances)
     ] + ["A"] * 30
 
     iter_in = iter(scripted)
@@ -724,6 +754,7 @@ def test_global_q_c_v_a_o_contract_across_domains(domain_key, tmp_path):
 # ==============================================================================
 # 10. Execution Plan Reconciliation
 # ==============================================================================
+
 
 def test_execution_plan_reconciliation():
     """Verify reconcile_execution method correctly tracks planned vs executed tests and artifacts."""
@@ -752,12 +783,16 @@ def test_execution_plan_reconciliation():
 # 11. Historical Git Tree Safety
 # ==============================================================================
 
+
 def test_historical_git_tree_safety_and_cleanliness():
     """Verify historical reference Git tree is strictly clean and unmodified."""
     ref_env = os.environ.get("START_REFERENCE_TREE")
-    hist_path = Path(ref_env) if ref_env else (Path(__file__).resolve().parent.parent.parent / "My_Git" / "StART")
+    hist_path = (
+        Path(ref_env) if ref_env else (Path(__file__).resolve().parent.parent.parent / "My_Git" / "StART")
+    )
     if not hist_path.exists():
         import pytest
+
         pytest.skip("Reference Git tree not present at standard path.")
 
     # Run git status in historical repo

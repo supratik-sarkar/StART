@@ -139,7 +139,10 @@ def test_deterministic_governance_disposition_evaluation():
     ]
 
     # Treasury domain always requires conditions due to pre-registered studies
-    assert evaluate_deterministic_governance_disposition(bundle_treasury, clean_records, []) == "ACCEPT_WITH_CONDITIONS"
+    assert (
+        evaluate_deterministic_governance_disposition(bundle_treasury, clean_records, [])
+        == "ACCEPT_WITH_CONDITIONS"
+    )
 
     # Market domain with clean records -> ACCEPT
     assert evaluate_deterministic_governance_disposition(bundle_market, clean_records, []) == "ACCEPT"
@@ -157,11 +160,17 @@ def test_deterministic_governance_disposition_evaluation():
             metrics={"observed.size": 0.15},
         )
     ]
-    assert evaluate_deterministic_governance_disposition(bundle_market, failed_records, []) == "ACCEPT_WITH_CONDITIONS"
+    assert (
+        evaluate_deterministic_governance_disposition(bundle_market, failed_records, [])
+        == "ACCEPT_WITH_CONDITIONS"
+    )
 
     # Market domain with unresolved challenge decision -> ACCEPT_WITH_CONDITIONS
     decisions = [{"action": "challenge", "details": "Unresolved diagnostic issue"}]
-    assert evaluate_deterministic_governance_disposition(bundle_market, clean_records, decisions) == "ACCEPT_WITH_CONDITIONS"
+    assert (
+        evaluate_deterministic_governance_disposition(bundle_market, clean_records, decisions)
+        == "ACCEPT_WITH_CONDITIONS"
+    )
 
 
 def test_presentation_model_export():

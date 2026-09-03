@@ -99,7 +99,9 @@ def profile_dataset(
         has_timestamp=has_ts,
         has_entity=has_entity,
         n_entities=int(df[entity_id_column].nunique()) if has_entity else None,
-        target_type=_infer_target_type(df[target_column]) if target_column in df.columns else "unknown"
+        target_type=_infer_target_type(df[target_column])
+        if target_column in df.columns
+        else "unknown"
         if target_column
         else "unknown",
     )

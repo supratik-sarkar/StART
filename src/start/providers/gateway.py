@@ -178,9 +178,7 @@ class OpenAICompatibleGatewayProvider(LLMProvider):
             self.last_output_tokens = getattr(usage, "completion_tokens", 0)
         return resp.choices[0].message.content or ""
 
-    def generate(
-        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
-    ) -> str:
+    def generate(self, prompt: str, *, system: str | None = None, metadata: dict | None = None) -> str:
         meta = metadata or {}
         budget = int(meta.get("output_token_budget", meta.get("max_tokens", 1024)))
         return self.complete(system or "", prompt, output_token_budget=budget)
@@ -218,23 +216,17 @@ class PluginGatewayProvider(LLMProvider):
     def complete(self, system: str, user: str, *, output_token_budget: int = 1024) -> str:
         impl = self._get()
         if impl is None:
-            raise GatewayConfigurationError(
-                f"Gateway '{self.name}' could not be loaded: {self._load_error}"
-            )
+            raise GatewayConfigurationError(f"Gateway '{self.name}' could not be loaded: {self._load_error}")
         return impl.generate(
             user,
             system=system,
             metadata={"output_token_budget": output_token_budget, "max_tokens": output_token_budget},
         )
 
-    def generate(
-        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
-    ) -> str:
+    def generate(self, prompt: str, *, system: str | None = None, metadata: dict | None = None) -> str:
         impl = self._get()
         if impl is None:
-            raise GatewayConfigurationError(
-                f"Gateway '{self.name}' could not be loaded: {self._load_error}"
-            )
+            raise GatewayConfigurationError(f"Gateway '{self.name}' could not be loaded: {self._load_error}")
         return impl.generate(prompt, system=system, metadata=metadata)
 
 

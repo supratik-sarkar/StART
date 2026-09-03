@@ -41,14 +41,26 @@ from start.core.schemas import Status, TestResult, ThresholdSpec
 from start.registry import register_test
 
 __all__ = [
-    "historical_returns", "risk_statistics", "covariance_conditioning",
-    "mean_variance", "hierarchical_risk_parity",
-    "black_litterman", "cvar_optimization", "herc",
-    "maximum_diversification", "constrained_optimization",
-    "MAX_SHARPE_CONTRACT", "EWMA_DECAY_DEFAULT", "CONSTRAINT_TOLERANCE",
-    "DEGENERATE_SCALE_TOLERANCE", "DEGENERATE_VARIANCE_RELATIVE",
-    "portfolio_wealth", "annualised_geometric_return", "max_drawdown",
-    "hrp_weights", "solve_min_variance",
+    "historical_returns",
+    "risk_statistics",
+    "covariance_conditioning",
+    "mean_variance",
+    "hierarchical_risk_parity",
+    "black_litterman",
+    "cvar_optimization",
+    "herc",
+    "maximum_diversification",
+    "constrained_optimization",
+    "MAX_SHARPE_CONTRACT",
+    "EWMA_DECAY_DEFAULT",
+    "CONSTRAINT_TOLERANCE",
+    "DEGENERATE_SCALE_TOLERANCE",
+    "DEGENERATE_VARIANCE_RELATIVE",
+    "portfolio_wealth",
+    "annualised_geometric_return",
+    "max_drawdown",
+    "hrp_weights",
+    "solve_min_variance",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -110,14 +122,22 @@ _OBJECTS = ("deterministic_calculator", "statistical_model")
 # Shared helpers
 # --------------------------------------------------------------------------- #
 def _skip(test_id: str, name: str, reason: str, **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.SKIPPED,
-                      params=params, interpretation=reason)
+    return TestResult(
+        test_id=test_id, test_name=name, status=Status.SKIPPED, params=params, interpretation=reason
+    )
 
 
-def _error(test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None,
-           **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.ERROR,
-                      params=params, metrics=metrics or {}, interpretation=reason)
+def _error(
+    test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None, **params: Any
+) -> TestResult:
+    return TestResult(
+        test_id=test_id,
+        test_name=name,
+        status=Status.ERROR,
+        params=params,
+        metrics=metrics or {},
+        interpretation=reason,
+    )
 
 
 def _portfolio_returns(ctx: Any) -> tuple[pd.Series | None, str]:
@@ -287,8 +307,11 @@ def risk_statistics(
     if series is None:
         return _skip("portfolio.risk_statistics", "Portfolio risk statistics", reason)
     if series.size < 2:
-        return _skip("portfolio.risk_statistics", "Portfolio risk statistics",
-                     f"{series.size} observation(s); at least 2 required")
+        return _skip(
+            "portfolio.risk_statistics",
+            "Portfolio risk statistics",
+            f"{series.size} observation(s); at least 2 required",
+        )
 
     basis = ctx.return_basis
     ppy = float(ctx.periods_per_year)
@@ -304,8 +327,7 @@ def risk_statistics(
         **rf_record,
     }
     limitations = [
-        f"Returns are on a {basis} basis; wealth is built with the matching "
-        "compounding rule.",
+        f"Returns are on a {basis} basis; wealth is built with the matching compounding rule.",
         "Annualised volatility uses sqrt-of-time scaling, which assumes iid returns. "
         "Under autocorrelation it is biased with no visible symptom.",
         "Sharpe and Sortino are computed from PERIODIC EXCESS returns. A geometric "
@@ -321,9 +343,7 @@ def risk_statistics(
         metrics["sharpe_ratio"] = None
         metrics["sharpe_undefined_reason"] = "zero excess-return standard deviation"
     else:
-        metrics["sharpe_ratio"] = round(
-            float(excess.mean()) / excess_sd * math.sqrt(ppy), 10
-        )
+        metrics["sharpe_ratio"] = round(float(excess.mean()) / excess_sd * math.sqrt(ppy), 10)
 
     mar_periodic = mar / ppy if abs(mar) > 1e-12 else 0.0
     target_relative = series - mar_periodic
@@ -332,18 +352,14 @@ def risk_statistics(
     # give materially different numbers, so the choice is stated rather than assumed.
     downside_dev = float(np.sqrt(np.mean(downside**2)))
     downside_scale = max(1.0, float(np.abs(target_relative.to_numpy(dtype=float)).max()))
-    metrics["downside_deviation_convention"] = (
-        "mean of squared shortfalls over ALL observations"
-    )
+    metrics["downside_deviation_convention"] = "mean of squared shortfalls over ALL observations"
     metrics["mar_annual"] = mar
     metrics["mar_periodic"] = round(mar_periodic, 12)
     if downside_dev <= DEGENERATE_SCALE_TOLERANCE * downside_scale:
         metrics["sortino_ratio"] = None
         metrics["sortino_undefined_reason"] = "zero downside deviation"
     else:
-        metrics["sortino_ratio"] = round(
-            float(target_relative.mean()) / downside_dev * math.sqrt(ppy), 10
-        )
+        metrics["sortino_ratio"] = round(float(target_relative.mean()) / downside_dev * math.sqrt(ppy), 10)
 
     dd = max_drawdown(series, basis)
     metrics.update({k: (round(v, 10) if isinstance(v, float) else v) for k, v in dd.items()})
@@ -353,9 +369,7 @@ def risk_statistics(
     else:
         metrics["calmar_ratio"] = round(geo / abs(dd["max_drawdown"]), 10)
     if dd["drawdown_recovery"] is None:
-        limitations.append(
-            "The maximum drawdown had not recovered by the end of the sample."
-        )
+        limitations.append("The maximum drawdown had not recovered by the end of the sample.")
 
     values = series.to_numpy(dtype=float)
     quantile = float(np.percentile(values, (1.0 - var_confidence) * 100.0))
@@ -384,8 +398,7 @@ def risk_statistics(
         test_id="portfolio.risk_statistics",
         test_name="Portfolio risk statistics",
         status=Status.RECORDED,
-        params={"var_confidence": var_confidence, "mar": mar,
-                "min_tail_observations": min_tail_observations},
+        params={"var_confidence": var_confidence, "mar": mar, "min_tail_observations": min_tail_observations},
         metrics=metrics,
         interpretation=(
             f"Annualised geometric return {geo:.4%}, volatility {vol:.4%}, "
@@ -411,9 +424,7 @@ def risk_statistics(
     risk_dimensions=("implementation_verification", "assumption_validity"),
     object_kinds=_OBJECTS,
 )
-def covariance_conditioning(
-    ctx: Any, condition_warn: float = 1e4, condition_fail: float = 1e8
-) -> TestResult:
+def covariance_conditioning(ctx: Any, condition_warn: float = 1e4, condition_fail: float = 1e8) -> TestResult:
     """Numerical health of the covariance matrix. Nothing is repaired silently.
 
     An optimiser handed an ill-conditioned covariance produces weights that look
@@ -427,8 +438,11 @@ def covariance_conditioning(
     else:
         returns = ctx.effective_returns()
         if returns is None or returns.shape[0] < 2:
-            return _skip("portfolio.covariance_conditioning", "Covariance conditioning",
-                         "insufficient return observations to estimate a covariance")
+            return _skip(
+                "portfolio.covariance_conditioning",
+                "Covariance conditioning",
+                "insufficient return observations to estimate a covariance",
+            )
         matrix = returns.cov()
         n_observations = int(returns.shape[0])
 
@@ -443,9 +457,7 @@ def covariance_conditioning(
 
     positive = eigenvalues[eigenvalues > 1e-15]
     normalised = positive / positive.sum() if positive.size else np.array([])
-    effective_rank = (
-        float(np.exp(-np.sum(normalised * np.log(normalised)))) if normalised.size else 0.0
-    )
+    effective_rank = float(np.exp(-np.sum(normalised * np.log(normalised)))) if normalised.size else 0.0
 
     metrics: dict[str, Any] = {
         "n_assets": n,
@@ -468,8 +480,7 @@ def covariance_conditioning(
         test_name="Covariance conditioning",
         params={"condition_warn": condition_warn, "condition_fail": condition_fail},
         metrics=metrics,
-        thresholds=[ThresholdSpec(metric="condition_number",
-                                  warn=condition_warn, fail=condition_fail)],
+        thresholds=[ThresholdSpec(metric="condition_number", warn=condition_warn, fail=condition_fail)],
         interpretation=(
             f"{n}x{n} covariance, rank {rank}"
             + ("" if rank == n else f" (deficient by {n - rank})")
@@ -496,13 +507,12 @@ def covariance_conditioning(
 # --------------------------------------------------------------------------- #
 # 4. mean_variance
 # --------------------------------------------------------------------------- #
-def _expected_returns(returns: pd.DataFrame, method: str, decay: float,
-                      supplied: pd.Series | None) -> pd.Series:
+def _expected_returns(
+    returns: pd.DataFrame, method: str, decay: float, supplied: pd.Series | None
+) -> pd.Series:
     if method == "supplied":
         if supplied is None:
-            raise ValueError(
-                "expected_return='supplied' requires ctx.extra['expected_returns']"
-            )
+            raise ValueError("expected_return='supplied' requires ctx.extra['expected_returns']")
         return supplied.reindex(returns.columns)
     if method == "ewma":
         weights = np.array([decay**i for i in range(len(returns) - 1, -1, -1)])
@@ -511,8 +521,7 @@ def _expected_returns(returns: pd.DataFrame, method: str, decay: float,
     return returns.mean()
 
 
-def _covariance(returns: pd.DataFrame, method: str,
-                supplied: pd.DataFrame | None) -> pd.DataFrame:
+def _covariance(returns: pd.DataFrame, method: str, supplied: pd.DataFrame | None) -> pd.DataFrame:
     if method == "supplied":
         if supplied is None:
             raise ValueError("covariance='supplied' requires ctx.covariance")
@@ -521,40 +530,41 @@ def _covariance(returns: pd.DataFrame, method: str,
         from sklearn.covariance import LedoitWolf
 
         fitted = LedoitWolf().fit(returns.to_numpy(dtype=float))
-        return pd.DataFrame(fitted.covariance_, index=returns.columns,
-                            columns=returns.columns)
+        return pd.DataFrame(fitted.covariance_, index=returns.columns, columns=returns.columns)
     return returns.cov()
 
 
-def _constraint_list(constraints: Any, n: int, mu: np.ndarray,
-                     prior: np.ndarray | None,
-                     target: float | None) -> list[dict[str, Any]]:
+def _constraint_list(
+    constraints: Any, n: int, mu: np.ndarray, prior: np.ndarray | None, target: float | None
+) -> list[dict[str, Any]]:
     """SLSQP constraint dicts implementing the frozen formulas."""
     budget = constraints.budget if constraints else 1.0
-    items: list[dict[str, Any]] = [
-        {"type": "eq", "fun": lambda w, b=budget: float(np.sum(w) - b)}
-    ]
+    items: list[dict[str, Any]] = [{"type": "eq", "fun": lambda w, b=budget: float(np.sum(w) - b)}]
     if target is not None:
         items.append({"type": "eq", "fun": lambda w, m=mu, t=target: float(w @ m - t)})
     if constraints is None:
         return items
     if constraints.max_leverage is not None:
-        items.append({
-            "type": "ineq",
-            "fun": lambda w, L=constraints.max_leverage: float(L - np.sum(np.abs(w))),
-        })
+        items.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, L=constraints.max_leverage: float(L - np.sum(np.abs(w))),
+            }
+        )
     if constraints.max_turnover is not None and prior is not None:
-        items.append({
-            "type": "ineq",
-            "fun": lambda w, T=constraints.max_turnover, p=prior: float(
-                T - 0.5 * np.sum(np.abs(w - p))
-            ),
-        })
+        items.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, T=constraints.max_turnover, p=prior: float(T - 0.5 * np.sum(np.abs(w - p))),
+            }
+        )
     if constraints.max_concentration is not None:
-        items.append({
-            "type": "ineq",
-            "fun": lambda w, H=constraints.max_concentration: float(H - np.sum(w * w)),
-        })
+        items.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, H=constraints.max_concentration: float(H - np.sum(w * w)),
+            }
+        )
     return items
 
 
@@ -566,18 +576,18 @@ def _bounds(constraints: Any, n: int) -> list[tuple[float | None, float | None]]
     return [(lower, upper)] * n
 
 
-def _verify_constraints(w: np.ndarray, constraints: Any, mu: np.ndarray,
-                        prior: np.ndarray | None,
-                        target: float | None) -> dict[str, float]:
+def _verify_constraints(
+    w: np.ndarray, constraints: Any, mu: np.ndarray, prior: np.ndarray | None, target: float | None
+) -> dict[str, float]:
     """Independent post-solve verification.
 
     SLSQP's success flag is not trusted. A nominal success with a violated constraint
     produces a portfolio that is silently outside its mandate, and the flag alone gives
     no way to tell.
     """
-    violations: dict[str, float] = {"budget": abs(
-        float(np.sum(w)) - (constraints.budget if constraints else 1.0)
-    )}
+    violations: dict[str, float] = {
+        "budget": abs(float(np.sum(w)) - (constraints.budget if constraints else 1.0))
+    }
     if target is not None:
         violations["target_return"] = abs(float(w @ mu) - target)
     if constraints is not None:
@@ -588,24 +598,23 @@ def _verify_constraints(w: np.ndarray, constraints: Any, mu: np.ndarray,
         if constraints.max_weight is not None:
             violations["max_weight"] = float(max(0.0, w.max() - constraints.max_weight))
         if constraints.max_leverage is not None:
-            violations["max_leverage"] = float(
-                max(0.0, np.sum(np.abs(w)) - constraints.max_leverage)
-            )
+            violations["max_leverage"] = float(max(0.0, np.sum(np.abs(w)) - constraints.max_leverage))
         if constraints.max_turnover is not None and prior is not None:
             violations["max_turnover"] = float(
                 max(0.0, 0.5 * np.sum(np.abs(w - prior)) - constraints.max_turnover)
             )
         if constraints.max_concentration is not None:
-            violations["max_concentration"] = float(
-                max(0.0, np.sum(w * w) - constraints.max_concentration)
-            )
+            violations["max_concentration"] = float(max(0.0, np.sum(w * w) - constraints.max_concentration))
     return violations
 
 
-def solve_min_variance(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
-                       prior: np.ndarray | None = None,
-                       target: float | None = None
-                       ) -> tuple[np.ndarray | None, dict[str, Any]]:
+def solve_min_variance(
+    mu: np.ndarray,
+    sigma: np.ndarray,
+    constraints: Any,
+    prior: np.ndarray | None = None,
+    target: float | None = None,
+) -> tuple[np.ndarray | None, dict[str, Any]]:
     """Minimum variance subject to the active constraints. Deterministic start."""
     from scipy.optimize import minimize
 
@@ -636,8 +645,7 @@ def solve_min_variance(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
     return weights, diagnostics
 
 
-def _sharpe(w: np.ndarray, mu: np.ndarray, sigma: np.ndarray,
-            rf: float) -> tuple[float, float]:
+def _sharpe(w: np.ndarray, mu: np.ndarray, sigma: np.ndarray, rf: float) -> tuple[float, float]:
     variance = float(w @ sigma @ w)
     scale = float(np.max(np.abs(np.diag(sigma)))) if sigma.size else 1.0
     if variance <= DEGENERATE_VARIANCE_RELATIVE * max(scale, 1e-300):
@@ -646,9 +654,9 @@ def _sharpe(w: np.ndarray, mu: np.ndarray, sigma: np.ndarray,
     return (float(w @ mu) - rf) / volatility, volatility
 
 
-def _max_sharpe(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
-                prior: np.ndarray | None, rf: float
-                ) -> tuple[np.ndarray | None, dict[str, Any], dict[str, Any]]:
+def _max_sharpe(
+    mu: np.ndarray, sigma: np.ndarray, constraints: Any, prior: np.ndarray | None, rf: float
+) -> tuple[np.ndarray | None, dict[str, Any], dict[str, Any]]:
     """Frontier traversal under the frozen contract."""
     from scipy.optimize import minimize
 
@@ -658,19 +666,40 @@ def _max_sharpe(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
     start = np.full(n, (constraints.budget if constraints else 1.0) / n)
 
     # Feasible bounds under the EXACT active constraints, not min/max of asset means.
-    lo = minimize(lambda w: float(w @ mu), start, jac=lambda w: mu, method="SLSQP",
-                  bounds=bounds, constraints=base,
-                  options={"ftol": 1e-10, "maxiter": 500})
-    hi = minimize(lambda w: float(-(w @ mu)), start, jac=lambda w: -mu, method="SLSQP",
-                  bounds=bounds, constraints=base,
-                  options={"ftol": 1e-10, "maxiter": 500})
+    lo = minimize(
+        lambda w: float(w @ mu),
+        start,
+        jac=lambda w: mu,
+        method="SLSQP",
+        bounds=bounds,
+        constraints=base,
+        options={"ftol": 1e-10, "maxiter": 500},
+    )
+    hi = minimize(
+        lambda w: float(-(w @ mu)),
+        start,
+        jac=lambda w: -mu,
+        method="SLSQP",
+        bounds=bounds,
+        constraints=base,
+        options={"ftol": 1e-10, "maxiter": 500},
+    )
     if not (lo.success and hi.success):
-        return None, {"converged": False, "solver_status": -1, "n_iterations": 0,
-                      "solver_message": "feasible expected-return bound solve failed"}, {}
+        return (
+            None,
+            {
+                "converged": False,
+                "solver_status": -1,
+                "n_iterations": 0,
+                "solver_message": "feasible expected-return bound solve failed",
+            },
+            {},
+        )
 
     mu_min, mu_max = float(lo.x @ mu), float(hi.x @ mu)
     record: dict[str, Any] = {
-        "grid_mu_min": round(mu_min, 12), "grid_mu_max": round(mu_max, 12),
+        "grid_mu_min": round(mu_min, 12),
+        "grid_mu_max": round(mu_max, 12),
         "grid_coarse_points": MAX_SHARPE_CONTRACT["coarse_points"],
         "grid_refinement_points": MAX_SHARPE_CONTRACT["refinement_points"],
         "grid_tie_tolerance": MAX_SHARPE_CONTRACT["tie_tolerance"],
@@ -692,24 +721,40 @@ def _max_sharpe(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
             if not math.isfinite(sharpe):
                 continue
             turnover = float(0.5 * np.sum(np.abs(w - prior))) if prior is not None else 0.0
-            found.append({"target": float(target), "weights": w, "sharpe": sharpe,
-                          "volatility": volatility, "turnover": turnover, "diag": diag})
+            found.append(
+                {
+                    "target": float(target),
+                    "weights": w,
+                    "sharpe": sharpe,
+                    "volatility": volatility,
+                    "turnover": turnover,
+                    "diag": diag,
+                }
+            )
         return found
 
-    coarse_targets = [float(x) for x in
-                      np.linspace(mu_min, mu_max, MAX_SHARPE_CONTRACT["coarse_points"])]
+    coarse_targets = [float(x) for x in np.linspace(mu_min, mu_max, MAX_SHARPE_CONTRACT["coarse_points"])]
     coarse = evaluate(coarse_targets)
     record["grid_coarse_feasible"] = len(coarse)
     record["grid_coarse_failed"] = len(coarse_targets) - len(coarse)
     if not coarse:
-        return None, {"converged": False, "solver_status": -1, "n_iterations": 0,
-                      "solver_message": "no feasible frontier point"}, record
+        return (
+            None,
+            {
+                "converged": False,
+                "solver_status": -1,
+                "n_iterations": 0,
+                "solver_message": "no feasible frontier point",
+            },
+            record,
+        )
 
     best_index = max(range(len(coarse)), key=lambda i: coarse[i]["sharpe"])
     lower = coarse[max(0, best_index - 1)]["target"]
     upper = coarse[min(len(coarse) - 1, best_index + 1)]["target"]
     refine_targets = [
-        float(t) for t in np.linspace(lower, upper, MAX_SHARPE_CONTRACT["refinement_points"])
+        float(t)
+        for t in np.linspace(lower, upper, MAX_SHARPE_CONTRACT["refinement_points"])
         if not any(abs(t - c["target"]) < 1e-15 for c in coarse)
     ]
     refined = evaluate(refine_targets)
@@ -717,13 +762,16 @@ def _max_sharpe(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
 
     def tie_key(candidate: dict[str, Any]) -> tuple:
         # Frozen tie-break order, applied only within the tolerance band.
-        return (candidate["volatility"], candidate["turnover"], candidate["target"],
-                tuple(round(float(x), 12) for x in candidate["weights"]))
+        return (
+            candidate["volatility"],
+            candidate["turnover"],
+            candidate["target"],
+            tuple(round(float(x), 12) for x in candidate["weights"]),
+        )
 
     everything = coarse + refined
     best_sharpe = max(c["sharpe"] for c in everything)
-    tied = [c for c in everything
-            if best_sharpe - c["sharpe"] <= MAX_SHARPE_CONTRACT["tie_tolerance"]]
+    tied = [c for c in everything if best_sharpe - c["sharpe"] <= MAX_SHARPE_CONTRACT["tie_tolerance"]]
     record["grid_n_tied"] = len(tied)
     winner = min(tied, key=tie_key)
     record["grid_selected_target"] = round(winner["target"], 12)
@@ -736,9 +784,12 @@ def _max_sharpe(mu: np.ndarray, sigma: np.ndarray, constraints: Any,
     name="Mean-variance optimisation",
     requires=("returns",),
     default_params={
-        "objective": "min_variance", "expected_return": "mean",
-        "covariance": "empirical", "ewma_decay": EWMA_DECAY_DEFAULT,
-        "risk_aversion": 1.0, "target_return": None,
+        "objective": "min_variance",
+        "expected_return": "mean",
+        "covariance": "empirical",
+        "ewma_decay": EWMA_DECAY_DEFAULT,
+        "risk_aversion": 1.0,
+        "target_return": None,
     },
     context_type="market",
     risk_stripes=_STRIPES,
@@ -765,19 +816,26 @@ def mean_variance(
 
     returns = ctx.effective_returns()
     if returns is None or returns.shape[0] < 2 or returns.shape[1] < 2:
-        return _skip("portfolio.mean_variance", "Mean-variance optimisation",
-                     "at least 2 assets and 2 observations are required")
+        return _skip(
+            "portfolio.mean_variance",
+            "Mean-variance optimisation",
+            "at least 2 assets and 2 observations are required",
+        )
 
     constraints = ctx.portfolio.constraints if ctx.portfolio else None
     if constraints is not None:
         problems = constraints.validate()
         if problems:
-            return _error("portfolio.mean_variance", "Mean-variance optimisation",
-                          "infeasible constraint set: " + "; ".join(problems))
+            return _error(
+                "portfolio.mean_variance",
+                "Mean-variance optimisation",
+                "infeasible constraint set: " + "; ".join(problems),
+            )
 
     try:
-        mu_series = _expected_returns(returns, expected_return, ewma_decay,
-                                      (ctx.extra or {}).get("expected_returns"))
+        mu_series = _expected_returns(
+            returns, expected_return, ewma_decay, (ctx.extra or {}).get("expected_returns")
+        )
         sigma_frame = _covariance(returns, covariance, ctx.covariance)
     except ValueError as exc:
         return _skip("portfolio.mean_variance", "Mean-variance optimisation", str(exc))
@@ -793,9 +851,12 @@ def mean_variance(
     rf = float(rf_periodic) if isinstance(rf_periodic, (int, float)) else 0.0
 
     params = {
-        "objective": objective, "expected_return": expected_return,
-        "covariance": covariance, "ewma_decay": ewma_decay,
-        "risk_aversion": risk_aversion, "target_return": target_return,
+        "objective": objective,
+        "expected_return": expected_return,
+        "covariance": covariance,
+        "ewma_decay": ewma_decay,
+        "risk_aversion": risk_aversion,
+        "target_return": target_return,
     }
     grid_record: dict[str, Any] = {}
 
@@ -809,13 +870,17 @@ def mean_variance(
         start = np.full(n, (constraints.budget if constraints else 1.0) / n)
         outcome = minimize(
             lambda w: float(-(w @ mu) + 0.5 * risk_aversion * (w @ sigma @ w)),
-            start, method="SLSQP", bounds=_bounds(constraints, n),
+            start,
+            method="SLSQP",
+            bounds=_bounds(constraints, n),
             constraints=_constraint_list(constraints, n, mu, prior, None),
             options={"ftol": 1e-10, "maxiter": 500},
         )
         diagnostics = {
-            "solver_status": int(outcome.status), "solver_message": str(outcome.message),
-            "n_iterations": int(outcome.nit), "converged": bool(outcome.success),
+            "solver_status": int(outcome.status),
+            "solver_message": str(outcome.message),
+            "n_iterations": int(outcome.nit),
+            "converged": bool(outcome.success),
             "objective": float(outcome.fun) if outcome.success else float("nan"),
         }
         weights = np.asarray(outcome.x, dtype=float) if outcome.success else None
@@ -827,21 +892,25 @@ def mean_variance(
         weights, diagnostics, grid_record = _max_sharpe(mu, sigma, constraints, prior, rf)
 
     if weights is None:
-        return _error("portfolio.mean_variance", "Mean-variance optimisation",
-                      f"optimiser did not converge: {diagnostics.get('solver_message', '')}",
-                      metrics={**{k: v for k, v in diagnostics.items() if k != 'violations'},
-                               **grid_record}, **params)
+        return _error(
+            "portfolio.mean_variance",
+            "Mean-variance optimisation",
+            f"optimiser did not converge: {diagnostics.get('solver_message', '')}",
+            metrics={**{k: v for k, v in diagnostics.items() if k != "violations"}, **grid_record},
+            **params,
+        )
 
     violation = float(diagnostics.get("max_constraint_violation", 0.0))
     if violation > CONSTRAINT_TOLERANCE:
         # A nominal solver success with a violated constraint is a silently wrong
         # portfolio. The success flag alone gives no way to tell.
         return _error(
-            "portfolio.mean_variance", "Mean-variance optimisation",
+            "portfolio.mean_variance",
+            "Mean-variance optimisation",
             f"solver reported success but post-solve verification found a constraint "
             f"violation of {violation:.3g}, above the {CONSTRAINT_TOLERANCE:g} tolerance",
-            metrics={**{k: v for k, v in diagnostics.items() if k != "violations"},
-                     **grid_record}, **params,
+            metrics={**{k: v for k, v in diagnostics.items() if k != "violations"}, **grid_record},
+            **params,
         )
 
     sharpe_periodic, volatility = _sharpe(weights, mu, sigma, rf)
@@ -849,14 +918,13 @@ def mean_variance(
     finite_sharpe = math.isfinite(sharpe_periodic)
     metrics: dict[str, Any] = {
         **{k: v for k, v in diagnostics.items() if k != "violations"},
-        **grid_record, **rf_record,
+        **grid_record,
+        **rf_record,
         "n_assets": len(assets),
         "expected_return_periodic": round(float(weights @ mu), 12),
         "volatility_periodic": round(volatility, 12),
         "sharpe_periodic": round(sharpe_periodic, 10) if finite_sharpe else None,
-        "sharpe_annualised": (
-            round(sharpe_periodic * math.sqrt(ppy), 10) if finite_sharpe else None
-        ),
+        "sharpe_annualised": (round(sharpe_periodic * math.sqrt(ppy), 10) if finite_sharpe else None),
         "expected_return_annualised": round(float(weights @ mu) * ppy, 10),
         "volatility_annualised": round(volatility * math.sqrt(ppy), 10),
         "n_active_positions": int((np.abs(weights) > 1e-8).sum()),
@@ -866,15 +934,11 @@ def mean_variance(
         "herfindahl": round(float(np.sum(weights * weights)), 10),
     }
     if prior is not None:
-        metrics["one_way_turnover"] = round(
-            float(0.5 * np.sum(np.abs(weights - prior))), 10
-        )
+        metrics["one_way_turnover"] = round(float(0.5 * np.sum(np.abs(weights - prior))), 10)
     for asset, weight in zip(assets, weights, strict=True):
         metrics[f"weight.{asset}"] = round(float(weight), 10)
 
-    sharpe_text = (
-        f"{metrics['sharpe_annualised']:.4f}" if finite_sharpe else "undefined"
-    )
+    sharpe_text = f"{metrics['sharpe_annualised']:.4f}" if finite_sharpe else "undefined"
     return TestResult(
         test_id="portfolio.mean_variance",
         test_name="Mean-variance optimisation",
@@ -902,8 +966,7 @@ def mean_variance(
 # --------------------------------------------------------------------------- #
 # 5. hierarchical_risk_parity
 # --------------------------------------------------------------------------- #
-def hrp_weights(covariance: pd.DataFrame,
-                linkage_method: str = "single") -> tuple[pd.Series, list[str]]:
+def hrp_weights(covariance: pd.DataFrame, linkage_method: str = "single") -> tuple[pd.Series, list[str]]:
     """López de Prado HRP. Returns weights and the quasi-diagonal order."""
     from start.portfolio.hrp import hrp_weights_and_tree
 
@@ -933,8 +996,11 @@ def hierarchical_risk_parity(ctx: Any, linkage_method: str = "single") -> TestRe
     else:
         returns = ctx.effective_returns()
         if returns is None or returns.shape[0] < 2:
-            return _skip("portfolio.hierarchical_risk_parity", "Hierarchical risk parity",
-                         "insufficient return observations to estimate a covariance")
+            return _skip(
+                "portfolio.hierarchical_risk_parity",
+                "Hierarchical risk parity",
+                "insufficient return observations to estimate a covariance",
+            )
         matrix = returns.cov()
 
     try:
@@ -943,14 +1009,16 @@ def hierarchical_risk_parity(ctx: Any, linkage_method: str = "single") -> TestRe
         weights, tree_result = hrp_weights_and_tree(matrix, linkage_method=linkage_method)
         order = list(tree_result.quasi_diagonal_order)
     except ValueError as exc:
-        return _error("portfolio.hierarchical_risk_parity", "Hierarchical risk parity",
-                      str(exc), linkage_method=linkage_method)
+        return _error(
+            "portfolio.hierarchical_risk_parity",
+            "Hierarchical risk parity",
+            str(exc),
+            linkage_method=linkage_method,
+        )
 
     values = weights.to_numpy(dtype=float)
     cov_arr = (
-        matrix.to_numpy(dtype=float)
-        if isinstance(matrix, pd.DataFrame)
-        else np.asarray(matrix, dtype=float)
+        matrix.to_numpy(dtype=float) if isinstance(matrix, pd.DataFrame) else np.asarray(matrix, dtype=float)
     )
     variance = float(values @ cov_arr @ values)
     metrics: dict[str, Any] = {
@@ -1017,17 +1085,20 @@ def black_litterman(
     """Black-Litterman model combining market equilibrium with views. Determinism: numerical."""
     from start.portfolio.black_litterman import solve_black_litterman
 
-    matrix = ctx.covariance if ctx.covariance is not None else (
-        ctx.effective_returns().cov() if ctx.effective_returns() is not None else None
+    matrix = (
+        ctx.covariance
+        if ctx.covariance is not None
+        else (ctx.effective_returns().cov() if ctx.effective_returns() is not None else None)
     )
     if matrix is None or (isinstance(matrix, pd.DataFrame) and matrix.shape[0] < 2):
-        return _skip("portfolio.black_litterman", "Black-Litterman Bayesian portfolio optimization",
-                     "insufficient covariance data")
+        return _skip(
+            "portfolio.black_litterman",
+            "Black-Litterman Bayesian portfolio optimization",
+            "insufficient covariance data",
+        )
 
     assets = (
-        list(matrix.columns)
-        if isinstance(matrix, pd.DataFrame)
-        else [f"A{i}" for i in range(len(matrix))]
+        list(matrix.columns) if isinstance(matrix, pd.DataFrame) else [f"A{i}" for i in range(len(matrix))]
     )
     n = len(assets)
 
@@ -1043,8 +1114,11 @@ def black_litterman(
         market_w = ctx.extra["market_weights"]
 
     if market_w is None:
-        return _skip("portfolio.black_litterman", "Black-Litterman Bayesian portfolio optimization",
-                     "market/benchmark weights required for Black-Litterman equilibrium baseline")
+        return _skip(
+            "portfolio.black_litterman",
+            "Black-Litterman Bayesian portfolio optimization",
+            "market/benchmark weights required for Black-Litterman equilibrium baseline",
+        )
 
     # Views P and Q
     bl_views = ctx.extra.get("bl_views") or ctx.extra.get("views")
@@ -1052,8 +1126,11 @@ def black_litterman(
         bl_views = {"P": ctx.extra["P"], "Q": ctx.extra["Q"], "Omega": ctx.extra.get("Omega")}
 
     if bl_views is None:
-        return _skip("portfolio.black_litterman", "Black-Litterman Bayesian portfolio optimization",
-                     "no investor views (P, Q) supplied; views are never invented")
+        return _skip(
+            "portfolio.black_litterman",
+            "Black-Litterman Bayesian portfolio optimization",
+            "no investor views (P, Q) supplied; views are never invented",
+        )
 
     P = bl_views["P"]
     Q = bl_views["Q"]
@@ -1143,8 +1220,11 @@ def cvar_optimization(
 
     returns = ctx.effective_returns()
     if returns is None or len(returns) < 10:
-        return _skip("portfolio.cvar_optimization", "Rockafellar-Uryasev CVaR optimization",
-                     "insufficient return observations for non-parametric CVaR scenario LP")
+        return _skip(
+            "portfolio.cvar_optimization",
+            "Rockafellar-Uryasev CVaR optimization",
+            "insufficient return observations for non-parametric CVaR scenario LP",
+        )
 
     constraints = ctx.portfolio.constraints if ctx.portfolio is not None else None
     prior_w = ctx.portfolio.prior_weights if ctx.portfolio is not None else None
@@ -1216,12 +1296,13 @@ def herc(
     """Hierarchical Equal Risk Contribution (HERC) portfolio allocation. Determinism: numerical."""
     from start.portfolio.herc import solve_herc
 
-    matrix = ctx.covariance if ctx.covariance is not None else (
-        ctx.effective_returns().cov() if ctx.effective_returns() is not None else None
+    matrix = (
+        ctx.covariance
+        if ctx.covariance is not None
+        else (ctx.effective_returns().cov() if ctx.effective_returns() is not None else None)
     )
     if matrix is None or (isinstance(matrix, pd.DataFrame) and matrix.shape[0] < 2):
-        return _skip("portfolio.herc", "Hierarchical equal risk contribution",
-                     "insufficient covariance data")
+        return _skip("portfolio.herc", "Hierarchical equal risk contribution", "insufficient covariance data")
 
     try:
         herc_res = solve_herc(matrix, linkage_method=linkage_method, periods_per_year=ctx.periods_per_year)
@@ -1277,12 +1358,17 @@ def maximum_diversification(
     """Maximum Diversification Portfolio (MDP) maximizing diversification ratio. Determinism: numerical."""
     from start.portfolio.max_diversification import solve_max_diversification
 
-    matrix = ctx.covariance if ctx.covariance is not None else (
-        ctx.effective_returns().cov() if ctx.effective_returns() is not None else None
+    matrix = (
+        ctx.covariance
+        if ctx.covariance is not None
+        else (ctx.effective_returns().cov() if ctx.effective_returns() is not None else None)
     )
     if matrix is None or (isinstance(matrix, pd.DataFrame) and matrix.shape[0] < 2):
-        return _skip("portfolio.maximum_diversification", "Maximum diversification portfolio",
-                     "insufficient covariance data")
+        return _skip(
+            "portfolio.maximum_diversification",
+            "Maximum diversification portfolio",
+            "insufficient covariance data",
+        )
 
     constraints = ctx.portfolio.constraints if ctx.portfolio is not None else None
     prior_w = ctx.portfolio.prior_weights if ctx.portfolio is not None else None
@@ -1346,11 +1432,16 @@ def constrained_optimization(
     from start.portfolio.constraints import verify_portfolio_constraints
 
     if ctx.portfolio is None or ctx.portfolio.weights is None:
-        return _skip("portfolio.constrained_optimization", "Constrained institutional portfolio optimization",
-                     "no portfolio weights supplied")
+        return _skip(
+            "portfolio.constrained_optimization",
+            "Constrained institutional portfolio optimization",
+            "no portfolio weights supplied",
+        )
 
-    matrix = ctx.covariance if ctx.covariance is not None else (
-        ctx.effective_returns().cov() if ctx.effective_returns() is not None else None
+    matrix = (
+        ctx.covariance
+        if ctx.covariance is not None
+        else (ctx.effective_returns().cov() if ctx.effective_returns() is not None else None)
     )
     if isinstance(matrix, pd.DataFrame):
         assets = list(matrix.columns)

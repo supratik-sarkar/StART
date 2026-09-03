@@ -170,9 +170,7 @@ def test_review_dataframes_first_class_api(tmp_path, monkeypatch, demo_df):
     for frame in (train, test, oos):
         frame[SCORE_COLUMN] = model.predict_proba(frame[features])[:, 1]
 
-    result = review_dataframes(
-        train, test, oos, target_column=TARGET_COLUMN, model=model, seed=0
-    )
+    result = review_dataframes(train, test, oos, target_column=TARGET_COLUMN, model=model, seed=0)
     test_ids = {rec.test_id for rec in result.evidence}
     assert "supervised.cohort_metrics_comparison" in test_ids
     assert "xai.feature_sensitivity" in test_ids

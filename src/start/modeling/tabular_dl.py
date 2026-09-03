@@ -210,6 +210,7 @@ class TabularDLClassifier:
         if self.task == "multiclass_classification":
             if self.class_weight == "balanced":
                 from sklearn.utils.class_weight import compute_class_weight
+
                 classes = np.arange(self.n_outputs_)
                 weights = compute_class_weight("balanced", classes=classes, y=y_arr.ravel())
                 weights = np.asarray(weights, dtype=np.float32)
@@ -226,7 +227,9 @@ class TabularDLClassifier:
                             weights[i] *= rel_cost
 
             if weights is not None:
-                return torch.nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
+                return torch.nn.CrossEntropyLoss(
+                    weight=torch.tensor(weights, dtype=torch.float32, device=device)
+                )
             return torch.nn.CrossEntropyLoss()
 
         if self.class_weight == "balanced" and self.task == "binary_classification":
@@ -348,7 +351,7 @@ class TabularDLClassifier:
             return preds
         if self.task == "multilabel_classification":
             return (self.predict_proba(X) >= 0.5).astype(int)
-        
+
         proba = self.predict_proba(X)
         idx = proba.argmax(axis=1)
         argmax_preds = np.asarray(self.classes_)[idx]
@@ -359,14 +362,17 @@ class TabularDLClassifier:
         cost_matrix = None
         if cost_spec.get("type", "balanced") != "balanced":
             from start.modeling.cost_sensitive import cost_spec_to_matrix, validate_cost_matrix
+
             classes_list = [str(c) for c in self.classes_]
             cost_matrix = cost_spec_to_matrix(cost_spec, classes_list)
             if cost_matrix is not None:
                 # Assertions to validate cost matrix before applying expected-cost minimization
-                assert cost_matrix.shape == (len(self.classes_), len(self.classes_)), f"Cost matrix shape must be {len(self.classes_)}x{len(self.classes_)}"
+                assert cost_matrix.shape == (len(self.classes_), len(self.classes_)), (
+                    f"Cost matrix shape must be {len(self.classes_)}x{len(self.classes_)}"
+                )
                 assert np.all(np.isfinite(cost_matrix)), "Cost matrix must contain only finite values"
                 assert np.all(cost_matrix >= 0), "Cost matrix must contain non-negative values"
-                
+
                 # Check for critical errors from validate_cost_matrix if matrix format was directly supplied
                 if cost_spec.get("type") == "matrix":
                     errors = validate_cost_matrix(cost_spec["matrix"], classes_list)
@@ -375,6 +381,7 @@ class TabularDLClassifier:
 
         if cost_matrix is not None:
             from start.modeling.cost_sensitive import cost_sensitive_predictions
+
             cost_sensitive_preds = cost_sensitive_predictions(proba, cost_matrix, self.classes_)
             self.last_predictions_cost_sensitive_ = cost_sensitive_preds
             return cost_sensitive_preds
@@ -385,6 +392,7 @@ class TabularDLClassifier:
     def score(self, X: Any, y: Any) -> float:
         if self.task in ("regression", "forecasting"):
             from sklearn.metrics import r2_score
+
             preds = self.predict(X)
             return float(r2_score(np.asarray(y).reshape(-1), preds))
         if self.task == "multilabel_classification":

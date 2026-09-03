@@ -64,14 +64,22 @@ class ArtifactRegistry:
     announce: Callable[[str], None] | None = None
 
     def register(
-        self, path: str, *, name: str | None = None, category: str = "general", description: str = "",
+        self,
+        path: str,
+        *,
+        name: str | None = None,
+        category: str = "general",
+        description: str = "",
         artifact_type: str | None = None,
     ) -> Artifact:
         p = Path(path)
         atype = artifact_type or _TYPE_BY_EXT.get(p.suffix.lower(), p.suffix.lstrip(".") or "file")
         artifact = Artifact(
-            name=name or p.name, path=str(p), artifact_type=atype,
-            category=category, description=description,
+            name=name or p.name,
+            path=str(p),
+            artifact_type=atype,
+            category=category,
+            description=description,
         )
         self.artifacts.append(artifact)
         if self.announce:
@@ -97,8 +105,12 @@ class ArtifactRegistry:
 def render_artifact_catalog_markdown(registry: ArtifactRegistry) -> str:
     if not registry.artifacts:
         return "### Artifact catalog\n\n_No artifacts generated._\n"
-    lines = ["### Artifact catalog", "", "| Artifact | Type | Category | Location |",
-             "| --- | --- | --- | --- |"]
+    lines = [
+        "### Artifact catalog",
+        "",
+        "| Artifact | Type | Category | Location |",
+        "| --- | --- | --- | --- |",
+    ]
     for a in registry.artifacts:
         lines.append(f"| {a.name} | {a.artifact_type} | {a.category} | {a.path} |")
     return "\n".join(lines) + "\n"

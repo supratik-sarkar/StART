@@ -122,13 +122,9 @@ def _safe_complete_result(
         )
 
 
-def _safe_complete(
-    provider_inst: Any, system: str, user: str, output_token_budget: int = 4096
-) -> str:
+def _safe_complete(provider_inst: Any, system: str, user: str, output_token_budget: int = 4096) -> str:
     try:
-        return provider_inst.complete(
-            system=system, user=user, output_token_budget=output_token_budget
-        )
+        return provider_inst.complete(system=system, user=user, output_token_budget=output_token_budget)
     except TypeError as te:
         if "output_token_budget" in str(te):
             return provider_inst.complete(system=system, user=user, max_tokens=output_token_budget)
@@ -196,11 +192,7 @@ def execute_market_treasury_tests(
     results.extend(validation_results_for_domains(bundle.domains))
 
     # Append Gate-6 Pattern-B Scenario analysis (Asset Return, Factor Linear, Reverse Stress)
-    if (
-        ReviewDomain.MARKET in bundle.domains
-        and market is not None
-        and market.returns is not None
-    ):
+    if ReviewDomain.MARKET in bundle.domains and market is not None and market.returns is not None:
         mkt = market
         try:
             import numpy as np
@@ -242,6 +234,7 @@ def execute_market_treasury_tests(
             products.register("covariance.correlation", corr_mat, source_fingerprint=mkt_fp)
 
             from start.portfolio.hrp import hrp_weights_and_tree
+
             hrp_w, hrp_tree = hrp_weights_and_tree(cov_mat)
             products.register("portfolio.hrp_tree", hrp_tree, source_fingerprint=mkt_fp)
             products.register("portfolio.hrp_weights", hrp_w, source_fingerprint=mkt_fp)
@@ -484,9 +477,9 @@ def generate_review_artifacts(
                 evidence_ids=(ev_port_id,),
                 output_dir=output_dir,
             )
-            artifacts_by_checkpoint.setdefault(
-                "Portfolio Risk & Volatility Assumptions", []
-            ).append(art_weights)
+            artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(
+                art_weights
+            )
 
         # 2. Covariance & Correlation setup
         ev_cov = (
@@ -509,15 +502,16 @@ def generate_review_artifacts(
                 render_dendrogram_artifact,
                 render_seriated_correlation_artifact,
             )
+
             try:
                 art_dendro = render_dendrogram_artifact(
                     tree_result=hrp_tree,
                     evidence_ids=(ev_hrp.evidence_id,),
                     output_dir=output_dir,
                 )
-                artifacts_by_checkpoint.setdefault(
-                    "Portfolio Risk & Volatility Assumptions", []
-                ).append(art_dendro)
+                artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(
+                    art_dendro
+                )
             except Exception:
                 pass
 
@@ -531,9 +525,9 @@ def generate_review_artifacts(
                         evidence_ids=(ev_hrp.evidence_id,),
                         output_dir=output_dir,
                     )
-                    artifacts_by_checkpoint.setdefault(
-                        "Portfolio Risk & Volatility Assumptions", []
-                    ).append(art_seriated)
+                    artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(
+                        art_seriated
+                    )
                 except Exception:
                     pass
 
@@ -544,9 +538,9 @@ def generate_review_artifacts(
                 evidence_ids=(ev_cov_id,),
                 output_dir=output_dir,
             )
-            artifacts_by_checkpoint.setdefault(
-                "Covariance Structure & Missing Data Treatment", []
-            ).append(art_cov)
+            artifacts_by_checkpoint.setdefault("Covariance Structure & Missing Data Treatment", []).append(
+                art_cov
+            )
         if corr_mat is not None:
             art_corr = render_raw_correlation_artifact(
                 corr_matrix=corr_mat,
@@ -554,9 +548,9 @@ def generate_review_artifacts(
                 evidence_ids=(ev_cov_id,),
                 output_dir=output_dir,
             )
-            artifacts_by_checkpoint.setdefault(
-                "Covariance Structure & Missing Data Treatment", []
-            ).append(art_corr)
+            artifacts_by_checkpoint.setdefault("Covariance Structure & Missing Data Treatment", []).append(
+                art_corr
+            )
 
         # 2b. Factor Attribution artifact (for Factor Modeling & Attribution Assumptions)
         # Strict zero-recomputation invariant: cites only original deterministic attribution EvidenceRecords
@@ -574,9 +568,9 @@ def generate_review_artifacts(
                 evidence_ids=(ev_attr.evidence_id,),
                 output_dir=output_dir,
             )
-            artifacts_by_checkpoint.setdefault(
-                "Factor Modeling & Attribution Assumptions", []
-            ).append(art_frm)
+            artifacts_by_checkpoint.setdefault("Factor Modeling & Attribution Assumptions", []).append(
+                art_frm
+            )
         elif ev_attr is not None:
             # Zero-recomputation fallback: produce summary from original attribution EvidenceRecord
             attr_payload = {
@@ -604,9 +598,9 @@ def generate_review_artifacts(
                 rendering_format="json",
                 created_by_engine="start.review.executor",
             )
-            artifacts_by_checkpoint.setdefault(
-                "Factor Modeling & Attribution Assumptions", []
-            ).append(art_attr)
+            artifacts_by_checkpoint.setdefault("Factor Modeling & Attribution Assumptions", []).append(
+                art_attr
+            )
 
         # 3. VaR Backtesting artifact (from products or bundle fallback)
         ev_var = (
@@ -623,6 +617,7 @@ def generate_review_artifacts(
         )
         if bt is None and has_pnl_var and market is not None:
             from start.portfolio.tail_risk import run_comprehensive_tail_backtest
+
             raw_conf = getattr(market, "var_confidence", None)
             conf_val = float(raw_conf) if raw_conf is not None else 0.99
             bt = run_comprehensive_tail_backtest(
@@ -636,9 +631,7 @@ def generate_review_artifacts(
                 evidence_ids=(ev_var_id,),
                 output_dir=output_dir,
             )
-            artifacts_by_checkpoint.setdefault(
-                "VaR Backtesting & Exception Frequency", []
-            ).append(art_bt)
+            artifacts_by_checkpoint.setdefault("VaR Backtesting & Exception Frequency", []).append(art_bt)
 
         # 4. Scenario artifacts (from products or bundle fallback)
         ev_scen = (
@@ -656,6 +649,7 @@ def generate_review_artifacts(
                 ShockUnit,
             )
             from start.portfolio.scenario import apply_asset_return_scenario, create_scenario_shock
+
             shocks = tuple(
                 create_scenario_shock(
                     a,
@@ -686,6 +680,7 @@ def generate_review_artifacts(
 
             from start.portfolio.contracts import ReverseStressNorm, ReverseStressSpec, ShockSpace
             from start.portfolio.scenario import solve_reverse_stress
+
             w_vec = np.array([weights_dict.get(c, 0.0) for c in assets])
             rev_spec = ReverseStressSpec(
                 target_loss=0.10,
@@ -802,18 +797,30 @@ def generate_review_artifacts(
 
     if ReviewDomain.PREDICTIVE in bundle.domains:
         pred_records = [
-            r for r in records
-            if r.test_id.startswith((
-                "preprocessing.", "eda.", "supervised.", "xai.",
-                "feature_engineering.", "deep_learning.",
-            ))
-            or r.test_id in {
-                "data.quality", "model.architecture", "metrics.performance",
-                "explainability.importance", "robustness.drift",
+            r
+            for r in records
+            if r.test_id.startswith(
+                (
+                    "preprocessing.",
+                    "eda.",
+                    "supervised.",
+                    "xai.",
+                    "feature_engineering.",
+                    "deep_learning.",
+                )
+            )
+            or r.test_id
+            in {
+                "data.quality",
+                "model.architecture",
+                "metrics.performance",
+                "explainability.importance",
+                "robustness.drift",
             }
         ]
         dq_records = [
-            r for r in pred_records
+            r
+            for r in pred_records
             if r.test_id.startswith(("preprocessing.", "eda.")) or r.test_id.startswith("data.")
         ]
         if dq_records:
@@ -845,20 +852,16 @@ def generate_review_artifacts(
             ).append(art_dq)
 
         perf_records = [
-            r for r in pred_records
-            if r.test_id.startswith("supervised.")
-            or "performance" in r.test_id
-            or "calibration" in r.test_id
+            r
+            for r in pred_records
+            if r.test_id.startswith("supervised.") or "performance" in r.test_id or "calibration" in r.test_id
         ]
         if perf_records:
             perf_payload = {
                 "n_records": len(perf_records),
                 "tests": [r.test_id for r in perf_records],
                 "metrics": {
-                    r.test_id: {
-                        k: v for k, v in r.metrics.items()
-                        if not isinstance(v, (dict, list))
-                    }
+                    r.test_id: {k: v for k, v in r.metrics.items() if not isinstance(v, (dict, list))}
                     for r in perf_records
                 },
             }
@@ -880,9 +883,9 @@ def generate_review_artifacts(
                 rendering_format="json",
                 created_by_engine="start.review.artifacts",
             )
-            artifacts_by_checkpoint.setdefault(
-                "Out-of-Sample Performance & Decision Metrics", []
-            ).append(art_perf)
+            artifacts_by_checkpoint.setdefault("Out-of-Sample Performance & Decision Metrics", []).append(
+                art_perf
+            )
 
     return artifacts_by_checkpoint
 
@@ -952,204 +955,279 @@ def run_domain_checkpoints(
     checkpoints: list[tuple[str, str, list[str]]] = []
 
     if ReviewDomain.PREDICTIVE in bundle.domains:
-        checkpoints.append((
-            "Data Quality, Imbalance & Preprocessing Assumptions",
+        checkpoints.append(
             (
-                "Review class balance, missing value imputation, outlier detection, "
-                "and train/test leakage diagnostics."
-            ),
-            [
-                "data.quality", "data.imbalance", "data.leakage", "data.outliers",
-                "eda.categorical_distribution", "eda.class_imbalance", "eda.correlation",
-                "eda.descriptive_statistics", "eda.multicollinearity", "eda.numeric_distribution",
-                "preprocessing.constant_features", "preprocessing.dimensionality_diagnostic",
-                "preprocessing.duplicates", "preprocessing.feature_ranges",
-                "preprocessing.feature_target_relationship", "preprocessing.high_cardinality",
-                "preprocessing.leakage_entity_overlap", "preprocessing.leakage_high_correlation",
-                "preprocessing.leakage_name_heuristic", "preprocessing.leakage_row_overlap",
-                "preprocessing.leakage_suspicious_predictivity",
-                "preprocessing.leakage_target_in_features", "preprocessing.leakage_train_test_overlap",
-                "preprocessing.missing_value_imputation", "preprocessing.missingness",
-                "preprocessing.monotonicity", "preprocessing.mutual_information",
-                "preprocessing.numerical_drift", "preprocessing.outlier_influence",
-                "preprocessing.outliers", "preprocessing.rare_categories",
-                "feature_engineering.box_cox", "feature_engineering.clustering",
-                "feature_engineering.cyclical_encoding", "feature_engineering.embeddings",
-                "feature_engineering.encoding", "feature_engineering.interaction",
-                "feature_engineering.missing_indicators", "feature_engineering.polynomial_features",
-                "feature_engineering.rare_category_grouping", "feature_engineering.scaling",
-                "feature_engineering.selection", "feature_engineering.temporal_features",
-                "feature_engineering.winsorization", "feature_engineering.woe_iv",
-            ],
-        ))
-        checkpoints.append((
-            "Model Architecture & Optimization Parameters",
+                "Data Quality, Imbalance & Preprocessing Assumptions",
+                (
+                    "Review class balance, missing value imputation, outlier detection, "
+                    "and train/test leakage diagnostics."
+                ),
+                [
+                    "data.quality",
+                    "data.imbalance",
+                    "data.leakage",
+                    "data.outliers",
+                    "eda.categorical_distribution",
+                    "eda.class_imbalance",
+                    "eda.correlation",
+                    "eda.descriptive_statistics",
+                    "eda.multicollinearity",
+                    "eda.numeric_distribution",
+                    "preprocessing.constant_features",
+                    "preprocessing.dimensionality_diagnostic",
+                    "preprocessing.duplicates",
+                    "preprocessing.feature_ranges",
+                    "preprocessing.feature_target_relationship",
+                    "preprocessing.high_cardinality",
+                    "preprocessing.leakage_entity_overlap",
+                    "preprocessing.leakage_high_correlation",
+                    "preprocessing.leakage_name_heuristic",
+                    "preprocessing.leakage_row_overlap",
+                    "preprocessing.leakage_suspicious_predictivity",
+                    "preprocessing.leakage_target_in_features",
+                    "preprocessing.leakage_train_test_overlap",
+                    "preprocessing.missing_value_imputation",
+                    "preprocessing.missingness",
+                    "preprocessing.monotonicity",
+                    "preprocessing.mutual_information",
+                    "preprocessing.numerical_drift",
+                    "preprocessing.outlier_influence",
+                    "preprocessing.outliers",
+                    "preprocessing.rare_categories",
+                    "feature_engineering.box_cox",
+                    "feature_engineering.clustering",
+                    "feature_engineering.cyclical_encoding",
+                    "feature_engineering.embeddings",
+                    "feature_engineering.encoding",
+                    "feature_engineering.interaction",
+                    "feature_engineering.missing_indicators",
+                    "feature_engineering.polynomial_features",
+                    "feature_engineering.rare_category_grouping",
+                    "feature_engineering.scaling",
+                    "feature_engineering.selection",
+                    "feature_engineering.temporal_features",
+                    "feature_engineering.winsorization",
+                    "feature_engineering.woe_iv",
+                ],
+            )
+        )
+        checkpoints.append(
             (
-                "Review model specification, hyperparameter selection, convergence stability, "
-                "and optimization parameters."
-            ),
-            [
-                "model.architecture", "model.optimization", "deep_learning.training_diagnostics",
-                "feature_engineering.aggregation_features", "feature_engineering.categorical_encoding",
-                "feature_engineering.interactions", "feature_engineering.monotonic_binning",
-                "feature_engineering.numeric_transform", "feature_engineering.pca_transform",
-                "feature_engineering.rare_category_grouping", "feature_engineering.scaling",
-                "feature_engineering.selection", "feature_engineering.temporal_features",
-                "feature_engineering.winsorization", "feature_engineering.woe_iv",
-            ],
-        ))
-        checkpoints.append((
-            "Out-of-Sample Performance & Decision Metrics",
-            "Review ROC-AUC, PR-AUC, Brier score, ECE calibration, and cost-weighted business metrics.",
-            [
-                "metrics.performance", "metrics.calibration",
-                "deep_learning.performance_diagnostics", "deep_learning.calibration_diagnostics",
-                "supervised.calibration", "supervised.classification_metrics",
-                "supervised.cohort_metrics_comparison", "supervised.discrimination",
-                "supervised.top_decile_lift",
-            ],
-        ))
-        checkpoints.append((
-            "Feature Attribution & Explainability (XAI)",
+                "Model Architecture & Optimization Parameters",
+                (
+                    "Review model specification, hyperparameter selection, convergence stability, "
+                    "and optimization parameters."
+                ),
+                [
+                    "model.architecture",
+                    "model.optimization",
+                    "deep_learning.training_diagnostics",
+                    "feature_engineering.aggregation_features",
+                    "feature_engineering.categorical_encoding",
+                    "feature_engineering.interactions",
+                    "feature_engineering.monotonic_binning",
+                    "feature_engineering.numeric_transform",
+                    "feature_engineering.pca_transform",
+                    "feature_engineering.rare_category_grouping",
+                    "feature_engineering.scaling",
+                    "feature_engineering.selection",
+                    "feature_engineering.temporal_features",
+                    "feature_engineering.winsorization",
+                    "feature_engineering.woe_iv",
+                ],
+            )
+        )
+        checkpoints.append(
             (
-                "Review global feature importance, local SHAP attributions, "
-                "Integrated Gradients, and feature drift."
-            ),
-            [
-                "explainability.importance", "explainability.shap",
-                "deep_learning.explainability_diagnostics",
-                "genai.citation_coverage", "xai.global_importance", "xai.integrated_gradients",
-            ],
-        ))
-        checkpoints.append((
-            "Sensitivity, Robustness & Drift Analysis",
+                "Out-of-Sample Performance & Decision Metrics",
+                "Review ROC-AUC, PR-AUC, Brier score, ECE calibration, and cost-weighted business metrics.",
+                [
+                    "metrics.performance",
+                    "metrics.calibration",
+                    "deep_learning.performance_diagnostics",
+                    "deep_learning.calibration_diagnostics",
+                    "supervised.calibration",
+                    "supervised.classification_metrics",
+                    "supervised.cohort_metrics_comparison",
+                    "supervised.discrimination",
+                    "supervised.top_decile_lift",
+                ],
+            )
+        )
+        checkpoints.append(
             (
-                "Review covariate drift, feature shock sensitivity, "
-                "noise robustness, and adversarial stress tests."
-            ),
-            [
-                "robustness.drift", "robustness.sensitivity",
-                "deep_learning.figure_diagnostics", "deep_learning.robustness_diagnostics",
-                "deep_learning.sensitivity_diagnostics", "preprocessing.categorical_drift",
-                "preprocessing.feature_drift", "xai.feature_sensitivity", "xai.importance_stability",
-            ],
-        ))
+                "Feature Attribution & Explainability (XAI)",
+                (
+                    "Review global feature importance, local SHAP attributions, "
+                    "Integrated Gradients, and feature drift."
+                ),
+                [
+                    "explainability.importance",
+                    "explainability.shap",
+                    "deep_learning.explainability_diagnostics",
+                    "genai.citation_coverage",
+                    "xai.global_importance",
+                    "xai.integrated_gradients",
+                ],
+            )
+        )
+        checkpoints.append(
+            (
+                "Sensitivity, Robustness & Drift Analysis",
+                (
+                    "Review covariate drift, feature shock sensitivity, "
+                    "noise robustness, and adversarial stress tests."
+                ),
+                [
+                    "robustness.drift",
+                    "robustness.sensitivity",
+                    "deep_learning.figure_diagnostics",
+                    "deep_learning.robustness_diagnostics",
+                    "deep_learning.sensitivity_diagnostics",
+                    "preprocessing.categorical_drift",
+                    "preprocessing.feature_drift",
+                    "xai.feature_sensitivity",
+                    "xai.importance_stability",
+                ],
+            )
+        )
 
     if ReviewDomain.MARKET in bundle.domains:
-        checkpoints.append((
-            "Portfolio Risk & Volatility Assumptions",
-            "Review portfolio annualized volatility, diversification metrics, and return distribution.",
-            [
-                "portfolio.risk_statistics",
-                "portfolio.historical_returns",
-                "portfolio.mean_variance",
-                "portfolio.hierarchical_risk_parity",
-                "portfolio.herc",
-                "portfolio.cvar_optimization",
-                "portfolio.black_litterman",
-                "portfolio.maximum_diversification",
-                "portfolio.constrained_optimization",
-                "portfolio.covariance_conditioning",
-            ],
-        ))
-        checkpoints.append((
-            "Factor Modeling & Attribution Assumptions",
-            "Review factor return estimation, return reconciliation, and factor risk change decomposition.",
-            [
-                "attribution.factor_return_estimation",
-                "attribution.cross_sectional_factor_model",
-                "attribution.exposure_analysis",
-                "attribution.return_attribution",
-                "attribution.risk_attribution",
-                "attribution.risk_change_decomposition",
-                "attribution.brinson",
-                "attribution.carino_linking",
-            ],
-        ))
-        checkpoints.append((
-            "VaR Backtesting & Exception Frequency",
-            "Review empirical VaR exception counts, Kupiec POF test p-value, and Basel traffic light status.",
-            [
-                "traded_risk.var_historical_simulation",
-                "traded_risk.var_parametric_gaussian",
-                "traded_risk.var_exceptions",
-                "traded_risk.var_kupiec_pof",
-                "traded_risk.var_christoffersen_independence",
-                "traded_risk.var_christoffersen_conditional",
-                "traded_risk.var_christoffersen",
-                "traded_risk.var_traffic_light",
-                "traded_risk.cvar_expected_shortfall",
-                "traded_risk.expected_shortfall",
-                "traded_risk.tail_severity",
-                "traded_risk.exception_durations",
-                "traded_risk.es_contribution",
-                "traded_risk.var_es_comparison",
-                "validation.var_size_power",
-            ],
-        ))
-        checkpoints.append((
-            "Covariance Structure & Missing Data Treatment",
-            "Review Ledoit-Wolf shrinkage intensity and Regularized EM imputation under incomplete returns.",
-            [
-                "covariance.empirical",
-                "covariance.ledoit_wolf_shrinkage",
-                "covariance.regularized_em",
-                "covariance.condition_number",
-                "covariance.nearest_psd",
-                "validation.regem_structural",
-            ],
-        ))
-        checkpoints.append((
-            "Scenario Analysis & Stress Testing",
-            "Review deterministic stress shocks, active tracking stress, and reverse-stress tail geometry.",
-            [
-                "scenario.linear_return",
-                "scenario.asset_return",
-                "scenario.factor_linear",
-                "scenario.benchmark_active",
-                "scenario.group_stress",
-                "scenario.sensitivity_grid",
-                "scenario.reverse_stress",
-            ],
-        ))
-        checkpoints.append((
-            "Cross-Analytical Committee Synthesis",
+        checkpoints.append(
             (
-                "Review adversarial cross-analytical claims, evidence graph relationships, "
-                "and specialist challenges."
-            ),
-            [],
-        ))
+                "Portfolio Risk & Volatility Assumptions",
+                "Review portfolio annualized volatility, diversification metrics, and return distribution.",
+                [
+                    "portfolio.risk_statistics",
+                    "portfolio.historical_returns",
+                    "portfolio.mean_variance",
+                    "portfolio.hierarchical_risk_parity",
+                    "portfolio.herc",
+                    "portfolio.cvar_optimization",
+                    "portfolio.black_litterman",
+                    "portfolio.maximum_diversification",
+                    "portfolio.constrained_optimization",
+                    "portfolio.covariance_conditioning",
+                ],
+            )
+        )
+        checkpoints.append(
+            (
+                "Factor Modeling & Attribution Assumptions",
+                "Review factor return estimation, return reconciliation, and factor risk change decomposition.",
+                [
+                    "attribution.factor_return_estimation",
+                    "attribution.cross_sectional_factor_model",
+                    "attribution.exposure_analysis",
+                    "attribution.return_attribution",
+                    "attribution.risk_attribution",
+                    "attribution.risk_change_decomposition",
+                    "attribution.brinson",
+                    "attribution.carino_linking",
+                ],
+            )
+        )
+        checkpoints.append(
+            (
+                "VaR Backtesting & Exception Frequency",
+                "Review empirical VaR exception counts, Kupiec POF test p-value, and Basel traffic light status.",
+                [
+                    "traded_risk.var_historical_simulation",
+                    "traded_risk.var_parametric_gaussian",
+                    "traded_risk.var_exceptions",
+                    "traded_risk.var_kupiec_pof",
+                    "traded_risk.var_christoffersen_independence",
+                    "traded_risk.var_christoffersen_conditional",
+                    "traded_risk.var_christoffersen",
+                    "traded_risk.var_traffic_light",
+                    "traded_risk.cvar_expected_shortfall",
+                    "traded_risk.expected_shortfall",
+                    "traded_risk.tail_severity",
+                    "traded_risk.exception_durations",
+                    "traded_risk.es_contribution",
+                    "traded_risk.var_es_comparison",
+                    "validation.var_size_power",
+                ],
+            )
+        )
+        checkpoints.append(
+            (
+                "Covariance Structure & Missing Data Treatment",
+                "Review Ledoit-Wolf shrinkage intensity and Regularized EM imputation under incomplete returns.",
+                [
+                    "covariance.empirical",
+                    "covariance.ledoit_wolf_shrinkage",
+                    "covariance.regularized_em",
+                    "covariance.condition_number",
+                    "covariance.nearest_psd",
+                    "validation.regem_structural",
+                ],
+            )
+        )
+        checkpoints.append(
+            (
+                "Scenario Analysis & Stress Testing",
+                "Review deterministic stress shocks, active tracking stress, and reverse-stress tail geometry.",
+                [
+                    "scenario.linear_return",
+                    "scenario.asset_return",
+                    "scenario.factor_linear",
+                    "scenario.benchmark_active",
+                    "scenario.group_stress",
+                    "scenario.sensitivity_grid",
+                    "scenario.reverse_stress",
+                ],
+            )
+        )
+        checkpoints.append(
+            (
+                "Cross-Analytical Committee Synthesis",
+                (
+                    "Review adversarial cross-analytical claims, evidence graph relationships, "
+                    "and specialist challenges."
+                ),
+                [],
+            )
+        )
 
     if ReviewDomain.TREASURY in bundle.domains:
-        checkpoints.append((
-            "Short-Rate Diffusion & CEV Elasticity",
-            "Review CEV gamma elasticity estimation and pre-registered nominal coverage diagnostic.",
-            ["traded_risk.cev_elasticity", "validation.cev_consistency"],
-        ))
-        checkpoints.append((
-            "Stanton Nonparametric Drift & Diffusion",
-            "Review Stanton kernel drift/diffusion estimates and pre-registered wrong-sign bias diagnostic.",
-            ["traded_risk.stanton_nonparametric", "validation.stanton_bias"],
-        ))
+        checkpoints.append(
+            (
+                "Short-Rate Diffusion & CEV Elasticity",
+                "Review CEV gamma elasticity estimation and pre-registered nominal coverage diagnostic.",
+                ["traded_risk.cev_elasticity", "validation.cev_consistency"],
+            )
+        )
+        checkpoints.append(
+            (
+                "Stanton Nonparametric Drift & Diffusion",
+                "Review Stanton kernel drift/diffusion estimates and pre-registered wrong-sign bias diagnostic.",
+                ["traded_risk.stanton_nonparametric", "validation.stanton_bias"],
+            )
+        )
 
     barrier_records = [
-        r for r in records
+        r
+        for r in records
         if (r.test_id in {"traded_risk.brownian_bridge_barrier"} or r.test_id.startswith("barrier."))
         and str(r.status).lower() not in ("skipped", "n/a")
     ]
     if barrier_records:
-        checkpoints.append((
-            "Barrier Validation & Boundary Admissibility",
-            "Review Brownian bridge barrier crossing probability and boundary admissibility.",
-            [r.test_id for r in barrier_records],
-        ))
+        checkpoints.append(
+            (
+                "Barrier Validation & Boundary Admissibility",
+                "Review Brownian bridge barrier crossing probability and boundary admissibility.",
+                [r.test_id for r in barrier_records],
+            )
+        )
 
-    checkpoints.append((
-        "Model Governance & Attestation Sign-off",
-        "Final review of materiality, lifecycle stage, evidence integrity, and attestation seal.",
-        [],
-    ))
+    checkpoints.append(
+        (
+            "Model Governance & Attestation Sign-off",
+            "Final review of materiality, lifecycle stage, evidence integrity, and attestation seal.",
+            [],
+        )
+    )
 
     decisions: list[dict[str, Any]] = []
 
@@ -1170,6 +1248,7 @@ def run_domain_checkpoints(
 
         # Build canonical CheckpointEvidenceView
         from start.review.evidence_view import build_checkpoint_evidence_view
+
         view = build_checkpoint_evidence_view(
             checkpoint_title=title,
             checkpoint_description=description,
@@ -1209,8 +1288,7 @@ def run_domain_checkpoints(
             }
             console.print(build_governance_table(gov_meta, decisions))
         elif any(
-            k in title
-            for k in ("Data Quality", "Architecture", "Performance", "Attribution", "Sensitivity")
+            k in title for k in ("Data Quality", "Architecture", "Performance", "Attribution", "Sensitivity")
         ):
             console.print(build_predictive_table(matched_records, title=title))
         else:
@@ -1279,24 +1357,26 @@ def run_domain_checkpoints(
                 console.print(f"  [yellow]Recorded override:[/yellow] {note}")
                 sm.transition(CheckpointState.COMPLETED)
                 sm.record_decision("override")
-                decisions.append({
-                    "checkpoint": title,
-                    "action": "override",
-                    "note": note,
-                    "response": f"Reviewer override: {note}",
-                    "backend": "deterministic",
-                    "provider": bundle.llm_config.provider,
-                    "model": bundle.llm_config.model,
-                    "invocation_id": "",
-                    "latency": 0.0,
-                    "live_provider_call": False,
-                    "claims": 0,
-                    "grounded_claims": 0,
-                    "unbound_claims": 0,
-                    "grounding_repair": False,
-                    "relevant_tests": relevant_tests,
-                    "ts": time.time(),
-                })
+                decisions.append(
+                    {
+                        "checkpoint": title,
+                        "action": "override",
+                        "note": note,
+                        "response": f"Reviewer override: {note}",
+                        "backend": "deterministic",
+                        "provider": bundle.llm_config.provider,
+                        "model": bundle.llm_config.model,
+                        "invocation_id": "",
+                        "latency": 0.0,
+                        "live_provider_call": False,
+                        "claims": 0,
+                        "grounded_claims": 0,
+                        "unbound_claims": 0,
+                        "grounding_repair": False,
+                        "relevant_tests": relevant_tests,
+                        "ts": time.time(),
+                    }
+                )
                 break
 
             if choice.startswith("A"):
@@ -1304,24 +1384,26 @@ def run_domain_checkpoints(
                 sm.transition(CheckpointState.COMPLETED)
                 sm.record_decision("accept")
                 console.print("  [green]Accepted recommendation.[/green]")
-                decisions.append({
-                    "checkpoint": title,
-                    "action": "accept",
-                    "note": "",
-                    "response": "Accepted recommendation.",
-                    "backend": "deterministic",
-                    "provider": bundle.llm_config.provider,
-                    "model": bundle.llm_config.model,
-                    "invocation_id": "",
-                    "latency": 0.0,
-                    "live_provider_call": False,
-                    "claims": 0,
-                    "grounded_claims": 0,
-                    "unbound_claims": 0,
-                    "grounding_repair": False,
-                    "relevant_tests": relevant_tests,
-                    "ts": time.time(),
-                })
+                decisions.append(
+                    {
+                        "checkpoint": title,
+                        "action": "accept",
+                        "note": "",
+                        "response": "Accepted recommendation.",
+                        "backend": "deterministic",
+                        "provider": bundle.llm_config.provider,
+                        "model": bundle.llm_config.model,
+                        "invocation_id": "",
+                        "latency": 0.0,
+                        "live_provider_call": False,
+                        "claims": 0,
+                        "grounded_claims": 0,
+                        "unbound_claims": 0,
+                        "grounding_repair": False,
+                        "relevant_tests": relevant_tests,
+                        "ts": time.time(),
+                    }
+                )
                 break
 
             if choice.startswith("C") or choice.startswith("Q"):
@@ -1341,10 +1423,10 @@ def run_domain_checkpoints(
                 if is_challenge:
                     if "Covariance" in title:
                         from start.portfolio.covariance import diagnose_covariance
+
                         cov_m = products.get_result("covariance.matrix") if products else None
                         has_ret = (
-                            bundle.market is not None
-                            and getattr(bundle.market, "returns", None) is not None
+                            bundle.market is not None and getattr(bundle.market, "returns", None) is not None
                         )
                         if cov_m is None and has_ret and bundle.market is not None:
                             cov_m = bundle.market.returns.cov().values
@@ -1414,6 +1496,7 @@ def run_domain_checkpoints(
                         )
                     elif "VaR" in title or "Tail" in title:
                         from start.portfolio.tail_risk import compute_exception_duration_diagnostics
+
                         diag_tool_name = "compute_exception_duration_diagnostics"
                         diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
                         console.print(
@@ -1435,6 +1518,7 @@ def run_domain_checkpoints(
                             )
                     elif "Portfolio" in title:
                         from start.portfolio.constraints import verify_portfolio_constraints
+
                         w_d = products.get_result("portfolio.weights") if products else None
                         has_port_w = (
                             bundle.market is not None
@@ -1512,6 +1596,7 @@ def run_domain_checkpoints(
 
                     active_run_id = matched_records[0].run_id if matched_records else "RUN-REVIEW"
                     from start.core.schemas import ReproducibilityMeta
+
                     diag_record = EvidenceRecord(
                         evidence_id=diag_ev_id,
                         test_id=f"diagnostic.{diag_tool_name}",
@@ -1576,7 +1661,7 @@ def run_domain_checkpoints(
                         )
                         directive = (
                             f"The reviewer has issued a substantive CHALLENGE at checkpoint '{title}':\n"
-                            f"Challenge: \"{note}\"\n\n"
+                            f'Challenge: "{note}"\n\n'
                             f"{diag_line}"
                             "Critically evaluate this challenge against the permitted evidence. Identify "
                             "material model risk concerns, discuss potential model limitations or failure "
@@ -1585,7 +1670,7 @@ def run_domain_checkpoints(
                     else:
                         directive = (
                             f"The reviewer has asked the following QUESTION at checkpoint '{title}':\n"
-                            f"Question: \"{note}\"\n\n"
+                            f'Question: "{note}"\n\n'
                             "Provide a clear, technical, and objective model-risk analysis answering the "
                             "question based on the permitted evidence, assumptions, and governance context."
                         )
@@ -1705,10 +1790,13 @@ def run_domain_checkpoints(
                         )
                         provider_inst = get_llm_provider(cfg_provider)
                         inv_uuid = f"INV-{uuid.uuid4().hex[:12]}"
-                        is_synthesis = any(
-                            k in title.lower()
-                            for k in ("synthesis", "committee", "governance", "cross-analytical")
-                        ) or len(user_prompt) > 4000
+                        is_synthesis = (
+                            any(
+                                k in title.lower()
+                                for k in ("synthesis", "committee", "governance", "cross-analytical")
+                            )
+                            or len(user_prompt) > 4000
+                        )
                         budget = 16384 if is_synthesis else 4096
                         pres = _safe_complete_result(
                             provider_inst,
@@ -1737,9 +1825,7 @@ def run_domain_checkpoints(
                             provider_error_msg = f"PROVIDER_REQUEST_ERROR: {err_str}"
                         elif pres.status == "empty" or not raw_text:
                             provider_failed = True
-                            provider_error_msg = (
-                                "EMPTY_PROVIDER_RESPONSE: Provider completed with zero text"
-                            )
+                            provider_error_msg = "EMPTY_PROVIDER_RESPONSE: Provider completed with zero text"
                         else:
                             provider_failed = False
                     except ReviewCancelled:
@@ -1775,9 +1861,7 @@ def run_domain_checkpoints(
                         if rec_choice == "2":
                             sm.transition(CheckpointState.CANCELLED)
                             sm.record_decision("aborted")
-                            raise ReviewCancelled(
-                                f"Review aborted following {prov_display} request failure."
-                            )
+                            raise ReviewCancelled(f"Review aborted following {prov_display} request failure.")
                         sm.transition(CheckpointState.DETERMINISTIC_FALLBACK)
                         console.print("\n  [bold yellow]NOTICE: LIVE_REVIEWER_NOT_VALIDATED[/bold yellow]")
                         console.print(
@@ -1822,7 +1906,7 @@ def run_domain_checkpoints(
                             if cleaned_text.startswith("```"):
                                 first_nl = cleaned_text.find("\n")
                                 if first_nl != -1:
-                                    cleaned_text = cleaned_text[first_nl + 1:]
+                                    cleaned_text = cleaned_text[first_nl + 1 :]
                                 if cleaned_text.rstrip().endswith("```"):
                                     cleaned_text = cleaned_text.rstrip()[:-3]
                                 cleaned_text = cleaned_text.strip()
@@ -1860,12 +1944,10 @@ def run_domain_checkpoints(
                                 sm.record_decision("fallback")
                                 response_backend = "fallback"
                                 response_text = (
-                                    f"Deterministic fallback: Recorded "
-                                    f"{action} on '{title}' ({note})."
+                                    f"Deterministic fallback: Recorded {action} on '{title}' ({note})."
                                 )
                                 console.print(
-                                    f"  [cyan]Deterministic Review "
-                                    f"Response:[/cyan] {response_text}"
+                                    f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
                                 )
                                 sm.transition(CheckpointState.COMPLETED)
                             else:
@@ -1878,8 +1960,7 @@ def run_domain_checkpoints(
                                         r.evidence_id for r in matched_records if r.evidence_id
                                     ),
                                     records_by_id={
-                                        r.evidence_id: r
-                                        for r in matched_records if r.evidence_id
+                                        r.evidence_id: r for r in matched_records if r.evidence_id
                                     },
                                 )
                                 val_res = validate_and_hydrate_structured_response(structured_obj, st_ctx)
@@ -1930,12 +2011,10 @@ def run_domain_checkpoints(
                                     sm.record_decision("fallback")
                                     response_backend = "fallback"
                                     response_text = (
-                                        f"Deterministic fallback: Recorded "
-                                        f"{action} on '{title}' ({note})."
+                                        f"Deterministic fallback: Recorded {action} on '{title}' ({note})."
                                     )
                                     console.print(
-                                        f"  [cyan]Deterministic Review "
-                                        f"Response:[/cyan] {response_text}"
+                                        f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
                                     )
                                     sm.transition(CheckpointState.COMPLETED)
                                 else:
@@ -2069,9 +2148,7 @@ def run_domain_checkpoints(
                         )
                     else:
                         surfaces_str = ", ".join(relevant_tests) or "all"
-                        response_text = (
-                            f"Evidence for '{title}' meets constraints. Surfaces: {surfaces_str}."
-                        )
+                        response_text = f"Evidence for '{title}' meets constraints. Surfaces: {surfaces_str}."
                     console.print(f"\n  [cyan]Deterministic Review Response:[/cyan] {response_text}")
                     sm.transition(CheckpointState.COMPLETED)
 
@@ -2095,9 +2172,7 @@ def run_domain_checkpoints(
                         else str(bundle.grounding_mode or "STRUCTURED")
                     ),
                     "finding_count": (
-                        val_res.findings_count
-                        if "val_res" in locals() and val_res is not None
-                        else 0
+                        val_res.findings_count if "val_res" in locals() and val_res is not None else 0
                     ),
                     "evidence_ref_count": claims_count,
                     "validated_ref_count": grounded_count,
@@ -2114,15 +2189,9 @@ def run_domain_checkpoints(
                     "provider_status": "ERROR" if provider_failed else "OK",
                     "schema_validation_status": (
                         "VALID"
-                        if (
-                            "val_res" in locals()
-                            and val_res is not None
-                            and val_res.valid
-                        )
+                        if ("val_res" in locals() and val_res is not None and val_res.valid)
                         else (
-                            "INVALID"
-                            if ("val_res" in locals() and val_res is not None)
-                            else "NOT_APPLICABLE"
+                            "INVALID" if ("val_res" in locals() and val_res is not None) else "NOT_APPLICABLE"
                         )
                     ),
                     "grounding_repair": repair_done,
@@ -2193,68 +2262,72 @@ def build_market_narrative(
         shrinkage = metric("covariance.ledoit_wolf_shrinkage", "shrinkage_intensity", 0.0086)
         var_size = metric("validation.var_size_power", "observed.size_correct_forecast", 0.0660)
 
-        lines.extend([
-            f"The portfolio's annualised volatility was {volatility:.4f} {ev('portfolio.risk_statistics')}.",
-            f"Return attribution reconciled to within {reconciliation:.2e} "
-            f"{ev('attribution.return_attribution')}.",
-            f"The VaR backtest recorded {exceptions:.0f} exceptions {ev('traded_risk.var_exceptions')}.",
-            f"The Kupiec proportion-of-failures test returned a p-value of {kupiec_p:.4f} "
-            f"{ev('traded_risk.var_kupiec_pof')}.",
-            f"Ledoit-Wolf shrinkage intensity was {shrinkage:.4f} {ev('covariance.ledoit_wolf_shrinkage')}.",
-            "",
-            f"The VaR backtest study met every pre-registered criterion, with empirical size: {var_size:.4f} "
-            f"(nominal significance level: 0.05) under a correct forecast {ev('validation.var_size_power')}.",
-            f"The RegEM study met both structural criteria in all eighteen cells "
-            f"{ev('validation.regem_structural')}.",
-        ])
+        lines.extend(
+            [
+                f"The portfolio's annualised volatility was {volatility:.4f} {ev('portfolio.risk_statistics')}.",
+                f"Return attribution reconciled to within {reconciliation:.2e} "
+                f"{ev('attribution.return_attribution')}.",
+                f"The VaR backtest recorded {exceptions:.0f} exceptions {ev('traded_risk.var_exceptions')}.",
+                f"The Kupiec proportion-of-failures test returned a p-value of {kupiec_p:.4f} "
+                f"{ev('traded_risk.var_kupiec_pof')}.",
+                f"Ledoit-Wolf shrinkage intensity was {shrinkage:.4f} {ev('covariance.ledoit_wolf_shrinkage')}.",
+                "",
+                f"The VaR backtest study met every pre-registered criterion, with empirical size: {var_size:.4f} "
+                f"(nominal significance level: 0.05) under a correct forecast {ev('validation.var_size_power')}.",
+                f"The RegEM study met both structural criteria in all eighteen cells "
+                f"{ev('validation.regem_structural')}.",
+            ]
+        )
 
     if has_treasury:
         cev_consistency = metric(
             "validation.cev_consistency", "observed.consistency_ratio_gamma_0_0", 0.469967
         )
-        cev_coverage = metric(
-            "validation.cev_consistency", "observed.coverage_gamma_0_0", 0.6350
-        )
-        stanton_ratio = metric(
-            "validation.stanton_bias", "observed.bias_improvement_ratio", 0.305052
-        )
-        stanton_sign = metric(
-            "validation.stanton_bias", "observed.max_wrong_sign_rate_nonzero_drift", 0.4750
-        )
+        cev_coverage = metric("validation.cev_consistency", "observed.coverage_gamma_0_0", 0.6350)
+        stanton_ratio = metric("validation.stanton_bias", "observed.bias_improvement_ratio", 0.305052)
+        stanton_sign = metric("validation.stanton_bias", "observed.max_wrong_sign_rate_nonzero_drift", 0.4750)
 
         if lines:
             lines.append("")
-        lines.extend([
-            f"The CEV estimator satisfied the pre-registered consistency requirement, with a ratio "
-            f"of {cev_consistency:.6f} at gamma = 0, but FAILED the nominal-coverage requirement at "
-            f"gamma = 0, where empirical coverage was {cev_coverage:.4f} against a required interval "
-            f"of [0.90, 0.98] {ev('validation.cev_consistency')}. The CEV estimator is not fully validated.",
-            "",
-            f"The Stanton estimator satisfied the bias-improvement criterion, with a ratio of "
-            f"{stanton_ratio:.6f}, but FAILED the pre-registered wrong-sign criterion, reaching "
-            f"{stanton_sign:.4f} against a required maximum of 0.10 {ev('validation.stanton_bias')}. "
-            f"The Stanton estimator is not fully validated.",
-        ])
+        lines.extend(
+            [
+                f"The CEV estimator satisfied the pre-registered consistency requirement, with a ratio "
+                f"of {cev_consistency:.6f} at gamma = 0, but FAILED the nominal-coverage requirement at "
+                f"gamma = 0, where empirical coverage was {cev_coverage:.4f} against a required interval "
+                f"of [0.90, 0.98] {ev('validation.cev_consistency')}. The CEV estimator is not fully validated.",
+                "",
+                f"The Stanton estimator satisfied the bias-improvement criterion, with a ratio of "
+                f"{stanton_ratio:.6f}, but FAILED the pre-registered wrong-sign criterion, reaching "
+                f"{stanton_sign:.4f} against a required maximum of 0.10 {ev('validation.stanton_bias')}. "
+                f"The Stanton estimator is not fully validated.",
+            ]
+        )
 
     if has_market and has_treasury:
-        lines.extend([
-            "",
-            "CEV and Stanton failed frozen pre-registered criteria, while VaR and RegEM passed their "
-            "frozen criteria. Statistical validation is therefore partial and requires scientific "
-            "governance remediation.",
-        ])
+        lines.extend(
+            [
+                "",
+                "CEV and Stanton failed frozen pre-registered criteria, while VaR and RegEM passed their "
+                "frozen criteria. Statistical validation is therefore partial and requires scientific "
+                "governance remediation.",
+            ]
+        )
     elif has_market:
-        lines.extend([
-            "",
-            "VaR and RegEM passed their frozen pre-registered criteria. Statistical validation for market "
-            "surfaces is fully passed.",
-        ])
+        lines.extend(
+            [
+                "",
+                "VaR and RegEM passed their frozen pre-registered criteria. Statistical validation for market "
+                "surfaces is fully passed.",
+            ]
+        )
     elif has_treasury:
-        lines.extend([
-            "",
-            "CEV and Stanton failed frozen pre-registered criteria. Statistical validation is therefore "
-            "incomplete and requires scientific disposition before CEV or Stanton is relied upon.",
-        ])
+        lines.extend(
+            [
+                "",
+                "CEV and Stanton failed frozen pre-registered criteria. Statistical validation is therefore "
+                "incomplete and requires scientific disposition before CEV or Stanton is relied upon.",
+            ]
+        )
 
     return "\n".join(lines)
 
@@ -2376,11 +2449,17 @@ def run_market_treasury_review(
         for sf in bundle.structured_findings:
             for f in sf.findings:
                 if f.evidence_refs:
-                    refs_str = " ".join(f"[{ref}]" if not ref.startswith("[") else ref for ref in f.evidence_refs[:2])
+                    refs_str = " ".join(
+                        f"[{ref}]" if not ref.startswith("[") else ref for ref in f.evidence_refs[:2]
+                    )
                     narrative_lines.append(f"{f.statement} {refs_str}")
                 else:
                     narrative_lines.append(f"{f.statement}")
-        narrative = "\n".join(narrative_lines[:8]) if narrative_lines else build_market_narrative(records, bundle.domains)
+        narrative = (
+            "\n".join(narrative_lines[:8])
+            if narrative_lines
+            else build_market_narrative(records, bundle.domains)
+        )
     else:
         narrative = build_market_narrative(records, bundle.domains)
 
@@ -2424,6 +2503,7 @@ def run_market_treasury_review(
     }
     if hasattr(bundle, "structured_findings") and bundle.structured_findings:
         import hashlib
+
         finding_hashes = [f.content_hash for f in bundle.structured_findings]
         combined_findings_hash = hashlib.sha256("".join(sorted(finding_hashes)).encode("utf-8")).hexdigest()
         seal_meta["structured_findings_count"] = sum(len(f.findings) for f in bundle.structured_findings)
@@ -2556,9 +2636,15 @@ def run_market_treasury_review(
             "All required criteria met",
         )
 
-    table.add_row("Attestation Seal", "[green]VALID[/green]", f"Merkle Root: {str(root_hash)[:16]}... (7 leaves)")
+    table.add_row(
+        "Attestation Seal", "[green]VALID[/green]", f"Merkle Root: {str(root_hash)[:16]}... (7 leaves)"
+    )
     disp_style = "bold green" if final_gov_disposition == "ACCEPT" else "bold yellow"
-    table.add_row("Final Governance Disposition", f"[{disp_style}]{final_gov_disposition}[/{disp_style}]", "Cryptographically attested sign-off")
+    table.add_row(
+        "Final Governance Disposition",
+        f"[{disp_style}]{final_gov_disposition}[/{disp_style}]",
+        "Cryptographically attested sign-off",
+    )
 
     console.print("\n")
     console.print(table)
@@ -2680,4 +2766,3 @@ def run_market_treasury_review(
 
 #: Single Unified Review Shell Entrypoint
 run_unified_review = run_market_treasury_review
-

@@ -91,9 +91,7 @@ def infer_target_type(ctx: Any) -> TargetInference:
             )
         except ValueError:
             valid = ", ".join(t.value for t in TargetType)
-            raise ValueError(
-                f"target_type={explicit!r} is not recognised. Valid: {valid}"
-            ) from None
+            raise ValueError(f"target_type={explicit!r} is not recognised. Valid: {valid}") from None
 
     column = getattr(ctx, "target_column", None)
     frame = getattr(ctx, "train", None)
@@ -111,13 +109,19 @@ def infer_target_type(ctx: Any) -> TargetInference:
 
     if n_unique <= 1:
         return TargetInference(
-            TargetType.NONE, "cardinality", "high", n_unique,
+            TargetType.NONE,
+            "cardinality",
+            "high",
+            n_unique,
             "target has fewer than two distinct values",
         )
 
     if n_unique == 2:
         return TargetInference(
-            TargetType.BINARY, "cardinality", "high", n_unique,
+            TargetType.BINARY,
+            "cardinality",
+            "high",
+            n_unique,
             "exactly two distinct values",
         )
 
@@ -128,7 +132,10 @@ def infer_target_type(ctx: Any) -> TargetInference:
     is_numeric_dtype = dtype.startswith(("int", "uint", "float", "Int", "UInt", "Float"))
     if not is_numeric_dtype:
         return TargetInference(
-            TargetType.MULTICLASS, "dtype", "high", n_unique,
+            TargetType.MULTICLASS,
+            "dtype",
+            "high",
+            n_unique,
             f"non-numeric dtype {dtype!r} with {n_unique} levels",
         )
 
@@ -150,7 +157,10 @@ def infer_target_type(ctx: Any) -> TargetInference:
         )
 
     return TargetInference(
-        TargetType.CONTINUOUS, "dtype", "high", n_unique,
+        TargetType.CONTINUOUS,
+        "dtype",
+        "high",
+        n_unique,
         f"numeric dtype {dtype!r} with {n_unique} distinct values",
     )
 

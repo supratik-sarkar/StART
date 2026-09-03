@@ -56,8 +56,8 @@ def factor_universe_4x2() -> dict[str, Any]:
         [
             [1.20, -0.30],  # AAPL (high beta, growth)
             [1.10, -0.20],  # MSFT (high beta, growth)
-            [0.70, 0.80],   # XOM (low beta, high value)
-            [0.60, 0.40],   # JNJ (defensive, value)
+            [0.70, 0.80],  # XOM (low beta, high value)
+            [0.60, 0.40],  # JNJ (defensive, value)
         ],
         index=assets,
         columns=factors,
@@ -248,7 +248,9 @@ def test_factor_risk_evidence_adapters_and_artifacts(factor_universe_4x2):
         specific_var=u["specific_var"],
     )
     frd = decompose_factor_risk(weights=u["portfolio_weights"], factor_model=frm)
-    ard = decompose_active_risk(weights=u["portfolio_weights"], benchmark_weights=u["benchmark_weights"], factor_model=frm)
+    ard = decompose_active_risk(
+        weights=u["portfolio_weights"], benchmark_weights=u["benchmark_weights"], factor_model=frm
+    )
 
     ev_frm = factor_risk_model_to_evidence(frm)
     ev_frd = factor_risk_decomp_to_evidence(frd)
@@ -259,9 +261,15 @@ def test_factor_risk_evidence_adapters_and_artifacts(factor_universe_4x2):
     assert ev_ard.test_id == "factor_risk.active_decomposition"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        art_frm = render_factor_risk_model_artifact(frm, evidence_ids=(ev_frm.evidence_id,), output_dir=tmpdir)
-        art_frd = render_factor_risk_waterfall_artifact(frd, evidence_ids=(ev_frd.evidence_id,), output_dir=tmpdir)
-        art_ard = render_active_risk_decomposition_artifact(ard, evidence_ids=(ev_ard.evidence_id,), output_dir=tmpdir)
+        art_frm = render_factor_risk_model_artifact(
+            frm, evidence_ids=(ev_frm.evidence_id,), output_dir=tmpdir
+        )
+        art_frd = render_factor_risk_waterfall_artifact(
+            frd, evidence_ids=(ev_frd.evidence_id,), output_dir=tmpdir
+        )
+        art_ard = render_active_risk_decomposition_artifact(
+            ard, evidence_ids=(ev_ard.evidence_id,), output_dir=tmpdir
+        )
 
         assert Path(art_frm.file_path).exists()
         assert Path(art_frd.file_path).exists()

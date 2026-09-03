@@ -194,10 +194,12 @@ def cophenetic_to_evidence(
         run_id=run_id,
         model_id=model_id,
         dataset_id=dataset_id,
-        input_artifact_hash=_hash_dict({
-            "cophenetic": coph.cophenetic_correlation,
-            "linkage": coph.linkage_method,
-        }),
+        input_artifact_hash=_hash_dict(
+            {
+                "cophenetic": coph.cophenetic_correlation,
+                "linkage": coph.linkage_method,
+            }
+        ),
     )
 
 
@@ -561,7 +563,9 @@ def black_litterman_to_evidence(
         "turnover_vs_prior": bl.turnover_vs_prior,
         "posterior_volatility_annualised": bl.posterior_volatility_annualised,
         "posterior_sharpe_annualised": bl.posterior_sharpe_annualised,
-        "constraint_violations_count": len([v for v in bl.constraint_verification.violations if v.status == "VIOLATED"]),
+        "constraint_violations_count": len(
+            [v for v in bl.constraint_verification.violations if v.status == "VIOLATED"]
+        ),
         "max_constraint_violation": bl.constraint_verification.max_violation,
     }
     for a, ret in bl.implied_returns.items():
@@ -1014,9 +1018,7 @@ def challenge_result_to_diagnostic_evidence(
             metrics[f"wc_return.{r_tag}"] = pt.worst_case_expected_return_annualised
             metrics[f"vol.{r_tag}"] = pt.portfolio_volatility_annualised
             metrics[f"eff_n.{r_tag}"] = pt.effective_n_positions
-        interpretation = (
-            f"Adversarial Robust MVO sensitivity across {len(tool_res.points)} radii evaluated for concentration."
-        )
+        interpretation = f"Adversarial Robust MVO sensitivity across {len(tool_res.points)} radii evaluated for concentration."
     elif isinstance(tool_res, CVaROptimizationResult):
         test_id = "portfolio.adversarial.cvar_tail_sensitivity"
         test_name = "Adversarial CVaR Scenario Tail Support Diagnostic"
@@ -1209,8 +1211,7 @@ def challenge_result_to_diagnostic_evidence(
             "issues_count": len(tool_res.issues),
         }
         interpretation = (
-            f"Adversarial Factor Data Integrity: is_valid={tool_res.is_valid}, "
-            f"issues={len(tool_res.issues)}."
+            f"Adversarial Factor Data Integrity: is_valid={tool_res.is_valid}, issues={len(tool_res.issues)}."
         )
     elif isinstance(tool_res, ScenarioResult):
         test_id = f"scenario.adversarial.{tool_res.repricing_method.lower()}"
@@ -1286,8 +1287,7 @@ def challenge_result_to_diagnostic_evidence(
             "n_issues": len(tool_res.issues),
         }
         interpretation = (
-            f"Adversarial Scenario Data Integrity: valid={tool_res.valid}, "
-            f"issues={len(tool_res.issues)}."
+            f"Adversarial Scenario Data Integrity: valid={tool_res.valid}, issues={len(tool_res.issues)}."
         )
     else:
         test_id = f"portfolio.adversarial.{tool_name}"
@@ -1417,7 +1417,9 @@ def psd_repair_to_evidence(
         run_id=run_id,
         model_id=model_id,
         dataset_id=dataset_id,
-        input_artifact_hash=_hash_dict({"before": repair.matrix_fingerprint_before, "after": repair.matrix_fingerprint_after}),
+        input_artifact_hash=_hash_dict(
+            {"before": repair.matrix_fingerprint_before, "after": repair.matrix_fingerprint_after}
+        ),
     )
 
 
@@ -1881,7 +1883,15 @@ def tail_backtest_to_evidence(
         "has_zero_transition_cell": backtest.has_zero_transition_cell,
         "indicator_hash": backtest.indicator_hash,
     }
-    status = Status.FAIL if (backtest.kupiec_rejected or backtest.christoffersen_rejected or backtest.conditional_coverage_rejected) else Status.RECORDED
+    status = (
+        Status.FAIL
+        if (
+            backtest.kupiec_rejected
+            or backtest.christoffersen_rejected
+            or backtest.conditional_coverage_rejected
+        )
+        else Status.RECORDED
+    )
     res = TestResult(
         test_id="traded_risk.var_conditional_coverage",
         test_name="Out-of-Sample VaR Coverage & Independence Backtest",
@@ -2084,6 +2094,7 @@ def tail_comparison_to_evidence(
 # =========================================================================== #
 # GATE 6: SCENARIO, STRESS & REVERSE-STRESS EVIDENCE RECORD ADAPTERS
 # =========================================================================== #
+
 
 def scenario_result_to_evidence(
     result: ScenarioResult,
@@ -2398,7 +2409,9 @@ def scenario_data_integrity_to_evidence(
             f"Scenario data integrity audit for '{diag.scenario_id}': valid={diag.valid}, "
             f"n_shocks={diag.n_shocks}, issues={len(diag.issues)}."
         ),
-        limitations=list(diag.issues) if diag.issues else ["Scenario specification passed all semantic and provenance audits."],
+        limitations=list(diag.issues)
+        if diag.issues
+        else ["Scenario specification passed all semantic and provenance audits."],
     )
     return EvidenceRecord.from_result(
         test_res,
@@ -2407,7 +2420,3 @@ def scenario_data_integrity_to_evidence(
         dataset_id=dataset_id,
         input_artifact_hash=diag.data_fingerprint,
     )
-
-
-
-

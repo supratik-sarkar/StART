@@ -128,14 +128,17 @@ def _outlier_count(series: pd.Series) -> int:
     return int(((s < lo) | (s > hi)).sum())
 
 
-def compute_data_statistics(
-    df: pd.DataFrame, target_column: str | None = None
-) -> DataStatistics:
+def compute_data_statistics(df: pd.DataFrame, target_column: str | None = None) -> DataStatistics:
     n_rows, n_cols = len(df), df.shape[1]
     column_stats: list[ColumnStat] = []
     role_counts = {
-        "numeric": 0, "categorical": 0, "datetime": 0, "text": 0,
-        "image_path": 0, "boolean": 0, "identifier": 0,
+        "numeric": 0,
+        "categorical": 0,
+        "datetime": 0,
+        "text": 0,
+        "image_path": 0,
+        "boolean": 0,
+        "identifier": 0,
     }
     missing_by_column: dict[str, float] = {}
     high_card: list[str] = []
@@ -169,9 +172,14 @@ def compute_data_statistics(
 
         column_stats.append(
             ColumnStat(
-                name=name, dtype=str(series.dtype), role=role, missing_pct=missing,
-                n_unique=nunique, is_high_cardinality=is_high_card,
-                is_low_variance=is_low_var, n_outliers=n_out,
+                name=name,
+                dtype=str(series.dtype),
+                role=role,
+                missing_pct=missing,
+                n_unique=nunique,
+                is_high_cardinality=is_high_card,
+                is_low_variance=is_low_var,
+                n_outliers=n_out,
             )
         )
 
@@ -201,10 +209,7 @@ def compute_data_statistics(
     leakage: list[str] = []
     corr_summary: dict[str, Any] = {}
     if target_column and target_column in df.columns and pd.api.types.is_numeric_dtype(df[target_column]):
-        numeric_feats = [
-            c for c in df.columns
-            if c != target_column and pd.api.types.is_numeric_dtype(df[c])
-        ]
+        numeric_feats = [c for c in df.columns if c != target_column and pd.api.types.is_numeric_dtype(df[c])]
         y = df[target_column]
         y_std = float(y.std()) if len(y.dropna()) else 0.0
         high_corr_pairs = []
@@ -237,17 +242,29 @@ def compute_data_statistics(
         notes.append(f"Potential leakage: {', '.join(leakage[:5])}.")
 
     return DataStatistics(
-        n_rows=n_rows, n_columns=n_cols, target_column=target_column,
-        target_type=target_type, class_distribution=class_dist,
-        n_numeric=role_counts["numeric"], n_categorical=role_counts["categorical"],
-        n_datetime=role_counts["datetime"], n_text=role_counts["text"],
-        n_image_path=role_counts["image_path"], n_boolean=role_counts["boolean"],
-        n_identifier=role_counts["identifier"], n_duplicate_rows=n_dupes,
-        high_cardinality_columns=high_card, low_variance_columns=low_var,
-        leakage_candidates=leakage, imbalance_warning=imbalance,
-        suggested_split=suggested_split, column_stats=column_stats,
-        missing_by_column=missing_by_column, correlation_summary=corr_summary,
-        outlier_summary=outlier_summary, notes=notes,
+        n_rows=n_rows,
+        n_columns=n_cols,
+        target_column=target_column,
+        target_type=target_type,
+        class_distribution=class_dist,
+        n_numeric=role_counts["numeric"],
+        n_categorical=role_counts["categorical"],
+        n_datetime=role_counts["datetime"],
+        n_text=role_counts["text"],
+        n_image_path=role_counts["image_path"],
+        n_boolean=role_counts["boolean"],
+        n_identifier=role_counts["identifier"],
+        n_duplicate_rows=n_dupes,
+        high_cardinality_columns=high_card,
+        low_variance_columns=low_var,
+        leakage_candidates=leakage,
+        imbalance_warning=imbalance,
+        suggested_split=suggested_split,
+        column_stats=column_stats,
+        missing_by_column=missing_by_column,
+        correlation_summary=corr_summary,
+        outlier_summary=outlier_summary,
+        notes=notes,
     )
 
 
@@ -256,12 +273,18 @@ def render_statistics_markdown(stats: DataStatistics) -> str:
     for label, value in stats.summary_rows():
         lines.append(f"| {label} | {value} |")
     if stats.class_distribution:
-        lines += ["", "**Class distribution:** " + ", ".join(
-            f"{k}={v:.1%}" for k, v in stats.class_distribution.items()
-        )]
+        lines += [
+            "",
+            "**Class distribution:** "
+            + ", ".join(f"{k}={v:.1%}" for k, v in stats.class_distribution.items()),
+        ]
     cols_with_missing = {k: v for k, v in stats.missing_by_column.items() if v > 0}
     if cols_with_missing:
-        lines += ["", "**Columns with missing values:** " + ", ".join(
-            f"{k} ({v:.1f}%)" for k, v in sorted(cols_with_missing.items(), key=lambda x: -x[1])[:10]
-        )]
+        lines += [
+            "",
+            "**Columns with missing values:** "
+            + ", ".join(
+                f"{k} ({v:.1f}%)" for k, v in sorted(cols_with_missing.items(), key=lambda x: -x[1])[:10]
+            ),
+        ]
     return "\n".join(lines) + "\n"

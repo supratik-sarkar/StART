@@ -142,6 +142,7 @@ class CheckpointEvidenceView:
     def compute_evidence_view_hash(self) -> str:
         """Compute deterministic SHA-256 fingerprint for this exact checkpoint view."""
         import hashlib
+
         ev_ids = [r.evidence_id for r in self.evidence_records if r.evidence_id]
         payload = f"{self.checkpoint_title}|{','.join(ev_ids)}"
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -204,11 +205,13 @@ class CheckpointEvidenceView:
             record_fields: dict[str, float] = {}
             if r.evidence_id in self.numeric_grounding_map:
                 record_fields.update(self.numeric_grounding_map[r.evidence_id])
-            scoped_list.append({
-                "evidence_id": r.evidence_id,
-                "test_id": r.test_id,
-                "fields": record_fields,
-            })
+            scoped_list.append(
+                {
+                    "evidence_id": r.evidence_id,
+                    "test_id": r.test_id,
+                    "fields": record_fields,
+                }
+            )
         return scoped_list
 
 

@@ -1,4 +1,5 @@
 """B5 — traded risk, with expected values derived independently of production code."""
+
 from __future__ import annotations
 
 import math
@@ -40,16 +41,20 @@ def _idx(n, start="2024-01-01"):
 
 
 def _short_rate_ctx(rates, ppy=252.0, min_obs=250):
-    return ShortRateContext(rates=rates, units="decimal", periods_per_year=ppy,
-                            min_observations=min_obs)
+    return ShortRateContext(rates=rates, units="decimal", periods_per_year=ppy, min_observations=min_obs)
 
 
 def _var_ctx(pnl, var, confidence=0.99, hypothetical=None):
     index = pnl.index
     returns = pd.DataFrame({"A": pnl.to_numpy()}, index=index)
-    return MarketContext(returns=returns, pnl=pnl, hypothetical_pnl=hypothetical,
-                         var_series=var, var_confidence=confidence,
-                         portfolio=PortfolioSpec(weights=pd.Series([1.0], index=["A"])))
+    return MarketContext(
+        returns=returns,
+        pnl=pnl,
+        hypothetical_pnl=hypothetical,
+        var_series=var,
+        var_confidence=confidence,
+        portfolio=PortfolioSpec(weights=pd.Series([1.0], index=["A"])),
+    )
 
 
 # ==================================================== CEV ==
@@ -70,7 +75,7 @@ def test_cev_recovers_a_deterministic_structural_relationship():
 
     # Expected slope derived here, independently of the production helper.
     prev, dr = values[:-1], np.diff(values)
-    x, y = np.log(prev), np.log(dr ** 2 / dt)
+    x, y = np.log(prev), np.log(dr**2 / dt)
     expected_slope = float(np.polyfit(x, y, 1)[0])
 
     estimate = estimate_cev(series, dt)
@@ -99,7 +104,7 @@ def test_cev_drops_nonpositive_rates_without_shifting():
     estimate = estimate_cev(series, 1 / 252)
     assert estimate.n_nonpositive_dropped >= 2
     assert estimate.n_used < estimate.n_total - 1
-    assert (series.to_numpy() == values).all()      # input untouched
+    assert (series.to_numpy() == values).all()  # input untouched
 
 
 def test_cev_counts_zero_increments_separately():
@@ -159,6 +164,7 @@ def test_cev_claim_language_is_bounded():
 def test_stanton_has_no_order_parameter():
     """First order only, structurally — not merely by default."""
     import inspect
+
     signature = inspect.signature(stanton_nonparametric)
     assert "order" not in signature.parameters
     assert "order" not in inspect.signature(stanton_first_order).parameters
@@ -172,7 +178,7 @@ def test_stanton_kernel_weights_match_an_independent_computation():
     prev, dr = values[:-1], np.diff(values)
     w = np.exp(-0.5 * ((prev - point) / h) ** 2)
     expected_mu = float((w @ dr) / (w.sum() * dt))
-    expected_s2 = float((w @ (dr ** 2)) / (w.sum() * dt))
+    expected_s2 = float((w @ (dr**2)) / (w.sum() * dt))
     frame = stanton_first_order(series, dt, np.array([point]), h)
     assert abs(float(frame["mu"].iloc[0]) - expected_mu) < 1e-12
     assert abs(float(frame["sigma2"].iloc[0]) - expected_s2) < 1e-12
@@ -345,7 +351,7 @@ def test_kupiec_surface_boundary_case_is_recorded():
 def test_kupiec_rejects_a_badly_understated_var():
     rng = np.random.default_rng(21)
     pnl = pd.Series(rng.normal(0, 1, 500), index=_idx(500))
-    var = pd.Series(np.full(500, 0.5), index=_idx(500))   # far too small
+    var = pd.Series(np.full(500, 0.5), index=_idx(500))  # far too small
     result = var_kupiec_pof(_var_ctx(pnl, var, confidence=0.99))
     assert result.status == Status.FAIL
     assert result.metrics["rejected"] is True
@@ -377,8 +383,7 @@ def test_christoffersen_independence_known_answer():
     pi = (n01 + n11) / (n0 + n1)
     pi0, pi1 = n01 / n0, n11 / n1
     ll_null = (n01 + n11) * math.log(pi) + (n00 + n10) * math.log(1 - pi)
-    ll_alt = (n01 * math.log(pi0) + n00 * math.log(1 - pi0)
-              + n11 * math.log(pi1) + n10 * math.log(1 - pi1))
+    ll_alt = n01 * math.log(pi0) + n00 * math.log(1 - pi0) + n11 * math.log(pi1) + n10 * math.log(1 - pi1)
     expected = -2.0 * (ll_null - ll_alt)
     assert abs(christoffersen_independence_lr(n00, n01, n10, n11) - expected) < 1e-10
 
@@ -438,15 +443,20 @@ def _traffic_ctx(n_exceptions, n=250, confidence=0.99):
     pnl = np.full(n, 1.0)
     pnl[:n_exceptions] = -3.0
     index = _idx(n)
-    return _var_ctx(pd.Series(pnl, index=index),
-                    pd.Series(np.full(n, 2.0), index=index), confidence)
+    return _var_ctx(pd.Series(pnl, index=index), pd.Series(np.full(n, 2.0), index=index), confidence)
 
 
-@pytest.mark.parametrize("x,zone,status", [
-    (0, "green", Status.RECORDED), (4, "green", Status.RECORDED),
-    (5, "yellow", Status.WARN), (9, "yellow", Status.WARN),
-    (10, "red", Status.FAIL), (25, "red", Status.FAIL),
-])
+@pytest.mark.parametrize(
+    "x,zone,status",
+    [
+        (0, "green", Status.RECORDED),
+        (4, "green", Status.RECORDED),
+        (5, "yellow", Status.WARN),
+        (9, "yellow", Status.WARN),
+        (10, "red", Status.FAIL),
+        (25, "red", Status.FAIL),
+    ],
+)
 def test_traffic_light_bands(x, zone, status):
     result = var_traffic_light(_traffic_ctx(x))
     assert result.metrics["zone"] == zone
@@ -492,7 +502,7 @@ def test_bridge_known_answer_matches_an_independent_computation():
     a, b, H, sigma, dt = 100.0, 110.0, 115.0, 0.25, 25 / 252
     expected = math.exp(-2.0 * math.log(H / a) * math.log(H / b) / (sigma * sigma * dt))
     assert abs(barrier_crossing_probability(a, b, H, sigma, dt) - expected) < 1e-15
-    assert 0.12 < expected < 0.15      # the live-verified ~0.135
+    assert 0.12 < expected < 0.15  # the live-verified ~0.135
 
 
 def test_arithmetic_price_formula_is_not_used():
@@ -514,9 +524,10 @@ def test_bridge_surface_reuses_the_b2_helper():
     import inspect
 
     from start.tests import traded_risk
+
     source = inspect.getsource(traded_risk)
     assert "barrier_crossing_probability" in source
-    assert source.count("def barrier_crossing_probability") == 0   # imported, not redefined
+    assert source.count("def barrier_crossing_probability") == 0  # imported, not redefined
 
 
 def _price_ctx(world):
@@ -527,7 +538,8 @@ def _price_ctx(world):
     built explicitly here rather than widening the B2 factory.
     """
     return MarketContext(
-        returns=world.returns, prices=world.prices,
+        returns=world.returns,
+        prices=world.prices,
         periods_per_year=world.periods_per_year,
         portfolio=PortfolioSpec(weights=world.weights),
     )
@@ -539,8 +551,7 @@ def test_bridge_surface_reports_under_detection():
     barrier = float(ctx.prices.iloc[:, 0].max() * 0.98)
     result = brownian_bridge_barrier(ctx, barrier=barrier, sigma=0.25)
     assert result.metrics["space"] == "log_price"
-    assert result.metrics["expected_continuous_crossings"] >= \
-           result.metrics["n_discrete_crossings"] - 1e-9
+    assert result.metrics["expected_continuous_crossings"] >= result.metrics["n_discrete_crossings"] - 1e-9
 
 
 def test_bridge_requires_an_explicit_barrier():
@@ -553,8 +564,7 @@ def test_bridge_requires_an_explicit_barrier():
 def test_bridge_is_not_described_as_interpolation():
     world = generate_market_world(n_assets=3, n_periods=100, seed=33)
     ctx = _price_ctx(world)
-    result = brownian_bridge_barrier(ctx, barrier=float(ctx.prices.iloc[:, 0].max() * 0.99),
-                                     sigma=0.25)
+    result = brownian_bridge_barrier(ctx, barrier=float(ctx.prices.iloc[:, 0].max() * 0.99), sigma=0.25)
     blob = " ".join(result.limitations)
     assert "not missing-data interpolation" in blob
 
@@ -562,7 +572,6 @@ def test_bridge_is_not_described_as_interpolation():
 def test_bridge_rejects_non_positive_prices():
     index = _idx(5)
     prices = pd.DataFrame({"A": [100.0, 90.0, -1.0, 95.0, 100.0]}, index=index)
-    ctx = MarketContext(prices=prices,
-                        portfolio=PortfolioSpec(weights=pd.Series([1.0], index=["A"])))
+    ctx = MarketContext(prices=prices, portfolio=PortfolioSpec(weights=pd.Series([1.0], index=["A"])))
     result = brownian_bridge_barrier(ctx, barrier=115.0, sigma=0.25)
     assert result.status == Status.ERROR

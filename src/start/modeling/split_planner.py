@@ -116,7 +116,8 @@ class SplitPlanner:
         if not time_column or time_column not in df.columns:
             datetime_cols = [c for c in df.columns if pd.api.types.is_datetime64_any_dtype(df[c])]
             time_cols = [
-                c for c in df.columns
+                c
+                for c in df.columns
                 if any(p in c.lower() for p in ("time", "date", "timestamp", "year", "month", "day", "epoch"))
             ]
             if datetime_cols:
@@ -134,7 +135,10 @@ class SplitPlanner:
         idx = np.arange(len(ordered))
         notes.append(f"Ordered by '{time_column}'; OOS is the most recent block (no shuffling).")
         plan = self._slice_by_index(
-            ordered, idx, fractions, "time_based",
+            ordered,
+            idx,
+            fractions,
+            "time_based",
             notes,
         )
         return plan
@@ -142,8 +146,12 @@ class SplitPlanner:
     def _group(self, df, fractions, group_column, seed) -> SplitPlan:
         if not group_column or group_column not in df.columns:
             group_cols = [
-                c for c in df.columns
-                if any(p in c.lower() for p in ("group", "entity", "id", "user", "cluster", "cohort", "patient", "client"))
+                c
+                for c in df.columns
+                if any(
+                    p in c.lower()
+                    for p in ("group", "entity", "id", "user", "cluster", "cohort", "patient", "client")
+                )
             ]
             if group_cols:
                 group_column = group_cols[0]
@@ -231,8 +239,7 @@ class SplitPlanner:
             status=status,
             metrics=metrics,
             interpretation=(
-                f"{plan.strategy} split: {n_train}/{n_test}/{n_oos} "
-                f"(train/test/OOS). " + " ".join(plan.notes)
+                f"{plan.strategy} split: {n_train}/{n_test}/{n_oos} (train/test/OOS). " + " ".join(plan.notes)
             ),
             limitations=[
                 "OOS is held out explicitly; metrics on it estimate generalization.",

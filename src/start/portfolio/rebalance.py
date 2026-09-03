@@ -81,7 +81,11 @@ def compute_transaction_costs(
 
     for i, a in enumerate(assets):
         linear_bps = cost_spec.get_asset_linear_bps(a)
-        spread_bps = cost_spec.bid_ask_spread_bps.get(a, 0.0) if isinstance(cost_spec.bid_ask_spread_bps, dict) else float(cost_spec.bid_ask_spread_bps)
+        spread_bps = (
+            cost_spec.bid_ask_spread_bps.get(a, 0.0)
+            if isinstance(cost_spec.bid_ask_spread_bps, dict)
+            else float(cost_spec.bid_ask_spread_bps)
+        )
         total_asset_bps = linear_bps + 0.5 * spread_bps
         asset_cost = trade_sizes[i] * (total_asset_bps / 10000.0)
         per_asset_costs[a] = round(float(asset_cost), 8)

@@ -89,7 +89,9 @@ def test_2_var_confidence_with_kupiec_in_same_sentence() -> None:
 
 def test_3_significance_with_var_confidence_in_same_sentence() -> None:
     """3. 5% significance with VaR/confidence elsewhere in same sentence binds to gamma_test."""
-    sentence = "Under the 99% VaR model, the Kupiec test evaluates exceptions at 5% significance [EV-2ede64de883e]."
+    sentence = (
+        "Under the 99% VaR model, the Kupiec test evaluates exceptions at 5% significance [EV-2ede64de883e]."
+    )
     ev = _sample_var_evidence()
     claims = extract_claims(sentence)
     result = bind_claims(claims, ev)
@@ -331,10 +333,7 @@ def test_19_exact_scientific_notation_binds() -> None:
 
 def test_20_shared_exponent_range_parsed_and_bound() -> None:
     """20. Shared-exponent range 3.65–4.19e-05 expands and binds both endpoints."""
-    sentence = (
-        "Estimates have small minimum eigenvalues on the order of 3.65–4.19e-05 "
-        "[EV-COV-A; EV-COV-B]."
-    )
+    sentence = "Estimates have small minimum eigenvalues on the order of 3.65–4.19e-05 [EV-COV-A; EV-COV-B]."
     ev = {
         "EV-COV-A": {
             "metrics.min_eigenvalue": 3.6492660611e-05,
@@ -442,6 +441,7 @@ def test_26_numbered_list_parenthesis_headers_masked() -> None:
 def test_27_multiplier_unit_not_misclassified_as_confidence() -> None:
     """27. Multipliers like 0.7x are not misclassified as VAR_CONFIDENCE."""
     from start.attestation.claims import SemanticRole
+
     text = "Power against 0.7x understated and 1.5x overstated VaR scenarios [EV-997c37943a31]."
     claims = extract_claims(text)
     c07 = next(c for c in claims if c.surface == "0.7x")
@@ -453,6 +453,7 @@ def test_27_multiplier_unit_not_misclassified_as_confidence() -> None:
 def test_28_uncited_significance_test_level_tie_breaks_cleanly() -> None:
     """28. Uncited claims mentioning 'hypothesis tests' resolve to gamma_test across multiple tests."""
     from start.attestation.claims import bind_claims
+
     text = "No acceptance thresholds beyond the recorded 5% hypothesis tests are provided."
     claims = extract_claims(text)
     c5 = next(c for c in claims if c.surface == "5%")
@@ -483,6 +484,7 @@ def test_28_uncited_significance_test_level_tie_breaks_cleanly() -> None:
 def test_29_integer_claim_matches_rounded_float_or_relative_tolerance() -> None:
     """29. Integer claim like 189 matches condition_number = 188.978892."""
     from start.attestation.claims import bind_claims
+
     text = "Condition numbers are in a similar range: ~189 (empirical) [EV-1]."
     claims = extract_claims(text)
     evidence = [
@@ -501,6 +503,7 @@ def test_29_integer_claim_matches_rounded_float_or_relative_tolerance() -> None:
 def test_30_total_cells_matches_regularized_em_metric() -> None:
     """30. Total values (50,000) matches n_total_values emitted by covariance.regularized_em."""
     from start.attestation.claims import bind_claims
+
     text = "Values missing (7,394 of 50,000) [EV-1]."
     claims = extract_claims(text)
     evidence = [
@@ -526,6 +529,7 @@ def test_30_total_cells_matches_regularized_em_metric() -> None:
 def test_31_zero_percent_missing_fraction_matches_empirical_covariance() -> None:
     """31. 0% missing matches empirical covariance missing_fraction."""
     from start.attestation.claims import bind_claims
+
     text = "The dataset has 0% missing values under complete-case [EV-1]."
     claims = extract_claims(text)
     evidence = [
@@ -551,6 +555,7 @@ def test_31_zero_percent_missing_fraction_matches_empirical_covariance() -> None
 def test_32_threshold_parsed_from_comparison_string() -> None:
     """32. Threshold 0.05 parsed from '<= 0.05 in all 18 cells' criterion string."""
     from start.attestation.claims import bind_claims
+
     text = "Non-convergence rate with required <= 0.05 [EV-1]."
     claims = extract_claims(text)
     evidence = [
@@ -571,6 +576,7 @@ def test_32_threshold_parsed_from_comparison_string() -> None:
 def test_33_ev_diag_tags_not_treated_as_evidence_citations() -> None:
     """33. EV-DIAG tags like (EV-DIAG-ca6a2dfc) are not treated as evidence citations."""
     from start.attestation.claims import EVIDENCE_ID_PATTERN, bind_claims
+
     text = (
         "First-order clustering is not supported (n11=0 with non-rejection) [EV-1]. "
         "The absence of the diagnostic (EV-DIAG-ca6a2dfc) prevents resolving."
@@ -596,6 +602,7 @@ def test_33_ev_diag_tags_not_treated_as_evidence_citations() -> None:
 def test_34_sub_bullet_enclosing_block_citation_and_suffix_normalization() -> None:
     """34. Sub-bullet without explicit citation inherits enclosing block citation and normalizes metric suffixes."""
     from start.attestation.claims import bind_claims
+
     text = (
         "- Ledoit-Wolf shrinkage:\n"
         "  - Intensity 0.0106 [EV-2].\n"
@@ -640,6 +647,7 @@ def test_34_sub_bullet_enclosing_block_citation_and_suffix_normalization() -> No
 def test_35_order_of_magnitude_notation_not_extracted_as_individual_claims() -> None:
     """35. Order of magnitude notation like O(10^-5) is masked and not extracted as claims 10 and -5."""
     from start.attestation.claims import bind_claims
+
     text = "Minimum eigenvalues are O(10^-5): 3.7069e-05 (empirical) [EV-1]."
     claims = extract_claims(text)
     surfaces = {c.surface for c in claims}
@@ -663,9 +671,8 @@ def test_35_order_of_magnitude_notation_not_extracted_as_individual_claims() -> 
 def test_36_portfolio_loss_and_return_percent_compatible() -> None:
     """36. Portfolio loss and return metrics (decimal rates) bind percent-typed claims."""
     from start.attestation.claims import bind_claims
-    text = (
-        "Under linear return shock, portfolio loss is 0.2692605% [EV-1] and factor shift is 0.35% [EV-2]."
-    )
+
+    text = "Under linear return shock, portfolio loss is 0.2692605% [EV-1] and factor shift is 0.35% [EV-2]."
     claims = extract_claims(text)
     evidence = [
         {
@@ -690,9 +697,8 @@ def test_36_portfolio_loss_and_return_percent_compatible() -> None:
 def test_37_compound_sentence_labeled_metric_in_scope_resolution() -> None:
     """37. Labeled metric in compound sentence resolves to matching in-scope record if cited record lacks it."""
     from start.attestation.claims import bind_claims
-    text = (
-        "The six dates span two years [EV-1], which is consistent with n11 = 0 and no clustering."
-    )
+
+    text = "The six dates span two years [EV-1], which is consistent with n11 = 0 and no clustering."
     claims = extract_claims(text)
     evidence = [
         {
@@ -717,9 +723,8 @@ def test_37_compound_sentence_labeled_metric_in_scope_resolution() -> None:
 def test_38_scientific_times_ten_shared_exponent_range_binds() -> None:
     """38. Scientific notation with base-10 multiplication and shared exponent expands and binds."""
     from start.attestation.claims import bind_claims
-    text = (
-        "Minimum eigenvalues are small in all cases (≈3.65–4.19×10^-5) [EV-COV-A; EV-COV-B]."
-    )
+
+    text = "Minimum eigenvalues are small in all cases (≈3.65–4.19×10^-5) [EV-COV-A; EV-COV-B]."
     claims = extract_claims(text)
     assert len(claims) == 2
     surfaces = {c.surface for c in claims}
@@ -748,9 +753,8 @@ def test_38_scientific_times_ten_shared_exponent_range_binds() -> None:
 def test_39_reverse_stress_loss_gap_binds() -> None:
     """39. Achieved loss error / gap relative to target binds to reverse stress loss_gap."""
     from start.attestation.claims import bind_claims
-    text = (
-        "The solver converged with an achieved loss within about 1.9e-8 of the target [EV-REV]."
-    )
+
+    text = "The solver converged with an achieved loss within about 1.9e-8 of the target [EV-REV]."
     claims = extract_claims(text)
     assert len(claims) == 1
     assert claims[0].surface == "1.9e-8"
@@ -779,6 +783,7 @@ def test_39_reverse_stress_loss_gap_binds() -> None:
 def test_40_compound_findings_list_with_parenthetical_semicolon_binds() -> None:
     """40. Compound findings list with (p = 0.7877; n11=0) citations and lags > 1 binds."""
     from start.attestation.claims import bind_claims
+
     text = (
         "Deterministic findings: 6 exceptions over 1,000 observations at 99% VaR [EV-VAR], "
         "with Kupiec POF non-rejection (p = 0.1696) [EV-POF], "
@@ -791,10 +796,26 @@ def test_40_compound_findings_list_with_parenthetical_semicolon_binds() -> None:
     assert "1" not in surfaces  # lags > 1 is masked
 
     evidence = [
-        {"evidence_id": "EV-VAR", "test_id": "traded_risk.var_exceptions", "metrics": {"exceptions": 6, "n_observations": 1000, "confidence": 0.99}},
-        {"evidence_id": "EV-POF", "test_id": "traded_risk.var_kupiec_pof", "metrics": {"p_value": 0.1696274814}},
-        {"evidence_id": "EV-IND", "test_id": "traded_risk.var_christoffersen_independence", "metrics": {"p_value": 0.7877195429, "n11": 0}},
-        {"evidence_id": "EV-CC", "test_id": "traded_risk.var_christoffersen_conditional", "metrics": {"p_value": 0.3755475438}},
+        {
+            "evidence_id": "EV-VAR",
+            "test_id": "traded_risk.var_exceptions",
+            "metrics": {"exceptions": 6, "n_observations": 1000, "confidence": 0.99},
+        },
+        {
+            "evidence_id": "EV-POF",
+            "test_id": "traded_risk.var_kupiec_pof",
+            "metrics": {"p_value": 0.1696274814},
+        },
+        {
+            "evidence_id": "EV-IND",
+            "test_id": "traded_risk.var_christoffersen_independence",
+            "metrics": {"p_value": 0.7877195429, "n11": 0},
+        },
+        {
+            "evidence_id": "EV-CC",
+            "test_id": "traded_risk.var_christoffersen_conditional",
+            "metrics": {"p_value": 0.3755475438},
+        },
     ]
     res = bind_claims(claims, evidence)
     assert len(res.unbound) == 0
@@ -806,6 +827,7 @@ def test_40_compound_findings_list_with_parenthetical_semicolon_binds() -> None:
 def test_41_en_dash_negatives_and_risk_metrics_percent_binds() -> None:
     """41. En-dash negatives (F2=–0.03831), volatility/ES percentages, and variance shortfall bind."""
     from start.attestation.claims import bind_claims
+
     text = (
         "Active exposures: F2=–0.03831, F3=–0.01957, F4=–0.00899, F5=–0.06564 [EV-EXP]. "
         "annualised volatility 3.7706%, ES 0.4711% [EV-RISK]. "
@@ -848,6 +870,7 @@ def test_41_en_dash_negatives_and_risk_metrics_percent_binds() -> None:
 def test_42_percent_range_en_dash_binds() -> None:
     """42. Percentage range with en-dash (12.8%–17.2%) extracts positive values and binds."""
     from start.attestation.claims import bind_claims
+
     text = "per-column missingness 12.8%–17.2% [EV-REGEM]."
     claims = extract_claims(text)
     assert len(claims) == 2
@@ -871,6 +894,7 @@ def test_42_percent_range_en_dash_binds() -> None:
 def test_43_introductory_colon_clause_inherits_itemized_citations() -> None:
     """43. Introductory summary clause preceding a colon ':' inherits citations from the following list."""
     from start.attestation.claims import bind_claims
+
     text = (
         "- The three estimates all exhibit very small minimum eigenvalues on the order of "
         "3.6–4.2e-05 and condition numbers in the 165–192 range: "
@@ -905,6 +929,7 @@ def test_43_introductory_colon_clause_inherits_itemized_citations() -> None:
 def test_44_bracketed_semicolon_masking_allows_trailing_citations() -> None:
     """44. Semicolons inside bracketed citations [EV-1; EV-2] are masked so preceding claims receive citations."""
     from start.attestation.claims import bind_claims
+
     text = (
         "- Whether 6 exceptions over 1000 at 99% indicate “conservative” or “adequate” VaR "
         "beyond non-rejection needs a defined calibration target; none is provided [EV-VAR; EV-CC]."
@@ -931,6 +956,7 @@ def test_44_bracketed_semicolon_masking_allows_trailing_citations() -> None:
 def test_45_shared_percent_range_unit_expansion() -> None:
     """45. Shared percent range 0.27–0.35% expands first endpoint to 0.27% and binds to decimal values."""
     from start.attestation.claims import bind_claims
+
     text = (
         "- Whether scenario losses of 0.27–0.35% are sufficiently severe versus 95% VaR 0.3918% "
         "requires a scenario severity policy; none is provided [EV-LIN; EV-FAC; EV-STAT]."
@@ -961,10 +987,7 @@ def test_45_shared_percent_range_unit_expansion() -> None:
 
 def test_46_matrix_dimension_tokens_not_extracted_as_numeric_claims() -> None:
     """46. Matrix dimension expressions (2×2, 2x2, 50x50, 50×50) are structural, not numeric claims."""
-    text = (
-        "The 2×2 transition counts include n11=0 [EV-IND]. "
-        "Estimated on a 50×50 covariance matrix."
-    )
+    text = "The 2×2 transition counts include n11=0 [EV-IND]. Estimated on a 50×50 covariance matrix."
     claims = extract_claims(text)
     surfaces = [c.surface for c in claims]
     assert "2" not in surfaces
@@ -976,6 +999,7 @@ def test_46_matrix_dimension_tokens_not_extracted_as_numeric_claims() -> None:
 def test_47_quoted_semicolons_and_conjunction_separation() -> None:
     """47. Semicolons inside quotes do not break citation binding; preceding citations do not cross conjunctions."""
     from start.attestation.claims import bind_claims
+
     text = (
         "The direct contradiction between “0.0% missing; 1,000 complete observations” for the empirical runs [EV-EMP] "
         "and “14.788% missing; only 1 complete row” for RegEM [EV-REGEM]."
@@ -1003,6 +1027,7 @@ def test_47_quoted_semicolons_and_conjunction_separation() -> None:
 def test_48_semicolon_independent_clause_does_not_leak_trailing_citations() -> None:
     """50. Preceding independent clause before semicolon does not inherit trailing citations."""
     from start.attestation.claims import bind_claims
+
     text = (
         "- Compare condition numbers (189 vs 165 after shrinkage vs 192 for RegEM) to "
         "resulting weight dispersion and turnover; record effective positions and Herfindahl "
@@ -1040,16 +1065,3 @@ def test_48_semicolon_independent_clause_does_not_leak_trailing_citations() -> N
     res = bind_claims(claims, evidence)
     assert len(res.unbound) == 0
     assert len(res.bound) == 3
-
-
-
-
-
-
-
-
-
-
-
-
-

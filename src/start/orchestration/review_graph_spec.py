@@ -241,7 +241,10 @@ class ReviewGraph:
         for cycle in self._find_cycles():
             if not self._cycle_is_bounded(cycle):
                 raise GraphValidationError(
-                    "unbounded cycle: " + " -> ".join(cycle) + " -> " + cycle[0]
+                    "unbounded cycle: "
+                    + " -> ".join(cycle)
+                    + " -> "
+                    + cycle[0]
                     + ". Every cycle must include a REMEDIATION or SELF_LOOP edge "
                     "carrying a budget."
                 )
@@ -366,7 +369,7 @@ class ReviewGraph:
             if edge.kind is EdgeKind.REMEDIATION:
                 attrs.append('color="firebrick", style=bold')
             elif edge.kind is EdgeKind.SELF_LOOP:
-                attrs.append('style=dashed')
+                attrs.append("style=dashed")
             elif edge.kind is EdgeKind.HARD_STOP:
                 attrs.append('color="orange", style=dashed')
             label = edge.condition
@@ -400,44 +403,81 @@ DEFAULT_REMEDIATION_BUDGETS: dict[str, int] = {
 # --------------------------------------------------------------------------- #
 _NODES: tuple[Node, ...] = (
     Node("start", NodeKind.TERMINAL, "Start", purpose="Entry."),
-    Node("dataset_discovery", NodeKind.AGENT, "DatasetDiscovery",
-         purpose="Profile the data; surface leakage candidates and imbalance."),
-    Node("task_inference", NodeKind.AGENT, "TaskInference",
-         purpose="Frame the task from the target."),
-    Node("feature_engineering", NodeKind.AGENT, "FeatureEngineering",
-         purpose="Propose preprocessing; the reviewer chooses each method."),
-    Node("architecture_review", NodeKind.AGENT, "ArchitectureReview",
-         purpose="Assess whether the model class suits the data."),
-    Node("gate_architecture", NodeKind.CHECKPOINT, "checkpoint: architecture",
-         purpose="Reviewer accepts, overrides, challenges or asks."),
-    Node("hyperparameter_tuning", NodeKind.AGENT, "HyperparameterTuning",
-         purpose="Plan and run a leakage-safe search."),
-    Node("gate_metric", NodeKind.CHECKPOINT, "checkpoint: metric",
-         condition="run_dl",
-         purpose="Reviewer sets the metric priority. Deep-learning suite only."),
-    Node("model_execution", NodeKind.AGENT, "ModelExecution",
-         purpose="Fit and score; emit cohort metrics."),
-    Node("diagnostics_fanout", NodeKind.FANOUT, "parallel diagnostics",
-         purpose="Three independent diagnostics, given a fitted model."),
-    Node("explainability", NodeKind.AGENT, "Explainability",
-         purpose="Global and local attribution."),
-    Node("sensitivity", NodeKind.AGENT, "Sensitivity",
-         purpose="Metric response under input shock."),
-    Node("overfitting", NodeKind.AGENT, "Overfitting",
-         purpose="Generalisation gap diagnosis."),
-    Node("diagnostics_join", NodeKind.JOIN, "join",
-         purpose="Wait for all three diagnostics."),
-    Node("validation", NodeKind.AGENT, "Validation",
-         purpose="Adversarial and robustness checks."),
-    Node("gate_validation", NodeKind.CHECKPOINT, "checkpoint: validation",
-         purpose="Accept, Ask or Challenge. No Override: a reviewer may question a "
-                 "validation result but may not simply replace it."),
-    Node("governance_signoff", NodeKind.AGENT, "GovernanceSignoff",
-         purpose="Weigh every factor into a disposition."),
-    Node("evidence_critic", NodeKind.AGENT, "EvidenceCritic",
-         purpose="Citation integrity across the narrative."),
-    Node("seal", NodeKind.TERMINAL, "Evidence seal + dashboards",
-         purpose="Commit the review and emit artefacts."),
+    Node(
+        "dataset_discovery",
+        NodeKind.AGENT,
+        "DatasetDiscovery",
+        purpose="Profile the data; surface leakage candidates and imbalance.",
+    ),
+    Node("task_inference", NodeKind.AGENT, "TaskInference", purpose="Frame the task from the target."),
+    Node(
+        "feature_engineering",
+        NodeKind.AGENT,
+        "FeatureEngineering",
+        purpose="Propose preprocessing; the reviewer chooses each method.",
+    ),
+    Node(
+        "architecture_review",
+        NodeKind.AGENT,
+        "ArchitectureReview",
+        purpose="Assess whether the model class suits the data.",
+    ),
+    Node(
+        "gate_architecture",
+        NodeKind.CHECKPOINT,
+        "checkpoint: architecture",
+        purpose="Reviewer accepts, overrides, challenges or asks.",
+    ),
+    Node(
+        "hyperparameter_tuning",
+        NodeKind.AGENT,
+        "HyperparameterTuning",
+        purpose="Plan and run a leakage-safe search.",
+    ),
+    Node(
+        "gate_metric",
+        NodeKind.CHECKPOINT,
+        "checkpoint: metric",
+        condition="run_dl",
+        purpose="Reviewer sets the metric priority. Deep-learning suite only.",
+    ),
+    Node("model_execution", NodeKind.AGENT, "ModelExecution", purpose="Fit and score; emit cohort metrics."),
+    Node(
+        "diagnostics_fanout",
+        NodeKind.FANOUT,
+        "parallel diagnostics",
+        purpose="Three independent diagnostics, given a fitted model.",
+    ),
+    Node("explainability", NodeKind.AGENT, "Explainability", purpose="Global and local attribution."),
+    Node("sensitivity", NodeKind.AGENT, "Sensitivity", purpose="Metric response under input shock."),
+    Node("overfitting", NodeKind.AGENT, "Overfitting", purpose="Generalisation gap diagnosis."),
+    Node("diagnostics_join", NodeKind.JOIN, "join", purpose="Wait for all three diagnostics."),
+    Node("validation", NodeKind.AGENT, "Validation", purpose="Adversarial and robustness checks."),
+    Node(
+        "gate_validation",
+        NodeKind.CHECKPOINT,
+        "checkpoint: validation",
+        purpose="Accept, Ask or Challenge. No Override: a reviewer may question a "
+        "validation result but may not simply replace it.",
+    ),
+    Node(
+        "governance_signoff",
+        NodeKind.AGENT,
+        "GovernanceSignoff",
+        purpose="Weigh every factor into a disposition.",
+    ),
+    Node(
+        "evidence_critic",
+        NodeKind.AGENT,
+        "EvidenceCritic",
+        purpose="Citation integrity across the narrative.",
+    ),
+    Node(
+        "seal",
+        NodeKind.TERMINAL,
+        "Evidence seal + dashboards",
+        purpose="Commit the review and emit artefacts.",
+    ),
 )
 
 _EDGES: tuple[Edge, ...] = (
@@ -446,23 +486,28 @@ _EDGES: tuple[Edge, ...] = (
     Edge("task_inference", "feature_engineering"),
     Edge("feature_engineering", "architecture_review"),
     Edge("architecture_review", "gate_architecture"),
-
     # Challenge and Ask re-enter the same checkpoint. Making this an edge rather
     # than a hidden while-loop means the number of challenges at a gate is visible
     # in the execution path.
-    Edge("gate_architecture", "gate_architecture", EdgeKind.SELF_LOOP,
-         condition="challenge or ask",
-         budget=DEFAULT_REMEDIATION_BUDGETS["checkpoint_self_loop"],
-         rationale="the reviewer keeps questioning the same decision"),
+    Edge(
+        "gate_architecture",
+        "gate_architecture",
+        EdgeKind.SELF_LOOP,
+        condition="challenge or ask",
+        budget=DEFAULT_REMEDIATION_BUDGETS["checkpoint_self_loop"],
+        rationale="the reviewer keeps questioning the same decision",
+    ),
     Edge("gate_architecture", "hyperparameter_tuning", condition="accept or override"),
-
     Edge("hyperparameter_tuning", "gate_metric", condition="run_dl"),
     Edge("hyperparameter_tuning", "model_execution", condition="not run_dl"),
-    Edge("gate_metric", "gate_metric", EdgeKind.SELF_LOOP,
-         condition="challenge or ask",
-         budget=DEFAULT_REMEDIATION_BUDGETS["checkpoint_self_loop"]),
+    Edge(
+        "gate_metric",
+        "gate_metric",
+        EdgeKind.SELF_LOOP,
+        condition="challenge or ask",
+        budget=DEFAULT_REMEDIATION_BUDGETS["checkpoint_self_loop"],
+    ),
     Edge("gate_metric", "model_execution", condition="accept or override"),
-
     Edge("model_execution", "diagnostics_fanout"),
     Edge("diagnostics_fanout", "explainability", EdgeKind.BRANCH),
     Edge("diagnostics_fanout", "sensitivity", EdgeKind.BRANCH),
@@ -470,42 +515,55 @@ _EDGES: tuple[Edge, ...] = (
     Edge("explainability", "diagnostics_join"),
     Edge("sensitivity", "diagnostics_join"),
     Edge("overfitting", "diagnostics_join"),
-
     # The back-edges. This is what a DAG cannot express, and what turns a failing
     # check from an observation into an attempt at resolution.
-    Edge("overfitting", "hyperparameter_tuning", EdgeKind.REMEDIATION,
-         condition="generalisation gap exceeds threshold",
-         budget=DEFAULT_REMEDIATION_BUDGETS["overfitting_to_tuning"],
-         rationale="retune with stronger regularisation before accepting the gap"),
-    Edge("sensitivity", "hyperparameter_tuning", EdgeKind.REMEDIATION,
-         condition="metric drift exceeds threshold",
-         budget=DEFAULT_REMEDIATION_BUDGETS["sensitivity_to_tuning"],
-         rationale="excessive input sensitivity is often a capacity problem"),
-    Edge("explainability", "feature_engineering", EdgeKind.REMEDIATION,
-         condition="attribution concentrated or degenerate",
-         budget=DEFAULT_REMEDIATION_BUDGETS["explainability_to_feature_engineering"],
-         rationale="a single dominating feature usually indicates leakage or "
-                   "an encoding that should be revisited"),
-
+    Edge(
+        "overfitting",
+        "hyperparameter_tuning",
+        EdgeKind.REMEDIATION,
+        condition="generalisation gap exceeds threshold",
+        budget=DEFAULT_REMEDIATION_BUDGETS["overfitting_to_tuning"],
+        rationale="retune with stronger regularisation before accepting the gap",
+    ),
+    Edge(
+        "sensitivity",
+        "hyperparameter_tuning",
+        EdgeKind.REMEDIATION,
+        condition="metric drift exceeds threshold",
+        budget=DEFAULT_REMEDIATION_BUDGETS["sensitivity_to_tuning"],
+        rationale="excessive input sensitivity is often a capacity problem",
+    ),
+    Edge(
+        "explainability",
+        "feature_engineering",
+        EdgeKind.REMEDIATION,
+        condition="attribution concentrated or degenerate",
+        budget=DEFAULT_REMEDIATION_BUDGETS["explainability_to_feature_engineering"],
+        rationale="a single dominating feature usually indicates leakage or "
+        "an encoding that should be revisited",
+    ),
     Edge("diagnostics_join", "validation"),
-    Edge("validation", "model_execution", EdgeKind.REMEDIATION,
-         condition="robustness failure",
-         budget=DEFAULT_REMEDIATION_BUDGETS["validation_to_execution"],
-         rationale="refit under the conditions the robustness check exposed"),
+    Edge(
+        "validation",
+        "model_execution",
+        EdgeKind.REMEDIATION,
+        condition="robustness failure",
+        budget=DEFAULT_REMEDIATION_BUDGETS["validation_to_execution"],
+        rationale="refit under the conditions the robustness check exposed",
+    ),
     Edge("validation", "gate_validation"),
-
-    Edge("gate_validation", "gate_validation", EdgeKind.SELF_LOOP,
-         condition="challenge or ask",
-         budget=DEFAULT_REMEDIATION_BUDGETS["checkpoint_self_loop"]),
+    Edge(
+        "gate_validation",
+        "gate_validation",
+        EdgeKind.SELF_LOOP,
+        condition="challenge or ask",
+        budget=DEFAULT_REMEDIATION_BUDGETS["checkpoint_self_loop"],
+    ),
     Edge("gate_validation", "governance_signoff", condition="accept"),
-
     # Any blocking condition short-circuits to sign-off. A blocked review still
     # produces a disposition and a seal — it stops early, it does not vanish.
-    Edge("dataset_discovery", "governance_signoff", EdgeKind.HARD_STOP,
-         condition="blocking data defect"),
-    Edge("model_execution", "governance_signoff", EdgeKind.HARD_STOP,
-         condition="execution failure"),
-
+    Edge("dataset_discovery", "governance_signoff", EdgeKind.HARD_STOP, condition="blocking data defect"),
+    Edge("model_execution", "governance_signoff", EdgeKind.HARD_STOP, condition="execution failure"),
     Edge("governance_signoff", "evidence_critic"),
     Edge("evidence_critic", "seal"),
 )

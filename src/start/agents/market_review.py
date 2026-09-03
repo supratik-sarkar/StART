@@ -153,9 +153,7 @@ class FactorAttributionAssessment:
     evidence_citations: list[str] = field(default_factory=list)
 
 
-def get_grounded_metric(
-    records: list[EvidenceRecord], evidence_id: str, metric_path: str
-) -> Any:
+def get_grounded_metric(records: list[EvidenceRecord], evidence_id: str, metric_path: str) -> Any:
     """Retrieve and ground a numerical value from evidence records, failing closed on mismatch."""
     for r in records:
         if r.evidence_id == evidence_id:
@@ -203,7 +201,11 @@ class HierarchicalAllocationAgent(BaseAgent):
         evidence_ids = [r.evidence_id for r in records if r.evidence_id]
 
         hrp_records = [r for r in records if r.test_id == "portfolio.hierarchical_risk_parity"]
-        herc_records = [r for r in records if r.test_id in ("portfolio.herc", "portfolio.hierarchical_equal_risk_contribution")]
+        herc_records = [
+            r
+            for r in records
+            if r.test_id in ("portfolio.herc", "portfolio.hierarchical_equal_risk_contribution")
+        ]
         tree_records = [r for r in records if r.test_id == "portfolio.hierarchical_risk_parity.tree_topology"]
         findings: list[AgentFinding] = []
 
@@ -309,8 +311,10 @@ class PortfolioConstructionAgent(BaseAgent):
 
         mvo_records = [r for r in records if r.test_id == "portfolio.mean_variance"]
         erc_records = [
-            r for r in records
-            if r.test_id in (
+            r
+            for r in records
+            if r.test_id
+            in (
                 "portfolio.equal_risk_contribution",
                 "portfolio.risk_statistics.equal_risk_contribution",
             )
@@ -547,7 +551,8 @@ class FactorRiskAttributionAgent(BaseAgent):
         evidence_ids = [r.evidence_id for r in records if r.evidence_id]
 
         factor_records = [
-            r for r in records
+            r
+            for r in records
             if r.test_id and (r.test_id.startswith("factor_risk.") or r.test_id.startswith("attribution."))
         ]
         for r in factor_records:
@@ -655,9 +660,21 @@ class FactorDataIntegrityChecker(BaseAgent):
         from start.portfolio.factor_risk import validate_factor_data_integrity
 
         rets = context.get("returns") if context.get("returns") is not None else context.get("returns_df")
-        exp = context.get("exposures") if context.get("exposures") is not None else context.get("factor_exposures")
-        fcov = context.get("factor_cov") if context.get("factor_cov") is not None else context.get("factor_covariance")
-        svar = context.get("specific_var") if context.get("specific_var") is not None else context.get("specific_variances")
+        exp = (
+            context.get("exposures")
+            if context.get("exposures") is not None
+            else context.get("factor_exposures")
+        )
+        fcov = (
+            context.get("factor_cov")
+            if context.get("factor_cov") is not None
+            else context.get("factor_covariance")
+        )
+        svar = (
+            context.get("specific_var")
+            if context.get("specific_var") is not None
+            else context.get("specific_variances")
+        )
         fret = context.get("factor_returns")
         w = context.get("weights") if context.get("weights") is not None else context.get("portfolio_weights")
 
@@ -758,10 +775,13 @@ class TailRiskAgent(BaseAgent):
         evidence_ids = [r.evidence_id for r in records if r.evidence_id]
 
         tail_records = [
-            r for r in records
-            if r.test_id and (
+            r
+            for r in records
+            if r.test_id
+            and (
                 r.test_id.startswith("traded_risk.var_")
-                or r.test_id in (
+                or r.test_id
+                in (
                     "traded_risk.expected_shortfall",
                     "traded_risk.tail_severity",
                     "traded_risk.exception_durations",
@@ -1012,10 +1032,13 @@ class ScenarioStressAgent(BaseAgent):
         evidence_ids = [r.evidence_id for r in records if r.evidence_id]
 
         scen_records = [
-            r for r in records
-            if r.test_id and (
+            r
+            for r in records
+            if r.test_id
+            and (
                 r.test_id.startswith("scenario.")
-                or r.test_id in (
+                or r.test_id
+                in (
                     "scenario.linear_return",
                     "scenario.factor_linear",
                     "scenario.delta",
@@ -1039,7 +1062,12 @@ class ScenarioStressAgent(BaseAgent):
 
         for r in scen_records:
             cit = r.evidence_id
-            if r.test_id in ("scenario.linear_return", "scenario.factor_linear", "scenario.delta", "scenario.delta_gamma"):
+            if r.test_id in (
+                "scenario.linear_return",
+                "scenario.factor_linear",
+                "scenario.delta",
+                "scenario.delta_gamma",
+            ):
                 s_id = str(r.metrics.get("scenario_id", "SCEN"))
                 scenarios_evaluated.append(s_id)
                 s_ret = r.metrics.get("scenario_return", 0.0)
@@ -1223,9 +1251,7 @@ class AdversarialChallengeAgent(BaseAgent):
             raise ValueError(f"Tool '{tool_name}' not found in start.portfolio package.")
         return fn(**kwargs)
 
-    def formulate_portfolio_challenges(
-        self, records: list[EvidenceRecord]
-    ) -> list[AdversarialChallenge]:
+    def formulate_portfolio_challenges(self, records: list[EvidenceRecord]) -> list[AdversarialChallenge]:
         """Generate structured adversarial challenges demanding deterministic tool verification."""
         challenges: list[AdversarialChallenge] = []
 
@@ -1423,10 +1449,13 @@ class AdversarialChallengeAgent(BaseAgent):
 
         # 10. Tail Risk & Backtesting Challenges (Gate 5)
         tail_records = [
-            r for r in records
-            if r.test_id and (
+            r
+            for r in records
+            if r.test_id
+            and (
                 r.test_id.startswith("traded_risk.var_")
-                or r.test_id in (
+                or r.test_id
+                in (
                     "traded_risk.expected_shortfall",
                     "traded_risk.tail_severity",
                     "traded_risk.exception_durations",
@@ -1438,7 +1467,11 @@ class AdversarialChallengeAgent(BaseAgent):
         for r in tail_records:
             cit = r.evidence_id or "EV-TAIL"
             if r.test_id in ("traded_risk.var_exceptions", "traded_risk.var_conditional_coverage"):
-                v_conf = float(r.params.get("var_confidence", 0.99)) if r.params.get("var_confidence") is not None else 0.99
+                v_conf = (
+                    float(r.params.get("var_confidence", 0.99))
+                    if r.params.get("var_confidence") is not None
+                    else 0.99
+                )
                 challenges.append(
                     AdversarialChallenge(
                         challenge_id=f"CHAL-TAIL-UNCONDITIONAL-COVERAGE-{cit}",
@@ -1484,7 +1517,11 @@ class AdversarialChallengeAgent(BaseAgent):
                     )
                 )
             elif r.test_id == "traded_risk.expected_shortfall":
-                c_val = float(r.params.get("confidence", 0.99)) if r.params.get("confidence") is not None else 0.99
+                c_val = (
+                    float(r.params.get("confidence", 0.99))
+                    if r.params.get("confidence") is not None
+                    else 0.99
+                )
                 challenges.append(
                     AdversarialChallenge(
                         challenge_id=f"CHAL-TAIL-SAMPLE-SUPPORT-{cit}",
@@ -1508,7 +1545,11 @@ class AdversarialChallengeAgent(BaseAgent):
                     )
                 )
             elif r.test_id == "traded_risk.es_contribution":
-                c_val = float(r.params.get("confidence", 0.99)) if r.params.get("confidence") is not None else 0.99
+                c_val = (
+                    float(r.params.get("confidence", 0.99))
+                    if r.params.get("confidence") is not None
+                    else 0.99
+                )
                 challenges.append(
                     AdversarialChallenge(
                         challenge_id=f"CHAL-TAIL-CONTRIB-RECON-{cit}",
@@ -1627,7 +1668,10 @@ class AdversarialChallengeAgent(BaseAgent):
                             from start.portfolio.contracts import PSDRepairMethod
                             from start.portfolio.covariance import repair_psd_covariance
                             from start.portfolio.evidence_bridge import psd_repair_to_evidence
-                            rep_res = repair_psd_covariance(cov_mat, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION)
+
+                            rep_res = repair_psd_covariance(
+                                cov_mat, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION
+                            )
                             sim_cov = np.asarray(rep_res.repaired_matrix, dtype=float)
                             rep_ev = psd_repair_to_evidence(rep_res)
                             if isinstance(context.get("evidence_records"), list):
@@ -1636,7 +1680,9 @@ class AdversarialChallengeAgent(BaseAgent):
                                 source_ev_ids.append(rep_ev.evidence_id)
                         else:
                             sim_cov = cov_mat
-                        sim_r = np.random.RandomState(42).multivariate_normal(np.zeros(n_a), sim_cov / 252.0, size=250)
+                        sim_r = np.random.RandomState(42).multivariate_normal(
+                            np.zeros(n_a), sim_cov / 252.0, size=250
+                        )
                         a_names = context.get("assets", [f"A{i}" for i in range(n_a)])
                         valid_params["returns"] = pd.DataFrame(sim_r, columns=a_names)
                 elif p_name in ("pnl_or_losses", "pnl", "realized_pnl"):
@@ -1694,8 +1740,16 @@ class AdversarialChallengeAgent(BaseAgent):
                     if "factor_returns" in context:
                         valid_params["factor_returns"] = context["factor_returns"]
                     elif "exposures" in context and "returns" in context:
-                        exp_df = context["exposures"] if isinstance(context["exposures"], pd.DataFrame) else pd.DataFrame(context["exposures"])
-                        rets_df = context["returns"] if isinstance(context["returns"], pd.DataFrame) else pd.DataFrame(context["returns"])
+                        exp_df = (
+                            context["exposures"]
+                            if isinstance(context["exposures"], pd.DataFrame)
+                            else pd.DataFrame(context["exposures"])
+                        )
+                        rets_df = (
+                            context["returns"]
+                            if isinstance(context["returns"], pd.DataFrame)
+                            else pd.DataFrame(context["returns"])
+                        )
                         # Approximate factor returns via OLS / pseudoinverse
                         B_mat = exp_df.to_numpy()
                         R_mat = rets_df.to_numpy()
@@ -1783,7 +1837,10 @@ class AdversarialChallengeAgent(BaseAgent):
                             for s_cand in context["scenario_specs"].values():
                                 meth_val = getattr(s_cand, "repricing_method", "")
                                 meth_str = meth_val.value if hasattr(meth_val, "value") else str(meth_val)
-                                if tool_name == "apply_factor_scenario" and meth_str.upper() == "FACTOR_LINEAR":
+                                if (
+                                    tool_name == "apply_factor_scenario"
+                                    and meth_str.upper() == "FACTOR_LINEAR"
+                                ):
                                     spec_cand = s_cand
                                     break
                         if spec_cand is not None:
@@ -1859,14 +1916,11 @@ class AdversarialChallengeAgent(BaseAgent):
 
             # Evaluate decision criterion and threshold provenance
             crit = (
-                c_dict.get("decision_criterion")
-                or context.get("challenge_criteria", {}).get(c_id)
-                or "NONE"
+                c_dict.get("decision_criterion") or context.get("challenge_criteria", {}).get(c_id) or "NONE"
             )
-            thresh = (
-                c_dict.get("decision_threshold", c_dict.get("threshold"))
-                or context.get("challenge_thresholds", {}).get(c_id)
-            )
+            thresh = c_dict.get("decision_threshold", c_dict.get("threshold")) or context.get(
+                "challenge_thresholds", {}
+            ).get(c_id)
 
             finding_ids_list: list[str] = []
             limitations: tuple[str, ...]
@@ -1995,9 +2049,7 @@ class EvidenceCriticAgent(BaseAgent):
     May NOT issue: ACCEPT, APPROVE, READY_FOR_PRODUCTION (reserved strictly for GovernanceAgent).
     """
 
-    ALLOWED_TOOLS = (
-        "verify_portfolio_constraints",
-    )
+    ALLOWED_TOOLS = ("verify_portfolio_constraints",)
 
     def __init__(self, telemetry_bus: TelemetryBus | None = None):
         super().__init__(name="Evidence Critic Agent", telemetry_bus=telemetry_bus)
@@ -2017,7 +2069,9 @@ class EvidenceCriticAgent(BaseAgent):
                 issues.append(f"EvidenceRecord '{r.evidence_id}' has empty metrics dictionary.")
             # Check constraint verification if recorded in metrics
             if "is_valid" in r.metrics and not r.metrics["is_valid"]:
-                issues.append(f"EvidenceRecord '{r.evidence_id}' failed constraint verification (is_valid=False).")
+                issues.append(
+                    f"EvidenceRecord '{r.evidence_id}' failed constraint verification (is_valid=False)."
+                )
 
         if solver_results:
             for sr in solver_results:
@@ -2141,7 +2195,10 @@ class GovernanceAgent(BaseAgent):
                     f"Found {len(unresolved_challenges)} unresolved adversarial challenge(s): {unresolved_challenges}. "
                     f"Challenges must be resolved with evidence before sign-off."
                 ),
-                "conditions": [f"Resolve challenge '{cid}' with deterministic evidence." for cid, _ in unresolved_challenges],
+                "conditions": [
+                    f"Resolve challenge '{cid}' with deterministic evidence."
+                    for cid, _ in unresolved_challenges
+                ],
             }
 
         unresolved_critical = [f for f in findings if f.get("severity") == "critical_breach"]
@@ -2243,7 +2300,9 @@ class MarketReviewDirectorAgent(BaseAgent):
 
         # 4. Evidence Critic Pass
         c_out = self.critic_agent.execute(context)
-        critic_disp = c_out.get("critique", {}).get("disposition", CriticDisposition.READY_FOR_GOVERNANCE.value)
+        critic_disp = c_out.get("critique", {}).get(
+            "disposition", CriticDisposition.READY_FOR_GOVERNANCE.value
+        )
 
         # 5. Governance Sign-Off Pass
         all_findings = (

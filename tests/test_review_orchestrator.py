@@ -87,8 +87,12 @@ def test_full_pipeline_emits_all_stages(churn_frame, tmp_path):
     events = []
     orch = ReviewOrchestrator(on_stage=lambda e: events.append(e))
     outcome = orch.run(
-        churn_frame, user_target="churned", agent_mode="deterministic",
-        output_root=str(tmp_path), run_dl=True, seed=0,
+        churn_frame,
+        user_target="churned",
+        agent_mode="deterministic",
+        output_root=str(tmp_path),
+        run_dl=True,
+        seed=0,
     )
     emitted_complete = {e.stage for e in events if e.status in {"complete", "skipped"}}
     assert set(STAGES) <= emitted_complete  # every stage is visible
@@ -99,26 +103,32 @@ def test_full_pipeline_emits_all_stages(churn_frame, tmp_path):
 
 def test_pipeline_produces_evidence_and_report(churn_frame, tmp_path):
     orch = ReviewOrchestrator()
-    outcome = orch.run(
-        churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=True, seed=0
-    )
+    outcome = orch.run(churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=True, seed=0)
     test_ids = {r.test_id for r in outcome.evidence}
-    assert {"discovery.dataset_profile", "discovery.target_selection", "discovery.task_inference",
-            "split.plan", "feature_engineering.diagnostics"} <= test_ids
+    assert {
+        "discovery.dataset_profile",
+        "discovery.target_selection",
+        "discovery.task_inference",
+        "split.plan",
+        "feature_engineering.diagnostics",
+    } <= test_ids
     assert outcome.agent_review is not None and outcome.agent_review.signoff
     assert (tmp_path / "ledger.jsonl").exists()
     report = (tmp_path / "reports" / f"{outcome.run_id}.md").read_text()
-    for section in ("## Review summary", "## Pipeline stages", "## Evidence ledger",
-                    "## AI-engineering stage surface", "## Validation recommendations"):
+    for section in (
+        "## Review summary",
+        "## Pipeline stages",
+        "## Evidence ledger",
+        "## AI-engineering stage surface",
+        "## Validation recommendations",
+    ):
         assert section in report
     assert "binary_classification" in report
 
 
 def test_pipeline_diagnostics_only_without_run_dl(churn_frame, tmp_path):
     orch = ReviewOrchestrator()
-    outcome = orch.run(
-        churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=False, seed=0
-    )
+    outcome = orch.run(churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=False, seed=0)
     # model execution skipped, but governance still runs and evidence still sealed
     exec_events = [e for e in outcome.stage_events if e.stage == "model_execution"]
     assert exec_events and exec_events[-1].status == "skipped"

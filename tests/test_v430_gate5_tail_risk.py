@@ -130,11 +130,13 @@ def test_parametric_component_var_and_es_euler_reconciliation() -> None:
     """Parametric component VaR and component ES must sum exactly to portfolio VaR and ES."""
     assets = ["A", "B", "C"]
     weights = {"A": 0.50, "B": 0.30, "C": 0.20}
-    cov = np.array([
-        [0.0400, 0.0150, 0.0080],
-        [0.0150, 0.0900, 0.0200],
-        [0.0080, 0.0200, 0.1600],
-    ])
+    cov = np.array(
+        [
+            [0.0400, 0.0150, 0.0080],
+            [0.0150, 0.0900, 0.0200],
+            [0.0080, 0.0200, 0.1600],
+        ]
+    )
     rng = np.random.RandomState(42)
     rets = rng.multivariate_normal(np.array([0.0005, 0.0008, 0.0010]), cov, size=500)
     rets_df = pd.DataFrame(rets, columns=assets)

@@ -8,7 +8,8 @@ from start.ai_engineering.layer import run_ai_engineering_layer
 def test_on_adapter_start_fires_with_activity():
     seen = []
     run_ai_engineering_layer(
-        {}, output_root=tempfile.mkdtemp(),
+        {},
+        output_root=tempfile.mkdtemp(),
         on_adapter_start=lambda name, activity: seen.append((name, activity)),
     )
     assert seen, "on_adapter_start should fire for each adapter"

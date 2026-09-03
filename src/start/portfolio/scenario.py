@@ -79,6 +79,7 @@ def _series_fingerprint(arr: Any) -> str:
 # 1. SHOCK NORMALIZATION & COMPATIBILITY VALIDATION
 # =========================================================================== #
 
+
 def normalize_shock(raw_value: float, shock_unit: ShockUnit | str) -> tuple[float, str, str]:
     """Normalize a raw financial shock into its canonical computational unit.
 
@@ -104,7 +105,11 @@ def normalize_shock(raw_value: float, shock_unit: ShockUnit | str) -> tuple[floa
     elif unit_str == ShockUnit.ABSOLUTE.value:
         return val, "ABSOLUTE: identity", ShockUnit.ABSOLUTE.value
     elif unit_str == ShockUnit.LOG_RETURN.value:
-        return math.exp(val) - 1.0, "LOG_RETURN: exp(raw) - 1.0 -> RETURN_DECIMAL", ShockUnit.RETURN_DECIMAL.value
+        return (
+            math.exp(val) - 1.0,
+            "LOG_RETURN: exp(raw) - 1.0 -> RETURN_DECIMAL",
+            ShockUnit.RETURN_DECIMAL.value,
+        )
     else:
         raise ValueError(f"Unsupported ShockUnit: {shock_unit!r}")
 
@@ -145,7 +150,10 @@ def validate_repricing_shock_compatibility(
     if m_str == RepricingMethod.LINEAR_RETURN.value:
         if s_str in (ShockSpace.ASSET_RETURN.value, ShockSpace.PRICE.value):
             return True, "Compatible: Linear return repricing on asset returns/prices."
-        return False, f"Incompatible: Method LINEAR_RETURN does not support shock space {s_str}. Requires ASSET_RETURN."
+        return (
+            False,
+            f"Incompatible: Method LINEAR_RETURN does not support shock space {s_str}. Requires ASSET_RETURN.",
+        )
 
     elif m_str == RepricingMethod.FACTOR_LINEAR.value:
         if s_str == ShockSpace.FACTOR_RETURN.value:
@@ -154,10 +162,16 @@ def validate_repricing_shock_compatibility(
 
     elif m_str in (RepricingMethod.DELTA.value, RepricingMethod.DELTA_GAMMA.value):
         # Delta/Gamma methods support any risk factor space provided sensitivities are explicitly defined
-        return True, f"Compatible: Sensitivity-based repricing ({m_str}) supports {s_str} with aligned sensitivities."
+        return (
+            True,
+            f"Compatible: Sensitivity-based repricing ({m_str}) supports {s_str} with aligned sensitivities.",
+        )
 
     elif m_str == RepricingMethod.FULL_REVALUATION_ADAPTER.value:
-        return False, "FULL_REVALUATION_ADAPTER unavailable: instrument pricing adapters are deferred in Gate 6."
+        return (
+            False,
+            "FULL_REVALUATION_ADAPTER unavailable: instrument pricing adapters are deferred in Gate 6.",
+        )
 
     elif m_str == RepricingMethod.CUSTOM_DETERMINISTIC_ADAPTER.value:
         return True, "Compatible: Custom deterministic adapter."
@@ -168,6 +182,7 @@ def validate_repricing_shock_compatibility(
 # =========================================================================== #
 # 2. DATA INTEGRITY CHECKER
 # =========================================================================== #
+
 
 def validate_scenario_data_integrity(
     spec: ScenarioSpec,
@@ -194,8 +209,14 @@ def validate_scenario_data_integrity(
     if not spec.shocks:
         issues.append("Scenario contains zero shocks.")
 
-    method_str = spec.repricing_method.value if isinstance(spec.repricing_method, RepricingMethod) else str(spec.repricing_method)
-    type_str = spec.scenario_type.value if isinstance(spec.scenario_type, ScenarioType) else str(spec.scenario_type)
+    method_str = (
+        spec.repricing_method.value
+        if isinstance(spec.repricing_method, RepricingMethod)
+        else str(spec.repricing_method)
+    )
+    type_str = (
+        spec.scenario_type.value if isinstance(spec.scenario_type, ScenarioType) else str(spec.scenario_type)
+    )
 
     # 1. Audit per-leg shocks
     for i, s in enumerate(spec.shocks):
@@ -206,7 +227,9 @@ def validate_scenario_data_integrity(
         shocked_factors.add(s.risk_factor_id)
 
         if not math.isfinite(s.raw_value) or not math.isfinite(s.normalized_value):
-            issues.append(f"Non-finite shock value in leg '{s.risk_factor_id}': raw={s.raw_value}, norm={s.normalized_value}.")
+            issues.append(
+                f"Non-finite shock value in leg '{s.risk_factor_id}': raw={s.raw_value}, norm={s.normalized_value}."
+            )
 
         s_space = s.shock_space.value if isinstance(s.shock_space, ShockSpace) else str(s.shock_space)
         s_unit = s.shock_unit.value if isinstance(s.shock_unit, ShockUnit) else str(s.shock_unit)
@@ -237,7 +260,9 @@ def validate_scenario_data_integrity(
                     issues.append(f"Missing sensitivity specification for shocked factor '{rf_id}'.")
                     sens_complete = False
                 elif method_str == RepricingMethod.DELTA_GAMMA.value and sensitivities[rf_id].gamma is None:
-                    issues.append(f"Missing gamma sensitivity for factor '{rf_id}' under DELTA_GAMMA repricing.")
+                    issues.append(
+                        f"Missing gamma sensitivity for factor '{rf_id}' under DELTA_GAMMA repricing."
+                    )
                     sens_complete = False
 
     # 4. Asset / Factor Coverage Audit
@@ -263,15 +288,19 @@ def validate_scenario_data_integrity(
         repricing_compatible=all("Incompatible" not in iss for iss in issues),
         sensitivities_complete=sens_complete,
         coverage_complete=cov_complete,
-        provenance_valid=type_str != ScenarioType.HISTORICAL_REPLAY.value or (bool(spec.source_reference) and (bool(spec.as_of_date) or bool(spec.source_fingerprint))),
+        provenance_valid=type_str != ScenarioType.HISTORICAL_REPLAY.value
+        or (bool(spec.source_reference) and (bool(spec.as_of_date) or bool(spec.source_fingerprint))),
         issues=tuple(issues),
-        data_fingerprint=_series_fingerprint({"id": spec.scenario_id, "shocks": len(spec.shocks), "valid": valid}),
+        data_fingerprint=_series_fingerprint(
+            {"id": spec.scenario_id, "shocks": len(spec.shocks), "valid": valid}
+        ),
     )
 
 
 # =========================================================================== #
 # 3. DETERMINISTIC REPRICING ENGINES
 # =========================================================================== #
+
 
 def apply_asset_return_scenario(
     weights: dict[str, float] | pd.Series | np.ndarray,
@@ -309,7 +338,11 @@ def apply_asset_return_scenario(
 
     if isinstance(scenario_spec_or_shocks, ScenarioSpec):
         scen_id = scenario_spec_or_shocks.scenario_id
-        scenario_type = scenario_spec_or_shocks.scenario_type.value if isinstance(scenario_spec_or_shocks.scenario_type, ScenarioType) else str(scenario_spec_or_shocks.scenario_type)
+        scenario_type = (
+            scenario_spec_or_shocks.scenario_type.value
+            if isinstance(scenario_spec_or_shocks.scenario_type, ScenarioType)
+            else str(scenario_spec_or_shocks.scenario_type)
+        )
         for s in scenario_spec_or_shocks.shocks:
             shock_dict[s.risk_factor_id] = s.normalized_value
     elif isinstance(scenario_spec_or_shocks, dict):
@@ -374,9 +407,15 @@ def apply_asset_return_scenario(
         converged=True,
         limitations=limitations,
         data_fingerprint=_series_fingerprint(contrib_arr),
-        horizon=str(effective_horizon.value if isinstance(effective_horizon, MetricHorizon) else effective_horizon),
-        currency=str(scenario_spec_or_shocks.currency) if isinstance(scenario_spec_or_shocks, ScenarioSpec) else "",
-        portfolio_state_fingerprint=_series_fingerprint({a: float(w_vec[i]) for i, a in enumerate(asset_list)}),
+        horizon=str(
+            effective_horizon.value if isinstance(effective_horizon, MetricHorizon) else effective_horizon
+        ),
+        currency=str(scenario_spec_or_shocks.currency)
+        if isinstance(scenario_spec_or_shocks, ScenarioSpec)
+        else "",
+        portfolio_state_fingerprint=_series_fingerprint(
+            {a: float(w_vec[i]) for i, a in enumerate(asset_list)}
+        ),
     )
 
 
@@ -434,7 +473,11 @@ def apply_factor_scenario(
 
     if isinstance(scenario_spec_or_shocks, ScenarioSpec):
         scen_id = scenario_spec_or_shocks.scenario_id
-        scenario_type = scenario_spec_or_shocks.scenario_type.value if isinstance(scenario_spec_or_shocks.scenario_type, ScenarioType) else str(scenario_spec_or_shocks.scenario_type)
+        scenario_type = (
+            scenario_spec_or_shocks.scenario_type.value
+            if isinstance(scenario_spec_or_shocks.scenario_type, ScenarioType)
+            else str(scenario_spec_or_shocks.scenario_type)
+        )
         for s in scenario_spec_or_shocks.shocks:
             shock_dict[s.risk_factor_id] = s.normalized_value
     elif isinstance(scenario_spec_or_shocks, dict):
@@ -485,13 +528,17 @@ def apply_factor_scenario(
         asset_total_ret = B_mat @ f_vec
     elif spec_policy in ("SUPPLIED", "REQUIRED"):
         if specific_shocks is None:
-            raise ValueError(f"specific_shock_policy is '{spec_policy}' but specific_shocks dictionary is missing/None.")
+            raise ValueError(
+                f"specific_shock_policy is '{spec_policy}' but specific_shocks dictionary is missing/None."
+            )
         eps_vec = np.array([float(specific_shocks.get(a, 0.0)) for a in asset_list], dtype=float)
         spec_ret = float(np.sum(w_vec * eps_vec))
         spec_contrib_val = spec_ret
         asset_total_ret = (B_mat @ f_vec) + eps_vec
     else:
-        raise ValueError(f"Invalid specific_shock_policy: {spec_policy!r}. Must be 'NONE', 'EXPLICIT_ZERO', or 'SUPPLIED'.")
+        raise ValueError(
+            f"Invalid specific_shock_policy: {spec_policy!r}. Must be 'NONE', 'EXPLICIT_ZERO', or 'SUPPLIED'."
+        )
 
     total_ret = factor_ret + spec_ret
     port_loss = -total_ret
@@ -531,9 +578,15 @@ def apply_factor_scenario(
         converged=True,
         limitations=limitations,
         data_fingerprint=_series_fingerprint(factor_contrib_arr),
-        horizon=str(effective_horizon.value if isinstance(effective_horizon, MetricHorizon) else effective_horizon),
-        currency=str(scenario_spec_or_shocks.currency) if isinstance(scenario_spec_or_shocks, ScenarioSpec) else "",
-        portfolio_state_fingerprint=_series_fingerprint({a: float(w_vec[i]) for i, a in enumerate(asset_list)}),
+        horizon=str(
+            effective_horizon.value if isinstance(effective_horizon, MetricHorizon) else effective_horizon
+        ),
+        currency=str(scenario_spec_or_shocks.currency)
+        if isinstance(scenario_spec_or_shocks, ScenarioSpec)
+        else "",
+        portfolio_state_fingerprint=_series_fingerprint(
+            {a: float(w_vec[i]) for i, a in enumerate(asset_list)}
+        ),
     )
 
 
@@ -590,7 +643,11 @@ def apply_delta_gamma_scenario(
 
     if isinstance(scenario_spec_or_shocks, ScenarioSpec):
         scenario_id = scenario_spec_or_shocks.scenario_id
-        scenario_type = scenario_spec_or_shocks.scenario_type.value if isinstance(scenario_spec_or_shocks.scenario_type, ScenarioType) else str(scenario_spec_or_shocks.scenario_type)
+        scenario_type = (
+            scenario_spec_or_shocks.scenario_type.value
+            if isinstance(scenario_spec_or_shocks.scenario_type, ScenarioType)
+            else str(scenario_spec_or_shocks.scenario_type)
+        )
         for s in scenario_spec_or_shocks.shocks:
             shock_dict[s.risk_factor_id] = s.normalized_value
     elif isinstance(scenario_spec_or_shocks, dict):
@@ -658,9 +715,15 @@ def apply_delta_gamma_scenario(
         converged=True,
         limitations=limitations,
         data_fingerprint=_series_fingerprint(dx_vec),
-        horizon=str(effective_horizon.value if isinstance(effective_horizon, MetricHorizon) else effective_horizon),
-        currency=str(scenario_spec_or_shocks.currency) if isinstance(scenario_spec_or_shocks, ScenarioSpec) else "",
-        portfolio_state_fingerprint=_series_fingerprint({rf: (s.delta, s.gamma) for rf, s in sens_dict.items()}),
+        horizon=str(
+            effective_horizon.value if isinstance(effective_horizon, MetricHorizon) else effective_horizon
+        ),
+        currency=str(scenario_spec_or_shocks.currency)
+        if isinstance(scenario_spec_or_shocks, ScenarioSpec)
+        else "",
+        portfolio_state_fingerprint=_series_fingerprint(
+            {rf: (s.delta, s.gamma) for rf, s in sens_dict.items()}
+        ),
     )
 
 
@@ -690,10 +753,15 @@ def apply_benchmark_active_scenario(
     if scenario_spec_or_shocks is None:
         raise ValueError("scenario_spec_or_shocks must be provided.")
     if isinstance(weights, dict):
-        all_assets = sorted(set(weights.keys()) | set(benchmark_weights.keys() if isinstance(benchmark_weights, dict) else ()))
+        all_assets = sorted(
+            set(weights.keys()) | set(benchmark_weights.keys() if isinstance(benchmark_weights, dict) else ())
+        )
         w_vec = np.array([float(weights.get(a, 0.0)) for a in all_assets], dtype=float)
     elif isinstance(weights, pd.Series):
-        all_assets = sorted(set(weights.index) | set(benchmark_weights.index if isinstance(benchmark_weights, pd.Series) else ()))
+        all_assets = sorted(
+            set(weights.index)
+            | set(benchmark_weights.index if isinstance(benchmark_weights, pd.Series) else ())
+        )
         w_vec = np.array([float(weights.get(a, 0.0)) for a in all_assets], dtype=float)
     else:
         w_vec = np.asarray(weights, dtype=float)
@@ -708,9 +776,21 @@ def apply_benchmark_active_scenario(
     w_act = w_vec - wb_vec
 
     # 1. Asset return repricing
-    port_res = apply_asset_return_scenario(weights=dict(zip(all_assets, w_vec, strict=True)), scenario_spec_or_shocks=scenario_spec_or_shocks, horizon=horizon)
-    bmk_res = apply_asset_return_scenario(weights=dict(zip(all_assets, wb_vec, strict=True)), scenario_spec_or_shocks=scenario_spec_or_shocks, horizon=horizon)
-    act_res = apply_asset_return_scenario(weights=dict(zip(all_assets, w_act, strict=True)), scenario_spec_or_shocks=scenario_spec_or_shocks, horizon=horizon)
+    port_res = apply_asset_return_scenario(
+        weights=dict(zip(all_assets, w_vec, strict=True)),
+        scenario_spec_or_shocks=scenario_spec_or_shocks,
+        horizon=horizon,
+    )
+    bmk_res = apply_asset_return_scenario(
+        weights=dict(zip(all_assets, wb_vec, strict=True)),
+        scenario_spec_or_shocks=scenario_spec_or_shocks,
+        horizon=horizon,
+    )
+    act_res = apply_asset_return_scenario(
+        weights=dict(zip(all_assets, w_act, strict=True)),
+        scenario_spec_or_shocks=scenario_spec_or_shocks,
+        horizon=horizon,
+    )
 
     recon_err = abs(float(port_res.scenario_return - bmk_res.scenario_return - act_res.scenario_return))
 
@@ -741,7 +821,9 @@ def apply_benchmark_active_scenario(
         active_asset_contributions=act_res.asset_contributions,
         active_factor_contributions=act_factor_dict,
         reconciliation_error=recon_err,
-        data_fingerprint=_series_fingerprint({"p": port_res.scenario_return, "b": bmk_res.scenario_return, "a": act_res.scenario_return}),
+        data_fingerprint=_series_fingerprint(
+            {"p": port_res.scenario_return, "b": bmk_res.scenario_return, "a": act_res.scenario_return}
+        ),
     )
 
 
@@ -805,7 +887,11 @@ def evaluate_scenario(
         )
 
     # 2. Dispatch to deterministic repricing engine
-    method_str = spec.repricing_method.value if isinstance(spec.repricing_method, RepricingMethod) else str(spec.repricing_method).upper()
+    method_str = (
+        spec.repricing_method.value
+        if isinstance(spec.repricing_method, RepricingMethod)
+        else str(spec.repricing_method).upper()
+    )
 
     if method_str == RepricingMethod.LINEAR_RETURN.value:
         return apply_asset_return_scenario(
@@ -844,6 +930,7 @@ def evaluate_scenario(
 # 4. MULTI-SCENARIO SET COMPARISON & SENSITIVITY GRIDS
 # =========================================================================== #
 
+
 def compare_scenario_set(
     scenario_results: Sequence[ScenarioResult],
     ranking_metric: str = "scenario_loss",
@@ -863,7 +950,9 @@ def compare_scenario_set(
     scen_ids = tuple(r.scenario_id for r in scenario_results)
     ret_dict = {r.scenario_id: r.scenario_return for r in scenario_results}
     loss_dict = {r.scenario_id: r.scenario_loss for r in scenario_results}
-    pnl_dict = {r.scenario_id: (r.scenario_pnl if r.scenario_pnl is not None else 0.0) for r in scenario_results}
+    pnl_dict = {
+        r.scenario_id: (r.scenario_pnl if r.scenario_pnl is not None else 0.0) for r in scenario_results
+    }
     method_dict = {r.scenario_id: r.repricing_method for r in scenario_results}
 
     # Sort descending by scenario_loss (worst loss first)
@@ -891,7 +980,9 @@ def compare_scenario_set(
         incompatibilities.append(f"Incompatible scenario base currencies: {sorted(currencies_present)}")
 
     # 3. Portfolio State Compatibility
-    state_fps_present = {r.portfolio_state_fingerprint for r in scenario_results if r.portfolio_state_fingerprint}
+    state_fps_present = {
+        r.portfolio_state_fingerprint for r in scenario_results if r.portfolio_state_fingerprint
+    }
     if len(state_fps_present) > 1:
         incompatibilities.append("Incompatible portfolio states across scenarios in comparison set")
 
@@ -902,14 +993,20 @@ def compare_scenario_set(
         if has_none_pv:
             incompatibilities.append("Monetary P&L ranking requires portfolio_value for all scenarios")
         elif len(pv_set) > 1:
-            incompatibilities.append(f"Incompatible portfolio values for monetary comparison: {sorted(pv_set)}")
+            incompatibilities.append(
+                f"Incompatible portfolio values for monetary comparison: {sorted(pv_set)}"
+            )
 
     # 5. Repricing Method Compatibility
     if len(methods_present) > 1:
         if allow_cross_method:
-            limitations.append(f"Cross-method comparison: methods present {sorted(methods_present)}. Method differences disclosed.")
+            limitations.append(
+                f"Cross-method comparison: methods present {sorted(methods_present)}. Method differences disclosed."
+            )
         else:
-            incompatibilities.append(f"Incompatible repricing methods present in scenario set: {sorted(methods_present)}")
+            incompatibilities.append(
+                f"Incompatible repricing methods present in scenario set: {sorted(methods_present)}"
+            )
 
     comparability_valid = len(incompatibilities) == 0
     if not comparability_valid:
@@ -949,7 +1046,9 @@ def evaluate_scenario_sensitivity_grid(
         if s.risk_factor_id == risk_factor_id:
             base_shock_val = s.raw_value
             shock_unit = s.shock_unit if isinstance(s.shock_unit, ShockUnit) else ShockUnit(s.shock_unit)
-            shock_space = s.shock_space if isinstance(s.shock_space, ShockSpace) else ShockSpace(s.shock_space)
+            shock_space = (
+                s.shock_space if isinstance(s.shock_space, ShockSpace) else ShockSpace(s.shock_space)
+            )
             break
 
     if base_shock_val is None:
@@ -964,7 +1063,8 @@ def evaluate_scenario_sensitivity_grid(
 
         # Build modified spec
         mod_shocks = [
-            s if s.risk_factor_id != risk_factor_id
+            s
+            if s.risk_factor_id != risk_factor_id
             else create_scenario_shock(risk_factor_id, raw_m, shock_unit, shock_space)
             for s in base_spec.shocks
         ]
@@ -977,7 +1077,9 @@ def evaluate_scenario_sensitivity_grid(
             horizon=base_spec.horizon,
         )
 
-        res = apply_asset_return_scenario(weights=weights, scenario_spec_or_shocks=mod_spec, portfolio_value=portfolio_value)
+        res = apply_asset_return_scenario(
+            weights=weights, scenario_spec_or_shocks=mod_spec, portfolio_value=portfolio_value
+        )
         grid_points.append(
             ScenarioSensitivityPoint(
                 shock_multiplier=float(m),
@@ -1007,6 +1109,7 @@ def evaluate_scenario_sensitivity_grid(
 # 5. REVERSE STRESS TESTING ENGINE
 # =========================================================================== #
 
+
 def solve_reverse_stress(
     spec: ReverseStressSpec,
     sensitivities_or_weights: dict[str, float | SensitivitySpec] | pd.Series | np.ndarray,
@@ -1019,11 +1122,19 @@ def solve_reverse_stress(
         constraint: -c' x >= target_loss  <=>  c' x <= -target_loss
     """
     if spec.target_loss <= 0:
-        raise ValueError(f"ReverseStressSpec.target_loss must be strictly positive (> 0), got {spec.target_loss}.")
+        raise ValueError(
+            f"ReverseStressSpec.target_loss must be strictly positive (> 0), got {spec.target_loss}."
+        )
 
-    repricing_str = spec.repricing_method.value if isinstance(spec.repricing_method, RepricingMethod) else str(spec.repricing_method).upper()
+    repricing_str = (
+        spec.repricing_method.value
+        if isinstance(spec.repricing_method, RepricingMethod)
+        else str(spec.repricing_method).upper()
+    )
     if repricing_str in (RepricingMethod.DELTA_GAMMA.value, "DELTA_GAMMA", "FULL_REVALUATION_ADAPTER"):
-        raise NotImplementedError(f"{repricing_str} reverse stress is deferred in Gate 6. Supported methods: LINEAR_RETURN, FACTOR_LINEAR.")
+        raise NotImplementedError(
+            f"{repricing_str} reverse stress is deferred in Gate 6. Supported methods: LINEAR_RETURN, FACTOR_LINEAR."
+        )
 
     # 1. Parse linear sensitivity vector c
     if isinstance(sensitivities_or_weights, dict):
@@ -1047,19 +1158,29 @@ def solve_reverse_stress(
 
     K = len(c_vec)
     target_L = float(spec.target_loss)
-    norm_str = spec.distance_norm.value if isinstance(spec.distance_norm, ReverseStressNorm) else str(spec.distance_norm).upper()
+    norm_str = (
+        spec.distance_norm.value
+        if isinstance(spec.distance_norm, ReverseStressNorm)
+        else str(spec.distance_norm).upper()
+    )
 
     # Verify non-zero linear sensitivity
     c_norm_sq = float(np.sum(np.square(c_vec)))
     if c_norm_sq < 1e-12:
-        raise ValueError(f"All sensitivities in reverse stress problem are zero ({c_norm_sq:.2e}); target loss cannot be achieved.")
+        raise ValueError(
+            f"All sensitivities in reverse stress problem are zero ({c_norm_sq:.2e}); target loss cannot be achieved."
+        )
 
     # Heterogeneous coordinate check for unscaled L2
     if norm_str == ReverseStressNorm.L2.value:
         if getattr(spec, "is_heterogeneous_unscaled", False):
-            raise ValueError("Unscaled L2 distance is undefined across heterogeneous financial coordinates. Provide scaling_factors (WEIGHTED_L2) or reference_covariance (MAHALANOBIS).")
+            raise ValueError(
+                "Unscaled L2 distance is undefined across heterogeneous financial coordinates. Provide scaling_factors (WEIGHTED_L2) or reference_covariance (MAHALANOBIS)."
+            )
         if getattr(spec, "risk_factor_units", None) and len(set(spec.risk_factor_units.values())) > 1:
-            raise ValueError("Unscaled L2 distance is undefined across heterogeneous financial coordinates. Provide scaling_factors (WEIGHTED_L2) or reference_covariance (MAHALANOBIS).")
+            raise ValueError(
+                "Unscaled L2 distance is undefined across heterogeneous financial coordinates. Provide scaling_factors (WEIGHTED_L2) or reference_covariance (MAHALANOBIS)."
+            )
 
     # 2. Case A: Unconstrained L2 Closed Form
     active_bounds = dict(spec.shock_bounds)
@@ -1096,7 +1217,11 @@ def solve_reverse_stress(
 
     # 3. Case B: Numerical Optimization (Bounded, Weighted L2, or Mahalanobis)
     if norm_str == ReverseStressNorm.MAHALANOBIS.value:
-        active_cov = spec.reference_covariance if spec.reference_covariance is not None else getattr(spec, "covariance", None)
+        active_cov = (
+            spec.reference_covariance
+            if spec.reference_covariance is not None
+            else getattr(spec, "covariance", None)
+        )
         if active_cov is None:
             raise ValueError("Mahalanobis reverse stress requires reference_covariance.")
         if isinstance(active_cov, pd.DataFrame):
@@ -1110,13 +1235,23 @@ def solve_reverse_stress(
         if cov_unit and spec.risk_factor_units:
             for rf, unit in spec.risk_factor_units.items():
                 if unit != cov_unit:
-                    raise ValueError(f"Mahalanobis geometry unit mismatch: reference covariance is in '{cov_unit}' but factor '{rf}' is in '{unit}'.")
-        if spec.risk_factor_units and len(set(spec.risk_factor_units.values())) > 1 and not spec.scaling_factors:
-            raise ValueError("Mahalanobis geometry requires homogeneous factor coordinates or explicit scaling_factors across heterogeneous units.")
+                    raise ValueError(
+                        f"Mahalanobis geometry unit mismatch: reference covariance is in '{cov_unit}' but factor '{rf}' is in '{unit}'."
+                    )
+        if (
+            spec.risk_factor_units
+            and len(set(spec.risk_factor_units.values())) > 1
+            and not spec.scaling_factors
+        ):
+            raise ValueError(
+                "Mahalanobis geometry requires homogeneous factor coordinates or explicit scaling_factors across heterogeneous units."
+            )
 
         evals = np.linalg.eigvalsh(Sigma_mat)
         if np.any(evals <= 1e-12):
-            raise ValueError("Mahalanobis reference covariance must be non-singular and strictly positive-definite (found non-positive eigenvalue).")
+            raise ValueError(
+                "Mahalanobis reference covariance must be non-singular and strictly positive-definite (found non-positive eigenvalue)."
+            )
         try:
             Sigma_inv = np.linalg.inv(Sigma_mat)
         except np.linalg.LinAlgError as err:
@@ -1158,6 +1293,7 @@ def solve_reverse_stress(
             return 2.0 * W_diag @ x
 
     else:  # Bounded L2
+
         def objective(x: np.ndarray) -> float:
             return float(np.sum(np.square(x)))
 
@@ -1242,6 +1378,7 @@ def solve_reverse_stress(
 # 6. HISTORICAL REPLAY ENGINE
 # =========================================================================== #
 
+
 def replay_historical_scenario(
     historical_shocks: dict[str, float] | pd.Series,
     portfolio_weights: dict[str, float] | pd.Series,
@@ -1263,7 +1400,12 @@ def replay_historical_scenario(
         raise ValueError("Historical replay requires explicit source_reference.")
     if not observation_date:
         raise ValueError("Historical replay requires explicit observation_date.")
-    if source_currency and portfolio_currency and source_currency.upper() != portfolio_currency.upper() and not fx_policy:
+    if (
+        source_currency
+        and portfolio_currency
+        and source_currency.upper() != portfolio_currency.upper()
+        and not fx_policy
+    ):
         raise ValueError(
             f"Currency mismatch between historical scenario source ({source_currency}) and portfolio base ({portfolio_currency}) "
             f"without explicit FX conversion policy."
@@ -1321,9 +1463,7 @@ def replay_historical_scenario(
         raise ValueError(f"Historical shocks missing for assets (no valid proxy): {missing_assets}")
 
     scenario_type = (
-        ScenarioType.HISTORICAL_REPLAY.value
-        if not has_mapping
-        else "HISTORICAL_REPLAY_WITH_MAPPING"
+        ScenarioType.HISTORICAL_REPLAY.value if not has_mapping else "HISTORICAL_REPLAY_WITH_MAPPING"
     )
 
     spec = ScenarioSpec(

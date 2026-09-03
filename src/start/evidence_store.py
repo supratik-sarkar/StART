@@ -22,14 +22,13 @@ from typing import Any
 class EvidenceItem:
     """A single retrieved fact with provenance, for grounding answers."""
 
-    kind: str          # outliers | correlation | missingness | importance | ...
-    label: str         # human-readable description
-    value: Any         # the actual value(s)
-    source: str        # which artifact this came from
+    kind: str  # outliers | correlation | missingness | importance | ...
+    label: str  # human-readable description
+    value: Any  # the actual value(s)
+    source: str  # which artifact this came from
 
     def to_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "label": self.label,
-                "value": self.value, "source": self.source}
+        return {"kind": self.kind, "label": self.label, "value": self.value, "source": self.source}
 
 
 @dataclass
@@ -42,8 +41,8 @@ class EvidenceStore:
     """
 
     # data diagnostics (from DataStatistics)
-    outliers: dict[str, int] = field(default_factory=dict)          # column -> count
-    missingness: dict[str, float] = field(default_factory=dict)     # column -> pct
+    outliers: dict[str, int] = field(default_factory=dict)  # column -> count
+    missingness: dict[str, float] = field(default_factory=dict)  # column -> pct
     correlations: list[dict[str, Any]] = field(default_factory=list)  # pair rows
     leakage_candidates: list[str] = field(default_factory=list)
     high_cardinality: list[str] = field(default_factory=list)
@@ -127,8 +126,9 @@ class EvidenceStore:
         ranked = sorted(self.missingness.items(), key=lambda kv: kv[1], reverse=True)
         ranked = [(c, p) for c, p in ranked if p > 0][:n]
         return [
-            EvidenceItem("missingness", f"{col}: {pct:.1f}% missing", pct,
-                         "data_statistics.missing_by_column")
+            EvidenceItem(
+                "missingness", f"{col}: {pct:.1f}% missing", pct, "data_statistics.missing_by_column"
+            )
             for col, pct in ranked
         ]
 
@@ -141,9 +141,14 @@ class EvidenceStore:
             b = pair.get("b") or pair.get("feature_b") or pair.get("right")
             r = pair.get("r") or pair.get("corr") or pair.get("correlation")
             if a and b and r is not None:
-                items.append(EvidenceItem(
-                    "correlation", f"{a} ~ {b}: r={float(r):.3f}", {"a": a, "b": b, "r": r},
-                    "data_statistics.correlation_summary"))
+                items.append(
+                    EvidenceItem(
+                        "correlation",
+                        f"{a} ~ {b}: r={float(r):.3f}",
+                        {"a": a, "b": b, "r": r},
+                        "data_statistics.correlation_summary",
+                    )
+                )
         return items
 
     def top_importance(self, n: int = 20) -> list[EvidenceItem]:
@@ -154,9 +159,11 @@ class EvidenceStore:
             feat = row.get("feature")
             imp = row.get("importance")
             if feat is not None and imp is not None:
-                items.append(EvidenceItem(
-                    "importance", f"{feat}: importance={imp}", row,
-                    "model_execution.global_importance"))
+                items.append(
+                    EvidenceItem(
+                        "importance", f"{feat}: importance={imp}", row, "model_execution.global_importance"
+                    )
+                )
         return items
 
     def sensitivity_evidence(self, n: int = 20) -> list[EvidenceItem]:
@@ -164,11 +171,15 @@ class EvidenceStore:
             return []
         items = []
         for row in self.sensitivity_rows[:n]:
-            items.append(EvidenceItem(
-                "sensitivity",
-                f"{row.get('feature')} @ {int(row.get('shock', 0) * 100):+d}%: "
-                f"delta={row.get('drift')}, risk={row.get('risk_impact')}",
-                row, "sensitivity_analysis.rows"))
+            items.append(
+                EvidenceItem(
+                    "sensitivity",
+                    f"{row.get('feature')} @ {int(row.get('shock', 0) * 100):+d}%: "
+                    f"delta={row.get('drift')}, risk={row.get('risk_impact')}",
+                    row,
+                    "sensitivity_analysis.rows",
+                )
+            )
         return items
 
     def metrics_evidence(self) -> list[EvidenceItem]:
@@ -176,15 +187,26 @@ class EvidenceStore:
             return []
         items = []
         for split, m in self.cohort_metrics.items():
-            items.append(EvidenceItem(
-                "metrics", f"{split}: " + ", ".join(
-                    f"{k}={v:.4f}" for k, v in m.items()
-                    if isinstance(v, (int, float))),
-                m, "model_execution.metrics_by_split"))
+            items.append(
+                EvidenceItem(
+                    "metrics",
+                    f"{split}: "
+                    + ", ".join(f"{k}={v:.4f}" for k, v in m.items() if isinstance(v, (int, float))),
+                    m,
+                    "model_execution.metrics_by_split",
+                )
+            )
         return items
 
     def has_any(self) -> bool:
-        return any([
-            self.outliers, self.missingness, self.correlations, self.feature_importance,
-            self.cohort_metrics, self.sensitivity_rows, self.tuning_trials,
-        ])
+        return any(
+            [
+                self.outliers,
+                self.missingness,
+                self.correlations,
+                self.feature_importance,
+                self.cohort_metrics,
+                self.sensitivity_rows,
+                self.tuning_trials,
+            ]
+        )

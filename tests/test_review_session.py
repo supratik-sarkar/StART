@@ -5,14 +5,26 @@ from start.review_session import Decision, Exchange, ReviewSession
 
 def _session_with_choices():
     s = ReviewSession(run_id="R")
-    s.record_decision(Decision(
-        key="correlation_pruning", prompt="Prune?", recommended="prune",
-        user_value="keep_all", effective="keep_all", choice="reject",
-    ))
-    s.record_decision(Decision(
-        key="architecture", prompt="Family?", recommended="mlp",
-        user_value="mlp", effective="mlp", choice="accept",
-    ))
+    s.record_decision(
+        Decision(
+            key="correlation_pruning",
+            prompt="Prune?",
+            recommended="prune",
+            user_value="keep_all",
+            effective="keep_all",
+            choice="reject",
+        )
+    )
+    s.record_decision(
+        Decision(
+            key="architecture",
+            prompt="Family?",
+            recommended="mlp",
+            user_value="mlp",
+            effective="mlp",
+            choice="accept",
+        )
+    )
     return s
 
 
@@ -28,7 +40,7 @@ def test_overrides_detected():
     s = _session_with_choices()
     keys = [d.key for d in s.overrides()]
     assert "correlation_pruning" in keys  # user diverged from recommendation
-    assert "architecture" not in keys     # user took the recommendation
+    assert "architecture" not in keys  # user took the recommendation
 
 
 def test_context_banner_surfaces_prior_choices():
@@ -41,8 +53,9 @@ def test_context_banner_surfaces_prior_choices():
 
 def test_conversations_recorded():
     s = ReviewSession(run_id="R")
-    s.record_exchange(Exchange(agent="ArchitectureReviewAgent",
-                               question="Why MLP?", answer="lower overfitting"))
+    s.record_exchange(
+        Exchange(agent="ArchitectureReviewAgent", question="Why MLP?", answer="lower overfitting")
+    )
     assert len(s.conversations) == 1
     assert s.conversations[0].agent == "ArchitectureReviewAgent"
 
@@ -59,8 +72,10 @@ def test_serialization_complete():
 
 def test_latest_decision_wins():
     s = ReviewSession(run_id="R")
-    s.record_decision(Decision(key="k", prompt="", recommended="a",
-                               user_value="a", effective="a", choice="accept"))
-    s.record_decision(Decision(key="k", prompt="", recommended="a",
-                               user_value="b", effective="b", choice="modify"))
+    s.record_decision(
+        Decision(key="k", prompt="", recommended="a", user_value="a", effective="a", choice="accept")
+    )
+    s.record_decision(
+        Decision(key="k", prompt="", recommended="a", user_value="b", effective="b", choice="modify")
+    )
     assert s.effective("k") == "b"

@@ -32,9 +32,7 @@ def churn_frame():
 def test_all_seven_layers_execute(churn_frame, tmp_path):
     seen = []
     orch = EnterpriseReviewOrchestrator(on_layer=lambda lr: seen.append((lr.name, lr.status)))
-    outcome = orch.run(
-        churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=True, seed=0
-    )
+    outcome = orch.run(churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=True, seed=0)
     assert [lr.name for lr in outcome.layers] == list(LAYER_NAMES)
     for lr in outcome.layers:
         assert lr.status == "complete"
@@ -48,8 +46,9 @@ def test_each_layer_emits_required_fields(churn_frame, tmp_path):
     for lr in outcome.layers:
         d = lr.to_dict()
         # spec: every layer emits status/runtime/warnings/findings/artifacts/evidence_ids
-        assert set(["layer", "status", "runtime_seconds", "warnings", "findings",
-                    "artifacts", "evidence_ids"]) <= set(d)
+        assert set(
+            ["layer", "status", "runtime_seconds", "warnings", "findings", "artifacts", "evidence_ids"]
+        ) <= set(d)
     # at least one layer carries evidence IDs, one carries findings, one carries artifacts
     assert any(lr.evidence_ids for lr in outcome.layers)
     assert any(lr.findings for lr in outcome.layers)
@@ -73,6 +72,7 @@ def test_ai_engineering_layer_integrated(churn_frame, tmp_path):
     )
     ai = outcome.ai_engineering
     from start.ai_engineering.adapters import ADAPTER_CLASSES
+
     assert ai.total == len(ADAPTER_CLASSES)
     assert ai.available_count >= 1  # OpenTelemetry executes for real
     ai_layer = next(lr for lr in outcome.layers if lr.name == "AI-Engineering")
@@ -95,8 +95,12 @@ def test_dashboard_generated_all_formats(churn_frame, tmp_path):
 
 def test_enterprise_graph_mode(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=False, enterprise_mode=True, seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=False,
+        enterprise_mode=True,
+        seed=0,
     )
     assert outcome.graph_paths
     names = [p.split("/")[-1] for p in outcome.graph_paths]
@@ -105,8 +109,12 @@ def test_enterprise_graph_mode(churn_frame, tmp_path):
 
 def test_no_graph_without_enterprise_mode(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=False, enterprise_mode=False, seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=False,
+        enterprise_mode=False,
+        seed=0,
     )
     assert outcome.graph_paths == []
 
@@ -114,8 +122,12 @@ def test_no_graph_without_enterprise_mode(churn_frame, tmp_path):
 def test_cnn_config_flows_to_dashboard(churn_frame, tmp_path):
     cnn = {"preset": "simple_cnn_small", "n_blocks": 2, "base_channels": 16, "param_count": 9999}
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=False, cnn_config=cnn, seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=False,
+        cnn_config=cnn,
+        seed=0,
     )
     from pathlib import Path
 
@@ -126,9 +138,14 @@ def test_cnn_config_flows_to_dashboard(churn_frame, tmp_path):
 # --- v2.1.0 model execution integration --------------------------------------------- #
 def test_model_execution_artifacts_in_outcome(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=True, architecture="wide_deep", activation="gelu",
-        costlier_errors="false_negatives", seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=True,
+        architecture="wide_deep",
+        activation="gelu",
+        costlier_errors="false_negatives",
+        seed=0,
     )
     assert outcome.data_statistics is not None
     assert outcome.fe_recommendations is not None
@@ -142,8 +159,13 @@ def test_model_execution_artifacts_in_outcome(churn_frame, tmp_path):
 
 def test_architecture_review_recommends_simpler_on_small_data(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=False, architecture="wide_deep", activation="gelu", seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=False,
+        architecture="wide_deep",
+        activation="gelu",
+        seed=0,
     )
     ar = outcome.architecture_review
     assert ar.recommendation["family"] == "mlp"
@@ -155,9 +177,14 @@ def test_action_log_covers_core_agents(churn_frame, tmp_path):
         churn_frame, user_target="churned", output_root=str(tmp_path), run_dl=True, seed=0
     )
     agents = set(outcome.action_log.agents())
-    for expected in ("DatasetDiscoveryAgent", "FeatureEngineeringAgent",
-                     "ArchitectureReviewAgent", "HyperparameterTuningAgent",
-                     "GovernanceSignoffAgent", "EvidenceCriticAgent"):
+    for expected in (
+        "DatasetDiscoveryAgent",
+        "FeatureEngineeringAgent",
+        "ArchitectureReviewAgent",
+        "HyperparameterTuningAgent",
+        "GovernanceSignoffAgent",
+        "EvidenceCriticAgent",
+    ):
         assert expected in agents
 
 
@@ -181,14 +208,25 @@ def test_dashboard_has_all_model_execution_sections(churn_frame, tmp_path):
     md = (tmp_path / "dashboards" / outcome.run_id / "dashboard.md").read_text()
     html = (tmp_path / "dashboards" / outcome.run_id / "dashboard.html").read_text()
     d = json.loads((tmp_path / "dashboards" / outcome.run_id / "dashboard.json").read_text())
-    for section in ("Initial Data Statistics", "Feature-Engineering Recommendations",
-                    "Architecture Review", "Hyperparameter Tuning", "Sensitivity Analysis",
-                    "Agentic Action Log"):
+    for section in (
+        "Initial Data Statistics",
+        "Feature-Engineering Recommendations",
+        "Architecture Review",
+        "Hyperparameter Tuning",
+        "Sensitivity Analysis",
+        "Agentic Action Log",
+    ):
         assert section in md, f"md missing {section}"
         assert section in html, f"html missing {section}"
-    for key in ("initial_data_statistics", "feature_engineering_recommendations",
-                "architecture_review", "hyperparameter_tuning", "sensitivity_analysis",
-                "agentic_action_log", "metric_choice"):
+    for key in (
+        "initial_data_statistics",
+        "feature_engineering_recommendations",
+        "architecture_review",
+        "hyperparameter_tuning",
+        "sensitivity_analysis",
+        "agentic_action_log",
+        "metric_choice",
+    ):
         assert key in d, f"json missing {key}"
 
 
@@ -229,8 +267,14 @@ def test_agent_traces_in_outcome(churn_frame, tmp_path):
     )
     assert outcome.trace_log is not None
     agents = outcome.trace_log.agents()
-    for expected in ("DatasetDiscoveryAgent", "TaskInferenceAgent", "ArchitectureReviewAgent",
-                     "HyperparameterTuningAgent", "GovernanceSignoffAgent", "EvidenceCriticAgent"):
+    for expected in (
+        "DatasetDiscoveryAgent",
+        "TaskInferenceAgent",
+        "ArchitectureReviewAgent",
+        "HyperparameterTuningAgent",
+        "GovernanceSignoffAgent",
+        "EvidenceCriticAgent",
+    ):
         assert expected in agents
     # every trace has thinking fields populated
     for t in outcome.trace_log.traces:
@@ -249,8 +293,12 @@ def test_activation_report_in_outcome(churn_frame, tmp_path):
 
 def test_artifact_registry_in_outcome(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=True, enterprise_mode=True, seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=True,
+        enterprise_mode=True,
+        seed=0,
     )
     assert outcome.artifact_registry is not None
     names = outcome.artifact_registry.names()
@@ -267,6 +315,7 @@ def test_control_surface_in_dashboard(churn_frame, tmp_path):
     d = json.loads((tmp_path / "dashboards" / outcome.run_id / "dashboard.json").read_text())
     cs = d["ai_engineering_control_surface"]
     from start.ai_engineering.adapters import ADAPTER_CLASSES
+
     assert len(cs) == len(ADAPTER_CLASSES)
     for row in cs:
         assert "purpose" in row and "role" in row and "install_guidance" in row
@@ -282,20 +331,32 @@ def test_visibility_sections_in_all_dashboard_formats(churn_frame, tmp_path):
     md = (base / "dashboard.md").read_text()
     html = (base / "dashboard.html").read_text()
     d = json.loads((base / "dashboard.json").read_text())
-    for section in ("LLM Activation", "Agent Reasoning Traces",
-                    "AI-Engineering Control Surface", "Artifact Catalog"):
+    for section in (
+        "LLM Activation",
+        "Agent Reasoning Traces",
+        "AI-Engineering Control Surface",
+        "Artifact Catalog",
+    ):
         assert section in md, f"md missing {section}"
         assert section in html, f"html missing {section}"
-    for key in ("llm_activation", "agent_reasoning_traces",
-                "ai_engineering_control_surface", "artifact_catalog"):
+    for key in (
+        "llm_activation",
+        "agent_reasoning_traces",
+        "ai_engineering_control_surface",
+        "artifact_catalog",
+    ):
         assert key in d, f"json missing {key}"
 
 
 # --- v2.1.1 remediation: model execution surfacing ---------------------------- #
 def test_model_execution_in_outcome(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=True, split_props=(0.60, 0.20, 0.20), seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=True,
+        split_props=(0.60, 0.20, 0.20),
+        seed=0,
     )
     ce = outcome.model_execution
     assert ce is not None
@@ -323,8 +384,12 @@ def test_execution_sections_in_all_dashboard_formats(churn_frame, tmp_path):
 
 def test_custom_split_proportions_honored(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=True, split_props=(0.70, 0.15, 0.15), seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=True,
+        split_props=(0.70, 0.15, 0.15),
+        seed=0,
     )
     by = {r["split"]: r["percent"] for r in outcome.model_execution.split_table}
     assert 65 <= by["train"] <= 75
@@ -339,8 +404,13 @@ def test_requested_provider_shows_fallback_not_none(churn_frame, tmp_path, monke
 
     llm = get_llm_provider(LLMConfig(provider="openai"), expected_domain="public")
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=False, llm=llm, requested_provider="openai", seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=False,
+        llm=llm,
+        requested_provider="openai",
+        seed=0,
     )
     # the activation report must name openai and report FALLBACK, never "none"
     assert outcome.activation_report.provider == "openai"
@@ -351,8 +421,13 @@ def test_tuning_actually_runs_in_enterprise(churn_frame, tmp_path):
     import json
 
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=True, tuning_strategy="bounded_random_search", tuning_trials=5, seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=True,
+        tuning_strategy="bounded_random_search",
+        tuning_trials=5,
+        seed=0,
     )
     tr = outcome.tuning_run
     assert tr is not None and tr.ran is True
@@ -366,8 +441,12 @@ def test_tuning_actually_runs_in_enterprise(churn_frame, tmp_path):
 
 def test_tuning_disabled_records_explicit_note(churn_frame, tmp_path):
     outcome = EnterpriseReviewOrchestrator().run(
-        churn_frame, user_target="churned", output_root=str(tmp_path),
-        run_dl=True, tuning_strategy="none", seed=0,
+        churn_frame,
+        user_target="churned",
+        output_root=str(tmp_path),
+        run_dl=True,
+        tuning_strategy="none",
+        seed=0,
     )
     assert outcome.tuning_run is not None
     assert outcome.tuning_run.ran is False

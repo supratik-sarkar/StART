@@ -57,12 +57,14 @@ def hydrate_and_gate_reviewer_submission(
                 logger.warning("Unknown Evidence ID '%s' rejected during server hydration", ev_id)
                 finding_grounded = False
                 all_grounded = False
-                hydrated_refs.append({
-                    "evidence_id": ev_id,
-                    "metric_name": metric_name,
-                    "status": "UNGROUNDED_EVIDENCE_ID",
-                    "hydrated_value": None,
-                })
+                hydrated_refs.append(
+                    {
+                        "evidence_id": ev_id,
+                        "metric_name": metric_name,
+                        "status": "UNGROUNDED_EVIDENCE_ID",
+                        "hydrated_value": None,
+                    }
+                )
                 continue
 
             rec = evidence_universe[ev_id]
@@ -79,21 +81,25 @@ def hydrate_and_gate_reviewer_submission(
                 logger.warning("Metric '%s' not found in EvidenceRecord '%s'", metric_name, ev_id)
                 finding_grounded = False
                 all_grounded = False
-                hydrated_refs.append({
-                    "evidence_id": ev_id,
-                    "metric_name": metric_name,
-                    "status": "UNGROUNDED_METRIC_PATH",
-                    "hydrated_value": None,
-                })
+                hydrated_refs.append(
+                    {
+                        "evidence_id": ev_id,
+                        "metric_name": metric_name,
+                        "status": "UNGROUNDED_METRIC_PATH",
+                        "hydrated_value": None,
+                    }
+                )
             else:
-                hydrated_refs.append({
-                    "evidence_id": ev_id,
-                    "metric_name": metric_name,
-                    "status": "GROUNDED",
-                    "hydrated_value": actual_val,
-                    "test_id": rec.test_id,
-                    "record_status": str(rec.status),
-                })
+                hydrated_refs.append(
+                    {
+                        "evidence_id": ev_id,
+                        "metric_name": metric_name,
+                        "status": "GROUNDED",
+                        "hydrated_value": actual_val,
+                        "test_id": rec.test_id,
+                        "record_status": str(rec.status),
+                    }
+                )
 
         hydrated_findings.append(
             HydratedFindingView(
@@ -112,11 +118,12 @@ def hydrate_and_gate_reviewer_submission(
     opa_reasons: list[str] = []
     try:
         from start.policies.opa_policy_plane import OPAPolicyPlane
+
         policy_plane = OPAPolicyPlane()
         n_ungrounded = sum(1 for f in hydrated_findings if not f.grounded)
         n_failures = sum(1 for r in records if r.status.value == "fail")
         disp_candidate = "ACCEPT" if n_failures == 0 else "CONDITIONAL_ACCEPT"
-        
+
         pol_dec = policy_plane.evaluate_governance_attestation(
             n_ungrounded_claims=n_ungrounded,
             n_validation_failures=n_failures,
@@ -143,6 +150,7 @@ def hydrate_and_gate_reviewer_submission(
     merkle_root = ""
     try:
         from start.attestation.merkle_ledger import MerkleLedger
+
         ledger = MerkleLedger()
         for r in records:
             ledger.append_record(r)

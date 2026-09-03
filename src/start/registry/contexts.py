@@ -157,9 +157,7 @@ def context_methods_for_test_context() -> dict[str, Any]:
         if self.target_column and self.train is not None:
             columns = list(getattr(self.train, "columns", []))
             if self.target_column not in columns:
-                violations.append(
-                    f"target_column {self.target_column!r} is not a column in train"
-                )
+                violations.append(f"target_column {self.target_column!r} is not a column in train")
 
         if self.train is not None and self.test is not None:
             train_cols = set(getattr(self.train, "columns", []))

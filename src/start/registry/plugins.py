@@ -151,15 +151,11 @@ class PluginRegistry:
             forbidden = {PluginCapability.NETWORK, PluginCapability.PROVIDER_ACCESS}
             for cap in manifest.declared_capabilities:
                 if cap in forbidden:
-                    violations.append(
-                        f"Capability '{cap.value}' is prohibited under airgapped profile."
-                    )
+                    violations.append(f"Capability '{cap.value}' is prohibited under airgapped profile.")
 
         if prof_str == RuntimeProfile.ENTERPRISE.value:
             if PluginCapability.PROVIDER_ACCESS in manifest.declared_capabilities:
-                violations.append(
-                    "Direct provider access capability requires enterprise gateway routing."
-                )
+                violations.append("Direct provider access capability requires enterprise gateway routing.")
 
         return (len(violations) == 0, violations)
 
@@ -199,9 +195,7 @@ class ComposedRegistryView:
         load_builtin_tests()
         builtins = list_tests(family=family)
         plugin_tests = [
-            s
-            for s in self._plugin_registry.list_plugin_tests()
-            if family is None or s.family == family
+            s for s in self._plugin_registry.list_plugin_tests() if family is None or s.family == family
         ]
         return sorted(builtins + plugin_tests, key=lambda s: s.test_id)
 

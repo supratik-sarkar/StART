@@ -1,4 +1,5 @@
 """v2.3.1 polish tests: wording rename, calibration config, decision ledger."""
+
 from __future__ import annotations
 
 import glob
@@ -14,16 +15,20 @@ pytestmark = pytest.mark.filterwarnings("ignore")
 
 # --- #1 wording rename ---------------------------------------------------- #
 def test_default_run_uses_ai_review_committee_wording(tmp_path):
-    res = runner.invoke(app, ["review", "--non-interactive", "--target", "attrition",
-                              "--run-dl", "--output-root", str(tmp_path)])
+    res = runner.invoke(
+        app,
+        ["review", "--non-interactive", "--target", "attrition", "--run-dl", "--output-root", str(tmp_path)],
+    )
     assert res.exit_code == 0, res.output
     assert "Running AI REVIEW COMMITTEE workflow" in res.output
     assert "AI review committee complete" in res.output
 
 
 def test_old_enterprise_review_wording_absent(tmp_path):
-    res = runner.invoke(app, ["review", "--non-interactive", "--target", "attrition",
-                              "--run-dl", "--output-root", str(tmp_path)])
+    res = runner.invoke(
+        app,
+        ["review", "--non-interactive", "--target", "attrition", "--run-dl", "--output-root", str(tmp_path)],
+    )
     assert "Running ENTERPRISE review" not in res.output
     assert "Enterprise review complete" not in res.output
 
@@ -31,6 +36,7 @@ def test_old_enterprise_review_wording_absent(tmp_path):
 def test_enterprise_wording_only_for_gateway_in_source():
     # the only public 'enterprise' that should remain is the gateway path
     import start.interactive_review as ir
+
     src = open(ir.__file__).read()
     assert "Running ENTERPRISE review" not in src
     assert "Enterprise review complete" not in src
@@ -67,10 +73,20 @@ def test_calibration_threshold_is_configurable():
 # --- #8 decision ledger --------------------------------------------------- #
 def _decisions():
     return [
-        {"key": "architecture", "recommended": "mlp", "effective": "wide_deep",
-         "choice": "keep", "evidence_ids": ["ARCH-01"]},
-        {"key": "fe:correlation_pruning", "recommended": "apply", "effective": "skip",
-         "choice": "reject", "evidence_ids": []},
+        {
+            "key": "architecture",
+            "recommended": "mlp",
+            "effective": "wide_deep",
+            "choice": "keep",
+            "evidence_ids": ["ARCH-01"],
+        },
+        {
+            "key": "fe:correlation_pruning",
+            "recommended": "apply",
+            "effective": "skip",
+            "choice": "reject",
+            "evidence_ids": [],
+        },
     ]
 
 
@@ -92,8 +108,10 @@ def test_decision_ledger_markdown_has_impact_and_status():
 
 
 def test_decision_ledger_in_outputs(tmp_path):
-    res = runner.invoke(app, ["review", "--non-interactive", "--target", "attrition",
-                              "--run-dl", "--output-root", str(tmp_path)])
+    res = runner.invoke(
+        app,
+        ["review", "--non-interactive", "--target", "attrition", "--run-dl", "--output-root", str(tmp_path)],
+    )
     assert res.exit_code == 0, res.output
     assert "Review decision ledger" in res.output  # terminal
     dash = open(glob.glob(f"{tmp_path}/dashboards/*/dashboard.md")[0]).read()

@@ -97,9 +97,7 @@ def render_calibration_ascii(
         bar_len = int(round(obs_rate * (width - 10)))
         bar = "█" * bar_len
         diff_str = f"Δ={obs_rate - mean_score:+.2f}"
-        lines.append(
-            f"  {bin_label:<15} | {obs_rate:6.2%} (n={count:<3}) | {_cyan(bar)} {_dim(diff_str)}"
-        )
+        lines.append(f"  {bin_label:<15} | {obs_rate:6.2%} (n={count:<3}) | {_cyan(bar)} {_dim(diff_str)}")
 
     cal_msg = (
         "well-calibrated probabilities"
@@ -147,9 +145,9 @@ def render_roc_curve_ascii(
     rows = [int(round(t * (height - 1))) for t in tpr]
     for i in range(len(cols) - 1):
         c0, r0, c1, r1 = cols[i], rows[i], cols[i + 1], rows[i + 1]
-        for r in range(min(r0, r1), max(r0, r1) + 1):   # vertical rise
+        for r in range(min(r0, r1), max(r0, r1) + 1):  # vertical rise
             plot(c0, r, "■")
-        for c in range(min(c0, c1), max(c0, c1) + 1):   # horizontal run
+        for c in range(min(c0, c1), max(c0, c1) + 1):  # horizontal run
             plot(c, r1, "■")
     if cols:
         plot(cols[0], rows[0], "■")
@@ -168,11 +166,7 @@ def render_roc_curve_ascii(
         _dim("  TPR ^"),
     ]
     for r_idx, row in enumerate(grid):
-        tick = (
-            f"{1.0 - (r_idx / (height - 1)):3.1f}"
-            if r_idx in (0, height // 2, height - 1)
-            else "   "
-        )
+        tick = f"{1.0 - (r_idx / (height - 1)):3.1f}" if r_idx in (0, height // 2, height - 1) else "   "
         painted = "".join(_green(ch) if ch == "■" else _dim(ch) for ch in row)
         lines.append(f"  {_dim(tick)} │ {painted}")
 

@@ -44,18 +44,29 @@ def build_sequence_network(
             super().__init__()
             if family == "rnn":
                 self.rnn = nn.RNN(
-                    n_features, hidden_size, num_layers,
-                    batch_first=True, nonlinearity="tanh", dropout=rnn_dropout,
+                    n_features,
+                    hidden_size,
+                    num_layers,
+                    batch_first=True,
+                    nonlinearity="tanh",
+                    dropout=rnn_dropout,
                 )
             elif family == "gru":
                 self.rnn = nn.GRU(
-                    n_features, hidden_size, num_layers,
-                    batch_first=True, dropout=rnn_dropout,
+                    n_features,
+                    hidden_size,
+                    num_layers,
+                    batch_first=True,
+                    dropout=rnn_dropout,
                 )
             else:  # lstm or bi_lstm
                 self.rnn = nn.LSTM(
-                    n_features, hidden_size, num_layers,
-                    batch_first=True, dropout=rnn_dropout, bidirectional=bidirectional,
+                    n_features,
+                    hidden_size,
+                    num_layers,
+                    batch_first=True,
+                    dropout=rnn_dropout,
+                    bidirectional=bidirectional,
                 )
             self.drop = nn.Dropout(dropout)
             head_in = hidden_size * (2 if bidirectional else 1)

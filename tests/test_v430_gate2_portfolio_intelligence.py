@@ -96,6 +96,7 @@ def sample_market_data():
 # 1. HRP CLASSICAL BACKWARD COMPATIBILITY & MULTI-LINKAGE
 # ========================================================================= #
 
+
 def test_hrp_backward_compatibility(sample_market_data):
     """Verify that portfolio.hierarchical_risk_parity preserves exact classical metrics."""
     df, cov = sample_market_data
@@ -130,15 +131,14 @@ def test_hrp_multi_linkage_execution(sample_market_data):
 def test_hrp_ward_geometry_rejection(sample_market_data):
     """Verify Ward linkage is rejected with explicit ValueError when applied to precomputed non-Euclidean distance."""
     _, cov = sample_market_data
-    with pytest.raises(
-        ValueError, match="Ward linkage requires Euclidean geometry"
-    ):
+    with pytest.raises(ValueError, match="Ward linkage requires Euclidean geometry"):
         hrp_weights_and_tree(cov, linkage_method="ward", is_euclidean_features=False)
 
 
 # ========================================================================= #
 # 2. TYPED TREE SERIALIZATION, COPHENETIC & LINKAGE SENSITIVITY
 # ========================================================================= #
+
 
 def test_hierarchical_tree_serialization(sample_market_data):
     """Verify HierarchicalTreeResult contains complete tree structure and fingerprints."""
@@ -183,6 +183,7 @@ def test_linkage_sensitivity_analysis(sample_market_data):
 # 3. SEEDED TIME-SERIES BLOCK BOOTSTRAP CLUSTER STABILITY
 # ========================================================================= #
 
+
 def test_seeded_block_bootstrap_stability(sample_market_data):
     """Verify block bootstrap stability is deterministic and reproducible under fixed seed."""
     df, _ = sample_market_data
@@ -199,6 +200,7 @@ def test_seeded_block_bootstrap_stability(sample_market_data):
 # ========================================================================= #
 # 4. EULER RISK CONTRIBUTIONS & RECONCILIATION
 # ========================================================================= #
+
 
 def test_euler_risk_contributions_reconciliation(sample_market_data):
     """Verify Euler variance and volatility risk contributions reconcile exactly to total risk."""
@@ -229,6 +231,7 @@ def test_euler_risk_contributions_reconciliation(sample_market_data):
 # 5. EQUAL RISK CONTRIBUTION (ERC / RISK PARITY)
 # ========================================================================= #
 
+
 def test_equal_risk_contribution_solver(sample_market_data):
     """Verify ERC solver equates risk contributions and satisfies budget/non-negativity constraints."""
     _, cov = sample_market_data
@@ -258,6 +261,7 @@ def test_erc_engine_diagnostics(sample_market_data):
 # ========================================================================= #
 # 6. EQUAL-WEIGHT BASELINE & EFFICIENT FRONTIER
 # ========================================================================= #
+
 
 def test_equal_weight_baseline(sample_market_data):
     """Verify solve_equal_weight produces explicit 1/N benchmark."""
@@ -303,6 +307,7 @@ def test_efficient_frontier_overlays(sample_market_data):
 # 7. MULTI-METHOD PORTFOLIO COMPARISON (NO AUTO WINNER)
 # ========================================================================= #
 
+
 def test_method_comparison_deterministic(sample_market_data):
     """Verify portfolio method comparison compares all methods without declaring an automatic winner."""
     df, cov = sample_market_data
@@ -330,6 +335,7 @@ def test_method_comparison_matrices(sample_market_data):
 # 8. NON-LEAKY WALK-FORWARD EVALUATION
 # ========================================================================= #
 
+
 def test_walk_forward_evaluation_non_leaky(sample_market_data):
     """Verify walk-forward evaluation enforces strict chronological ordering and transaction costs."""
     df, _ = sample_market_data
@@ -347,6 +353,7 @@ def test_walk_forward_evaluation_non_leaky(sample_market_data):
 # ========================================================================= #
 # 9. TYPED ARTIFACT FOUNDATION & PROVENANCE
 # ========================================================================= #
+
 
 def test_artifact_records_and_semantic_hashes(sample_market_data, tmp_path):
     """Verify typed ArtifactRecord creation and semantic payload hashes."""
@@ -370,7 +377,7 @@ def test_artifact_records_and_semantic_hashes(sample_market_data, tmp_path):
     assert "seriated_correlation_matrix" in ser_art.semantic_payload
 
     # 3. Risk Contribution Waterfall
-    rc = calculate_risk_contributions(pd.Series([0.2]*5, index=cov.columns), cov)
+    rc = calculate_risk_contributions(pd.Series([0.2] * 5, index=cov.columns), cov)
     rc_art = render_risk_contribution_artifact(rc, tree.assets, evidence_ids=("EV-TEST-1",))
     assert rc_art.spec.artifact_type == "risk_contribution_waterfall"
 
@@ -378,6 +385,7 @@ def test_artifact_records_and_semantic_hashes(sample_market_data, tmp_path):
 # ========================================================================= #
 # 10. SPECIALIST AGENTS & ADVERSARIAL CHALLENGES
 # ========================================================================= #
+
 
 def test_specialist_agents_and_adversarial_challenges():
     """Verify specialist agents emit structured findings and challenges without prose math."""
@@ -438,6 +446,7 @@ def test_specialist_agents_and_adversarial_challenges():
 # ========================================================================= #
 # 11. SCALE PERFORMANCE CHECK (N=10, N=100)
 # ========================================================================= #
+
 
 def test_hrp_and_erc_scale_performance():
     """Verify HRP and ERC execute efficiently on N=10 and N=100 assets."""

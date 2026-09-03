@@ -99,8 +99,8 @@ class FittingScope:
     """Where a transformation is permitted to learn from."""
 
     TRAIN_ONLY = "train_only"
-    TRAIN_FOLDS = "train_folds"   # out-of-fold on the train side (target encoding, WoE)
-    STATELESS = "stateless"       # learns nothing (log, rank within row, hour-of-day)
+    TRAIN_FOLDS = "train_folds"  # out-of-fold on the train side (target encoding, WoE)
+    STATELESS = "stateless"  # learns nothing (log, rank within row, hour-of-day)
 
 
 def _canonical_scalar(value: Any) -> str:
@@ -123,7 +123,7 @@ def _canonical_scalar(value: Any) -> str:
         if math.isinf(f):
             return "\x00Inf" if f > 0 else "\x00-Inf"
         if f == 0.0:
-            f = 0.0        # normalise signed zero: IEEE distinguishes, semantics do not
+            f = 0.0  # normalise signed zero: IEEE distinguishes, semantics do not
         return "\x00f" + f.hex()
     return "\x00s" + str(value)
 
@@ -180,7 +180,7 @@ def canonical_state_hash(state: Any, decimals: int = STATE_HASH_DECIMALS) -> str
                 return "NaN"
             if math.isinf(f):
                 return "Inf" if f > 0 else "-Inf"
-            return round(f, decimals) + 0.0    # +0.0 normalises -0.0
+            return round(f, decimals) + 0.0  # +0.0 normalises -0.0
         return str(node)
 
     payload = json.dumps(canonicalise(state), sort_keys=True, separators=(",", ":"))
@@ -211,8 +211,7 @@ class TransformExecutionResult:
 
     # -- hashes ------------------------------------------------------------
     def input_hashes(self) -> dict[str, str]:
-        return {"train": self._input_train_hash, "test": self._input_test_hash,
-                "oos": self._input_oos_hash}
+        return {"train": self._input_train_hash, "test": self._input_test_hash, "oos": self._input_oos_hash}
 
     _input_train_hash: str = ""
     _input_test_hash: str = ""
@@ -242,9 +241,7 @@ class TransformExecutionResult:
             "n_features_before": len(self.input_feature_names),
             "n_features_after": len(self.output_feature_names),
             "n_features_affected": len(self.affected_features),
-            "n_features_added": max(
-                0, len(self.output_feature_names) - len(self.input_feature_names)
-            ),
+            "n_features_added": max(0, len(self.output_feature_names) - len(self.input_feature_names)),
             "affected_features": ", ".join(sorted(self.affected_features)[:30]),
             "state_hash": self.state_hash(),
             "output_hash_train": outputs["train"],

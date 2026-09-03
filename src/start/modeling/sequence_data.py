@@ -97,9 +97,7 @@ def split_sequences(
     )
 
 
-def load_sequence_demo(
-    timesteps: int = 24, n_features: int = 3, seed: int = 42
-) -> SequenceBundle:
+def load_sequence_demo(timesteps: int = 24, n_features: int = 3, seed: int = 42) -> SequenceBundle:
     """Convenience: generate + split a demo sequence dataset."""
     X, y = generate_sequence_dataset(timesteps=timesteps, n_features=n_features, seed=seed)
     return split_sequences(X, y)

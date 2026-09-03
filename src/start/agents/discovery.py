@@ -174,9 +174,21 @@ class DatasetDiscoveryAgent:
         self, df: pd.DataFrame, columns: list[ColumnProfile], exclude: set[str]
     ) -> list[str]:
         _PROTECTED_OR_AUX_HINTS = {
-            "foreign_worker", "telephone", "phone", "liable_people", "people_liable",
-            "personal_status", "sex", "gender", "race", "ethnicity", "age",
-            "marital_status", "nationality", "religion", "disability",
+            "foreign_worker",
+            "telephone",
+            "phone",
+            "liable_people",
+            "people_liable",
+            "personal_status",
+            "sex",
+            "gender",
+            "race",
+            "ethnicity",
+            "age",
+            "marital_status",
+            "nationality",
+            "religion",
+            "disability",
         }
         scored: list[tuple[float, str]] = []
         last_col = df.columns[-1] if len(df.columns) > 0 else ""
@@ -187,11 +199,40 @@ class DatasetDiscoveryAgent:
             if any(k in lname for k in _PROTECTED_OR_AUX_HINTS):
                 continue
             score = 0.0
-            if lname in {"target", "label", "y", "class", "outcome", "default", "churn", "fraud", "attrition", "status", "credit_risk", "response", "bad"}:
+            if lname in {
+                "target",
+                "label",
+                "y",
+                "class",
+                "outcome",
+                "default",
+                "churn",
+                "fraud",
+                "attrition",
+                "status",
+                "credit_risk",
+                "response",
+                "bad",
+            }:
                 score += 5
-            elif any(k in lname for k in ("target", "label", "churn", "default", "fraud", "attrition", "credit_risk", "response", "bad")):
+            elif any(
+                k in lname
+                for k in (
+                    "target",
+                    "label",
+                    "churn",
+                    "default",
+                    "fraud",
+                    "attrition",
+                    "credit_risk",
+                    "response",
+                    "bad",
+                )
+            ):
                 score += 3
-            if col.name == last_col and (col.role in {"boolean", "categorical"} or (col.role == "numeric" and col.n_unique <= 5)):
+            if col.name == last_col and (
+                col.role in {"boolean", "categorical"} or (col.role == "numeric" and col.n_unique <= 5)
+            ):
                 score += 2.5
             if col.missing_pct > 5:
                 score -= 1.5
@@ -236,17 +277,16 @@ class DatasetDiscoveryAgent:
                     high_cardinality_detected = True
 
         categorical_ratio = categorical_features_count / max(total_features, 1)
-        
+
         # Core heuristic decision boundary logic
         if categorical_ratio > 0.20 or high_cardinality_detected:
             model_rec = "catboost"
-            reasoning = f"High categorical density ({categorical_ratio*100:.1f}%) or cardinality detected. Explicitly recommending CatBoost over standard trees to preserve structural feature interactions natively."
+            reasoning = f"High categorical density ({categorical_ratio * 100:.1f}%) or cardinality detected. Explicitly recommending CatBoost over standard trees to preserve structural feature interactions natively."
         else:
             model_rec = "distributed_random_forest"
             reasoning = "Dense numerical feature distribution with bounded cardinality. Recommending Distributed Random Forest parameters to maximize split variance across parallel trees."
 
         return model_rec, float(categorical_ratio), reasoning
-
 
 
 @dataclass
@@ -325,7 +365,9 @@ class TaskInferenceAgent:
             if override not in TASK_TYPES:
                 raise ValueError(f"Unknown task '{override}'. Known: {TASK_TYPES}")
             return TaskInference(
-                task_type=override, target_type="user", overridden=True,
+                task_type=override,
+                target_type="user",
+                overridden=True,
                 note=f"Task overridden by user to {override}.",
             )
 
@@ -334,7 +376,9 @@ class TaskInferenceAgent:
             all_binary = all(df[t].dropna().nunique() == 2 for t in target)
             task = "multilabel_classification" if all_binary else "regression"
             return TaskInference(
-                task_type=task, target_type="multi_output", n_classes=len(target),
+                task_type=task,
+                target_type="multi_output",
+                n_classes=len(target),
                 note=f"{len(target)} target columns -> {task}.",
             )
 
@@ -394,7 +438,9 @@ def run_discovery(
     chosen = target_rec.selected or (profile.candidate_targets[0] if profile.candidate_targets else None)
     if chosen is not None:
         inference = TaskInferenceAgent().infer(
-            df, chosen, override=task_override,
+            df,
+            chosen,
+            override=task_override,
             has_timestamp=bool(profile.timestamp_columns),
         )
         evidence.append(TaskInferenceAgent().to_evidence(inference))

@@ -32,8 +32,12 @@ from typing import Any
 from start.core.schemas import Status, TestResult
 
 __all__ = [
-    "ValidationOutcome", "VERIFIED_B7_RESULTS", "validation_results",
-    "validation_results_for_domains", "PROVENANCE", "OVERALL_STATISTICAL_DISPOSITION",
+    "ValidationOutcome",
+    "VERIFIED_B7_RESULTS",
+    "validation_results",
+    "validation_results_for_domains",
+    "PROVENANCE",
+    "OVERALL_STATISTICAL_DISPOSITION",
 ]
 
 #: Every record carries this. The distinction between reproduced validation evidence and
@@ -44,9 +48,7 @@ PROVENANCE = (
 )
 
 #: The honest one-line summary. Not "pass with observations".
-OVERALL_STATISTICAL_DISPOSITION = (
-    "PARTIAL — 2 of 4 pre-registered studies failed a frozen criterion"
-)
+OVERALL_STATISTICAL_DISPOSITION = "PARTIAL — 2 of 4 pre-registered studies failed a frozen criterion"
 
 
 @dataclass(frozen=True)
@@ -106,12 +108,14 @@ VERIFIED_B7_RESULTS: tuple[ValidationOutcome, ...] = (
         configuration_hash="a2cb102177317466ea47dc9a4d9737d8",
         root_seed=20240601,
         criteria=(
-            {"name": "size_correct_forecast", "observed": 0.066,
-             "required": "in [0.031, 0.069]", "passed": True},
-            {"name": "power_understated_0_7x", "observed": 1.000,
-             "required": ">= 0.50", "passed": True},
-            {"name": "power_overstated_1_5x", "observed": 0.992,
-             "required": ">= 0.20", "passed": True},
+            {
+                "name": "size_correct_forecast",
+                "observed": 0.066,
+                "required": "in [0.031, 0.069]",
+                "passed": True,
+            },
+            {"name": "power_understated_0_7x", "observed": 1.000, "required": ">= 0.50", "passed": True},
+            {"name": "power_overstated_1_5x", "observed": 0.992, "required": ">= 0.20", "passed": True},
         ),
         status=Status.PASS,
         classification="all pre-registered criteria met",
@@ -136,20 +140,28 @@ VERIFIED_B7_RESULTS: tuple[ValidationOutcome, ...] = (
         configuration_hash="a9b387fb2905aa48fa3732cee79d749a",
         root_seed=20240602,
         criteria=(
-            {"name": "consistency_ratio_gamma_0_0", "observed": 0.469967,
-             "required": "<= 0.70", "passed": True},
-            {"name": "consistency_ratio_gamma_0_5", "observed": 0.100207,
-             "required": "<= 0.70", "passed": True},
-            {"name": "consistency_ratio_gamma_1_0", "observed": 0.120244,
-             "required": "<= 0.70", "passed": True},
-            {"name": "coverage_gamma_0_0", "observed": 0.635,
-             "required": "in [0.90, 0.98]", "passed": False},
-            {"name": "coverage_gamma_0_5", "observed": 0.970,
-             "required": "in [0.90, 0.98]", "passed": True},
-            {"name": "coverage_gamma_1_0", "observed": 0.935,
-             "required": "in [0.90, 0.98]", "passed": True},
-            {"name": "failure_rate", "observed": 0.0,
-             "required": "<= 0.05 for n >= 1000", "passed": True},
+            {
+                "name": "consistency_ratio_gamma_0_0",
+                "observed": 0.469967,
+                "required": "<= 0.70",
+                "passed": True,
+            },
+            {
+                "name": "consistency_ratio_gamma_0_5",
+                "observed": 0.100207,
+                "required": "<= 0.70",
+                "passed": True,
+            },
+            {
+                "name": "consistency_ratio_gamma_1_0",
+                "observed": 0.120244,
+                "required": "<= 0.70",
+                "passed": True,
+            },
+            {"name": "coverage_gamma_0_0", "observed": 0.635, "required": "in [0.90, 0.98]", "passed": False},
+            {"name": "coverage_gamma_0_5", "observed": 0.970, "required": "in [0.90, 0.98]", "passed": True},
+            {"name": "coverage_gamma_1_0", "observed": 0.935, "required": "in [0.90, 0.98]", "passed": True},
+            {"name": "failure_rate", "observed": 0.0, "required": "<= 0.05 for n >= 1000", "passed": True},
         ),
         # FAIL. Not WARN. Understanding a cause does not discharge a criterion.
         status=Status.FAIL,
@@ -190,16 +202,16 @@ VERIFIED_B7_RESULTS: tuple[ValidationOutcome, ...] = (
         configuration_hash="f9a471fc64bd7f8c6064aae9cd11f85d",
         root_seed=20240603,
         criteria=(
-            {"name": "bias_improvement_ratio", "observed": 0.305052,
-             "required": "<= 0.70", "passed": True},
-            {"name": "max_wrong_sign_rate_nonzero_drift", "observed": 0.475,
-             "required": "<= 0.10 at every included grid point", "passed": False},
+            {"name": "bias_improvement_ratio", "observed": 0.305052, "required": "<= 0.70", "passed": True},
+            {
+                "name": "max_wrong_sign_rate_nonzero_drift",
+                "observed": 0.475,
+                "required": "<= 0.10 at every included grid point",
+                "passed": False,
+            },
         ),
         status=Status.FAIL,
-        classification=(
-            "process / criterion calibration + finite-sample estimator resolution "
-            "limitation"
-        ),
+        classification=("process / criterion calibration + finite-sample estimator resolution limitation"),
         limitations=(
             "The pre-registered BIAS-IMPROVEMENT criterion passed: the ratio was "
             "0.305052 against a required <= 0.70, so pointwise bias shrinks materially "
@@ -235,10 +247,18 @@ VERIFIED_B7_RESULTS: tuple[ValidationOutcome, ...] = (
         configuration_hash="e18f982a841276621834340256474d0f",
         root_seed=20240604,
         criteria=(
-            {"name": "psd_rate_all_cells", "observed": 1.0,
-             "required": "= 1.0 in all 18 cells", "passed": True},
-            {"name": "non_convergence_rate_all_cells", "observed": 0.0,
-             "required": "<= 0.05 in all 18 cells", "passed": True},
+            {
+                "name": "psd_rate_all_cells",
+                "observed": 1.0,
+                "required": "= 1.0 in all 18 cells",
+                "passed": True,
+            },
+            {
+                "name": "non_convergence_rate_all_cells",
+                "observed": 0.0,
+                "required": "<= 0.05 in all 18 cells",
+                "passed": True,
+            },
         ),
         status=Status.PASS,
         classification="structural criteria met in all cells",

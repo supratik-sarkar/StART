@@ -44,6 +44,7 @@ def load_private_env_if_present() -> None:
                 pass
             break
 
+
 PROVIDER_KEY_ENV: dict[str, str | None] = {
     "none": None,
     "openai": "OPENAI_API_KEY",
@@ -227,9 +228,7 @@ def ensure_provider_key(
     for the current process only and is never written to project files or logs.
     """
     if provider not in PROVIDER_KEY_ENV:
-        raise ValueError(
-            f"Unknown LLM provider '{provider}'. Known: {sorted(PROVIDER_KEY_ENV)}"
-        )
+        raise ValueError(f"Unknown LLM provider '{provider}'. Known: {sorted(PROVIDER_KEY_ENV)}")
     env_var = PROVIDER_KEY_ENV[provider]
     if env_var is None:
         return KeyStatus(provider=provider, env_var=None, source="not required")
@@ -290,9 +289,7 @@ def ensure_provider_key(
     return KeyStatus(provider=provider, env_var=env_var, source="hidden prompt/session env")
 
 
-def resolve_key_databricks(
-    provider: str, dbutils: object = None, scope: str = "start"
-) -> KeyStatus:
+def resolve_key_databricks(provider: str, dbutils: object = None, scope: str = "start") -> KeyStatus:
     """Databricks key resolution: secret scope -> environment -> missing."""
     if provider not in PROVIDER_KEY_ENV:
         raise ValueError(f"Unknown LLM provider '{provider}'.")
@@ -367,10 +364,7 @@ def run_llm_check(provider_name: str, llm: object | None = None) -> dict[str, st
             "critique": "not applicable",
         }
     bundle = build_evidence_bundle([synthetic])
-    prompt = (
-        "Summarize the single evidence record in one sentence, citing its "
-        "evidence ID.\n\n" + bundle
-    )
+    prompt = "Summarize the single evidence record in one sentence, citing its evidence ID.\n\n" + bundle
     text = llm.generate(prompt, system=SYSTEM_PROMPT, metadata={"output_token_budget": 128})  # type: ignore[attr-defined]
     critique = EvidenceCriticAgent().critique_section(text, [synthetic])
     return {

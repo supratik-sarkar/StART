@@ -43,6 +43,7 @@ secrets.yml
 
 # ── StART outputs ───────────────────────────────────────────────────────────
 start_output/
+start_output_run*/
 test_dl_output/
 .venv-bootstrap-test/
 bootstrap-report.json
@@ -62,6 +63,16 @@ htmlcov/
 .nox/
 .ipynb_checkpoints/
 
+# ── Frontend & Node ─────────────────────────────────────────────────────────
+node_modules/
+*/node_modules/
+web/node_modules/
+web/dist/
+frontend/dist/
+frontend/build/
+.next/
+.turbo/
+
 # ── Editors and OS ──────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
@@ -69,6 +80,7 @@ Thumbs.db
 .vscode/
 *.swp
 *~
+*.log
 
 # ── Recording intermediates ─────────────────────────────────────────────────
 # The rendered demo assets under docs/media/ ARE committed — the README links

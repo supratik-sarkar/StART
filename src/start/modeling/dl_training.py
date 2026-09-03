@@ -107,9 +107,7 @@ def run_dl_review(opts: DLReviewOptions, ask: Any = None) -> DLReviewResult:
     from start.modeling.deep_learning import build_classifier, torch_available
 
     if not torch_available():
-        raise ImportError(
-            "Deep learning requires the torch extra: pip install -e \".[torch]\""
-        )
+        raise ImportError('Deep learning requires the torch extra: pip install -e ".[torch]"')
 
     import uuid
 
@@ -155,8 +153,7 @@ def run_dl_review(opts: DLReviewOptions, ask: Any = None) -> DLReviewResult:
     device = model.device_used
     console.print(
         f"    trained in {time.time() - t0:.1f}s on device={device} | "
-        f"best epoch {model.best_epoch_}"
-        + (" (early-stopped)" if model.stopped_early_ else "")
+        f"best epoch {model.best_epoch_}" + (" (early-stopped)" if model.stopped_early_ else "")
     )
 
     # score all cohorts
@@ -189,12 +186,8 @@ def run_dl_review(opts: DLReviewOptions, ask: Any = None) -> DLReviewResult:
     train_result = build_training_evidence(model)
     perf_result, perf_extras = build_performance_evidence(cohort_metrics)
     calib_result = build_calibration_evidence(cohort_metrics)
-    explain_result, importance = build_explainability_evidence(
-        model, cohorts, features, target, opts
-    )
-    sens_result, shock_rows = build_sensitivity_evidence(
-        model, cohorts, features, target, importance, opts
-    )
+    explain_result, importance = build_explainability_evidence(model, cohorts, features, target, opts)
+    sens_result, shock_rows = build_sensitivity_evidence(model, cohorts, features, target, importance, opts)
     robust_result = build_robustness_evidence(model, cohorts, features, target, importance, opts)
 
     for result in (
@@ -330,14 +323,9 @@ def _print_metrics_table(cohort_metrics: dict[str, dict[str, float]]) -> None:
 
 
 def _print_agent_summary(agent_review: Any) -> None:
-    mode = (
-        f"llm-assisted ({agent_review.llm_provider})"
-        if agent_review.mode == "llm"
-        else "deterministic"
-    )
+    mode = f"llm-assisted ({agent_review.llm_provider})" if agent_review.mode == "llm" else "deterministic"
     console.print(
-        f"    agent mode: {mode} | review critique: "
-        f"{'OK' if agent_review.critique_ok else 'FAILED'}"
+        f"    agent mode: {mode} | review critique: {'OK' if agent_review.critique_ok else 'FAILED'}"
     )
     for note in agent_review.notes:
         console.print(f"    [yellow]{note}[/yellow]")
@@ -353,8 +341,6 @@ def _render_report(
     out_dir.mkdir(parents=True, exist_ok=True)
     report_path = out_dir / f"{run_id}.md"
     report_path.write_text(
-        render_dl_report(
-            run_id, opts, device, cohort_metrics, evidence, figures, agent_review, perf_extras
-        )
+        render_dl_report(run_id, opts, device, cohort_metrics, evidence, figures, agent_review, perf_extras)
     )
     return report_path

@@ -12,16 +12,26 @@ from start.review_session import Decision, Exchange, ReviewSession
 
 def _populated_session():
     s = ReviewSession(run_id="RUN-T")
-    s.record_decision(Decision(
-        key="architecture", prompt="Family?", recommended="mlp",
-        user_value="wide_deep", effective="wide_deep", choice="keep",
-        rationale="user prefers wide_deep",
-    ))
-    s.record_exchange(Exchange(
-        agent="ArchitectureReviewAgent", question="Why not wide_deep?",
-        answer="wide_deep is viable but mlp lowers overfitting risk.",
-        checkpoint="architecture", backend="deterministic",
-    ))
+    s.record_decision(
+        Decision(
+            key="architecture",
+            prompt="Family?",
+            recommended="mlp",
+            user_value="wide_deep",
+            effective="wide_deep",
+            choice="keep",
+            rationale="user prefers wide_deep",
+        )
+    )
+    s.record_exchange(
+        Exchange(
+            agent="ArchitectureReviewAgent",
+            question="Why not wide_deep?",
+            answer="wide_deep is viable but mlp lowers overfitting risk.",
+            checkpoint="architecture",
+            backend="deterministic",
+        )
+    )
     s.add_clarification("false negatives are costlier")
     return s
 

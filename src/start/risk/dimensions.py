@@ -161,8 +161,7 @@ _DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(
         id="sensitivity",
         label="Input sensitivity",
-        question="How much does the output move when the inputs move, and is that "
-        "responsiveness intended?",
+        question="How much does the output move when the inputs move, and is that responsiveness intended?",
         evidence_classes=("shock_response", "elasticity_profile", "dominant_driver_ranking"),
         phase=3,
     ),
@@ -187,8 +186,7 @@ _DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(
         id="benchmarking",
         label="Benchmarking and challenger comparison",
-        question="Against what alternative was it judged, and would a simpler "
-        "alternative have done as well?",
+        question="Against what alternative was it judged, and would a simpler alternative have done as well?",
         evidence_classes=("challenger_result", "baseline_comparison", "champion_challenger_gap"),
         phase=4,
     ),
@@ -278,8 +276,7 @@ def dimension(dimension_id: str) -> Dimension:
         return DIMENSIONS[dimension_id]
     except KeyError:
         raise KeyError(
-            f"Unknown review dimension {dimension_id!r}. Known dimensions: "
-            f"{', '.join(sorted(DIMENSIONS))}"
+            f"Unknown review dimension {dimension_id!r}. Known dimensions: {', '.join(sorted(DIMENSIONS))}"
         ) from None
 
 

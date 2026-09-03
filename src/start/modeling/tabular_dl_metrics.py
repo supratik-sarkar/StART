@@ -41,33 +41,23 @@ def multiclass_metrics(y_true: np.ndarray, proba: np.ndarray, classes: Any) -> d
     preds_idx = proba.argmax(axis=1)
     classes = np.asarray(classes)
     preds = classes[preds_idx]
-    
+
     metrics = {
         "accuracy": round(float(accuracy_score(y_true, preds)), 6),
         "f1_macro": round(float(f1_score(y_true, preds, average="macro", zero_division=0)), 6),
         "f1_micro": round(float(f1_score(y_true, preds, average="micro", zero_division=0)), 6),
         "f1_weighted": round(float(f1_score(y_true, preds, average="weighted", zero_division=0)), 6),
-        "precision_macro": round(
-            float(precision_score(y_true, preds, average="macro", zero_division=0)), 6
-        ),
-        "precision_micro": round(
-            float(precision_score(y_true, preds, average="micro", zero_division=0)), 6
-        ),
+        "precision_macro": round(float(precision_score(y_true, preds, average="macro", zero_division=0)), 6),
+        "precision_micro": round(float(precision_score(y_true, preds, average="micro", zero_division=0)), 6),
         "precision_weighted": round(
             float(precision_score(y_true, preds, average="weighted", zero_division=0)), 6
         ),
-        "recall_macro": round(
-            float(recall_score(y_true, preds, average="macro", zero_division=0)), 6
-        ),
-        "recall_micro": round(
-            float(recall_score(y_true, preds, average="micro", zero_division=0)), 6
-        ),
-        "recall_weighted": round(
-            float(recall_score(y_true, preds, average="weighted", zero_division=0)), 6
-        ),
+        "recall_macro": round(float(recall_score(y_true, preds, average="macro", zero_division=0)), 6),
+        "recall_micro": round(float(recall_score(y_true, preds, average="micro", zero_division=0)), 6),
+        "recall_weighted": round(float(recall_score(y_true, preds, average="weighted", zero_division=0)), 6),
         "n_classes": int(len(classes)),
     }
-    
+
     # OVR ROC-AUC
     try:
         metrics["auc_roc_macro"] = round(
@@ -79,15 +69,13 @@ def multiclass_metrics(y_true: np.ndarray, proba: np.ndarray, classes: Any) -> d
     except Exception:
         metrics["auc_roc_macro"] = float("nan")
         metrics["auc_roc_weighted"] = float("nan")
-        
+
     # Macro PR-AUC using binarized labels
     try:
         y_bin = label_binarize(y_true, classes=classes)
         if y_bin.shape[1] == 1 and proba.shape[1] == 2:
             y_bin = np.column_stack([1 - y_bin, y_bin])
-        metrics["pr_auc_macro"] = round(
-            float(average_precision_score(y_bin, proba, average="macro")), 6
-        )
+        metrics["pr_auc_macro"] = round(float(average_precision_score(y_bin, proba, average="macro")), 6)
     except Exception:
         metrics["pr_auc_macro"] = float("nan")
 
@@ -95,7 +83,7 @@ def multiclass_metrics(y_true: np.ndarray, proba: np.ndarray, classes: Any) -> d
         metrics["log_loss"] = round(float(log_loss(y_true, proba, labels=list(classes))), 6)
     except (ValueError, IndexError):
         metrics["log_loss"] = float("nan")
-        
+
     return metrics
 
 
@@ -132,6 +120,7 @@ def regression_metrics(y_true: np.ndarray, preds: np.ndarray) -> dict[str, float
     r2 = float(r2_score(y_true, preds))
     try:
         from sklearn.metrics import mean_absolute_percentage_error
+
         mape = float(mean_absolute_percentage_error(y_true, preds))
     except Exception:
         # manual fallback for MAPE

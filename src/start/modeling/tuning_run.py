@@ -83,8 +83,17 @@ _VISION_DL_SEARCH_SPACE = {
 _SEQUENCE_FAMILIES = ()  # Tabular recurrent nets route to tabular_dl
 _VISION_FAMILIES = ("simple_cnn_small", "simple_cnn_medium", "simple_cnn_deep")
 _TABULAR_DL_FAMILIES = (
-    "mlp", "wide_deep", "residual_mlp", "dcn", "leaky_relu_mlp",
-    "rnn", "lstm", "gru", "bi_lstm", "cnn", "gnn"
+    "mlp",
+    "wide_deep",
+    "residual_mlp",
+    "dcn",
+    "leaky_relu_mlp",
+    "rnn",
+    "lstm",
+    "gru",
+    "bi_lstm",
+    "cnn",
+    "gnn",
 )
 
 
@@ -147,10 +156,9 @@ def _scorer(metric_name: str, is_multiclass: bool = False, classes_order: Any = 
     def r2(y, p):
         return float(r2_score(y, p))
 
-    return {
-        "auc_roc": auc, "pr_auc": prauc, "recall": rec, "f1": f1,
-        "rmse": rmse, "mae": mae, "r2": r2
-    }.get(metric_name, auc)
+    return {"auc_roc": auc, "pr_auc": prauc, "recall": rec, "f1": f1, "rmse": rmse, "mae": mae, "r2": r2}.get(
+        metric_name, auc
+    )
 
 
 def run_tuning(
@@ -176,8 +184,11 @@ def run_tuning(
     """Execute the tuning search. Returns None if disabled or torch missing for DL path."""
     if strategy == "none":
         return TuningRun(
-            strategy="none", primary_metric=primary_metric, n_trials=0,
-            ran=False, note="Hyperparameter tuning disabled by user.",
+            strategy="none",
+            primary_metric=primary_metric,
+            n_trials=0,
+            ran=False,
+            note="Hyperparameter tuning disabled by user.",
             validation=validation,
         )
 
@@ -185,8 +196,10 @@ def run_tuning(
 
     try:
         from start.modeling.models import HYPERPARAM_SPACES, resolve_model
+
         if family != "sklearn":
             from start.modeling.deep_learning import torch_available
+
             if not torch_available():
                 return None
             if family == "tabular_dl":
@@ -201,13 +214,18 @@ def run_tuning(
     if len(features) < 2 or len(df) < 40:
         return None
 
-    metric_name = primary_metric if primary_metric in ("auc_roc", "pr_auc", "recall", "f1", "rmse", "mae", "r2") else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
+    metric_name = (
+        primary_metric
+        if primary_metric in ("auc_roc", "pr_auc", "recall", "f1", "rmse", "mae", "r2")
+        else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
+    )
 
     rng = np.random.default_rng(seed)
 
     # train-internal holdout (stratified) — never touches test/OOS
     if task_type not in ("regression", "forecasting") and df[target].nunique() > 1:
         from sklearn.model_selection import train_test_split
+
         tr, va = train_test_split(df, test_size=0.25, random_state=seed, stratify=df[target])
     else:
         idx = df.index.to_numpy().copy()
@@ -216,6 +234,7 @@ def run_tuning(
         tr, va = df.loc[idx[:cut]], df.loc[idx[cut:]]
     if family == "sklearn":
         from sklearn.impute import SimpleImputer
+
         imputer = SimpleImputer(strategy="median")
         tr = tr.copy()
         va = va.copy()
@@ -271,9 +290,10 @@ def run_tuning(
         n_trials = max(1, min(n_trials, 15, len(combos)))
         chosen = combos[:n_trials]
         run = TuningRun(
-            strategy=strategy, primary_metric=metric_name, n_trials=n_trials,
-            search_space={k: [list(x) if isinstance(x, tuple) else x for x in v]
-                          for k, v in space.items()},
+            strategy=strategy,
+            primary_metric=metric_name,
+            n_trials=n_trials,
+            search_space={k: [list(x) if isinstance(x, tuple) else x for x in v] for k, v in space.items()},
             validation=validation,
         )
     elif family == "sequence_dl":
@@ -294,8 +314,11 @@ def run_tuning(
         n_trials = max(1, min(n_trials, 15, len(combos)))
         chosen = combos[:n_trials]
         run = TuningRun(
-            strategy=strategy, primary_metric=metric_name, n_trials=n_trials,
-            search_space=space, validation=validation,
+            strategy=strategy,
+            primary_metric=metric_name,
+            n_trials=n_trials,
+            search_space=space,
+            validation=validation,
         )
     elif family == "vision_dl":
         space = dict(_VISION_DL_SEARCH_SPACE)
@@ -314,8 +337,11 @@ def run_tuning(
         n_trials = max(1, min(n_trials, 15, len(combos)))
         chosen = combos[:n_trials]
         run = TuningRun(
-            strategy=strategy, primary_metric=metric_name, n_trials=n_trials,
-            search_space=space, validation=validation,
+            strategy=strategy,
+            primary_metric=metric_name,
+            n_trials=n_trials,
+            search_space=space,
+            validation=validation,
         )
     else:
         # sklearn / tree-based models
@@ -360,9 +386,13 @@ def run_tuning(
         n_trials = max(1, min(n_trials, 15, len(combos)))
         chosen = combos[:n_trials]
         run = TuningRun(
-            strategy=strategy, primary_metric=metric_name, n_trials=n_trials,
-            search_space={k: spec.get("grid") or spec.get("choices") or [spec.get("low"), spec.get("high")]
-                          for k, spec in space.items()},
+            strategy=strategy,
+            primary_metric=metric_name,
+            n_trials=n_trials,
+            search_space={
+                k: spec.get("grid") or spec.get("choices") or [spec.get("low"), spec.get("high")]
+                for k, spec in space.items()
+            },
             validation=validation,
         )
 
@@ -372,10 +402,15 @@ def run_tuning(
             if h_dims is None and "hidden_size" in params:
                 h_dims = (params["hidden_size"],) * params.get("num_layers", 1)
             return TabularDLClassifier(
-                task=task_type, family=architecture, activation=activation,
-                hidden_dims=h_dims, epochs=8,
-                learning_rate=params["learning_rate"], dropout=params["dropout"],
-                random_state=seed, cost_specification=cost_specification,
+                task=task_type,
+                family=architecture,
+                activation=activation,
+                hidden_dims=h_dims,
+                epochs=8,
+                learning_rate=params["learning_rate"],
+                dropout=params["dropout"],
+                random_state=seed,
+                cost_specification=cost_specification,
             )
         elif family == "sequence_dl":
             return SequenceClassifier(
@@ -407,10 +442,12 @@ def run_tuning(
     if validation == "k_fold":
         if task_type in ("regression", "forecasting"):
             from sklearn.model_selection import KFold
+
             kf = KFold(n_splits=k_folds, shuffle=True, random_state=seed)
             folds = list(kf.split(df))
         else:
             from sklearn.model_selection import StratifiedKFold
+
             kf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=seed)
             folds = list(kf.split(df, df[target]))
     else:
@@ -424,7 +461,7 @@ def run_tuning(
 
     with progress_bar(len(chosen), f"Tuning {architecture} ({len(chosen)} trials)") as adv:
         for i, params in enumerate(chosen, start=1):
-            is_multiclass = (task_type == "multiclass_classification")
+            is_multiclass = task_type == "multiclass_classification"
             trial_failed = False
             fold_status_h = "ok"
             if validation == "k_fold":
@@ -450,6 +487,7 @@ def run_tuning(
                             # Fold-local preprocessing
                             if family == "sklearn":
                                 from sklearn.impute import SimpleImputer
+
                                 imputer = SimpleImputer(strategy="median")
                                 tr_fold[features] = imputer.fit_transform(tr_fold[features])
                                 va_fold[features] = imputer.transform(va_fold[features])
@@ -494,9 +532,14 @@ def run_tuning(
                                 fold_status = "failed"
                                 fold_warnings.append("CRITICAL: NaN or infinite metric value")
                                 trial_failed = True
-                            elif task_type not in ("regression", "forecasting") and (va_fold[target] == 1).sum() < 5:
+                            elif (
+                                task_type not in ("regression", "forecasting")
+                                and (va_fold[target] == 1).sum() < 5
+                            ):
                                 fold_status = "degenerate"
-                                fold_warnings.append("Degenerate fold: fewer than 5 positive cases in validation fold")
+                                fold_warnings.append(
+                                    "Degenerate fold: fewer than 5 positive cases in validation fold"
+                                )
                                 trial_failed = True
 
                         # Classify and deduplicate captured warnings
@@ -508,9 +551,10 @@ def run_tuning(
                                 _seen_warnings.add(key)
                                 fold_warnings.append(key)
                             # Critical warning classification
-                            if any(kw in str(w.message).lower() for kw in
-                                   ("overflow", "invalid value", "divide by zero",
-                                    "nan", "non-finite")):
+                            if any(
+                                kw in str(w.message).lower()
+                                for kw in ("overflow", "invalid value", "divide by zero", "nan", "non-finite")
+                            ):
                                 _critical = True
                         if _critical:
                             fold_status = "failed"
@@ -524,22 +568,26 @@ def run_tuning(
 
                     fold_runtime = _time.perf_counter() - fold_t0
 
-                    fold_telemetry_rows.append({
-                        "trial_id": i,
-                        "fold_id": fold_idx,
-                        "model_family": architecture,
-                        "params": str(params),
-                        "preprocessing_scope": "fold-local",
-                        "epochs_completed": fold_epochs,
-                        "early_stopping": fold_early_stop,
-                        "device": str(getattr(clf, "_device_used", "cpu") if 'clf' in dir() else "cpu"),
-                        "runtime_seconds": fold_runtime,
-                        "metric_name": metric_name,
-                        "metric_value": fold_metric,
-                        "status": fold_status,
-                        "warnings": "; ".join(fold_warnings) if fold_warnings else "",
-                        "failure_reason": fold_warnings[0] if fold_status == "failed" and fold_warnings else "",
-                    })
+                    fold_telemetry_rows.append(
+                        {
+                            "trial_id": i,
+                            "fold_id": fold_idx,
+                            "model_family": architecture,
+                            "params": str(params),
+                            "preprocessing_scope": "fold-local",
+                            "epochs_completed": fold_epochs,
+                            "early_stopping": fold_early_stop,
+                            "device": str(getattr(clf, "_device_used", "cpu") if "clf" in dir() else "cpu"),
+                            "runtime_seconds": fold_runtime,
+                            "metric_name": metric_name,
+                            "metric_value": fold_metric,
+                            "status": fold_status,
+                            "warnings": "; ".join(fold_warnings) if fold_warnings else "",
+                            "failure_reason": fold_warnings[0]
+                            if fold_status == "failed" and fold_warnings
+                            else "",
+                        }
+                    )
 
                     if fold_status == "ok":
                         fold_metrics.append(fold_metric)
@@ -580,7 +628,9 @@ def run_tuning(
                             fold_warnings_list.append("CRITICAL: NaN or infinite metric value")
                         elif task_type not in ("regression", "forecasting") and (va[target] == 1).sum() < 5:
                             fold_status_h = "degenerate"
-                            fold_warnings_list.append("Degenerate holdout: fewer than 5 positive cases in validation set")
+                            fold_warnings_list.append(
+                                "Degenerate holdout: fewer than 5 positive cases in validation set"
+                            )
 
                     _seen = set()
                     for w in caught:
@@ -596,23 +646,37 @@ def run_tuning(
                     failed_fit_count += 1
 
                 fold_runtime_h = _time.perf_counter() - fold_t0
-                fold_telemetry_rows.append({
-                    "trial_id": i, "fold_id": 1, "model_family": architecture,
-                    "params": str(params), "preprocessing_scope": "holdout-split",
-                    "epochs_completed": getattr(clf, "best_epoch_", 0) if 'clf' in dir() else 0,
-                    "early_stopping": "yes" if getattr(clf, "stopped_early_", False) else "no" if 'clf' in dir() else "",
-                    "device": str(getattr(clf, "_device_used", "cpu") if 'clf' in dir() else "cpu"),
-                    "runtime_seconds": fold_runtime_h,
-                    "metric_name": metric_name, "metric_value": metric,
-                    "status": fold_status_h,
-                    "warnings": "; ".join(fold_warnings_list) if fold_warnings_list else "",
-                    "failure_reason": fold_warnings_list[0] if fold_status_h == "failed" and fold_warnings_list else "",
-                })
+                fold_telemetry_rows.append(
+                    {
+                        "trial_id": i,
+                        "fold_id": 1,
+                        "model_family": architecture,
+                        "params": str(params),
+                        "preprocessing_scope": "holdout-split",
+                        "epochs_completed": getattr(clf, "best_epoch_", 0) if "clf" in dir() else 0,
+                        "early_stopping": "yes"
+                        if getattr(clf, "stopped_early_", False)
+                        else "no"
+                        if "clf" in dir()
+                        else "",
+                        "device": str(getattr(clf, "_device_used", "cpu") if "clf" in dir() else "cpu"),
+                        "runtime_seconds": fold_runtime_h,
+                        "metric_name": metric_name,
+                        "metric_value": metric,
+                        "status": fold_status_h,
+                        "warnings": "; ".join(fold_warnings_list) if fold_warnings_list else "",
+                        "failure_reason": fold_warnings_list[0]
+                        if fold_status_h == "failed" and fold_warnings_list
+                        else "",
+                    }
+                )
 
             # Only consider non-NaN and non-degenerate trials for best
             is_valid = (
-                np.isfinite(metric) if isinstance(metric, float) else True
-            ) and fold_status_h != "degenerate" and not trial_failed
+                (np.isfinite(metric) if isinstance(metric, float) else True)
+                and fold_status_h != "degenerate"
+                and not trial_failed
+            )
             if is_valid:
                 is_best = (metric < best_metric) if minimize else (metric > best_metric)
                 if is_best:
@@ -623,13 +687,19 @@ def run_tuning(
             if "hidden_dims" in saved_params and isinstance(saved_params["hidden_dims"], tuple):
                 saved_params["hidden_dims"] = list(saved_params["hidden_dims"])
 
-            t_status = "degenerate" if (fold_status_h == "degenerate" or trial_failed) else ("ok" if is_valid else "failed")
-            run.trials.append(TuningTrial(
-                trial=i,
-                params=saved_params,
-                validation_metric=metric if is_valid else float("nan"),
-                status=t_status,
-            ))
+            t_status = (
+                "degenerate"
+                if (fold_status_h == "degenerate" or trial_failed)
+                else ("ok" if is_valid else "failed")
+            )
+            run.trials.append(
+                TuningTrial(
+                    trial=i,
+                    params=saved_params,
+                    validation_metric=metric if is_valid else float("nan"),
+                    status=t_status,
+                )
+            )
             adv(1)
 
     # Print concise warning summary
@@ -640,6 +710,7 @@ def run_tuning(
             for w in w_str.split("; "):
                 _unique_warnings.add(w)
         import sys
+
         print(
             f"  [Tuning Warning Summary] {len(_unique_warnings)} unique warning(s) "
             f"across {len(fold_telemetry_rows)} fold(s):",
@@ -656,7 +727,7 @@ def run_tuning(
         if t.status in ("failed", "degenerate"):
             run.rejected_params.append(t.params)
             continue
-        is_best = (not found_best and t.validation_metric == best_metric)
+        is_best = not found_best and t.validation_metric == best_metric
         if is_best:
             t.status = "best"
             run.best_params = t.params
@@ -705,7 +776,7 @@ def render_tuning_run_markdown(run: TuningRun) -> str:
     """Markdown table for dashboard/transcript/notebook."""
     if not run.ran:
         return f"### Hyperparameter tuning\n\n{run.note}\n"
-    
+
     lines = [
         "### Hyperparameter tuning",
         "",
@@ -714,21 +785,21 @@ def render_tuning_run_markdown(run: TuningRun) -> str:
         f"- Number of trials: {run.n_trials}",
         "",
     ]
-    
+
     # collect all param keys present across all trials
     param_keys = []
     for t in run.trials:
         for k in t.params.keys():
             if k not in param_keys:
                 param_keys.append(k)
-                
+
     # Build markdown table header
     header_cols = ["Trial"] + param_keys + ["Validation metric", "Status"]
     header_row = "| " + " | ".join(header_cols) + " |"
     separator_row = "| " + " | ".join(["---"] * len(header_cols)) + " |"
     lines.append(header_row)
     lines.append(separator_row)
-    
+
     # Build rows
     for t in run.trials:
         row_vals = [str(t.trial)]
@@ -739,11 +810,10 @@ def render_tuning_run_markdown(run: TuningRun) -> str:
         status_str = f"**{t.status}**" if t.status == "best" else t.status
         row_vals.append(status_str)
         lines.append("| " + " | ".join(row_vals) + " |")
-        
+
     lines.append("")
     if run.best_params:
         lines.append(f"**Best Parameters:** `{run.best_params}` with metric `{run.best_metric:.6f}`")
     lines.append("")
-    
-    return "\n".join(lines)
 
+    return "\n".join(lines)

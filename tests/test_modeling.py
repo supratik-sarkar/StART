@@ -88,9 +88,7 @@ def test_lightgbm_unavailable_falls_back_cleanly(monkeypatch):
 def test_shap_fallback_to_permutation_is_honest(fitted_rf, attrition_splits):
     model, features = fitted_rf
     _, test, _ = attrition_splits
-    result = global_importance(
-        model, test[features], test[TARGET_COLUMN], seed=0, use_shap=False
-    )
+    result = global_importance(model, test[features], test[TARGET_COLUMN], seed=0, use_shap=False)
     assert result.method == "permutation"
     assert "permutation" in result.note
     assert result.local_examples == []  # no fabricated local attributions
@@ -101,15 +99,11 @@ def test_sensitivity_zero_shock_equals_baseline(fitted_rf, attrition_splits):
     model, features = fitted_rf
     _, test, _ = attrition_splits
     imp = global_importance(model, test[features], test[TARGET_COLUMN], seed=0, use_shap=False)
-    rows = run_feature_shocks(
-        model, test, imp.top_features(5), TARGET_COLUMN, features, DEFAULT_SHOCKS
-    )
+    rows = run_feature_shocks(model, test, imp.top_features(5), TARGET_COLUMN, features, DEFAULT_SHOCKS)
     zero = next(r for r in rows if r["shock"] == 0.0)
     from sklearn.metrics import roc_auc_score
 
-    baseline = roc_auc_score(
-        test[TARGET_COLUMN], model.predict_proba(test[features])[:, 1]
-    )
+    baseline = roc_auc_score(test[TARGET_COLUMN], model.predict_proba(test[features])[:, 1])
     assert zero["auc_roc"] == round(baseline, 6)  # engine reports 6-decimal precision
     assert zero["auc_drift"] == 0.0
     assert len(rows) == len(DEFAULT_SHOCKS)

@@ -103,13 +103,15 @@ async def sse_event_generator(
                 yield {
                     "event": final_type,
                     "id": f"EVT-SEQ-{sequence}",
-                    "data": json.dumps({
-                        "run_id": run_id,
-                        "status": ctx.status,
-                        "error_message": ctx.error_message,
-                        "event_count": len(ctx.events),
-                        "evidence_count": len(ctx.evidence_records),
-                    }),
+                    "data": json.dumps(
+                        {
+                            "run_id": run_id,
+                            "status": ctx.status,
+                            "error_message": ctx.error_message,
+                            "event_count": len(ctx.events),
+                            "evidence_count": len(ctx.evidence_records),
+                        }
+                    ),
                 }
                 break
 

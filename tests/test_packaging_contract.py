@@ -133,8 +133,7 @@ def test_bootstrap_profiles_only_name_declared_extras(extras: dict[str, list[str
     for profile_name, spec in bootstrap.PROFILES.items():
         unknown = [e for e in spec["extras"] if e not in extras]
         assert not unknown, (
-            f"bootstrap profile {profile_name!r} names extras that pyproject.toml does not "
-            f"declare: {unknown}"
+            f"bootstrap profile {profile_name!r} names extras that pyproject.toml does not declare: {unknown}"
         )
 
 
@@ -156,8 +155,7 @@ def test_single_installer_entry_point() -> None:
     scripts = ROOT / "scripts"
     assert (scripts / "bootstrap.py").exists()
     assert not (scripts / "install_dependencies.py").exists(), (
-        "install_dependencies.py is a competing installer and was removed. "
-        "scripts/bootstrap.py is canonical."
+        "install_dependencies.py is a competing installer and was removed. scripts/bootstrap.py is canonical."
     )
 
     wrapper = (scripts / "bootstrap.sh").read_text(encoding="utf-8")

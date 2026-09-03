@@ -6,7 +6,7 @@
 # MAGIC and (optionally) log to MLFlow.
 
 # COMMAND ----------
-# MAGIC %pip install git+https://github.com/supratik-sarkar/StART.git
+# MAGIC %pip install git+https://github.com/start-project/start.git
 # (On Databricks, prefer a cluster library or `%pip install /Workspace/Repos/.../StART` for repos.)
 
 # COMMAND ----------

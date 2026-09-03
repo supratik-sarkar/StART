@@ -41,8 +41,20 @@ def test_all_eight_panels_render_cleanly() -> None:
 
     # 2. Agent Stream
     events = [
-        {"agent": "DatasetDiscoveryAgent", "status": "complete", "stage": "dataset_discovery", "detail": "15 features", "runtime": 0.12},
-        {"agent": "FeatureEngineeringAgent", "status": "warn", "stage": "leakage_check", "detail": "1 potential leak", "runtime": 0.35},
+        {
+            "agent": "DatasetDiscoveryAgent",
+            "status": "complete",
+            "stage": "dataset_discovery",
+            "detail": "15 features",
+            "runtime": 0.12,
+        },
+        {
+            "agent": "FeatureEngineeringAgent",
+            "status": "warn",
+            "stage": "leakage_check",
+            "detail": "1 potential leak",
+            "runtime": 0.35,
+        },
     ]
     p2 = render_agent_stream(events)
     with console.capture() as cap:

@@ -153,7 +153,9 @@ def build_linear_factor_model(
         reconstructed_covariance_fingerprint=fp_sigma,
         diagnostics=diag_result,
         time_alignment=time_alignment,
-        horizon=MetricHorizon(factor_cov_horizon) if isinstance(factor_cov_horizon, str) else factor_cov_horizon,
+        horizon=MetricHorizon(factor_cov_horizon)
+        if isinstance(factor_cov_horizon, str)
+        else factor_cov_horizon,
         frequency=frequency,
         periods_per_year=periods_per_year,
     )
@@ -166,7 +168,9 @@ def decompose_factor_risk(
 ) -> FactorRiskDecompositionResult:
     """Perform Euler-consistent systematic and factor risk component decomposition."""
     eff_ppy = periods_per_year if periods_per_year is not None else factor_model.periods_per_year
-    h_model = MetricHorizon(factor_model.horizon) if isinstance(factor_model.horizon, str) else factor_model.horizon
+    h_model = (
+        MetricHorizon(factor_model.horizon) if isinstance(factor_model.horizon, str) else factor_model.horizon
+    )
 
     validate_horizon_alignment(
         mu_horizon=h_model,
@@ -231,8 +235,7 @@ def decompose_factor_risk(
     spec_share = float(v_spec / v_total) if v_total > 1e-15 else 0.0
 
     factor_shares = {
-        f: float(factor_comp_dict[f] / v_total) if v_total > 1e-15 else 0.0
-        for f in factor_names
+        f: float(factor_comp_dict[f] / v_total) if v_total > 1e-15 else 0.0 for f in factor_names
     }
 
     return FactorRiskDecompositionResult(
@@ -264,7 +267,9 @@ def decompose_active_risk(
 ) -> ActiveRiskDecompositionResult:
     """Decompose benchmark-relative active risk (tracking error) into factor and specific active risks."""
     eff_ppy = periods_per_year if periods_per_year is not None else factor_model.periods_per_year
-    h_model = MetricHorizon(factor_model.horizon) if isinstance(factor_model.horizon, str) else factor_model.horizon
+    h_model = (
+        MetricHorizon(factor_model.horizon) if isinstance(factor_model.horizon, str) else factor_model.horizon
+    )
 
     validate_horizon_alignment(
         mu_horizon=h_model,
@@ -381,19 +386,29 @@ def validate_factor_data_integrity(
     # Partial factor input validation (fail closed)
     if has_any:
         if has_exp and not has_fcov:
-            issues.append("Partial factor model specification: factor exposures provided but factor covariance is missing (fail-closed).")
+            issues.append(
+                "Partial factor model specification: factor exposures provided but factor covariance is missing (fail-closed)."
+            )
         if has_exp and not has_svar:
             missing_svar = 1
-            issues.append("Partial factor model specification: factor exposures provided but specific variance is missing (fail-closed).")
+            issues.append(
+                "Partial factor model specification: factor exposures provided but specific variance is missing (fail-closed)."
+            )
         if has_fcov and not has_exp:
             missing_exp = 1
-            issues.append("Partial factor model specification: factor covariance provided but factor exposures are missing (fail-closed).")
+            issues.append(
+                "Partial factor model specification: factor covariance provided but factor exposures are missing (fail-closed)."
+            )
         if has_svar and not has_exp:
             missing_exp = 1
-            issues.append("Partial factor model specification: specific variance provided but factor exposures are missing (fail-closed).")
+            issues.append(
+                "Partial factor model specification: specific variance provided but factor exposures are missing (fail-closed)."
+            )
         if has_fret and not has_exp:
             missing_exp = 1
-            issues.append("Partial factor model specification: factor returns provided but factor exposures are missing (fail-closed).")
+            issues.append(
+                "Partial factor model specification: factor returns provided but factor exposures are missing (fail-closed)."
+            )
 
     if exposures is not None:
         if isinstance(exposures, pd.DataFrame):

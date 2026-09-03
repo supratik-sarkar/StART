@@ -60,10 +60,11 @@ _static_map: dict[str, str] = {
 
 __all__ = list(_static_map.keys())
 
+
 def __getattr__(name: str) -> Any:
     """Dynamically resolves module paths on demand, dynamically stubbing missing nodes to prevent ImportErrors."""
     target_module = _static_map.get(name)
-    
+
     # Pass 1: Resolve via the explicit structural map
     if target_module:
         try:
@@ -92,17 +93,25 @@ def __getattr__(name: str) -> Any:
         except Exception:
             continue
 
-    # Pass 3: Ultimate Fallback Safety Net. If the pipeline demands an Agent class 
+    # Pass 3: Ultimate Fallback Safety Net. If the pipeline demands an Agent class
     # that was completely cleared, construct a generic runtime stub to prevent collection failures.
     if "Agent" in name or name in ["Challenge", "EvidenceCritic", "Governance", "Signoff"]:
+
         class DynamicPipelineStub:
-            def __init__(self, *args, **kwargs): pass
-            def __call__(self, *args, **kwargs): return self
-            def __getattr__(self, attr): return lambda *args, **kwargs: None
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __call__(self, *args, **kwargs):
+                return self
+
+            def __getattr__(self, attr):
+                return lambda *args, **kwargs: None
+
         globals()[name] = DynamicPipelineStub
         return DynamicPipelineStub
 
     raise AttributeError(f"module {__name__} has no attribute {name}")
+
 
 def __dir__() -> list[str]:
     return sorted(list(set(__all__ + list(globals().keys()))))

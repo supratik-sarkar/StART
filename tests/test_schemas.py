@@ -27,9 +27,7 @@ def test_apply_thresholds_takes_worst():
 
 def test_evidence_from_result_carries_fields():
     result = TestResult(test_id="t", test_name="T", metrics={"m": 1}, status=Status.PASS)
-    rec = EvidenceRecord.from_result(
-        result, model_id="m1", dataset_id="d1", run_id="r1", policy_hash="ph"
-    )
+    rec = EvidenceRecord.from_result(result, model_id="m1", dataset_id="d1", run_id="r1", policy_hash="ph")
     assert rec.evidence_id.startswith("EV-")
     assert rec.policy_hash == "ph"
     assert rec.metrics == {"m": 1}

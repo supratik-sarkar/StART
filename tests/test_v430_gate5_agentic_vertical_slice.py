@@ -92,11 +92,13 @@ def test_adversarial_challenge_formulation_and_resolution() -> None:
 def test_market_review_director_full_orchestration() -> None:
     """MarketReviewDirectorAgent orchestrates specialists, challenger, critic, and governance."""
     assets = ["A", "B", "C"]
-    cov = np.array([
-        [0.04, 0.01, 0.01],
-        [0.01, 0.09, 0.02],
-        [0.01, 0.02, 0.16],
-    ])
+    cov = np.array(
+        [
+            [0.04, 0.01, 0.01],
+            [0.01, 0.09, 0.02],
+            [0.01, 0.02, 0.16],
+        ]
+    )
     rng = np.random.RandomState(42)
     rets = rng.multivariate_normal(np.zeros(3), cov, size=250)
     rets_df = pd.DataFrame(rets, columns=assets)
@@ -131,11 +133,13 @@ def test_market_review_director_full_orchestration() -> None:
 def test_pre_flight_non_psd_covariance_simulation_warning_fix() -> None:
     """Pre-flight warning debt fix: Indefinite covariance must not raise RuntimeWarning in multivariate_normal."""
     # Indefinite 3x3 covariance matrix
-    raw_indefinite_cov = np.array([
-        [1.00, 0.90, 0.90],
-        [0.90, 1.00, 0.90],
-        [0.90, 0.90, 0.10],
-    ])
+    raw_indefinite_cov = np.array(
+        [
+            [1.00, 0.90, 0.90],
+            [0.90, 1.00, 0.90],
+            [0.90, 0.90, 0.10],
+        ]
+    )
 
     challenger = AdversarialChallengeAgent()
     # Mock challenge requiring returns where context only provides raw indefinite covariance
@@ -156,8 +160,7 @@ def test_pre_flight_non_psd_covariance_simulation_warning_fix() -> None:
 
     # Assert no RuntimeWarning regarding covariance not being symmetric positive-semidefinite was emitted
     psd_warnings = [
-        w for w in recorded_warnings
-        if "covariance is not symmetric positive-semidefinite" in str(w.message)
+        w for w in recorded_warnings if "covariance is not symmetric positive-semidefinite" in str(w.message)
     ]
     assert len(psd_warnings) == 0, f"Unexpected RuntimeWarning encountered: {psd_warnings}"
     assert res.status != "BLOCKED"

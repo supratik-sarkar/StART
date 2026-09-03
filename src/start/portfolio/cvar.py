@@ -124,9 +124,7 @@ def solve_cvar_portfolio(
         factor_spec = constraints.factor_constraints
         factor_spec.validate_asset_coverage(asset_names)
         for f_name in factor_spec.factor_names:
-            loadings_k = np.array([
-                float(factor_spec.loadings[a][f_name]) for a in asset_names
-            ], dtype=float)
+            loadings_k = np.array([float(factor_spec.loadings[a][f_name]) for a in asset_names], dtype=float)
             if f_name in factor_spec.upper_bounds:
                 A_f = np.zeros((1, n + 1 + s), dtype=float)
                 A_f[0, :n] = loadings_k
@@ -244,7 +242,7 @@ def solve_cvar_portfolio(
             prior_weights=prior_arr,
         )
 
-        scenario_losses = - (r_mat @ w_opt)
+        scenario_losses = -(r_mat @ w_opt)
         tail_scenarios = int(np.sum(scenario_losses >= alpha_opt - 1e-8))
 
         ppy = float(periods_per_year)
@@ -253,12 +251,12 @@ def solve_cvar_portfolio(
 
         h = float(np.sum(w_opt**2))
         eff_n = float(1.0 / h) if h > 1e-12 else 0.0
-        turnover = (
-            float(0.5 * np.sum(np.abs(w_opt - prior_arr))) if prior_arr is not None else None
-        )
+        turnover = float(0.5 * np.sum(np.abs(w_opt - prior_arr))) if prior_arr is not None else None
 
     return CVaROptimizationResult(
-        weights={a: round(float(w), 8) for a, w in zip(asset_names, w_opt, strict=True)} if usable_solution else {},
+        weights={a: round(float(w), 8) for a, w in zip(asset_names, w_opt, strict=True)}
+        if usable_solution
+        else {},
         confidence_level=beta,
         cvar_at_scenario_horizon=round(cvar_opt, 8),
         var_at_scenario_horizon=round(alpha_opt, 8),

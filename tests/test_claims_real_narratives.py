@@ -56,38 +56,38 @@ OPENAI_RUN_1 = (
     "The validation report presents three key pieces of evidence regarding model performance and stability. "
     "The first evidence (EV-7f3a1c8b0d21) indicates that holdout degradation exceeds the warning threshold, "
     "with a gap of 0.0707, an out-of-sample AUC of 0.7602, a test AUC of 0.7714, and a train AUC of 0.8421, "
-    "resulting in a status of \"warn\" for the cohort metric comparison test [1]. The second evidence (EV-2b9e4d7a6c05) "
+    'resulting in a status of "warn" for the cohort metric comparison test [1]. The second evidence (EV-2b9e4d7a6c05) '
     "shows that the expected calibration error (ECE) breaches the fail threshold, with an ECE of 0.1382 and a Brier "
-    "score of 0.1041, leading to a status of \"fail\" for the calibration test [2]. In contrast, the third evidence "
+    'score of 0.1041, leading to a status of "fail" for the calibration test [2]. In contrast, the third evidence '
     "(EV-c04f81a2e937) confirms that no feature exceeds the PSI warning level, with a maximum PSI of 0.0912 and a "
-    "status of \"pass\" for the population stability test [3]."
+    'status of "pass" for the population stability test [3].'
 )
 
 OPENAI_RUN_2 = (
     "The validation report presents three key pieces of evidence regarding model performance and stability. "
     "The first evidence (EV-7f3a1c8b0d21) indicates that holdout degradation exceeds the warning threshold, "
     "with a gap of 0.0707, an out-of-sample AUC of 0.7602, a test AUC of 0.7714, and a train AUC of 0.8421, "
-    "resulting in a status of \"warn\" for the cohort metric comparison test [rA]. The second evidence (EV-2b9e4d7a6c05) "
+    'resulting in a status of "warn" for the cohort metric comparison test [rA]. The second evidence (EV-2b9e4d7a6c05) '
     "shows that the expected calibration error (ECE) breaches the fail threshold, with an ECE of 0.1382, a Brier "
-    "score of 0.1041, and a slope of 0.83, leading to a status of \"fail\" for the calibration test [rB]. In contrast, "
+    'score of 0.1041, and a slope of 0.83, leading to a status of "fail" for the calibration test [rB]. In contrast, '
     "the third evidence (EV-c04f81a2e937) confirms that no feature exceeds the PSI warning level, with a maximum PSI "
-    "of 0.0912 and a status of \"pass\" for the population stability test [rC]."
+    'of 0.0912 and a status of "pass" for the population stability test [rC].'
 )
 
 OPENAI_RUN_3 = (
     "The validation report presents three key pieces of evidence regarding model performance and stability. "
     "The first evidence (EV-7f3a1c8b0d21) indicates that holdout degradation exceeds the warning threshold, "
     "with a gap of 0.0707, an out-of-sample AUC of 0.7602, a test AUC of 0.7714, and a train AUC of 0.8421, "
-    "resulting in a status of \"warn\" for the cohort metric comparison test [1]. The second evidence (EV-2b9e4d7a6c05) "
+    'resulting in a status of "warn" for the cohort metric comparison test [1]. The second evidence (EV-2b9e4d7a6c05) '
     "shows that the expected calibration error (ECE) breaches the fail threshold, with an ECE of 0.1382, a Brier "
-    "score of 0.1041, and a slope of 0.83, leading to a status of \"fail\" for the calibration test [2]. In contrast, "
+    'score of 0.1041, and a slope of 0.83, leading to a status of "fail" for the calibration test [2]. In contrast, '
     "the third evidence (EV-c04f81a2e937) confirms that no feature exceeds the PSI warning level, with a maximum PSI "
-    "of 0.0912 and a status of \"pass\" for the population stability test [3]."
+    'of 0.0912 and a status of "pass" for the population stability test [3].'
 )
 
 DEEPSEEK_RUN_1 = (
     "The validation evidence shows mixed performance across three tests. The cohort metric comparison test "
-    "(EV-7f3a1c8b0d21) returned a status of \"warn\" with a gap of 0.0707, which exceeds the warn threshold of 0.05 "
+    '(EV-7f3a1c8b0d21) returned a status of "warn" with a gap of 0.0707, which exceeds the warn threshold of 0.05 '
     "but remains below the fail threshold of 0.1; associated AUC values are 0.8421 (train), 0.7714 (test), and 0.7602 "
     "(out-of-sample). The calibration test (EV-2b9e4d7a6c05) failed, with an expected calibration error (ECE) of 0.1382 "
     "breaching the fail threshold of 0.1, alongside a Brier score of 0.1041 and a slope of 0.83. The population stability "
@@ -96,7 +96,7 @@ DEEPSEEK_RUN_1 = (
 )
 
 DEEPSEEK_RUN_2 = (
-    "The cohort metric comparison test (EV-7f3a1c8b0d21) returned a status of \"warn\" because the holdout degradation "
+    'The cohort metric comparison test (EV-7f3a1c8b0d21) returned a status of "warn" because the holdout degradation '
     "gap of 0.0707 exceeds the warn threshold of 0.05 (fail threshold 0.1), with an out-of-sample AUC of 0.7602, test "
     "AUC of 0.7714, and train AUC of 0.8421. The calibration test (EV-2b9e4d7a6c05) failed, as the expected calibration "
     "error (ECE) of 0.1382 breaches the fail threshold of 0.1 (warn threshold 0.05), alongside a Brier score of 0.1041 "
@@ -106,7 +106,7 @@ DEEPSEEK_RUN_2 = (
 
 DEEPSEEK_RUN_3 = (
     "The validation evidence shows mixed performance across three tests. The cohort metric comparison test "
-    "(EV-7f3a1c8b0d21) returned a status of \"warn\" with a gap of 0.0707, which exceeds the warn threshold of 0.05 "
+    '(EV-7f3a1c8b0d21) returned a status of "warn" with a gap of 0.0707, which exceeds the warn threshold of 0.05 '
     "but remains below the fail threshold of 0.1; associated AUC values were 0.8421 (train), 0.7714 (test), and 0.7602 "
     "(out-of-sample). The calibration test (EV-2b9e4d7a6c05) failed, with an expected calibration error (ECE) of 0.1382 "
     "breaching the fail threshold of 0.1, alongside a Brier score of 0.1041 and a slope of 0.83. The population stability "
@@ -193,9 +193,7 @@ def test_adversarial_corrupted_transcription_fails() -> None:
 
 def test_adversarial_bracketed_decimal_evasion_caught() -> None:
     """A decimal inside brackets [0.99] is NOT a footnote and must be caught as an unbound claim."""
-    bracket_evasion = (
-        "Cohort metric comparison test had a gap of 0.0707 and score [0.99] [EV-7f3a1c8b0d21]."
-    )
+    bracket_evasion = "Cohort metric comparison test had a gap of 0.0707 and score [0.99] [EV-7f3a1c8b0d21]."
     claims = extract_claims(bracket_evasion)
     values = [c.value for c in claims if not c.soft]
     assert 0.99 in values, "0.99 inside brackets must not be masked as a footnote"

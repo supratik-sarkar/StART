@@ -61,12 +61,14 @@ def market_universe():
     np.random.seed(42)
     assets = ["SPY", "QQQ", "TLT", "GLD"]
     vols = np.array([0.16, 0.22, 0.14, 0.15])
-    corr = np.array([
-        [1.00, 0.80, -0.20, 0.05],
-        [0.80, 1.00, -0.30, 0.10],
-        [-0.20, -0.30, 1.00, 0.20],
-        [0.05, 0.10, 0.20, 1.00],
-    ])
+    corr = np.array(
+        [
+            [1.00, 0.80, -0.20, 0.05],
+            [0.80, 1.00, -0.30, 0.10],
+            [-0.20, -0.30, 1.00, 0.20],
+            [0.05, 0.10, 0.20, 1.00],
+        ]
+    )
     cov_annual = np.diag(vols) @ corr @ np.diag(vols)
     cov_periodic = cov_annual / 252.0
     mu_annual = np.array([0.09, 0.12, 0.035, 0.06])
@@ -447,7 +449,9 @@ def test_group_coverage_disjoint_rejects_overlapping_assets():
         },
         coverage_policy=GroupCoveragePolicy.DISJOINT_GROUPS_REQUIRED,
     )
-    with pytest.raises(ValueError, match="Overlapping group membership.*not permitted under DISJOINT_GROUPS_REQUIRED"):
+    with pytest.raises(
+        ValueError, match="Overlapping group membership.*not permitted under DISJOINT_GROUPS_REQUIRED"
+    ):
         spec.validate_asset_coverage(assets=["AAPL", "MSFT", "DELL"])
 
 
@@ -576,12 +580,14 @@ def test_herc_unambiguous_correlation_structure_debt():
     and is not a scipy single-linkage tie-order artifact.
     """
     stds = np.array([0.20, 0.20, 0.10, 0.10])
-    corr = np.array([
-        [1.00, 0.80, 0.05, 0.05],
-        [0.80, 1.00, 0.05, 0.05],
-        [0.05, 0.05, 1.00, 0.80],
-        [0.05, 0.05, 0.80, 1.00],
-    ])
+    corr = np.array(
+        [
+            [1.00, 0.80, 0.05, 0.05],
+            [0.80, 1.00, 0.05, 0.05],
+            [0.05, 0.05, 1.00, 0.80],
+            [0.05, 0.05, 0.80, 1.00],
+        ]
+    )
     cov = np.outer(stds, stds) * corr
     assets = ["A0", "A1", "A2", "A3"]
 
@@ -598,4 +604,3 @@ def test_herc_unambiguous_correlation_structure_debt():
         # Higher allocation to lower-volatility cluster {A2, A3}
         assert res.weights["A2"] > res.weights["A0"]
         assert math.isclose(sum(res.weights.values()), 1.0, abs_tol=1e-6)
-

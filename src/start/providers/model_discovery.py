@@ -48,7 +48,18 @@ def classify_model_capability(model_id: str, provider: str = "openai") -> ModelC
         # Text-in / Text-out review-compatible OpenAI models
         is_text_model = any(
             mid.startswith(prefix)
-            for prefix in ("gpt-5", "gpt-4.5", "gpt-4.1", "gpt-4o", "gpt-4", "gpt-3.5", "o1", "o3", "o4", "chatgpt-")
+            for prefix in (
+                "gpt-5",
+                "gpt-4.5",
+                "gpt-4.1",
+                "gpt-4o",
+                "gpt-4",
+                "gpt-3.5",
+                "o1",
+                "o3",
+                "o4",
+                "chatgpt-",
+            )
         )
         if is_text_model:
             return ModelCapability.TEXT_REVIEW

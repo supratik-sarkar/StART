@@ -399,13 +399,10 @@ class GraphExecutor:
         context.setdefault("_remediation_history", []).append(attempt.edge_id)
         return attempt
 
-
     # -- fan-out ------------------------------------------------------------
     def _join_target(self, fanout_id: str) -> str | None:
         """The join every branch of this fan-out converges on."""
-        branch_targets = [
-            e.target for e in self.graph.outgoing(fanout_id) if e.kind is EdgeKind.BRANCH
-        ]
+        branch_targets = [e.target for e in self.graph.outgoing(fanout_id) if e.kind is EdgeKind.BRANCH]
         for branch in branch_targets:
             for edge in self.graph.outgoing(branch):
                 if self.graph.node(edge.target).kind is NodeKind.JOIN:
@@ -439,8 +436,7 @@ class GraphExecutor:
             node = self.graph.node(branch.target)
             if node.condition and not self._condition_holds(node.condition, context):
                 path.visits.append(
-                    Visit(branch.target, EdgeKind.BRANCH.value, NodeOutcome.SKIP,
-                          "condition not met")
+                    Visit(branch.target, EdgeKind.BRANCH.value, NodeOutcome.SKIP, "condition not met")
                 )
                 continue
 
@@ -452,13 +448,10 @@ class GraphExecutor:
                 try:
                     result = handler(branch.target, context) or NodeResult()
                 except Exception as exc:
-                    result = NodeResult(
-                        outcome=NodeOutcome.FAIL, detail=f"{type(exc).__name__}: {exc}"
-                    )
+                    result = NodeResult(outcome=NodeOutcome.FAIL, detail=f"{type(exc).__name__}: {exc}")
             elapsed = self.clock() - started
             path.visits.append(
-                Visit(branch.target, EdgeKind.BRANCH.value, result.outcome,
-                      result.detail, round(elapsed, 6))
+                Visit(branch.target, EdgeKind.BRANCH.value, result.outcome, result.detail, round(elapsed, 6))
             )
             if result.state:
                 context.update(result.state)
@@ -475,11 +468,7 @@ class GraphExecutor:
 
         for branch, result in failures:
             remediation = next(
-                (
-                    e
-                    for e in self.graph.outgoing(branch.target)
-                    if e.kind is EdgeKind.REMEDIATION
-                ),
+                (e for e in self.graph.outgoing(branch.target) if e.kind is EdgeKind.REMEDIATION),
                 None,
             )
             if remediation is None:
@@ -502,11 +491,7 @@ class GraphExecutor:
         path = ExecutionPath(
             graph_name=self.graph.name,
             graph_hash=self.graph.graph_hash(),
-            budgets={
-                e.edge_id: self._budget_for(e)
-                for e in self.graph.edges
-                if e.budget is not None
-            },
+            budgets={e.edge_id: self._budget_for(e) for e in self.graph.edges if e.budget is not None},
         )
 
         current = self.graph.entry
@@ -536,9 +521,7 @@ class GraphExecutor:
                             detail=f"{type(exc).__name__}: {exc}",
                         )
                 elapsed = self.clock() - started
-                path.visits.append(
-                    Visit(current, via, result.outcome, result.detail, round(elapsed, 6))
-                )
+                path.visits.append(Visit(current, via, result.outcome, result.detail, round(elapsed, 6)))
 
             if result.state:
                 context.update(result.state)
@@ -584,8 +567,7 @@ class GraphExecutor:
             if edge is None:
                 path.terminated_at = current
                 path.termination_reason = (
-                    f"no outgoing edge satisfied from {current!r} "
-                    f"with outcome {result.outcome!r}"
+                    f"no outgoing edge satisfied from {current!r} with outcome {result.outcome!r}"
                 )
                 break
 

@@ -1,4 +1,5 @@
 """A5 — risk-plan to registered-test coverage."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,8 +10,7 @@ from start.risk.plan import synthesise_plan
 
 
 def _plan(stripe="credit", kind="ml_model", materiality="high"):
-    obj = RiskObject(object_id="demo", kind=kind, name="Demo", owner="",
-                     materiality=materiality)
+    obj = RiskObject(object_id="demo", kind=kind, name="Demo", owner="", materiality=materiality)
     return synthesise_plan(stripe_id=stripe, obj=obj, materiality=materiality)
 
 
@@ -24,9 +24,7 @@ def test_every_planned_dimension_appears():
     plan = _plan()
     coverage = coverage_for_plan(plan)
     assert len(coverage.dimensions) == len(plan.planned)
-    assert {d.dimension_id for d in coverage.dimensions} == {
-        p.dimension_id for p in plan.planned
-    }
+    assert {d.dimension_id for d in coverage.dimensions} == {p.dimension_id for p in plan.planned}
 
 
 def test_matching_is_on_declared_metadata_not_inferred_from_names():
@@ -36,6 +34,7 @@ def test_matching_is_on_declared_metadata_not_inferred_from_names():
     covered = [d for d in coverage.dimensions if d.covered]
     assert covered
     from start.registry import list_tests
+
     specs = {s.test_id: s for s in list_tests()}
     for dimension in covered:
         for test_id in dimension.test_ids:
@@ -70,10 +69,11 @@ def test_market_filter_surfaces_only_market_tests():
     """Superseded premise: this asserted emptiness before Gate B landed. Now a market
     filter must surface market surfaces and NEVER a tabular one."""
     from start.registry import list_tests
+
     specs = {s.test_id: s for s in list_tests()}
-    coverage = coverage_for_plan(_plan(stripe="market",
-                                       kind="deterministic_calculator"),
-                                 context_type="market")
+    coverage = coverage_for_plan(
+        _plan(stripe="market", kind="deterministic_calculator"), context_type="market"
+    )
     surfaced = {t for d in coverage.dimensions for t in d.test_ids}
     assert surfaced, "Gate B market tests should now be candidates"
     assert all(specs[t].context_type == "market" for t in surfaced)
@@ -81,6 +81,7 @@ def test_market_filter_surfaces_only_market_tests():
 
 def test_tabular_filter_never_surfaces_a_market_test():
     from start.registry import list_tests
+
     specs = {s.test_id: s for s in list_tests()}
     coverage = coverage_for_plan(_plan(stripe="credit"), context_type="tabular")
     surfaced = {t for d in coverage.dimensions for t in d.test_ids}
@@ -91,6 +92,7 @@ def test_stripe_specific_tests_are_preferred():
     """A drift test written for the market stripe and one for the model stripe answer
     the same dimension differently."""
     from start.registry import list_tests
+
     coverage = coverage_for_plan(_plan(stripe="credit"))
     specs = {s.test_id: s for s in list_tests()}
     for dimension in coverage.dimensions:
@@ -129,8 +131,7 @@ def test_summary_names_the_required_gaps():
 
 def test_as_dict_is_evidence_shaped():
     block = coverage_for_plan(_plan()).as_dict()
-    for key in ("stripe", "object_kind", "n_dimensions", "n_covered",
-                "n_required_gaps", "dimensions"):
+    for key in ("stripe", "object_kind", "n_dimensions", "n_covered", "n_required_gaps", "dimensions"):
         assert key in block
 
 

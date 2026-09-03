@@ -121,9 +121,7 @@ def compare_portfolio_methods(
         pcr_vals = list(rc.percentage_contributions.values())
         rc_dispersion = float(np.std(pcr_vals)) if len(pcr_vals) > 1 else 0.0
 
-        turnover = (
-            float(0.5 * np.sum(np.abs(w_vec - prior_arr))) if prior_arr is not None else None
-        )
+        turnover = float(0.5 * np.sum(np.abs(w_vec - prior_arr))) if prior_arr is not None else None
 
         tracking_err = (
             math.sqrt(max(0.0, float((w_vec - bw_arr) @ sigma @ (w_vec - bw_arr)))) * math.sqrt(ppy)
@@ -131,20 +129,22 @@ def compare_portfolio_methods(
             else None
         )
 
-        summary_rows.append({
-            "method": name,
-            "annualised_return": round(exp_ret_ann, 8),
-            "annualised_volatility": round(vol_ann, 8),
-            "annualised_sharpe": round(sharpe_ann, 6) if sharpe_ann is not None else None,
-            "diversification_ratio": round(dr_val, 6),
-            "herfindahl": round(h, 8),
-            "effective_n_positions": round(eff_n, 4),
-            "max_weight": round(float(np.max(w_vec)), 8),
-            "min_weight": round(float(np.min(w_vec)), 8),
-            "risk_contribution_dispersion": round(rc_dispersion, 8),
-            "turnover_vs_current": round(turnover, 6) if turnover is not None else None,
-            "tracking_error_annualised": round(tracking_err, 6) if tracking_err is not None else None,
-        })
+        summary_rows.append(
+            {
+                "method": name,
+                "annualised_return": round(exp_ret_ann, 8),
+                "annualised_volatility": round(vol_ann, 8),
+                "annualised_sharpe": round(sharpe_ann, 6) if sharpe_ann is not None else None,
+                "diversification_ratio": round(dr_val, 6),
+                "herfindahl": round(h, 8),
+                "effective_n_positions": round(eff_n, 4),
+                "max_weight": round(float(np.max(w_vec)), 8),
+                "min_weight": round(float(np.min(w_vec)), 8),
+                "risk_contribution_dispersion": round(rc_dispersion, 8),
+                "turnover_vs_current": round(turnover, 6) if turnover is not None else None,
+                "tracking_error_annualised": round(tracking_err, 6) if tracking_err is not None else None,
+            }
+        )
 
     # 1. Current Portfolio (if prior supplied)
     if prior_arr is not None and len(prior_arr) == n:
@@ -179,7 +179,13 @@ def compare_portfolio_methods(
     evaluate_candidate("hierarchical_equal_risk_contribution", w_herc)
 
     # 8. Maximum Diversification (MDP)
-    max_div_res = solve_max_diversification(sigma, assets=asset_names, constraints=constraints, prior_weights=prior_arr, periods_per_year=periods_per_year)
+    max_div_res = solve_max_diversification(
+        sigma,
+        assets=asset_names,
+        constraints=constraints,
+        prior_weights=prior_arr,
+        periods_per_year=periods_per_year,
+    )
     w_md = np.array([max_div_res.weights[a] for a in asset_names], dtype=float)
     evaluate_candidate("maximum_diversification", w_md)
 
@@ -206,8 +212,11 @@ def compare_portfolio_methods(
         cvar_conf = cvar_confidence if cvar_confidence is not None else 0.95
         if len(returns) * (1.0 - cvar_conf) >= 1.0:
             cvar_cons = constraints
-            if constraints is not None and (constraints.max_concentration is not None or constraints.max_tracking_error is not None):
+            if constraints is not None and (
+                constraints.max_concentration is not None or constraints.max_tracking_error is not None
+            ):
                 from dataclasses import replace
+
                 cvar_cons = replace(constraints, max_concentration=None, max_tracking_error=None)
             cvar_res = solve_cvar_portfolio(
                 returns[asset_names],
@@ -219,7 +228,7 @@ def compare_portfolio_methods(
             )
             if cvar_res.usable_solution:
                 w_cvar = np.array([cvar_res.weights[a] for a in asset_names], dtype=float)
-                evaluate_candidate(f"cvar_optimization_{int(cvar_conf*100)}pct", w_cvar)
+                evaluate_candidate(f"cvar_optimization_{int(cvar_conf * 100)}pct", w_cvar)
 
     return MethodComparisonResult(
         methods=tuple(methods),

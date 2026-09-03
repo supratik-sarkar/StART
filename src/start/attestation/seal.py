@@ -324,7 +324,8 @@ def validate_seal_preconditions(
 
     # 1. Evidence records for this run
     matching_records = [
-        r for r in ledger_records
+        r
+        for r in ledger_records
         if getattr(r, "enterprise_run_id", None) == review_id
         or getattr(r, "run_id", None) == review_id
         or (isinstance(r, dict) and (r.get("enterprise_run_id") == review_id or r.get("run_id") == review_id))
@@ -393,8 +394,10 @@ def validate_seal_preconditions(
     else:
         checks.append(
             SealCheckResult(
-                True, f"evidence critique: {critic_verdict} (advisory in v4.0.2)",
-                detail="non-blocking", blocking=False,
+                True,
+                f"evidence critique: {critic_verdict} (advisory in v4.0.2)",
+                detail="non-blocking",
+                blocking=False,
             )
         )
 
@@ -432,7 +435,6 @@ def persist_seal_manifest(seal: ReviewSeal, output_root: str | Path) -> Path:
     return manifest_path
 
 
-
 def verify_seal(manifest: dict[str, Any], expected_seal: str | None = None) -> dict[str, Any]:
     """Recompute a seal from an archived manifest.
 
@@ -467,9 +469,7 @@ def verify_seal(manifest: dict[str, Any], expected_seal: str | None = None) -> d
 
     recorded = {row["name"]: row["leaf_hash"] for row in manifest.get("leaves", [])}
     computed = {leaf.name: leaf.leaf_hash() for leaf in recomputed.leaves}
-    mismatched = sorted(
-        name for name, digest in computed.items() if recorded.get(name) not in (None, digest)
-    )
+    mismatched = sorted(name for name, digest in computed.items() if recorded.get(name) not in (None, digest))
 
     root_ok = recomputed.root() == manifest.get("root")
     seal_ok = True
@@ -480,10 +480,7 @@ def verify_seal(manifest: dict[str, Any], expected_seal: str | None = None) -> d
     if verified:
         reason = "all leaves, Merkle root and seal string recomputed identically"
     elif mismatched:
-        reason = (
-            f"leaf content changed after sealing: {', '.join(mismatched)}. "
-            "Other leaves are intact."
-        )
+        reason = f"leaf content changed after sealing: {', '.join(mismatched)}. Other leaves are intact."
     elif not root_ok:
         reason = "leaf hashes match individually but the recorded root does not; the leaf "
         "ordering or the recorded root was altered"

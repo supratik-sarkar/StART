@@ -69,15 +69,13 @@ def global_importance(
         result.note = "Model is not tree-based; used permutation importance instead of TreeExplainer."
     elif not wants_shap:
         result.note = (
-            "shap is not installed (pip install -e \".[xai]\"); used permutation importance. "
+            'shap is not installed (pip install -e ".[xai]"); used permutation importance. '
             "Local attributions unavailable on this path."
         )
     return result
 
 
-def _shap_importance(
-    model: Any, X: pd.DataFrame, seed: int, n_local: int, max_rows: int
-) -> ImportanceResult:
+def _shap_importance(model: Any, X: pd.DataFrame, seed: int, n_local: int, max_rows: int) -> ImportanceResult:
     import shap
 
     sample = X.sample(n=min(max_rows, len(X)), random_state=seed)
@@ -98,9 +96,7 @@ def _shap_importance(
         locals_.append(
             {
                 "row_index": int(sample.index[row_i]),
-                "top_contributions": {
-                    str(sample.columns[i]): round(float(contrib[i]), 6) for i in top_idx
-                },
+                "top_contributions": {str(sample.columns[i]): round(float(contrib[i]), 6) for i in top_idx},
             }
         )
     return ImportanceResult(method="shap", global_importance=global_imp, local_examples=locals_)
@@ -144,9 +140,7 @@ def detect_model_family(model: Any = None, model_family: str | None = None) -> s
         return str(declared)
     mod = type(model).__module__
     name = type(model).__name__.lower()
-    if any(k in mod for k in ("xgboost", "lightgbm")) or any(
-        k in mod for k in ("ensemble", "tree")
-    ):
+    if any(k in mod for k in ("xgboost", "lightgbm")) or any(k in mod for k in ("ensemble", "tree")):
         return "tree"
     if "linear" in mod or "logistic" in name:
         return "linear"

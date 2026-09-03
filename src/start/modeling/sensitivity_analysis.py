@@ -53,9 +53,14 @@ class SensitivityResult:
             "max_abs_drift": self.max_abs_drift,
             "drift_table": self.drift_table(),
             "rows": [
-                {"feature": r.feature, "shock": r.shock, "metric": r.metric_value,
-                 "drift": r.drift, "baseline": self.baseline,
-                 "risk_impact": _risk_impact(r.drift)}
+                {
+                    "feature": r.feature,
+                    "shock": r.shock,
+                    "metric": r.metric_value,
+                    "drift": r.drift,
+                    "baseline": self.baseline,
+                    "risk_impact": _risk_impact(r.drift),
+                }
                 for r in self.shock_rows
             ],
         }
@@ -106,10 +111,9 @@ def _scorer_for(metric_name: str) -> Callable[[np.ndarray, np.ndarray, np.ndarra
     def r2(y, _, pred):
         return float(r2_score(y, pred))
 
-    return {
-        "auc_roc": auc, "pr_auc": prauc, "recall": rec, "f1": f1,
-        "rmse": rmse, "mae": mae, "r2": r2
-    }.get(metric_name, auc)
+    return {"auc_roc": auc, "pr_auc": prauc, "recall": rec, "f1": f1, "rmse": rmse, "mae": mae, "r2": r2}.get(
+        metric_name, auc
+    )
 
 
 def run_sensitivity_analysis(
@@ -132,7 +136,9 @@ def run_sensitivity_analysis(
         try:
             if hasattr(model, "predict_proba"):
                 proba = model.predict_proba(frame)
-                p_pos = proba[:, 1] if proba.ndim == 2 and proba.shape[1] >= 2 else np.asarray(proba).reshape(-1)
+                p_pos = (
+                    proba[:, 1] if proba.ndim == 2 and proba.shape[1] >= 2 else np.asarray(proba).reshape(-1)
+                )
         except Exception:
             pass
         preds = model.predict(frame)
@@ -163,8 +169,12 @@ def run_sensitivity_analysis(
         else "No features available for sensitivity analysis."
     )
     return SensitivityResult(
-        metric_name=metric_name, baseline=round(baseline, 6), shock_rows=rows,
-        most_sensitive_feature=most_sensitive, max_abs_drift=max_drift, interpretation=interp,
+        metric_name=metric_name,
+        baseline=round(baseline, 6),
+        shock_rows=rows,
+        most_sensitive_feature=most_sensitive,
+        max_abs_drift=max_drift,
+        interpretation=interp,
     )
 
 

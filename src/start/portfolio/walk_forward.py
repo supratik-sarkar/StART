@@ -103,9 +103,7 @@ def run_walk_forward_evaluation(
 
     excess_ret = r_arr - rf_periodic
     excess_sd = float(np.std(excess_ret, ddof=1))
-    realized_sharpe = (
-        float(np.mean(excess_ret) / excess_sd * math.sqrt(ppy)) if excess_sd > 1e-12 else None
-    )
+    realized_sharpe = float(np.mean(excess_ret) / excess_sd * math.sqrt(ppy)) if excess_sd > 1e-12 else None
 
     # Max Drawdown
     running_peak = np.maximum.accumulate(wealth)

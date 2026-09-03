@@ -46,6 +46,7 @@ from start.review.tables import build_var_tail_table
 # Fixtures and Helpers
 # =========================================================================== #
 
+
 def _make_var_records() -> list[EvidenceRecord]:
     """Construct real deterministic Market VaR evidence records mimicking failed run."""
     common_meta = {
@@ -176,6 +177,7 @@ def _make_var_records() -> list[EvidenceRecord]:
 # Test 1 & 2: Kupiec Discrepancy & Validation Size & Power Table Mapping
 # =========================================================================== #
 
+
 def test_kupiec_discrepancy_resolved() -> None:
     """Kupiec POF renders lr_uc = 1.8862 as LR=1.886 without falling back to 1.850."""
     records = _make_var_records()
@@ -207,6 +209,7 @@ def test_var_size_power_table_mapping() -> None:
 # Test 3 & 4: Canonical CheckpointEvidenceView Integrity
 # =========================================================================== #
 
+
 def test_checkpoint_evidence_view_feeds_all_consumers() -> None:
     """Single CheckpointEvidenceView holds identical values for tables, prompt, and grounding."""
     records = _make_var_records()
@@ -231,7 +234,9 @@ def test_checkpoint_evidence_view_feeds_all_consumers() -> None:
     # 3. Value in Grounding Map
     kupiec_ev = "EV-eadf19f1abd1"
     assert kupiec_ev in view.numeric_grounding_map
-    assert abs(view.numeric_grounding_map[kupiec_ev]["traded_risk.var_kupiec_pof.lr_uc"] - 1.8862324083) < 1e-8
+    assert (
+        abs(view.numeric_grounding_map[kupiec_ev]["traded_risk.var_kupiec_pof.lr_uc"] - 1.8862324083) < 1e-8
+    )
 
     # 4. Value in Table before formatting
     table = build_var_tail_table(view)
@@ -260,6 +265,7 @@ def test_checkpoint_evidence_view_parses_interval_and_multiplier_bounds() -> Non
 # =========================================================================== #
 # Test 5 & 6: Grounding Census Invariant & Multiple Citation Handling
 # =========================================================================== #
+
 
 def test_grounding_census_invariant() -> None:
     """grounded_claims + unbound_claims == quantitative_claims strictly holds."""
@@ -298,6 +304,7 @@ def test_multiple_citations_do_not_inflate_claim_count() -> None:
 # =========================================================================== #
 # Test 7 & 8: Markdown Bold Split Normalization & Normalization Equivalences
 # =========================================================================== #
+
 
 def test_markdown_bold_splitting_normalization() -> None:
     """Presentation markup like **1**,**000** and **0.**7x is normalized before numeric extraction."""
@@ -349,6 +356,7 @@ def test_numeric_normalization_equivalences() -> None:
 # Test 9 & 10: Strict Mismatch Rejection & Repeated Summary Claims
 # =========================================================================== #
 
+
 def test_approximate_value_mismatch_rejected() -> None:
     """1.850 is strictly rejected against evidence 1.8862 as VALUE_MISMATCH."""
     records = _make_var_records()
@@ -389,12 +397,12 @@ def test_repeated_summary_claims_bound_consistently() -> None:
 # Test 11: Claim-Local Citation Association & Diagnostics
 # =========================================================================== #
 
+
 def test_claim_local_citation_association() -> None:
     """Citations bind locally to claims in the same sentence, not across sentences."""
     records = _make_var_records()
     narrative = (
-        "First sentence with LR = 1.8862 [EV-eadf19f1abd1]. "
-        "Second sentence cites 999.0 without citation."
+        "First sentence with LR = 1.8862 [EV-eadf19f1abd1]. Second sentence cites 999.0 without citation."
     )
     claims = extract_claims(narrative)
     assert len(claims) == 2
@@ -414,15 +422,18 @@ def test_claim_local_citation_association() -> None:
 # Test 12: HRP Untruncated Order
 # =========================================================================== #
 
+
 def test_hrp_order_is_untruncated() -> None:
     """portfolio.hierarchical_risk_parity serializes all 50 assets without [:400] truncation."""
     from start.tests.portfolio import hierarchical_risk_parity
 
     world = generate_market_world()
+
     class _DummyCtx:
         returns = world.returns
         portfolio_returns = world.returns.mean(axis=1)
         covariance = world.returns.cov()
+
     res = hierarchical_risk_parity(_DummyCtx())
 
     order_str = res.metrics["quasi_diagonal_order"]
@@ -436,6 +447,7 @@ def test_hrp_order_is_untruncated() -> None:
 # Test 13: Attribution Artifact Scoping
 # =========================================================================== #
 
+
 def test_attribution_artifact_generated_and_scoped() -> None:
     """Factor Risk Model artifact is generated and scoped to Factor Modeling & Attribution checkpoint."""
     world = generate_market_world()
@@ -445,6 +457,7 @@ def test_attribution_artifact_generated_and_scoped() -> None:
         market=world,
     )
     from start.review.applicability import applicable_tests
+
     applicable = applicable_tests(bundle.domains)
 
     results, products = execute_market_treasury_tests(bundle, applicable, return_products=True)
@@ -455,6 +468,7 @@ def test_attribution_artifact_generated_and_scoped() -> None:
     from pathlib import Path
 
     from start.evidence.ledger import EvidenceLedger
+
     with tempfile.TemporaryDirectory() as tmpdir:
         td = Path(tmpdir)
         ledger = EvidenceLedger(td / "ledger.jsonl", td / "evidence")
@@ -468,6 +482,7 @@ def test_attribution_artifact_generated_and_scoped() -> None:
 # Test 14: Full Production-Path Noninteractive Mock Harness
 # =========================================================================== #
 
+
 def test_production_path_mock_harness_var_grounding_pass_and_fail() -> None:
     """Harness executing Portfolio V->Q->C->A, Attribution V->Q->A, VaR V->Q with exact GPT-5 structure."""
     world = generate_market_world()
@@ -478,6 +493,7 @@ def test_production_path_mock_harness_var_grounding_pass_and_fail() -> None:
         llm_config=LLMReviewConfig(provider="openai", model="gpt-5"),
     )
     from start.review.applicability import applicable_tests
+
     applicable = applicable_tests(bundle.domains)
     results, products = execute_market_treasury_tests(bundle, applicable, return_products=True)
 
@@ -485,6 +501,7 @@ def test_production_path_mock_harness_var_grounding_pass_and_fail() -> None:
     from pathlib import Path
 
     from start.evidence.ledger import EvidenceLedger
+
     with tempfile.TemporaryDirectory() as tmpdir:
         td = Path(tmpdir)
         ledger = EvidenceLedger(td / "ledger.jsonl", td / "evidence")

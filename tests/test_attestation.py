@@ -175,9 +175,7 @@ def test_thresholds_survive_the_restricted_projection() -> None:
 def test_denied_paths_abort_rather_than_being_dropped() -> None:
     """A raw row reaching the disclosure layer is an upstream bug worth surfacing."""
     with pytest.raises(DisclosureViolation, match="denied by disclosure policy"):
-        build_envelope(
-            [{"metrics": {"a": 1.0}, "raw_rows": [[1, 2, 3]]}], policy=POLICIES["restricted"]
-        )
+        build_envelope([{"metrics": {"a": 1.0}, "raw_rows": [[1, 2, 3]]}], policy=POLICIES["restricted"])
 
 
 def test_egress_check_refuses_uncovered_numbers() -> None:

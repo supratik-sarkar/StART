@@ -32,6 +32,7 @@ def render_transcript_markdown(session: ReviewSession, inner_run_id: str | None 
     lines += ["## Decisions", ""]
     if d["decisions"]:
         from start.review_tables import decision_ledger_markdown
+
         lines += [decision_ledger_markdown(d["decisions"]).rstrip()]
     else:
         lines.append("_No interactive decisions recorded (non-interactive run)._")
@@ -49,8 +50,7 @@ def render_transcript_markdown(session: ReviewSession, inner_run_id: str | None 
     lines += ["", "## Agent conversations", ""]
     if d["conversations"]:
         for ex in d["conversations"]:
-            lines.append(f"**{ex['agent']}** _(at {ex['checkpoint'] or 'review'}, "
-                         f"via {ex['backend']})_")
+            lines.append(f"**{ex['agent']}** _(at {ex['checkpoint'] or 'review'}, via {ex['backend']})_")
             lines.append(f"> Q: {ex['question']}")
             lines.append(f"> A: {ex['answer']}")
             lines.append("")
@@ -65,39 +65,55 @@ def render_transcript_markdown(session: ReviewSession, inner_run_id: str | None 
     # v2.3.0 #3/#12: reviewer challenge log
     challenges = d.get("challenges", [])
     if challenges:
-        lines += ["", "## Reviewer challenges", "",
-                  "| Status | Agent | Challenge | Evidence used |",
-                  "| --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## Reviewer challenges",
+            "",
+            "| Status | Agent | Challenge | Evidence used |",
+            "| --- | --- | --- | --- |",
+        ]
         for c in challenges:
             lines.append(
                 f"| {c['status']} | {c['agent']} | {c['text']} "
                 f"| {', '.join(c.get('evidence_used', [])) or '—'} |"
             )
         cs = d.get("challenge_summary", {})
-        lines += ["", f"_Open: {cs.get('open', 0)} · Closed: {cs.get('closed', 0)} "
-                  f"· Unresolved: {cs.get('unresolved', 0)}_"]
+        lines += [
+            "",
+            f"_Open: {cs.get('open', 0)} · Closed: {cs.get('closed', 0)} "
+            f"· Unresolved: {cs.get('unresolved', 0)}_",
+        ]
 
     # v2.3.0 #8/#12: ValidationAgent sensitivity review
     vr = d.get("validation_review")
     if vr:
-        lines += ["", "## ValidationAgent review", "",
-                  f"- Most sensitive feature: {vr.get('most_sensitive_feature')}",
-                  f"- Max |drift|: {vr.get('max_abs_drift')}",
-                  f"- Signoff impact: {vr.get('signoff_impact')}"]
+        lines += [
+            "",
+            "## ValidationAgent review",
+            "",
+            f"- Most sensitive feature: {vr.get('most_sensitive_feature')}",
+            f"- Max |drift|: {vr.get('max_abs_drift')}",
+            f"- Signoff impact: {vr.get('signoff_impact')}",
+        ]
         for b in vr.get("business_interpretation", []):
             lines.append(f"- {b}")
 
     # v2.3.0 #11/#12: MRM signoff decision
     ms = d.get("mrm_signoff")
     if ms:
-        lines += ["", "## MRM signoff decision", "",
-                  f"**Verdict: {ms.get('verdict')}**", "", ms.get("rationale", ""),
-                  "", "| Factor | Status | Detail | Evidence |",
-                  "| --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## MRM signoff decision",
+            "",
+            f"**Verdict: {ms.get('verdict')}**",
+            "",
+            ms.get("rationale", ""),
+            "",
+            "| Factor | Status | Detail | Evidence |",
+            "| --- | --- | --- | --- |",
+        ]
         for f in ms.get("factors", []):
-            lines.append(
-                f"| {f['factor']} | {f['status']} | {f['detail']} | {f['evidence']} |"
-            )
+            lines.append(f"| {f['factor']} | {f['status']} | {f['detail']} | {f['evidence']} |")
 
     return "\n".join(lines) + "\n"
 
@@ -124,8 +140,10 @@ def render_transcript_html(session: ReviewSession) -> str:
 
     parts.append("<h2>Decisions</h2>")
     if d["decisions"]:
-        parts.append("<table><tr><th>Checkpoint</th><th>Recommended</th>"
-                     "<th>User chose</th><th>Outcome</th><th>Rationale</th></tr>")
+        parts.append(
+            "<table><tr><th>Checkpoint</th><th>Recommended</th>"
+            "<th>User chose</th><th>Outcome</th><th>Rationale</th></tr>"
+        )
         for dec in d["decisions"]:
             parts.append(
                 f"<tr><td>{esc(dec['key'])}</td><td>{esc(dec['recommended'])}</td>"
@@ -172,9 +190,14 @@ def render_transcript_html(session: ReviewSession) -> str:
     return "".join(parts)
 
 
-def write_transcript(session: ReviewSession, output_root: str, run_id: str,
-                     sensitivity: Any = None, kfold: Any = None,
-                     inner_run_id: str | None = None) -> dict[str, str]:
+def write_transcript(
+    session: ReviewSession,
+    output_root: str,
+    run_id: str,
+    sensitivity: Any = None,
+    kfold: Any = None,
+    inner_run_id: str | None = None,
+) -> dict[str, str]:
     """Write transcript.md/.html/.json next to the dashboards; return paths.
 
     If ``sensitivity`` (a SensitivityResult) is provided, its table is appended
@@ -187,12 +210,14 @@ def write_transcript(session: ReviewSession, output_root: str, run_id: str,
     if sensitivity is not None:
         try:
             from start.modeling.sensitivity_analysis import render_sensitivity_markdown
+
             md += "\n## Sensitivity\n\n" + render_sensitivity_markdown(sensitivity)
         except Exception:
             pass
     if kfold is not None:
         try:
             from start.modeling.kfold_tuning import render_kfold_markdown
+
             md += "\n" + render_kfold_markdown(kfold)
         except Exception:
             pass
@@ -203,10 +228,9 @@ def write_transcript(session: ReviewSession, output_root: str, run_id: str,
     }
     paths["md"].write_text(md)
     paths["html"].write_text(render_transcript_html(session))
-    
+
     json_data = session.to_dict()
     json_data["enterprise_run_id"] = run_id
     json_data["inner_run_id"] = inner_run_id or ""
     paths["json"].write_text(json.dumps(json_data, indent=2))
     return {k: str(v) for k, v in paths.items()}
-

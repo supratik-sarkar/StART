@@ -1,4 +1,5 @@
 """B1 — market contexts, portfolio state, canonical fingerprinting."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -44,8 +45,7 @@ def test_market_context_satisfies_review_context():
 
 
 def test_short_rate_context_satisfies_review_context():
-    rates = pd.Series(np.linspace(0.02, 0.05, 300),
-                      index=pd.date_range("2024-01-01", periods=300, freq="D"))
+    rates = pd.Series(np.linspace(0.02, 0.05, 300), index=pd.date_range("2024-01-01", periods=300, freq="D"))
     assert isinstance(ShortRateContext(rates=rates), ReviewContext)
 
 
@@ -107,8 +107,7 @@ def test_duplicate_index_is_rejected():
 def test_column_order_is_not_semantic():
     frame = _returns()
     a = _ctx(frame)
-    b = MarketContext(returns=frame[sorted(frame.columns, reverse=True)],
-                      portfolio=_spec(frame))
+    b = MarketContext(returns=frame[sorted(frame.columns, reverse=True)], portfolio=_spec(frame))
     assert a.fingerprint() == b.fingerprint()
 
 
@@ -133,9 +132,7 @@ def test_naive_and_utc_timestamps_agree():
     frame = _returns()
     aware = frame.copy()
     aware.index = aware.index.tz_localize("UTC")
-    assert _ctx(frame).fingerprint() == MarketContext(
-        returns=aware, portfolio=_spec(frame)
-    ).fingerprint()
+    assert _ctx(frame).fingerprint() == MarketContext(returns=aware, portfolio=_spec(frame)).fingerprint()
 
 
 def test_naive_assumption_is_recorded():
@@ -144,12 +141,11 @@ def test_naive_assumption_is_recorded():
 
 def test_static_and_fully_repeated_exposures_agree():
     frame = _returns()
-    exposures = pd.DataFrame(np.arange(12.0).reshape(4, 3),
-                             index=frame.columns, columns=["f1", "f2", "f3"])
+    exposures = pd.DataFrame(np.arange(12.0).reshape(4, 3), index=frame.columns, columns=["f1", "f2", "f3"])
     static = MarketContext(returns=frame, factor_exposures=exposures, portfolio=_spec(frame))
-    repeated = MarketContext(returns=frame,
-                             factor_exposures={t: exposures for t in frame.index},
-                             portfolio=_spec(frame))
+    repeated = MarketContext(
+        returns=frame, factor_exposures={t: exposures for t in frame.index}, portfolio=_spec(frame)
+    )
     assert static.fingerprint() == repeated.fingerprint()
     assert static.is_time_varying_exposure is False
     assert repeated.is_time_varying_exposure is False
@@ -158,12 +154,11 @@ def test_static_and_fully_repeated_exposures_agree():
 def test_partial_exposure_coverage_does_not_collapse_to_static():
     """A dict covering only part of the support is NOT the same thing."""
     frame = _returns()
-    exposures = pd.DataFrame(np.arange(12.0).reshape(4, 3),
-                             index=frame.columns, columns=["f1", "f2", "f3"])
+    exposures = pd.DataFrame(np.arange(12.0).reshape(4, 3), index=frame.columns, columns=["f1", "f2", "f3"])
     static = MarketContext(returns=frame, factor_exposures=exposures, portfolio=_spec(frame))
-    partial = MarketContext(returns=frame,
-                            factor_exposures={t: exposures for t in frame.index[:50]},
-                            portfolio=_spec(frame))
+    partial = MarketContext(
+        returns=frame, factor_exposures={t: exposures for t in frame.index[:50]}, portfolio=_spec(frame)
+    )
     assert static.fingerprint() != partial.fingerprint()
     assert partial.is_time_varying_exposure is True
 
@@ -179,20 +174,19 @@ def test_semantic_change_moves_the_fingerprint(field):
     elif field == "weight":
         weights = pd.Series(0.25, index=frame.columns)
         weights.iloc[0] = 0.30
-        other = MarketContext(returns=frame,
-                              portfolio=PortfolioSpec(weights=weights)).fingerprint()
+        other = MarketContext(returns=frame, portfolio=PortfolioSpec(weights=weights)).fingerprint()
     elif field == "ppy":
-        other = MarketContext(returns=frame, periods_per_year=52.0,
-                              portfolio=_spec(frame)).fingerprint()
+        other = MarketContext(returns=frame, periods_per_year=52.0, portfolio=_spec(frame)).fingerprint()
     elif field == "rf_frequency":
-        other = MarketContext(returns=frame, risk_free_rate=0.03,
-                              risk_free_frequency="annual",
-                              portfolio=_spec(frame)).fingerprint()
+        other = MarketContext(
+            returns=frame, risk_free_rate=0.03, risk_free_frequency="annual", portfolio=_spec(frame)
+        ).fingerprint()
     else:
         other = MarketContext(
             returns=frame,
-            portfolio=PortfolioSpec(weights=pd.Series(0.25, index=frame.columns),
-                                    constraints=PortfolioConstraints(max_weight=0.4)),
+            portfolio=PortfolioSpec(
+                weights=pd.Series(0.25, index=frame.columns), constraints=PortfolioConstraints(max_weight=0.4)
+            ),
         ).fingerprint()
     assert base != other
 
@@ -221,8 +215,7 @@ def test_constraint_contradictions_are_caught():
 
 
 def test_valid_constraints_report_no_problems():
-    assert PortfolioConstraints(long_only=True, max_weight=0.4,
-                                max_concentration=0.3).validate() == []
+    assert PortfolioConstraints(long_only=True, max_weight=0.4, max_concentration=0.3).validate() == []
 
 
 # ------------------------------------------------------- rate conventions ==
@@ -255,8 +248,9 @@ def test_frequency_label_resolves_when_ppy_is_default():
 
 # ---------------------------------------------------------- return basis ==
 def test_simple_and_log_return_derivation_differ():
-    prices = pd.DataFrame({"A": [100.0, 110.0, 121.0]},
-                          index=pd.date_range("2024-01-01", periods=3, freq="D"))
+    prices = pd.DataFrame(
+        {"A": [100.0, 110.0, 121.0]}, index=pd.date_range("2024-01-01", periods=3, freq="D")
+    )
     simple = MarketContext(prices=prices, return_basis="simple").effective_returns()
     log = MarketContext(prices=prices, return_basis="log").effective_returns()
     assert abs(simple.iloc[0, 0] - 0.10) < 1e-12
@@ -276,8 +270,7 @@ def test_context_without_returns_or_prices_is_invalid():
 
 def test_var_series_without_confidence_is_invalid():
     frame = _returns()
-    ctx = MarketContext(returns=frame,
-                        var_series=pd.Series(0.02, index=frame.index))
+    ctx = MarketContext(returns=frame, var_series=pd.Series(0.02, index=frame.index))
     assert any("var_confidence" in p for p in ctx.validate_context())
 
 
@@ -287,22 +280,19 @@ def test_clean_market_context_validates():
 
 def test_short_rate_missing_observations_are_rejected_not_filled():
     """A diffusion estimate over interpolated values is biased with no visible symptom."""
-    rates = pd.Series(np.linspace(0.02, 0.05, 300),
-                      index=pd.date_range("2024-01-01", periods=300, freq="D"))
+    rates = pd.Series(np.linspace(0.02, 0.05, 300), index=pd.date_range("2024-01-01", periods=300, freq="D"))
     rates.iloc[5] = np.nan
     problems = ShortRateContext(rates=rates).validate_context()
     assert any("rejected rather than filled" in p for p in problems)
 
 
 def test_short_rate_below_minimum_observations_is_flagged():
-    rates = pd.Series(np.linspace(0.02, 0.05, 100),
-                      index=pd.date_range("2024-01-01", periods=100, freq="D"))
+    rates = pd.Series(np.linspace(0.02, 0.05, 100), index=pd.date_range("2024-01-01", periods=100, freq="D"))
     assert any("below the required" in p for p in ShortRateContext(rates=rates).validate_context())
 
 
 def test_percent_units_are_normalised_and_recorded():
-    rates = pd.Series(np.linspace(2.0, 5.0, 300),
-                      index=pd.date_range("2024-01-01", periods=300, freq="D"))
+    rates = pd.Series(np.linspace(2.0, 5.0, 300), index=pd.date_range("2024-01-01", periods=300, freq="D"))
     ctx = ShortRateContext(rates=rates, units="percent")
     decimal = ctx.decimal_rates()
     assert abs(decimal.iloc[0] - 0.02) < 1e-12

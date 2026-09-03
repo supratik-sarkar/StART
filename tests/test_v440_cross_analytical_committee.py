@@ -59,7 +59,9 @@ def test_var_frequency_vs_independence_known_answer():
 
     assert claim.claim_type == ClaimType.UNRESOLVED_RISK
     assert claim.status == ClaimStatus.EVIDENCE_ONLY
-    assert "Unconditional coverage frequency adequacy does not imply exception independence" in claim.statement
+    assert (
+        "Unconditional coverage frequency adequacy does not imply exception independence" in claim.statement
+    )
     assert len(edges) == 1
     assert edges[0].relation == RelationshipType.CHALLENGES
     assert edges[0].source_id == christoffersen_rec.evidence_id
@@ -220,12 +222,26 @@ def test_cross_analytical_committee_negative_showcase():
     """Verify committee review on individually valid modules creates distinct diagnostic evidence, passes critic, and achieves conditional governance."""
     # Synthetic multi-domain evidence set
     opt_rec = _make_evidence("portfolio.mvo", "MVO Portfolio", {"converged": True, "sharpe": 1.2})
-    sample_cov = _make_evidence("covariance.empirical", "Sample Cov", {"is_psd": True}, params={"weights": {"A": 0.7, "B": 0.3}})
-    lw_cov = _make_evidence("covariance.ledoit_wolf", "LW Cov", {"is_psd": True}, params={"weights": {"A": 0.5, "B": 0.5}})
-    kupiec = _make_evidence("traded_risk.kupiec_pof", "Kupiec", {"reject_unconditional_coverage": False, "gamma_test": 0.05})
-    christ = _make_evidence("traded_risk.christoffersen_independence", "Christoffersen", {"reject_independence": True, "gamma_test": 0.05})
-    scen = _make_evidence("scenario.linear_return", "Macro Stress", {"scenario_loss": 0.12, "scenario_id": "SCEN-MACRO"})
-    rev_stress = _make_evidence("scenario.reverse_stress", "Reverse Stress", {"target_loss": 0.25, "minimum_distance": 0.18})
+    sample_cov = _make_evidence(
+        "covariance.empirical", "Sample Cov", {"is_psd": True}, params={"weights": {"A": 0.7, "B": 0.3}}
+    )
+    lw_cov = _make_evidence(
+        "covariance.ledoit_wolf", "LW Cov", {"is_psd": True}, params={"weights": {"A": 0.5, "B": 0.5}}
+    )
+    kupiec = _make_evidence(
+        "traded_risk.kupiec_pof", "Kupiec", {"reject_unconditional_coverage": False, "gamma_test": 0.05}
+    )
+    christ = _make_evidence(
+        "traded_risk.christoffersen_independence",
+        "Christoffersen",
+        {"reject_independence": True, "gamma_test": 0.05},
+    )
+    scen = _make_evidence(
+        "scenario.linear_return", "Macro Stress", {"scenario_loss": 0.12, "scenario_id": "SCEN-MACRO"}
+    )
+    rev_stress = _make_evidence(
+        "scenario.reverse_stress", "Reverse Stress", {"target_loss": 0.25, "minimum_distance": 0.18}
+    )
 
     evidence_set = [opt_rec, sample_cov, lw_cov, kupiec, christ, scen, rev_stress]
 

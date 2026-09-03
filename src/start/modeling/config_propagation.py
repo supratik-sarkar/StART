@@ -194,7 +194,11 @@ RULES: tuple[PropagationRule, ...] = (
     PropagationRule(
         setting="class_weight",
         config_attr="class_weight",
-        observation_points=("estimator.class_weight", "fit_kwargs.sample_weight", "model_params.class_weight"),
+        observation_points=(
+            "estimator.class_weight",
+            "fit_kwargs.sample_weight",
+            "model_params.class_weight",
+        ),
         consequence="the model trains unweighted on imbalanced data and can predict "
         "zero positives while the review records that balancing was applied",
     ),
@@ -207,8 +211,7 @@ RULES: tuple[PropagationRule, ...] = (
             "split_plan[0].strategy",
             "split_summary.strategy",
         ),
-        consequence="cohorts may not preserve the event rate, making OOS metrics "
-        "incomparable to train",
+        consequence="cohorts may not preserve the event rate, making OOS metrics incomparable to train",
         equivalences={"true": ("stratified", "stratify", "true"), "false": ("random", "false")},
     ),
     PropagationRule(
@@ -264,8 +267,7 @@ RULES: tuple[PropagationRule, ...] = (
         setting="architecture",
         config_attr="architecture_family",
         observation_points=("estimator.family", "model_params.family", "model_params.architecture"),
-        consequence="a different model is trained than the one approved at the "
-        "architecture checkpoint",
+        consequence="a different model is trained than the one approved at the architecture checkpoint",
     ),
     PropagationRule(
         setting="activation",
@@ -329,9 +331,7 @@ def audit_propagation(
                 continue
             any_point_existed = True
             observed_any = observed
-            if _values_agree(
-                configured, observed, tolerant=rule.tolerant, equivalences=rule.equivalences
-            ):
+            if _values_agree(configured, observed, tolerant=rule.tolerant, equivalences=rule.equivalences):
                 matched_point = point
                 break
 

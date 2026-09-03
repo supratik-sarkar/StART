@@ -51,8 +51,14 @@ def test_metrics_table_builds():
 
 
 def test_tuning_table_builds():
-    trials = [{"trial": 1, "params": {"learning_rate": 0.01, "hidden_dims": [32],
-               "dropout": 0.2}, "validation_metric": 0.9, "status": "ok"}]
+    trials = [
+        {
+            "trial": 1,
+            "params": {"learning_rate": 0.01, "hidden_dims": [32], "dropout": 0.2},
+            "validation_metric": 0.9,
+            "status": "ok",
+        }
+    ]
     assert tuning_table(trials).row_count == 1
 
 
@@ -72,19 +78,28 @@ def test_sensitivity_ranking_collapses_to_per_feature_max():
 
 
 def test_shock_table_builds():
-    rows = [{"feature": "a", "shock": s, "drift": 0.01 * i}
-            for i, s in enumerate((-0.3, -0.2, -0.1, 0.1, 0.2, 0.3))]
+    rows = [
+        {"feature": "a", "shock": s, "drift": 0.01 * i}
+        for i, s in enumerate((-0.3, -0.2, -0.1, 0.1, 0.2, 0.3))
+    ]
     t = shock_table(rows)
     assert t.row_count == 1
 
 
 def test_adapter_inventory_table():
-    cs = [{"adapter": "OPA", "status": "complete", "purpose": "policy",
-           "runtime_s": 0.01, "artifacts": 1, "evidence": 2}]
+    cs = [
+        {
+            "adapter": "OPA",
+            "status": "complete",
+            "purpose": "policy",
+            "runtime_s": 0.01,
+            "artifacts": 1,
+            "evidence": 2,
+        }
+    ]
     assert adapter_inventory_table(cs).row_count == 1
 
 
 def test_challenge_log_table():
-    ch = [{"status": "closed", "agent": "A", "text": "why not X",
-           "evidence_used": ["src"]}]
+    ch = [{"status": "closed", "agent": "A", "text": "why not X", "evidence_used": ["src"]}]
     assert challenge_log_table(ch).row_count == 1

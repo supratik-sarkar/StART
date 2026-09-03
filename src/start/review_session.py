@@ -278,4 +278,3 @@ class ReviewSession:
             "validation_review": self.validation_review or {},
             "mrm_signoff": self.mrm_signoff or {},
         }
-

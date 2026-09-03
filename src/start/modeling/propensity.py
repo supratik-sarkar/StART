@@ -63,9 +63,7 @@ class PropensityOptions:
 # --------------------------------------------------------------------------- #
 # Interactive prompting (injectable input function for testability)
 # --------------------------------------------------------------------------- #
-def _choose(
-    prompt: str, choices: tuple[str, ...], default: str, ask: Callable[[str], str]
-) -> str:
+def _choose(prompt: str, choices: tuple[str, ...], default: str, ask: Callable[[str], str]) -> str:
     labels = "/".join(c.upper() if c == default else c for c in choices)
     raw = ask(f"{prompt} [{labels}] (default: {default}): ").strip().lower()
     return raw if raw in choices else default
@@ -169,25 +167,28 @@ def run_propensity_demo(opts: PropensityOptions) -> RunResult:
     if opts.train_path:
         console.print("\n[bold]1/5 Data[/bold] — loading user data via the files connector")
         connector = LocalFileConnector(
-            opts.train_path, opts.test_path, opts.oos_path,
-            seed=opts.seed, target_column=target,
-            stratify=opts.stratify, split_proportions=opts.split_proportions,
+            opts.train_path,
+            opts.test_path,
+            opts.oos_path,
+            seed=opts.seed,
+            target_column=target,
+            stratify=opts.stratify,
+            split_proportions=opts.split_proportions,
         )
     else:
         console.print(
-            "\n[bold]1/5 Data[/bold] — loading public demo dataset "
-            "(bring your own with --train/--test/--oos)"
+            "\n[bold]1/5 Data[/bold] — loading public demo dataset (bring your own with --train/--test/--oos)"
         )
         connector = DemoConnector(
-            seed=opts.seed, target_column=target,
-            stratify=opts.stratify, split_proportions=opts.split_proportions,
+            seed=opts.seed,
+            target_column=target,
+            stratify=opts.stratify,
+            split_proportions=opts.split_proportions,
         )
     bundle = connector.load_bundle()
     train, test, oos = bundle.train, bundle.test, bundle.oos
     if target not in train.columns:
-        raise ValueError(
-            f"Target column '{target}' not found in the data; pass --target to set it."
-        )
+        raise ValueError(f"Target column '{target}' not found in the data; pass --target to set it.")
     for note in bundle.notes:
         console.print(f"    [dim]{note}[/dim]")
     features = feature_columns(train, target)
@@ -222,6 +223,7 @@ def run_propensity_demo(opts: PropensityOptions) -> RunResult:
     if opts.class_weight == "balanced":
         try:
             from sklearn.utils.class_weight import compute_sample_weight
+
             sample_weight = compute_sample_weight("balanced", train[target])
             fit_kwargs["sample_weight"] = sample_weight
         except Exception as e:
@@ -273,7 +275,7 @@ def run_propensity_demo(opts: PropensityOptions) -> RunResult:
     if result.agent_review is not None:
         ar = result.agent_review
         mode_label = f"llm-assisted ({ar.llm_provider})" if ar.mode == "llm" else "deterministic"
-        review_status = 'OK' if ar.critique_ok else 'FAILED'
+        review_status = "OK" if ar.critique_ok else "FAILED"
         console.print(f"    agent mode: {mode_label} | review critique: {review_status}")
         for note in ar.notes:
             console.print(f"    [yellow]{note}[/yellow]")
@@ -300,10 +302,7 @@ def _print_tuning(model_name: str, tuning: TuningOutcome) -> None:
 
 def _print_metrics_table(cohorts: dict[str, Any], target: str = TARGET_COLUMN) -> None:
     comparison = cohort_comparison(
-        {
-            name: (frame[target].to_numpy(), frame[SCORE_COLUMN].to_numpy())
-            for name, frame in cohorts.items()
-        }
+        {name: (frame[target].to_numpy(), frame[SCORE_COLUMN].to_numpy()) for name, frame in cohorts.items()}
     )
     table = Table(title="Cohort metrics comparison")
     table.add_column("Cohort")

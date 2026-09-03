@@ -152,9 +152,7 @@ class ReviewPlan:
             else:
                 flag = "opt"
             inherited = (
-                f"  <- burden from {', '.join(p.inherited_burden_from)}"
-                if p.inherited_burden_from
-                else ""
+                f"  <- burden from {', '.join(p.inherited_burden_from)}" if p.inherited_burden_from else ""
             )
             lines.append(f"  [{flag}] {p.dimension_id:<28} {p.depth:<14}{inherited}")
         return lines
@@ -182,9 +180,7 @@ def synthesise_plan(
     strp = get_stripe(stripe_id)
     materiality = (materiality or obj.materiality or "medium").lower()
     if materiality not in MATERIALITY_LEVELS:
-        raise ValueError(
-            f"Unknown materiality {materiality!r}. Valid: {', '.join(MATERIALITY_LEVELS)}"
-        )
+        raise ValueError(f"Unknown materiality {materiality!r}. Valid: {', '.join(MATERIALITY_LEVELS)}")
 
     depth = _DEPTH_BY_MATERIALITY[materiality]
 

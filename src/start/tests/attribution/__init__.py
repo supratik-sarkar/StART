@@ -53,12 +53,22 @@ from start.registry import register_test
 from start.registry.market_contexts import canonical_frame_bytes, canonical_series_bytes
 
 __all__ = [
-    "factor_return_estimation", "cross_sectional_factor_model", "exposure_analysis",
-    "return_attribution", "risk_attribution", "risk_change_decomposition",
-    "AttributionState", "estimate_factor_returns", "align_universe",
-    "decompose_risk_change", "interaction_share",
-    "RECONCILIATION_ATOL", "RECONCILIATION_RTOL", "INTERACTION_SHARE_WARN",
-    "DEGENERATE_SCALE_TOLERANCE", "RISK_CHANGE_CONTRACT",
+    "factor_return_estimation",
+    "cross_sectional_factor_model",
+    "exposure_analysis",
+    "return_attribution",
+    "risk_attribution",
+    "risk_change_decomposition",
+    "AttributionState",
+    "estimate_factor_returns",
+    "align_universe",
+    "decompose_risk_change",
+    "interaction_share",
+    "RECONCILIATION_ATOL",
+    "RECONCILIATION_RTOL",
+    "INTERACTION_SHARE_WARN",
+    "DEGENERATE_SCALE_TOLERANCE",
+    "RISK_CHANGE_CONTRACT",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -102,14 +112,22 @@ _OBJECTS = ("statistical_model", "deterministic_calculator")
 # Helpers
 # --------------------------------------------------------------------------- #
 def _skip(test_id: str, name: str, reason: str, **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.SKIPPED,
-                      params=params, interpretation=reason)
+    return TestResult(
+        test_id=test_id, test_name=name, status=Status.SKIPPED, params=params, interpretation=reason
+    )
 
 
-def _error(test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None,
-           **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.ERROR,
-                      params=params, metrics=metrics or {}, interpretation=reason)
+def _error(
+    test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None, **params: Any
+) -> TestResult:
+    return TestResult(
+        test_id=test_id,
+        test_name=name,
+        status=Status.ERROR,
+        params=params,
+        metrics=metrics or {},
+        interpretation=reason,
+    )
 
 
 def _within_tolerance(error: float, scale: float) -> bool:
@@ -164,15 +182,16 @@ def align_universe(
             raise ValueError("duplicate asset labels in benchmark weights")
 
     if not usable:
-        raise ValueError(
-            "no asset appears in returns, exposures and weights simultaneously"
-        )
+        raise ValueError("no asset appears in returns, exposures and weights simultaneously")
 
     assets = tuple(sorted(usable))
     factors = tuple(sorted(map(str, exposures.columns)))
     excluded = tuple(sorted((return_assets | exposure_assets) - usable))
     return Universe(
-        assets=assets, factors=factors, excluded_assets=excluded, excluded_factors=(),
+        assets=assets,
+        factors=factors,
+        excluded_assets=excluded,
+        excluded_factors=(),
         exclusion_rule=(
             "an asset is used only when present in returns, exposure rows and (when "
             "supplied) the weight vector; missing exposures are never imputed as zero, "
@@ -194,9 +213,9 @@ def _exposures_for(ctx: Any, timestamp: Any, universe: Universe) -> pd.DataFrame
 # --------------------------------------------------------------------------- #
 @dataclass
 class EstimationOutcome:
-    factor_returns: pd.DataFrame        # periods x factors
-    specific_returns: pd.DataFrame      # periods x assets
-    diagnostics: pd.DataFrame           # per-period rank, condition, residual norm
+    factor_returns: pd.DataFrame  # periods x factors
+    specific_returns: pd.DataFrame  # periods x assets
+    diagnostics: pd.DataFrame  # per-period rank, condition, residual norm
     universe: Universe
     n_periods_total: int
     n_periods_estimated: int
@@ -277,11 +296,16 @@ def estimate_factor_returns(
             # determined by the data. Reporting them as factor returns would be a
             # confident number about something the period cannot answer.
             skipped_rank += 1
-            diagnostics.append({
-                "timestamp": str(timestamp), "rank": rank, "n_assets": len(assets),
-                "n_factors": len(factors), "estimated": False,
-                "reason": "rank deficient" if rank < len(factors) else "underidentified",
-            })
+            diagnostics.append(
+                {
+                    "timestamp": str(timestamp),
+                    "rank": rank,
+                    "n_assets": len(assets),
+                    "n_factors": len(factors),
+                    "estimated": False,
+                    "reason": "rank deficient" if rank < len(factors) else "underidentified",
+                }
+            )
             continue
 
         Xw = X * root_w[:, None]
@@ -289,17 +313,23 @@ def estimate_factor_returns(
         solution, _residuals, lstsq_rank, singular = np.linalg.lstsq(Xw, rw, rcond=None)
         condition = (
             float(singular.max() / singular.min())
-            if singular.size and float(singular.min()) > 0 else float("inf")
+            if singular.size and float(singular.min()) > 0
+            else float("inf")
         )
         residual = r - X @ solution
         factor_rows[timestamp] = solution
         specific_rows[timestamp] = residual
-        diagnostics.append({
-            "timestamp": str(timestamp), "rank": int(lstsq_rank),
-            "n_assets": len(assets), "n_factors": len(factors), "estimated": True,
-            "condition_number": condition,
-            "residual_norm": float(np.linalg.norm(residual)),
-        })
+        diagnostics.append(
+            {
+                "timestamp": str(timestamp),
+                "rank": int(lstsq_rank),
+                "n_assets": len(assets),
+                "n_factors": len(factors),
+                "estimated": True,
+                "condition_number": condition,
+                "residual_norm": float(np.linalg.norm(residual)),
+            }
+        )
 
     return EstimationOutcome(
         factor_returns=pd.DataFrame.from_dict(factor_rows, orient="index", columns=factors),
@@ -317,11 +347,15 @@ def estimate_factor_returns(
 def _estimation_metrics(outcome: EstimationOutcome) -> dict[str, Any]:
     """Scalar summaries and content hashes. **No matrices.**"""
     diagnostics = outcome.diagnostics
-    estimated = diagnostics[diagnostics.get("estimated", pd.Series(dtype=bool))] \
-        if not diagnostics.empty and "estimated" in diagnostics else pd.DataFrame()
+    estimated = (
+        diagnostics[diagnostics.get("estimated", pd.Series(dtype=bool))]
+        if not diagnostics.empty and "estimated" in diagnostics
+        else pd.DataFrame()
+    )
     conditions = (
         estimated["condition_number"].replace([np.inf], np.nan).dropna()
-        if "condition_number" in estimated else pd.Series(dtype=float)
+        if "condition_number" in estimated
+        else pd.Series(dtype=float)
     )
     return {
         "n_periods_total": outcome.n_periods_total,
@@ -337,7 +371,8 @@ def _estimation_metrics(outcome: EstimationOutcome) -> dict[str, Any]:
         "max_condition_number": round(float(conditions.max()), 6) if len(conditions) else None,
         "mean_abs_residual": (
             round(float(np.abs(outcome.specific_returns.to_numpy()).mean()), 12)
-            if not outcome.specific_returns.empty else None
+            if not outcome.specific_returns.empty
+            else None
         ),
         "factor_returns_hash": hashlib.sha256(
             canonical_frame_bytes(outcome.factor_returns, label="factor_returns")
@@ -380,12 +415,11 @@ _ESTIMATION_LIMITATIONS = [
 def factor_return_estimation(ctx: Any) -> TestResult:
     """Period-by-period cross-sectional WLS. Determinism: numerical."""
     try:
-        outcome = estimate_factor_returns(
-            ctx, (ctx.extra or {}).get("observation_weights")
-        )
+        outcome = estimate_factor_returns(ctx, (ctx.extra or {}).get("observation_weights"))
     except ValueError as exc:
-        return _skip("attribution.factor_return_estimation",
-                     "Cross-sectional factor return estimation", str(exc))
+        return _skip(
+            "attribution.factor_return_estimation", "Cross-sectional factor return estimation", str(exc)
+        )
 
     metrics = _estimation_metrics(outcome)
     if outcome.n_periods_estimated == 0:
@@ -447,18 +481,20 @@ def cross_sectional_factor_model(ctx: Any) -> TestResult:
     independent period estimates — an assumption factor returns routinely violate.
     """
     try:
-        outcome = estimate_factor_returns(
-            ctx, (ctx.extra or {}).get("observation_weights")
-        )
+        outcome = estimate_factor_returns(ctx, (ctx.extra or {}).get("observation_weights"))
     except ValueError as exc:
-        return _skip("attribution.cross_sectional_factor_model",
-                     "Cross-sectional factor-return statistics", str(exc))
+        return _skip(
+            "attribution.cross_sectional_factor_model", "Cross-sectional factor-return statistics", str(exc)
+        )
 
     frame = outcome.factor_returns
     if frame.empty:
-        return _error("attribution.cross_sectional_factor_model",
-                      "Cross-sectional factor-return statistics",
-                      "no period could be estimated", metrics=_estimation_metrics(outcome))
+        return _error(
+            "attribution.cross_sectional_factor_model",
+            "Cross-sectional factor-return statistics",
+            "no period could be estimated",
+            metrics=_estimation_metrics(outcome),
+        )
 
     metrics: dict[str, Any] = _estimation_metrics(outcome)
     n = int(len(frame))
@@ -542,11 +578,17 @@ def exposure_analysis(ctx: Any) -> TestResult:
     """
     returns = ctx.effective_returns()
     if returns is None or not ctx._exposures_canonical:
-        return _skip("attribution.exposure_analysis", "Factor exposure analysis",
-                     "returns and factor exposures are both required")
+        return _skip(
+            "attribution.exposure_analysis",
+            "Factor exposure analysis",
+            "returns and factor exposures are both required",
+        )
     if ctx.portfolio is None or ctx.portfolio.weights is None:
-        return _skip("attribution.exposure_analysis", "Factor exposure analysis",
-                     "no portfolio weights supplied; exposures are not invented")
+        return _skip(
+            "attribution.exposure_analysis",
+            "Factor exposure analysis",
+            "no portfolio weights supplied; exposures are not invented",
+        )
 
     weights = ctx.portfolio.weights
     if isinstance(weights, pd.DataFrame):
@@ -565,17 +607,20 @@ def exposure_analysis(ctx: Any) -> TestResult:
     exposures = _exposures_for(ctx, timestamp, universe)
     if exposures is None or exposures.isna().to_numpy().any():
         return _error(
-            "attribution.exposure_analysis", "Factor exposure analysis",
-            f"no canonical exposure matrix is available at {timestamp}; exposures are "
-            "never forward-filled",
+            "attribution.exposure_analysis",
+            "Factor exposure analysis",
+            f"no canonical exposure matrix is available at {timestamp}; exposures are never forward-filled",
         )
 
     assets = list(universe.assets)
     X = exposures.to_numpy(dtype=float)
     w = weights.reindex(assets).to_numpy(dtype=float)
     if not np.all(np.isfinite(w)):
-        return _error("attribution.exposure_analysis", "Factor exposure analysis",
-                      "portfolio weights contain non-finite values")
+        return _error(
+            "attribution.exposure_analysis",
+            "Factor exposure analysis",
+            "portfolio weights contain non-finite values",
+        )
 
     portfolio_exposure = X.T @ w
     metrics: dict[str, Any] = {
@@ -634,8 +679,11 @@ def exposure_analysis(ctx: Any) -> TestResult:
         interpretation=(
             f"Portfolio factor exposures across {len(universe.factors)} factor(s) as of "
             f"{timestamp}"
-            + ("; active exposure reported against the supplied benchmark."
-               if benchmark_available else "; no benchmark supplied.")
+            + (
+                "; active exposure reported against the supplied benchmark."
+                if benchmark_available
+                else "; no benchmark supplied."
+            )
         ),
         limitations=limitations,
     )
@@ -664,11 +712,13 @@ def return_attribution(ctx: Any) -> TestResult:
     """
     returns = ctx.effective_returns()
     if returns is None or not ctx._exposures_canonical:
-        return _skip("attribution.return_attribution", "Return attribution",
-                     "returns and factor exposures are both required")
+        return _skip(
+            "attribution.return_attribution",
+            "Return attribution",
+            "returns and factor exposures are both required",
+        )
     if ctx.portfolio is None or ctx.portfolio.weights is None:
-        return _skip("attribution.return_attribution", "Return attribution",
-                     "no portfolio weights supplied")
+        return _skip("attribution.return_attribution", "Return attribution", "no portfolio weights supplied")
 
     weights = ctx.portfolio.weights
     if isinstance(weights, pd.DataFrame):
@@ -726,9 +776,12 @@ def return_attribution(ctx: Any) -> TestResult:
         n_periods += 1
 
     if n_periods == 0:
-        return _error("attribution.return_attribution", "Return attribution",
-                      "no period could be attributed",
-                      metrics=_estimation_metrics(outcome))
+        return _error(
+            "attribution.return_attribution",
+            "Return attribution",
+            "no period could be attributed",
+            metrics=_estimation_metrics(outcome),
+        )
 
     absolute = np.abs(errors)
     scale = max(1.0, abs(observed_total / n_periods))
@@ -795,11 +848,13 @@ def risk_attribution(ctx: Any, ddof: int = 1) -> TestResult:
     """
     returns = ctx.effective_returns()
     if returns is None or not ctx._exposures_canonical:
-        return _skip("attribution.risk_attribution", "Risk attribution",
-                     "returns and factor exposures are both required")
+        return _skip(
+            "attribution.risk_attribution",
+            "Risk attribution",
+            "returns and factor exposures are both required",
+        )
     if ctx.portfolio is None or ctx.portfolio.weights is None:
-        return _skip("attribution.risk_attribution", "Risk attribution",
-                     "no portfolio weights supplied")
+        return _skip("attribution.risk_attribution", "Risk attribution", "no portfolio weights supplied")
 
     weights = ctx.portfolio.weights
     if isinstance(weights, pd.DataFrame):
@@ -810,8 +865,12 @@ def risk_attribution(ctx: Any, ddof: int = 1) -> TestResult:
     except ValueError as exc:
         return _skip("attribution.risk_attribution", "Risk attribution", str(exc))
     if outcome.factor_returns.empty:
-        return _error("attribution.risk_attribution", "Risk attribution",
-                      "no period could be estimated", metrics=_estimation_metrics(outcome))
+        return _error(
+            "attribution.risk_attribution",
+            "Risk attribution",
+            "no period could be estimated",
+            metrics=_estimation_metrics(outcome),
+        )
 
     assets = list(outcome.universe.assets)
     factors = list(outcome.universe.factors)
@@ -830,8 +889,11 @@ def risk_attribution(ctx: Any, ddof: int = 1) -> TestResult:
 
     exposures = _exposures_for(ctx, returns.index[-1], outcome.universe)
     if exposures is None or exposures.isna().to_numpy().any():
-        return _error("attribution.risk_attribution", "Risk attribution",
-                      "no canonical exposure matrix at the reporting date")
+        return _error(
+            "attribution.risk_attribution",
+            "Risk attribution",
+            "no canonical exposure matrix at the reporting date",
+        )
 
     w = weights.reindex(assets).to_numpy(dtype=float)
     X = exposures.to_numpy(dtype=float)
@@ -869,11 +931,9 @@ def risk_attribution(ctx: Any, ddof: int = 1) -> TestResult:
     metrics["factor_component_sum"] = round(float(components.sum()), 15)
     metrics["factor_component_reconciliation_error"] = round(component_error, 18)
 
-    portfolio_returns = (returns[assets] @ weights.reindex(assets))
+    portfolio_returns = returns[assets] @ weights.reindex(assets)
     empirical = float(portfolio_returns.var(ddof=ddof)) if len(portfolio_returns) > 1 else None
-    metrics["empirical_portfolio_variance"] = (
-        round(empirical, 15) if empirical is not None else None
-    )
+    metrics["empirical_portfolio_variance"] = round(empirical, 15) if empirical is not None else None
     if empirical is not None and empirical > 0:
         ratio = total / empirical
         metrics["factor_model_to_empirical_ratio"] = round(ratio, 10)
@@ -892,8 +952,7 @@ def risk_attribution(ctx: Any, ddof: int = 1) -> TestResult:
         interpretation=(
             f"Factor-model variance {total:.6g} = factor {factor_variance:.6g} + "
             f"specific {specific_variance:.6g}"
-            + (f"; empirical portfolio variance {empirical:.6g}."
-               if empirical is not None else ".")
+            + (f"; empirical portfolio variance {empirical:.6g}." if empirical is not None else ".")
         ),
         limitations=[
             "Specific risk uses a DIAGONAL model, D = diag(var(e_i)). Cross-sectional "
@@ -931,9 +990,9 @@ class AttributionState:
     unchanged.
     """
 
-    exposure: pd.Series             # x0, indexed by factor
+    exposure: pd.Series  # x0, indexed by factor
     factor_covariance: pd.DataFrame  # F0, factor x factor
-    specific_variance: float         # S0
+    specific_variance: float  # S0
     label: str = ""
 
     def canonical_hash(self) -> str:
@@ -951,8 +1010,7 @@ class AttributionState:
         return float(x @ F @ x) + float(self.specific_variance)
 
 
-def decompose_risk_change(before: AttributionState,
-                          after: AttributionState) -> dict[str, float]:
+def decompose_risk_change(before: AttributionState, after: AttributionState) -> dict[str, float]:
     """The frozen four-component decomposition. See :data:`RISK_CHANGE_CONTRACT`.
 
     Simultaneous, not sequential: an order-dependent attribution would give a different
@@ -1019,7 +1077,8 @@ def risk_change_decomposition(
     """
     if comparison_state is None:
         return _skip(
-            "attribution.risk_change_decomposition", "Risk change decomposition",
+            "attribution.risk_change_decomposition",
+            "Risk change decomposition",
             "no comparison state supplied. The prior state is an explicit typed "
             "AttributionState parameter rather than a value in ctx.extra, because "
             "MarketContext.fingerprint() does not canonicalise extra and a prior state "
@@ -1028,11 +1087,17 @@ def risk_change_decomposition(
 
     returns = ctx.effective_returns()
     if returns is None or not ctx._exposures_canonical:
-        return _skip("attribution.risk_change_decomposition", "Risk change decomposition",
-                     "returns and factor exposures are both required")
+        return _skip(
+            "attribution.risk_change_decomposition",
+            "Risk change decomposition",
+            "returns and factor exposures are both required",
+        )
     if ctx.portfolio is None or ctx.portfolio.weights is None:
-        return _skip("attribution.risk_change_decomposition", "Risk change decomposition",
-                     "no portfolio weights supplied")
+        return _skip(
+            "attribution.risk_change_decomposition",
+            "Risk change decomposition",
+            "no portfolio weights supplied",
+        )
 
     weights = ctx.portfolio.weights
     if isinstance(weights, pd.DataFrame):
@@ -1041,18 +1106,24 @@ def risk_change_decomposition(
     try:
         outcome = estimate_factor_returns(ctx, (ctx.extra or {}).get("observation_weights"))
     except ValueError as exc:
-        return _skip("attribution.risk_change_decomposition", "Risk change decomposition",
-                     str(exc))
+        return _skip("attribution.risk_change_decomposition", "Risk change decomposition", str(exc))
     if outcome.factor_returns.empty:
-        return _error("attribution.risk_change_decomposition", "Risk change decomposition",
-                      "no period could be estimated", metrics=_estimation_metrics(outcome))
+        return _error(
+            "attribution.risk_change_decomposition",
+            "Risk change decomposition",
+            "no period could be estimated",
+            metrics=_estimation_metrics(outcome),
+        )
 
     assets = list(outcome.universe.assets)
     factors = list(outcome.universe.factors)
     exposures = _exposures_for(ctx, returns.index[-1], outcome.universe)
     if exposures is None or exposures.isna().to_numpy().any():
-        return _error("attribution.risk_change_decomposition", "Risk change decomposition",
-                      "no canonical exposure matrix at the reporting date")
+        return _error(
+            "attribution.risk_change_decomposition",
+            "Risk change decomposition",
+            "no canonical exposure matrix at the reporting date",
+        )
 
     w = weights.reindex(assets).to_numpy(dtype=float)
     x1 = pd.Series(exposures.to_numpy(dtype=float).T @ w, index=factors)
@@ -1060,12 +1131,12 @@ def risk_change_decomposition(
     D = outcome.specific_returns.var(ddof=ddof).reindex(assets).to_numpy(dtype=float)
     S1 = float((w**2) @ D)
 
-    current = AttributionState(exposure=x1, factor_covariance=F1,
-                               specific_variance=S1, label="current")
+    current = AttributionState(exposure=x1, factor_covariance=F1, specific_variance=S1, label="current")
 
     if list(comparison_state.exposure.index) != factors:
         return _error(
-            "attribution.risk_change_decomposition", "Risk change decomposition",
+            "attribution.risk_change_decomposition",
+            "Risk change decomposition",
             "comparison state factors do not match the current canonical factor order: "
             f"{list(comparison_state.exposure.index)} vs {factors}",
         )
@@ -1115,16 +1186,14 @@ def risk_change_decomposition(
         test_name="Risk change decomposition",
         status=status,
         params={
-            "interaction_warn": interaction_warn, "ddof": ddof,
+            "interaction_warn": interaction_warn,
+            "ddof": ddof,
             # Both hashes in params: changing either state changes evidence identity.
             "current_state_hash": current.canonical_hash(),
             "comparison_state_hash": comparison_state.canonical_hash(),
         },
         metrics=metrics,
-        interpretation=(
-            f"Factor-model variance moved {v0:.6g} -> {v1:.6g} (delta {observed:.6g}); "
-            f"{note}."
-        ),
+        interpretation=(f"Factor-model variance moved {v0:.6g} -> {v1:.6g} (delta {observed:.6g}); {note}."),
         limitations=[
             "The decomposition is SIMULTANEOUS, not sequential. An order-dependent "
             "attribution would give different answers depending on which component was "

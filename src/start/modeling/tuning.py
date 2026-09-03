@@ -124,7 +124,7 @@ def tune_model(
             method="none",
             note=(
                 "optuna is not installed; skipped Bayesian optimization and used the "
-                "default model. Enable with: pip install -e \".[optuna]\""
+                'default model. Enable with: pip install -e ".[optuna]"'
             ),
             cv_folds=cv_folds,
         )
@@ -170,9 +170,7 @@ def _optuna_tune(
             return float(np.mean(cross_val_score(model, X, y, scoring="roc_auc", cv=cv, n_jobs=-1)))
 
     else:
-        X_fit, X_val, y_fit, y_val = train_test_split(
-            X, y, test_size=0.2, stratify=y, random_state=seed
-        )
+        X_fit, X_val, y_fit, y_val = train_test_split(X, y, test_size=0.2, stratify=y, random_state=seed)
 
         def objective(trial: optuna.Trial) -> float:
             model = clone(estimator).set_params(**suggest(trial))

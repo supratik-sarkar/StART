@@ -153,13 +153,15 @@ def solve_herc(
             cluster_weights[left] *= alpha
             cluster_weights[right] *= 1.0 - alpha
 
-            tree_dict["splits"].append({
-                "left": left,
-                "right": right,
-                "v_left": round(v_left, 10),
-                "v_right": round(v_right, 10),
-                "alpha": round(alpha, 8),
-            })
+            tree_dict["splits"].append(
+                {
+                    "left": left,
+                    "right": right,
+                    "v_left": round(v_left, 10),
+                    "v_right": round(v_right, 10),
+                    "alpha": round(alpha, 8),
+                }
+            )
 
     # Terminal weights from recursive hierarchical cluster risk parity (Raffinot, 2018)
     final_w = cluster_weights.reindex(asset_names)

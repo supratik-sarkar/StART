@@ -39,9 +39,17 @@ import pandas as pd
 from scipy import stats
 
 __all__ = [
-    "VAR_MC", "CEV_MC", "STANTON_MC", "REGEM_MC",
-    "StudyResult", "run_var_study", "run_cev_study", "run_stanton_study",
-    "run_regem_study", "child_seeds", "configuration_hash",
+    "VAR_MC",
+    "CEV_MC",
+    "STANTON_MC",
+    "REGEM_MC",
+    "StudyResult",
+    "run_var_study",
+    "run_cev_study",
+    "run_stanton_study",
+    "run_regem_study",
+    "child_seeds",
+    "configuration_hash",
 ]
 
 
@@ -127,9 +135,7 @@ REGEM_MC: dict[str, Any] = {
 
 
 def configuration_hash(config: dict[str, Any]) -> str:
-    return hashlib.sha256(
-        json.dumps(config, sort_keys=True, default=str).encode()
-    ).hexdigest()[:32]
+    return hashlib.sha256(json.dumps(config, sort_keys=True, default=str).encode()).hexdigest()[:32]
 
 
 def child_seeds(root: int, count: int) -> list[np.random.SeedSequence]:
@@ -166,8 +172,9 @@ class StudyResult:
 # =========================================================================== #
 # VaR size and power
 # =========================================================================== #
-def run_var_study(config: dict[str, Any] = VAR_MC,
-                  progress: Callable[[str], None] | None = None) -> StudyResult:
+def run_var_study(
+    config: dict[str, Any] = VAR_MC, progress: Callable[[str], None] | None = None
+) -> StudyResult:
     """Empirical size and power of the Kupiec POF test.
 
     Size is the rejection rate under a **correctly specified** forecast. A correct model
@@ -204,10 +211,16 @@ def run_var_study(config: dict[str, Any] = VAR_MC,
     low, high = config["size_bounds"]
     for name in scenarios:
         rate = rejections[name] / R
-        result.rows.append({
-            "scenario": name, "factor": scenarios[name], "R": R, "n": n,
-            "n_rejected": rejections[name], "rejection_rate": rate,
-        })
+        result.rows.append(
+            {
+                "scenario": name,
+                "factor": scenarios[name],
+                "R": R,
+                "n": n,
+                "n_rejected": rejections[name],
+                "rejection_rate": rate,
+            }
+        )
         if name == "correct" and not (low <= rate <= high):
             result.passed = False
             result.failures.append(
@@ -215,22 +228,19 @@ def run_var_study(config: dict[str, Any] = VAR_MC,
             )
         if name == "understated" and rate < config["power_understated_min"]:
             result.passed = False
-            result.failures.append(
-                f"power(0.7x): {rate:.4f} below {config['power_understated_min']}"
-            )
+            result.failures.append(f"power(0.7x): {rate:.4f} below {config['power_understated_min']}")
         if name == "overstated" and rate < config["power_overstated_min"]:
             result.passed = False
-            result.failures.append(
-                f"power(1.5x): {rate:.4f} below {config['power_overstated_min']}"
-            )
+            result.failures.append(f"power(1.5x): {rate:.4f} below {config['power_overstated_min']}")
     return result
 
 
 # =========================================================================== #
 # CEV consistency
 # =========================================================================== #
-def run_cev_study(config: dict[str, Any] = CEV_MC,
-                  progress: Callable[[str], None] | None = None) -> StudyResult:
+def run_cev_study(
+    config: dict[str, Any] = CEV_MC, progress: Callable[[str], None] | None = None
+) -> StudyResult:
     """Consistency, interval coverage and failure rate, evaluated per gamma."""
     from start.data.synthetic_market import generate_short_rate_path
     from start.tests.traded_risk import _bootstrap_cev, estimate_cev
@@ -248,9 +258,7 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
             evaluated = 0
             for index, seed in enumerate(seeds):
                 draw = int(np.random.default_rng(seed).integers(0, 2**31 - 1))
-                rates, _ = generate_short_rate_path(
-                    n_periods=n, gamma=gamma, seed=draw
-                )
+                rates, _ = generate_short_rate_path(n_periods=n, gamma=gamma, seed=draw)
                 try:
                     estimate = estimate_cev(rates, 1.0 / 252.0)
                 except ValueError:
@@ -262,8 +270,11 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
                 per_run.append(abs(estimate.gamma_hat - gamma))
                 if n == config["coverage_at_n"]:
                     low, high, valid = _bootstrap_cev(
-                        rates, 1.0 / 252.0, int(config["bootstrap_draws"]),
-                        draw, 0.95,
+                        rates,
+                        1.0 / 252.0,
+                        int(config["bootstrap_draws"]),
+                        draw,
+                        0.95,
                     )
                     if low is not None:
                         evaluated += 1
@@ -274,8 +285,11 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
 
             errors[(gamma, n)] = per_run
             row: dict[str, Any] = {
-                "gamma": gamma, "n": n, "R": R,
-                "n_valid": len(per_run), "failure_rate": failures / R,
+                "gamma": gamma,
+                "n": n,
+                "R": R,
+                "n_valid": len(per_run),
+                "failure_rate": failures / R,
                 "median_abs_error": float(np.median(per_run)) if per_run else float("nan"),
             }
             if n == config["coverage_at_n"] and evaluated:
@@ -286,8 +300,7 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
             if n >= config["failure_rate_min_n"] and failures / R > config["failure_rate_max"]:
                 result.passed = False
                 result.failures.append(
-                    f"failure rate gamma={gamma} n={n}: {failures / R:.4f} above "
-                    f"{config['failure_rate_max']}"
+                    f"failure rate gamma={gamma} n={n}: {failures / R:.4f} above {config['failure_rate_max']}"
                 )
 
     # Consistency, per gamma. Never averaged across gammas.
@@ -298,17 +311,20 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
         if not a or not b:
             continue
         ratio = float(np.median(b) / np.median(a)) if np.median(a) > 0 else float("inf")
-        result.rows.append({
-            "gamma": gamma, "criterion": "consistency_ratio",
-            "median_abs_error_small": float(np.median(a)),
-            "median_abs_error_large": float(np.median(b)),
-            "ratio": ratio, "threshold": config["consistency_ratio_max"],
-        })
+        result.rows.append(
+            {
+                "gamma": gamma,
+                "criterion": "consistency_ratio",
+                "median_abs_error_small": float(np.median(a)),
+                "median_abs_error_large": float(np.median(b)),
+                "ratio": ratio,
+                "threshold": config["consistency_ratio_max"],
+            }
+        )
         if ratio > config["consistency_ratio_max"]:
             result.passed = False
             result.failures.append(
-                f"consistency gamma={gamma}: ratio {ratio:.4f} above "
-                f"{config['consistency_ratio_max']}"
+                f"consistency gamma={gamma}: ratio {ratio:.4f} above {config['consistency_ratio_max']}"
             )
 
     low, high = config["coverage_bounds"]
@@ -316,8 +332,7 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
         if "coverage" in row and not (low <= row["coverage"] <= high):
             result.passed = False
             result.failures.append(
-                f"coverage gamma={row['gamma']} n={row['n']}: {row['coverage']:.4f} "
-                f"outside [{low}, {high}]"
+                f"coverage gamma={row['gamma']} n={row['n']}: {row['coverage']:.4f} outside [{low}, {high}]"
             )
     return result
 
@@ -325,8 +340,9 @@ def run_cev_study(config: dict[str, Any] = CEV_MC,
 # =========================================================================== #
 # Stanton bias
 # =========================================================================== #
-def run_stanton_study(config: dict[str, Any] = STANTON_MC,
-                      progress: Callable[[str], None] | None = None) -> StudyResult:
+def run_stanton_study(
+    config: dict[str, Any] = STANTON_MC, progress: Callable[[str], None] | None = None
+) -> StudyResult:
     """Pointwise bias against a known Ornstein-Uhlenbeck drift."""
     from start.tests.traded_risk import stanton_first_order
 
@@ -348,8 +364,11 @@ def run_stanton_study(config: dict[str, Any] = STANTON_MC,
             values = np.empty(n)
             values[0] = theta
             for t in range(1, n):
-                values[t] = (values[t - 1] + kappa * (theta - values[t - 1]) * dt
-                             + sigma * math.sqrt(dt) * rng.standard_normal())
+                values[t] = (
+                    values[t - 1]
+                    + kappa * (theta - values[t - 1]) * dt
+                    + sigma * math.sqrt(dt) * rng.standard_normal()
+                )
             series = pd.Series(values)
             h = 1.06 * float(np.std(values[:-1], ddof=1)) * (n ** (-1 / 5))
             frame = stanton_first_order(series, dt, grid, h)
@@ -363,13 +382,16 @@ def run_stanton_study(config: dict[str, Any] = STANTON_MC,
         wrong_sign = np.nanmean(signs, axis=0)
         for j, point in enumerate(grid):
             included = abs(true_drift[j]) >= config["sign_test_min_true_drift"]
-            result.rows.append({
-                "n": n, "grid_point": float(point),
-                "true_drift": float(true_drift[j]),
-                "median_abs_bias": float(medians[n][j]),
-                "wrong_sign_rate": float(wrong_sign[j]),
-                "included_in_sign_test": bool(included),
-            })
+            result.rows.append(
+                {
+                    "n": n,
+                    "grid_point": float(point),
+                    "true_drift": float(true_drift[j]),
+                    "median_abs_bias": float(medians[n][j]),
+                    "wrong_sign_rate": float(wrong_sign[j]),
+                    "included_in_sign_test": bool(included),
+                }
+            )
             if included and wrong_sign[j] > config["wrong_sign_rate_max"]:
                 result.passed = False
                 result.failures.append(
@@ -380,23 +402,25 @@ def run_stanton_study(config: dict[str, Any] = STANTON_MC,
     small, large = min(config["sample_sizes"]), max(config["sample_sizes"])
     if small in medians and large in medians:
         ratio = float(np.median(medians[large]) / np.median(medians[small]))
-        result.rows.append({
-            "criterion": "bias_ratio", "ratio": ratio,
-            "threshold": config["bias_ratio_max"],
-        })
+        result.rows.append(
+            {
+                "criterion": "bias_ratio",
+                "ratio": ratio,
+                "threshold": config["bias_ratio_max"],
+            }
+        )
         if ratio > config["bias_ratio_max"]:
             result.passed = False
-            result.failures.append(
-                f"bias ratio {ratio:.4f} above {config['bias_ratio_max']}"
-            )
+            result.failures.append(f"bias ratio {ratio:.4f} above {config['bias_ratio_max']}")
     return result
 
 
 # =========================================================================== #
 # RegEM structural
 # =========================================================================== #
-def run_regem_study(config: dict[str, Any] = REGEM_MC,
-                    progress: Callable[[str], None] | None = None) -> StudyResult:
+def run_regem_study(
+    config: dict[str, Any] = REGEM_MC, progress: Callable[[str], None] | None = None
+) -> StudyResult:
     """PSD rate and convergence across missingness, mechanism and structure."""
     from start.data.synthetic_market import generate_market_world
     from start.tests.covariance import PSD_EIGENVALUE_FLOOR, run_regularized_em
@@ -408,8 +432,7 @@ def run_regem_study(config: dict[str, Any] = REGEM_MC,
         for mechanism in config["mechanisms"]:
             for rate in config["missingness"]:
                 seeds = child_seeds(
-                    int(config["root_seed"]) + hash((structure, mechanism)) % 10000
-                    + int(rate * 100), R
+                    int(config["root_seed"]) + hash((structure, mechanism)) % 10000 + int(rate * 100), R
                 )
                 psd = 0
                 converged = 0
@@ -418,8 +441,12 @@ def run_regem_study(config: dict[str, Any] = REGEM_MC,
                 for index, seed in enumerate(seeds):
                     draw = int(np.random.default_rng(seed).integers(0, 2**31 - 1))
                     world = generate_market_world(
-                        n_assets=6, n_periods=250, n_factors=3, seed=draw,
-                        missing_rate=rate, missing_mechanism=mechanism,
+                        n_assets=6,
+                        n_periods=250,
+                        n_factors=3,
+                        seed=draw,
+                        missing_rate=rate,
+                        missing_mechanism=mechanism,
                         near_singular=(structure == "near_singular"),
                     )
                     if world.incomplete_returns is None:
@@ -427,7 +454,9 @@ def run_regem_study(config: dict[str, Any] = REGEM_MC,
                     try:
                         outcome = run_regularized_em(
                             world.incomplete_returns.to_numpy(dtype=float),
-                            ridge=1e-6, tol=1e-6, max_iter=200,
+                            ridge=1e-6,
+                            tol=1e-6,
+                            max_iter=200,
                         )
                     except ValueError:
                         continue
@@ -439,23 +468,29 @@ def run_regem_study(config: dict[str, Any] = REGEM_MC,
                         psd += 1
                     truth = world.true_asset_covariance.to_numpy()
                     errors.append(
-                        float(np.linalg.norm(outcome.covariance - truth, "fro")
-                              / np.linalg.norm(truth, "fro"))
+                        float(
+                            np.linalg.norm(outcome.covariance - truth, "fro") / np.linalg.norm(truth, "fro")
+                        )
                     )
                     if progress and (index + 1) % 25 == 0:
-                        progress(f"    RegEM {structure}/{mechanism}/{rate}: "
-                                 f"{index + 1}/{R}")
+                        progress(f"    RegEM {structure}/{mechanism}/{rate}: {index + 1}/{R}")
 
                 psd_rate = psd / valid if valid else 0.0
                 non_convergence = 1.0 - (converged / valid) if valid else 1.0
-                result.rows.append({
-                    "structure": structure, "mechanism": mechanism,
-                    "missing_rate": rate, "R": R, "n_valid": valid,
-                    "psd_rate": psd_rate, "non_convergence_rate": non_convergence,
-                    "median_relative_frobenius_error": (
-                        float(np.median(errors)) if errors else float("nan")
-                    ),
-                })
+                result.rows.append(
+                    {
+                        "structure": structure,
+                        "mechanism": mechanism,
+                        "missing_rate": rate,
+                        "R": R,
+                        "n_valid": valid,
+                        "psd_rate": psd_rate,
+                        "non_convergence_rate": non_convergence,
+                        "median_relative_frobenius_error": (
+                            float(np.median(errors)) if errors else float("nan")
+                        ),
+                    }
+                )
                 if psd_rate < config["psd_rate_required"]:
                     result.passed = False
                     result.failures.append(

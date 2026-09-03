@@ -48,8 +48,11 @@ def render_mros_report(
 
     if cohort_metrics:
         lines += [
-            "", "## Cohort metrics", "",
-            "| Cohort | AUC-ROC | Accuracy | F1 |", "| --- | --- | --- | --- |",
+            "",
+            "## Cohort metrics",
+            "",
+            "| Cohort | AUC-ROC | Accuracy | F1 |",
+            "| --- | --- | --- | --- |",
         ]
         for cohort, m in cohort_metrics.items():
             lines.append(
@@ -58,15 +61,21 @@ def render_mros_report(
             )
 
     lines += [
-        "", "## Evidence ledger", "",
-        "| Test ID | Name | Status |", "| --- | --- | --- |",
+        "",
+        "## Evidence ledger",
+        "",
+        "| Test ID | Name | Status |",
+        "| --- | --- | --- |",
     ]
     for rec in evidence:
         lines.append(f"| {rec.test_id} | {rec.test_name} | {rec.status.value} |")
 
     lines += [
-        "", "## AI-engineering stage surface", "",
-        "| Stage | Category | Status |", "| --- | --- | --- |",
+        "",
+        "## AI-engineering stage surface",
+        "",
+        "| Stage | Category | Status |",
+        "| --- | --- | --- |",
     ]
     for s in ai_stages:
         lines.append(f"| {s.name} | {s.category} | {s.status} |")

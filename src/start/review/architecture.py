@@ -53,12 +53,25 @@ from enum import StrEnum
 from typing import Any
 
 __all__ = [
-    "ReviewMode", "ReviewDomain", "PredictiveTechnology", "ReviewLifecycle",
+    "ReviewMode",
+    "ReviewDomain",
+    "PredictiveTechnology",
+    "ReviewLifecycle",
     "ReviewGroundingMode",
-    "LLMReviewConfig", "ReviewContextBundle", "DOMAIN_CONTEXT", "DOMAIN_LABELS",
-    "DOMAIN_DESCRIPTIONS", "TECHNOLOGY_LABELS", "LIFECYCLE_LABELS", "MODE_LABELS",
-    "parse_domain_selection", "required_context_types", "requires_predictive_technology",
-    "TRADITIONAL_ML_MODELS", "ExecutionProduct", "ReviewExecutionProducts",
+    "LLMReviewConfig",
+    "ReviewContextBundle",
+    "DOMAIN_CONTEXT",
+    "DOMAIN_LABELS",
+    "DOMAIN_DESCRIPTIONS",
+    "TECHNOLOGY_LABELS",
+    "LIFECYCLE_LABELS",
+    "MODE_LABELS",
+    "parse_domain_selection",
+    "required_context_types",
+    "requires_predictive_technology",
+    "TRADITIONAL_ML_MODELS",
+    "ExecutionProduct",
+    "ReviewExecutionProducts",
 ]
 
 
@@ -119,10 +132,11 @@ DOMAIN_CONTEXT: dict[ReviewDomain, str] = {
 }
 
 MODE_LABELS: dict[ReviewMode, tuple[str, str]] = {
-    ReviewMode.SINGLE_DOMAIN: (
-        "Single-Domain Review", "Review one risk/model domain independently"),
+    ReviewMode.SINGLE_DOMAIN: ("Single-Domain Review", "Review one risk/model domain independently"),
     ReviewMode.CROSS_DOMAIN: (
-        "Cross-Domain Review", "Combine two or more domains within one governed review"),
+        "Cross-Domain Review",
+        "Combine two or more domains within one governed review",
+    ),
 }
 
 DOMAIN_LABELS: dict[ReviewDomain, str] = {
@@ -133,19 +147,19 @@ DOMAIN_LABELS: dict[ReviewDomain, str] = {
 
 DOMAIN_DESCRIPTIONS: dict[ReviewDomain, str] = {
     ReviewDomain.PREDICTIVE: "Supervised ML and deep-learning model validation",
-    ReviewDomain.MARKET: (
-        "Portfolio risk, attribution, VaR, covariance and barrier risk"),
+    ReviewDomain.MARKET: ("Portfolio risk, attribution, VaR, covariance and barrier risk"),
     ReviewDomain.TREASURY: "Short-rate dynamics, CEV and Stanton diagnostics",
 }
 
 TECHNOLOGY_LABELS: dict[PredictiveTechnology, tuple[str, str]] = {
     PredictiveTechnology.TRADITIONAL_ML: (
         "Traditional / Tree-Based ML",
-        "Random Forest, CatBoost, XGBoost, LightGBM, Extra Trees and supported "
-        "classical models",
+        "Random Forest, CatBoost, XGBoost, LightGBM, Extra Trees and supported classical models",
     ),
     PredictiveTechnology.DEEP_LEARNING: (
-        "Deep Learning", "MLP, Wide & Deep and supported neural architectures"),
+        "Deep Learning",
+        "MLP, Wide & Deep and supported neural architectures",
+    ),
 }
 
 LIFECYCLE_LABELS: dict[ReviewLifecycle, str] = {
@@ -159,13 +173,20 @@ LIFECYCLE_LABELS: dict[ReviewLifecycle, str] = {
 #: The legacy tree-model menu. Preserved exactly; it moves under
 #: Predictive -> Traditional ML rather than disappearing.
 TRADITIONAL_ML_MODELS: tuple[str, ...] = (
-    "Random Forest", "CatBoost", "XGBoost", "LightGBM",
-    "Distributed Random Forest", "Extra Trees", "Random Rotation Forest",
+    "Random Forest",
+    "CatBoost",
+    "XGBoost",
+    "LightGBM",
+    "Distributed Random Forest",
+    "Extra Trees",
+    "Random Rotation Forest",
 )
 
 #: Menu order. Display index is 1-based and stable, so "2,3" always means the same thing.
 _DOMAIN_ORDER: tuple[ReviewDomain, ...] = (
-    ReviewDomain.PREDICTIVE, ReviewDomain.MARKET, ReviewDomain.TREASURY,
+    ReviewDomain.PREDICTIVE,
+    ReviewDomain.MARKET,
+    ReviewDomain.TREASURY,
 )
 
 
@@ -192,26 +213,18 @@ def parse_domain_selection(
     seen: list[ReviewDomain] = []
     for token in tokens:
         if not token.isdigit():
-            raise ValueError(
-                f"invalid selection {token!r}: enter menu numbers separated by commas"
-            )
+            raise ValueError(f"invalid selection {token!r}: enter menu numbers separated by commas")
         index = int(token)
         if not 1 <= index <= len(_DOMAIN_ORDER):
-            raise ValueError(
-                f"invalid selection {index}: choose between 1 and {len(_DOMAIN_ORDER)}"
-            )
+            raise ValueError(f"invalid selection {index}: choose between 1 and {len(_DOMAIN_ORDER)}")
         domain = _DOMAIN_ORDER[index - 1]
         if domain in seen:
-            raise ValueError(
-                f"duplicate selection {index} ({DOMAIN_LABELS[domain]}): "
-                "list each domain once"
-            )
+            raise ValueError(f"duplicate selection {index} ({DOMAIN_LABELS[domain]}): list each domain once")
         seen.append(domain)
 
     if mode is ReviewMode.CROSS_DOMAIN and len(seen) < 2:
         raise ValueError(
-            "a cross-domain review needs at least two distinct domains; "
-            "choose Single-Domain Review for one"
+            "a cross-domain review needs at least two distinct domains; choose Single-Domain Review for one"
         )
     if mode is ReviewMode.SINGLE_DOMAIN and len(seen) != 1:
         raise ValueError("a single-domain review takes exactly one domain")
@@ -291,21 +304,18 @@ class ReviewContextBundle:
     structured_findings: list[Any] = field(default_factory=list)
 
     def context_for(self, context_type: str) -> Any | None:
-        return {"tabular": self.tabular, "market": self.market,
-                "short_rate": self.short_rate}.get(context_type)
+        return {"tabular": self.tabular, "market": self.market, "short_rate": self.short_rate}.get(
+            context_type
+        )
 
     def available_context_types(self) -> tuple[str, ...]:
         return tuple(
-            name for name in ("tabular", "market", "short_rate")
-            if self.context_for(name) is not None
+            name for name in ("tabular", "market", "short_rate") if self.context_for(name) is not None
         )
 
     def missing_context_types(self) -> tuple[str, ...]:
         """Required by the selected domains but not populated."""
-        return tuple(
-            name for name in required_context_types(self.domains)
-            if self.context_for(name) is None
-        )
+        return tuple(name for name in required_context_types(self.domains) if self.context_for(name) is None)
 
     def is_complete(self) -> bool:
         return not self.missing_context_types()

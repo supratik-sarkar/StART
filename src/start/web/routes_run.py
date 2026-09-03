@@ -42,22 +42,70 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         )
         from start.review.executor import run_unified_review
 
-        # Map domain
-        if request.domain == "predictive":
-            domains = (ReviewDomain.PREDICTIVE,)
-        elif request.domain == "deep_learning":
-            domains = (ReviewDomain.PREDICTIVE,)
-        else:
+        # Map domain and generate synthetic environment
+        if request.domain == "market":
             domains = (ReviewDomain.MARKET,)
+            from start.data.synthetic_market import generate_market_world
+            from start.registry.market_contexts import MarketContext, PortfolioSpec
 
-        bundle = ReviewContextBundle(
-            mode=ReviewMode.SINGLE_DOMAIN,
-            domains=domains,
-            materiality="high",
-            lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
-            llm_config=LLMReviewConfig(provider="none"),
-            grounding_mode=ReviewGroundingMode.STRUCTURED,
-        )
+            seed = request.seed or 42
+            world = generate_market_world(
+                n_assets=50,
+                n_periods=1000,
+                n_factors=5,
+                periods_per_year=252,
+                seed=seed,
+                include_short_rate=True,
+                missing_rate=0.15,
+            )
+            renamed = {old: f"ASSET_{i + 1:03d}" for i, old in enumerate(world.returns.columns)}
+            market_ctx = MarketContext(
+                returns=world.returns.rename(columns=renamed),
+                prices=world.prices.rename(columns=renamed),
+                periods_per_year=world.periods_per_year,
+                risk_free_rate=0.02,
+                risk_free_frequency="annual",
+                factor_returns=world.factor_returns,
+                factor_exposures=world.factor_exposures.rename(index=renamed),
+                pnl=world.pnl,
+                hypothetical_pnl=world.hypothetical_pnl,
+                var_series=world.var_series,
+                var_confidence=world.var_confidence,
+                portfolio=PortfolioSpec(
+                    weights=world.weights.rename(renamed),
+                    benchmark_weights=world.benchmark_weights.rename(renamed),
+                ),
+                seed=seed,
+            )
+            bundle = ReviewContextBundle(
+                mode=ReviewMode.SINGLE_DOMAIN,
+                domains=domains,
+                materiality=request.materiality,
+                lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
+                market=market_ctx,
+                short_rate=world.short_rate,
+                llm_config=LLMReviewConfig(provider="none"),
+                grounding_mode=ReviewGroundingMode.STRUCTURED,
+            )
+        else:
+            domains = (ReviewDomain.PREDICTIVE,)
+            from start.data.synthetic_dl import generate_dl_world
+            from start.registry import TestContext
+
+            seed = request.seed or 42
+            dl_res = generate_dl_world(n_samples=500, n_features=8, seed=seed)
+            train_df = dl_res["train_df"]
+            test_df = dl_res["test_df"]
+            tab_ctx = TestContext(train=train_df, test=test_df, target_column="target")
+            bundle = ReviewContextBundle(
+                mode=ReviewMode.SINGLE_DOMAIN,
+                domains=domains,
+                materiality=request.materiality,
+                lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
+                tabular=tab_ctx,
+                llm_config=LLMReviewConfig(provider="none"),
+                grounding_mode=ReviewGroundingMode.STRUCTURED,
+            )
 
         # Emit initial planning event
         GLOBAL_QUEUE.append_event(
@@ -83,8 +131,14 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
 
         records = res.get("records", [])
         presentation_model = res.get("presentation_model")
-        events = res.get("orchestration_events", [])
         artifacts_dict = res.get("artifacts", {})
+        if not artifacts_dict and presentation_model:
+            if hasattr(presentation_model, "artifacts") and presentation_model.artifacts:
+                artifacts_dict = presentation_model.artifacts
+            elif isinstance(presentation_model, dict) and "artifacts" in presentation_model:
+                artifacts_dict = presentation_model["artifacts"]
+
+        events = res.get("orchestration_events", [])
 
         # Transfer execution events
         for evt in events:
@@ -126,6 +180,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         GLOBAL_QUEUE.mark_failed(run_id, str(exc))
 
 
+@router.post("", response_model=APIResponseEnvelope)
 @router.post("/start", response_model=APIResponseEnvelope)
 async def start_run(
     request: RunRequest,
@@ -157,6 +212,7 @@ async def start_run(
         success=True,
         run_id=run_id,
         data={
+            "run_id": run_id,
             "session_id": request.session_id,
             "status": "QUEUED",
             "domain": request.domain,
@@ -165,6 +221,7 @@ async def start_run(
     )
 
 
+@router.get("/{run_id}", response_model=APIResponseEnvelope)
 @router.get("/{run_id}/status", response_model=APIResponseEnvelope)
 def get_run_status(
     run_id: str,
@@ -218,6 +275,24 @@ def get_run_presentation(
             "presentation": ctx.presentation or {},
             "schema_version": START_SCHEMA_VERSION,
         },
+    )
+
+
+@router.get("/{run_id}/evidence", response_model=APIResponseEnvelope)
+def get_run_evidence(
+    run_id: str,
+    session_id: str | None = Query(None),
+) -> APIResponseEnvelope:
+    """Retrieve raw EvidenceRecord list for run."""
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found or session access denied")
+
+    records = [r.to_dict() if hasattr(r, "to_dict") else r for r in ctx.evidence_records]
+    return APIResponseEnvelope(
+        success=True,
+        run_id=run_id,
+        data={"evidence_records": records, "count": len(records)},
     )
 
 

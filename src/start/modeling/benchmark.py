@@ -56,10 +56,18 @@ __all__ = [
 LIFT_THRESHOLDS: tuple[tuple[float, str, str], ...] = (
     (0.15, "ok", "the model adds substantial discrimination over a single rule"),
     (0.07, "ok", "the model adds meaningful discrimination over a single rule"),
-    (0.03, "concern", "the model adds only marginal discrimination over a single rule; "
-                      "its additional complexity needs justification"),
-    (0.00, "blocker", "the model does not meaningfully outperform a one-feature decision "
-                      "stump; its complexity is not justified by its performance"),
+    (
+        0.03,
+        "concern",
+        "the model adds only marginal discrimination over a single rule; "
+        "its additional complexity needs justification",
+    ),
+    (
+        0.00,
+        "blocker",
+        "the model does not meaningfully outperform a one-feature decision "
+        "stump; its complexity is not justified by its performance",
+    ),
     (-1.0, "blocker", "the model performs WORSE than a one-feature decision stump"),
 )
 
@@ -117,9 +125,7 @@ class BenchmarkReport:
             auc = f"{baseline.auc:.4f}" if baseline.auc is not None else "—"
             brier = f"{baseline.brier:.4f}" if baseline.brier is not None else "—"
             recall = f"{baseline.recall:.4f}" if baseline.recall is not None else "—"
-            lines.append(
-                f"  {baseline.name:<22}{auc:>9}{brier:>9}{recall:>9}   {baseline.description}"
-            )
+            lines.append(f"  {baseline.name:<22}{auc:>9}{brier:>9}{recall:>9}   {baseline.description}")
         lines.append(f"  {'model under review':<22}{self.model_auc:>9.4f}")
         lines.append("")
         lines.append(f"  Lift over stump: {self.lift_over_stump:+.4f} — {self.verdict}")
@@ -176,9 +182,7 @@ def benchmark_against_baselines(
             )
         )
     except Exception as exc:  # pragma: no cover - defensive
-        baselines.append(
-            BaselineResult("majority_class", "unavailable", detail=str(exc))
-        )
+        baselines.append(BaselineResult("majority_class", "unavailable", detail=str(exc)))
 
     # 2. Base rate ----------------------------------------------------------
     try:

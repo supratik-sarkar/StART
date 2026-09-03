@@ -21,8 +21,12 @@ def binary_data():
 @pytest.fixture(scope="module")
 def multiclass_data():
     X, y = make_classification(
-        n_samples=600, n_features=12, n_informative=8, n_classes=4,
-        n_clusters_per_class=1, random_state=0,
+        n_samples=600,
+        n_features=12,
+        n_informative=8,
+        n_classes=4,
+        n_clusters_per_class=1,
+        random_state=0,
     )
     return pd.DataFrame(X, columns=[f"f{i}" for i in range(12)]), y
 
@@ -31,9 +35,7 @@ def multiclass_data():
 def multilabel_data():
     rng = np.random.default_rng(0)
     X = pd.DataFrame(rng.normal(size=(400, 8)), columns=[f"f{i}" for i in range(8)])
-    y = pd.DataFrame(
-        {"a": (X.f0 > 0).astype(int), "b": (X.f1 > 0).astype(int), "c": (X.f2 > 0).astype(int)}
-    )
+    y = pd.DataFrame({"a": (X.f0 > 0).astype(int), "b": (X.f1 > 0).astype(int), "c": (X.f2 > 0).astype(int)})
     return X, y
 
 
@@ -45,7 +47,6 @@ def test_task_set():
         "regression",
         "forecasting",
     }
-
 
 
 def test_unknown_task_raises():
@@ -73,8 +74,11 @@ def test_multiclass_classification(family, multiclass_data):
     X, y = multiclass_data
     lr = 3e-3 if family == "wide_deep" else 1e-3
     clf = TabularDLClassifier(
-        task="multiclass_classification", family=family, epochs=10,
-        learning_rate=lr, random_state=0,
+        task="multiclass_classification",
+        family=family,
+        epochs=10,
+        learning_rate=lr,
+        random_state=0,
     )
     clf.fit(X, y)
     proba = clf.predict_proba(X)
@@ -88,8 +92,12 @@ def test_multiclass_classification(family, multiclass_data):
 
 def test_multiclass_with_string_labels():
     X, yi = make_classification(
-        n_samples=300, n_features=8, n_informative=6, n_classes=3,
-        n_clusters_per_class=1, random_state=1,
+        n_samples=300,
+        n_features=8,
+        n_informative=6,
+        n_classes=3,
+        n_clusters_per_class=1,
+        random_state=1,
     )
     X = pd.DataFrame(X, columns=[f"f{i}" for i in range(8)])
     y = np.array(["low", "mid", "high"])[yi]
@@ -103,8 +111,11 @@ def test_multiclass_with_string_labels():
 def test_multilabel_classification(multilabel_data):
     X, y = multilabel_data
     clf = TabularDLClassifier(
-        task="multilabel_classification", family="mlp", epochs=10,
-        learning_rate=3e-3, random_state=0,
+        task="multilabel_classification",
+        family="mlp",
+        epochs=10,
+        learning_rate=3e-3,
+        random_state=0,
     )
     clf.fit(X, y)
     proba = clf.predict_proba(X)
@@ -125,7 +136,6 @@ def test_metrics_branch_by_task(binary_data):
     assert "top_decile_lift" in bm  # binary-only metric
     with pytest.raises(ValueError, match="No metric branch"):
         dl_task_metrics("ranking", y, proba)
-
 
 
 def test_sklearn_protocol_and_history(binary_data):
@@ -149,7 +159,7 @@ def test_laptop_safe_constraints():
 def test_activation_selection(binary_data):
     X, y = binary_data
     for act in ("relu", "leaky_relu", "gelu", "tanh", "selu", "elu"):
-        clf = TabularDLClassifier(
-            task="binary_classification", activation=act, epochs=3, random_state=0
-        ).fit(X, y)
+        clf = TabularDLClassifier(task="binary_classification", activation=act, epochs=3, random_state=0).fit(
+            X, y
+        )
         assert clf.activation == act

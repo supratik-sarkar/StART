@@ -38,9 +38,7 @@ class _LocalFakeLLM:
         self.calls.append((system, user))
         return self._responses.pop(0) if self._responses else "ok"
 
-    def generate(
-        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
-    ) -> str:
+    def generate(self, prompt: str, *, system: str | None = None, metadata: dict | None = None) -> str:
         # run_llm_check calls generate(prompt, system=..., metadata=...);
         # delegate to complete so scripted/citing subclasses keep working.
         budget = int((metadata or {}).get("output_token_budget", (metadata or {}).get("max_tokens", 1024)))
@@ -322,7 +320,9 @@ def test_keychain_resolves_when_environment_absent(monkeypatch):
     """2. Keychain resolves when environment variable is absent."""
     import os
 
-    monkeypatch.setattr("start.providers.keys.keychain_get_key", lambda p: "sk-keychain-67890" if p == "openai" else None)
+    monkeypatch.setattr(
+        "start.providers.keys.keychain_get_key", lambda p: "sk-keychain-67890" if p == "openai" else None
+    )
 
     status = ensure_provider_key("openai", prompt_for_key=False)
     assert status.source == "keychain"
@@ -372,12 +372,17 @@ def test_replacement_updates_same_canonical_credential(monkeypatch):
 
 def test_configure_all_five_providers_preserves_existing(monkeypatch):
     """6. Configure all iterates all 5 providers and keeps existing credentials."""
-    stored = {"openai": "sk-existing-openai", "anthropic": "sk-existing-anthropic", "deepseek": "sk-existing-deepseek"}
+    stored = {
+        "openai": "sk-existing-openai",
+        "anthropic": "sk-existing-anthropic",
+        "deepseek": "sk-existing-deepseek",
+    }
     monkeypatch.setattr("start.providers.keys.keychain_is_supported", lambda: True)
     monkeypatch.setattr("start.providers.keys.keychain_has_key", lambda p: p in stored)
     monkeypatch.setattr("start.providers.keys.keychain_set_key", lambda p, s: stored.update({p: s}) or True)
 
     prompts_entered = []
+
     def fake_getpass(prompt: str) -> str:
         secret = f"sk-new-{len(prompts_entered)}"
         prompts_entered.append((prompt, secret))
@@ -403,7 +408,10 @@ def test_configure_all_five_providers_preserves_existing(monkeypatch):
 
 def test_status_never_reveals_token(monkeypatch):
     """7. Status command never prints or displays any part of the secret."""
-    monkeypatch.setattr("start.providers.keys.keychain_has_key", lambda p: p in ("openai", "anthropic", "gemini", "deepseek", "grok"))
+    monkeypatch.setattr(
+        "start.providers.keys.keychain_has_key",
+        lambda p: p in ("openai", "anthropic", "gemini", "deepseek", "grok"),
+    )
     from typer.testing import CliRunner
 
     from start.cli import app
@@ -589,7 +597,9 @@ def test_provider_failure_message_does_not_print_token(monkeypatch):
 
 def test_openai_works_through_mocked_keychain_resolver(monkeypatch):
     """16. OpenAI provider functions seamlessly when key resolved from Keychain."""
-    monkeypatch.setattr("start.providers.keys.keychain_get_key", lambda p: "sk-mock-openai-key" if p == "openai" else None)
+    monkeypatch.setattr(
+        "start.providers.keys.keychain_get_key", lambda p: "sk-mock-openai-key" if p == "openai" else None
+    )
     ensure_provider_key("openai", prompt_for_key=False)
 
     from start.core.config import LLMConfig
@@ -602,7 +612,9 @@ def test_openai_works_through_mocked_keychain_resolver(monkeypatch):
 
 def test_anthropic_works_through_mocked_keychain_resolver(monkeypatch):
     """17. Anthropic provider functions seamlessly when key resolved from Keychain."""
-    monkeypatch.setattr("start.providers.keys.keychain_get_key", lambda p: "sk-ant-mock-key" if p == "anthropic" else None)
+    monkeypatch.setattr(
+        "start.providers.keys.keychain_get_key", lambda p: "sk-ant-mock-key" if p == "anthropic" else None
+    )
     ensure_provider_key("anthropic", prompt_for_key=False)
 
     from start.core.config import LLMConfig
@@ -615,7 +627,9 @@ def test_anthropic_works_through_mocked_keychain_resolver(monkeypatch):
 
 def test_deepseek_works_through_mocked_keychain_resolver(monkeypatch):
     """18. DeepSeek provider functions seamlessly when key resolved from Keychain."""
-    monkeypatch.setattr("start.providers.keys.keychain_get_key", lambda p: "sk-deepseek-mock-key" if p == "deepseek" else None)
+    monkeypatch.setattr(
+        "start.providers.keys.keychain_get_key", lambda p: "sk-deepseek-mock-key" if p == "deepseek" else None
+    )
     ensure_provider_key("deepseek", prompt_for_key=False)
 
     from start.core.config import LLMConfig

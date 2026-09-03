@@ -174,14 +174,10 @@ class PlanCoverage:
                 + ", ".join(d.dimension_id for d in self.gaps)
             )
             lines.append(
-                "    These are owed by the plan and cannot be evidenced by anything "
-                "currently registered."
+                "    These are owed by the plan and cannot be evidenced by anything currently registered."
             )
         lines.append("")
-        lines.append(
-            "  Coverage means a test COULD supply evidence, not that the dimension is "
-            "discharged."
-        )
+        lines.append("  Coverage means a test COULD supply evidence, not that the dimension is discharged.")
         return lines
 
 
@@ -222,19 +218,14 @@ def coverage_for_plan(plan: Any, context_type: str | None = None) -> PlanCoverag
         # Prefer a test that also declares this stripe: a drift test written for the
         # market stripe and one written for the model stripe answer the same dimension
         # differently, and the stripe-specific one is the better candidate.
-        stripe_specific = [
-            s for s in matching if stripe_id in getattr(s, "risk_stripes", ())
-        ]
+        stripe_specific = [s for s in matching if stripe_id in getattr(s, "risk_stripes", ())]
         preferred = stripe_specific or matching
 
         if context_type is None:
             available = preferred
             unavailable: list[Any] = []
         else:
-            available = [
-                s for s in preferred
-                if getattr(s, "context_type", "tabular") == context_type
-            ]
+            available = [s for s in preferred if getattr(s, "context_type", "tabular") == context_type]
             unavailable = [s for s in preferred if s not in available]
 
         dimensions.append(

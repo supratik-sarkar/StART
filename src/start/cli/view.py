@@ -35,8 +35,9 @@ AGENT_COLOR_REGISTRY = {
     "Overfitting Agent": "salmon",
     "Validation Agent": "yellow",
     "Governance Signoff Agent": "bold blue",
-    "Evidence Critic Agent": "bold white"
+    "Evidence Critic Agent": "bold white",
 }
+
 
 def get_styled_agent_name(agent_name: str) -> Text:
     """Returns a Rich Text block with the agent name locked to its designated color identity."""
@@ -45,15 +46,18 @@ def get_styled_agent_name(agent_name: str) -> Text:
     color = AGENT_COLOR_REGISTRY.get(clean_key, "white")
     return Text(clean_key, style=color)
 
+
 def get_ansi_agent_name(agent_name: str) -> str:
     """Returns an ANSI-colorized string representation of the agent name for terminal prompt usage."""
     clean_key = agent_name.strip()
     color = AGENT_COLOR_REGISTRY.get(clean_key, "white")
     from rich.console import Console
+
     c = Console(color_system="standard", force_terminal=True)
     with c.capture() as capture:
         c.print(clean_key, style=color, end="")
     return capture.get()
+
 
 class ProgressDashboardUI:
     def __init__(self, telemetry_bus: TelemetryBus):
@@ -73,6 +77,7 @@ class ProgressDashboardUI:
         self.stage_pct = event.progress_percentage
         if event.trace_details:
             from start.cli.view import AGENT_COLOR_REGISTRY
+
             color = AGENT_COLOR_REGISTRY.get(event.agent_name, "white")
             log_line = f"[[{color}]{event.agent_name}[/{color}]] {event.trace_details.reasoning_step} (Conf: {event.trace_details.confidence_score})"
             if log_line not in self.logs:
@@ -87,16 +92,20 @@ class ProgressDashboardUI:
             Layout(name="header", size=3),
             Layout(name="stage", size=3),
             Layout(name="body", size=6),
-            Layout(name="logs", size=8)
+            Layout(name="logs", size=8),
         )
-        
+
         # Header global component configuration
-        g_prog = Progress(TextColumn("[bold blue]{task.description}"), BarColumn(), TextColumn("{task.percentage:>3.0f}%"))
+        g_prog = Progress(
+            TextColumn("[bold blue]{task.description}"), BarColumn(), TextColumn("{task.percentage:>3.0f}%")
+        )
         g_prog.add_task("Global Evaluation Progress", total=100, completed=int(self.global_pct))
         layout["header"].update(Panel(g_prog, title="Global Engine Vector"))
 
         # Stage component configuration
-        s_prog = Progress(TextColumn("[bold green]{task.description}"), BarColumn(), TextColumn("{task.percentage:>3.0f}%"))
+        s_prog = Progress(
+            TextColumn("[bold green]{task.description}"), BarColumn(), TextColumn("{task.percentage:>3.0f}%")
+        )
         s_prog.add_task(f"Stage: {self.active_stage}", total=100, completed=int(self.stage_pct))
         layout["stage"].update(Panel(s_prog, title="Pipeline Stage Vector"))
 
@@ -107,7 +116,7 @@ class ProgressDashboardUI:
         body_text.append("\n")
         body_text.append("Current Objective: ", style="bold white")
         body_text.append(f"{self.status_msg}\n")
-        
+
         snap = self.bus.fetch_agent_snapshot(self.active_agent)
         if snap and snap.metrics:
             body_text.append(f"Telemetry Footprint: {json.dumps(snap.metrics)}", style="italic cyan")

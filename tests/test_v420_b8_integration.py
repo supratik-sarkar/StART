@@ -39,16 +39,22 @@ def test_b8_creates_no_registered_family():
 
 def test_final_family_census():
     assert dict(Counter(s.family for s in list_tests())) == {
-        "genai": 1, "preprocessing": 21, "supervised": 5, "xai": 4, "eda": 6,
-        "feature_engineering": 15, "portfolio": 10, "attribution": 6,
-        "traded_risk": 8, "covariance": 3,
+        "genai": 1,
+        "preprocessing": 21,
+        "supervised": 5,
+        "xai": 4,
+        "eda": 6,
+        "feature_engineering": 15,
+        "portfolio": 10,
+        "attribution": 6,
+        "traded_risk": 8,
+        "covariance": 3,
     }
 
 
 # ------------------------------------------ validation status preservation --
 def test_all_four_studies_are_represented():
-    assert set(_by_id()) == {"var_size_power", "cev_consistency",
-                             "stanton_bias", "regem_structural"}
+    assert set(_by_id()) == {"var_size_power", "cev_consistency", "stanton_bias", "regem_structural"}
 
 
 def test_var_remains_pass():
@@ -165,8 +171,7 @@ def test_narrative_reports_both_failures_and_claims_no_blanket_pass():
 def test_narrative_cites_evidence_for_quantitative_claims():
     from scripts.demo_market import build_narrative
 
-    records = [EvidenceRecord.from_result(r, run_id="RUN-TEST")
-               for r in validation_results()]
+    records = [EvidenceRecord.from_result(r, run_id="RUN-TEST") for r in validation_results()]
     text = build_narrative(records)
     assert "[EV-" in text
     assert text.count("[EV-") >= 4
@@ -177,8 +182,17 @@ def test_evidence_record_schema_is_unchanged():
     """B8 adds no field to the core schema."""
     result = validation_results()[0]
     record = EvidenceRecord.from_result(result, run_id="RUN-TEST")
-    for field in ("test_id", "test_name", "model_id", "dataset_id", "run_id",
-                  "params", "metrics", "status", "evidence_id"):
+    for field in (
+        "test_id",
+        "test_name",
+        "model_id",
+        "dataset_id",
+        "run_id",
+        "params",
+        "metrics",
+        "status",
+        "evidence_id",
+    ):
         assert hasattr(record, field)
 
 
@@ -203,8 +217,7 @@ def test_narrative_citations_have_single_ev_prefix():
 
     from scripts.demo_market import build_narrative
 
-    records = [EvidenceRecord.from_result(r, run_id="RUN-TEST")
-               for r in validation_results()]
+    records = [EvidenceRecord.from_result(r, run_id="RUN-TEST") for r in validation_results()]
     text = build_narrative(records)
     # Must NOT have double EV- prefix
     assert not re.search(r"\[EV-EV-", text)
@@ -342,4 +355,3 @@ def test_all_demo_market_claims_semantically_bound():
 
     assert by_surface["0.6350"]["test_id"] == "validation.cev_consistency"
     assert "coverage_gamma_0_0" in by_surface["0.6350"]["bound_to"]
-

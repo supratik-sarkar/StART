@@ -132,11 +132,7 @@ def build_presentation_model(
         orchestration_events=orchestration_events or [],
     )
 
-    all_artifacts = [
-        art
-        for arts in (artifacts_by_checkpoint or {}).values()
-        for art in arts
-    ]
+    all_artifacts = [art for arts in (artifacts_by_checkpoint or {}).values() for art in arts]
 
     has_market = "market" in domains_str
     has_predictive = "predictive" in domains_str
@@ -154,56 +150,96 @@ def build_presentation_model(
         if "portfolio.risk_statistics" in rec_map(records):
             r = rec_map(records)["portfolio.risk_statistics"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Portfolio Annualised Volatility",
-                value=m.get("annualised_volatility"), unit="annualized_vol",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Periodic Volatility",
-                value=m.get("volatility"), unit="periodic_vol",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Portfolio Annualised Volatility",
+                    value=m.get("annualised_volatility"),
+                    unit="annualized_vol",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Periodic Volatility",
+                    value=m.get("volatility"),
+                    unit="periodic_vol",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         # Mean-Variance / MinVar
         if "portfolio.mean_variance" in rec_map(records):
             r = rec_map(records)["portfolio.mean_variance"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Mean-Variance Annualised Sharpe",
-                value=m.get("sharpe_annualised"), unit="sharpe",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="MVO Active Positions",
-                value=m.get("n_active_positions"), unit="count",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="MVO Solver Converged",
-                value=m.get("converged"), unit="boolean",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Mean-Variance Annualised Sharpe",
+                    value=m.get("sharpe_annualised"),
+                    unit="sharpe",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="MVO Active Positions",
+                    value=m.get("n_active_positions"),
+                    unit="count",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="MVO Solver Converged",
+                    value=m.get("converged"),
+                    unit="boolean",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         # HRP
         if "portfolio.hierarchical_risk_parity" in rec_map(records):
             r = rec_map(records)["portfolio.hierarchical_risk_parity"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="HRP Max Weight",
-                value=m.get("max_weight"), unit="weight",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="HRP Effective N Positions",
-                value=m.get("effective_n_positions"), unit="effective_n",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="HRP Herfindahl Concentration",
-                value=m.get("herfindahl"), unit="hhi",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="HRP Max Weight",
+                    value=m.get("max_weight"),
+                    unit="weight",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="HRP Effective N Positions",
+                    value=m.get("effective_n_positions"),
+                    unit="effective_n",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="HRP Herfindahl Concentration",
+                    value=m.get("herfindahl"),
+                    unit="hhi",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
             port_summary["hrp_linkage"] = m.get("linkage_method")
             port_summary["hrp_quasi_diagonal_order"] = m.get("quasi_diagonal_order")
 
@@ -211,61 +247,101 @@ def build_presentation_model(
         if "portfolio.herc" in rec_map(records):
             r = rec_map(records)["portfolio.herc"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="HERC Effective N Positions",
-                value=m.get("effective_n_positions"), unit="effective_n",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="HERC Annualised Volatility",
-                value=m.get("portfolio_volatility_annualised"), unit="annualized_vol",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="HERC Effective N Positions",
+                    value=m.get("effective_n_positions"),
+                    unit="effective_n",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="HERC Annualised Volatility",
+                    value=m.get("portfolio_volatility_annualised"),
+                    unit="annualized_vol",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         # Black-Litterman
         if "portfolio.black_litterman" in rec_map(records):
             r = rec_map(records)["portfolio.black_litterman"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Black-Litterman Posterior Volatility",
-                value=m.get("posterior_volatility_annualised"), unit="annualized_vol",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Black-Litterman Turnover vs Prior",
-                value=m.get("turnover_vs_prior"), unit="turnover",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Black-Litterman Posterior Volatility",
+                    value=m.get("posterior_volatility_annualised"),
+                    unit="annualized_vol",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Black-Litterman Turnover vs Prior",
+                    value=m.get("turnover_vs_prior"),
+                    unit="turnover",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         # CVaR
         if "portfolio.cvar_optimization" in rec_map(records):
             r = rec_map(records)["portfolio.cvar_optimization"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="CVaR (Expected Shortfall)",
-                value=m.get("cvar_annualised"), unit="annualized_loss",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="CVaR Tail Scenarios",
-                value=m.get("tail_scenario_count"), unit="count",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="CVaR (Expected Shortfall)",
+                    value=m.get("cvar_annualised"),
+                    unit="annualized_loss",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="CVaR Tail Scenarios",
+                    value=m.get("tail_scenario_count"),
+                    unit="count",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         # Constrained Optimization
         if "portfolio.constrained_optimization" in rec_map(records):
             r = rec_map(records)["portfolio.constrained_optimization"]
             m = r.metrics
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Constraint Audit Is Valid",
-                value=m.get("is_valid"), unit="boolean",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            port_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Max Constraint Violation",
-                value=m.get("max_violation"), unit="violation_magnitude",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Constraint Audit Is Valid",
+                    value=m.get("is_valid"),
+                    unit="boolean",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            port_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Max Constraint Violation",
+                    value=m.get("max_violation"),
+                    unit="violation_magnitude",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         # Collect portfolio artifacts
         for art in all_artifacts:
@@ -291,27 +367,47 @@ def build_presentation_model(
         if "portfolio.hierarchical_risk_parity" in rec_map(records):
             r = rec_map(records)["portfolio.hierarchical_risk_parity"]
             m = r.metrics
-            hrp_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Linkage Method",
-                value=m.get("linkage_method", "single"), unit="algorithm",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            hrp_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Quasi-Diagonal Order",
-                value=str(m.get("quasi_diagonal_order", "—"))[:40] + "...", unit="ordering",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            hrp_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Portfolio Variance (Periodic)",
-                value=m.get("portfolio_variance_periodic"), unit="variance",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            hrp_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Linkage Method",
+                    value=m.get("linkage_method", "single"),
+                    unit="algorithm",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            hrp_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Quasi-Diagonal Order",
+                    value=str(m.get("quasi_diagonal_order", "—"))[:40] + "...",
+                    unit="ordering",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            hrp_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Portfolio Variance (Periodic)",
+                    value=m.get("portfolio_variance_periodic"),
+                    unit="variance",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
             if "cophenetic_correlation" in m:
-                hrp_rows.append(QuantitativeMetricRow(
-                    test_id=r.test_id, metric="Cophenetic Correlation",
-                    value=m.get("cophenetic_correlation"), unit="correlation",
-                    status=str(r.status).upper(), evidence_id=r.evidence_id,
-                ))
+                hrp_rows.append(
+                    QuantitativeMetricRow(
+                        test_id=r.test_id,
+                        metric="Cophenetic Correlation",
+                        value=m.get("cophenetic_correlation"),
+                        unit="correlation",
+                        status=str(r.status).upper(),
+                        evidence_id=r.evidence_id,
+                    )
+                )
 
         for art in all_artifacts:
             spec = getattr(art, "spec", None)
@@ -336,53 +432,88 @@ def build_presentation_model(
         if "attribution.factor_return_estimation" in rec_map(records):
             r = rec_map(records)["attribution.factor_return_estimation"]
             m = r.metrics
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Estimated Factors Count",
-                value=m.get("n_factors"), unit="count",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Estimation Periods",
-                value=f"{m.get('n_periods_estimated')}/{m.get('n_periods_total')}", unit="periods",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Estimated Factors Count",
+                    value=m.get("n_factors"),
+                    unit="count",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Estimation Periods",
+                    value=f"{m.get('n_periods_estimated')}/{m.get('n_periods_total')}",
+                    unit="periods",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "attribution.return_attribution" in rec_map(records):
             r = rec_map(records)["attribution.return_attribution"]
             m = r.metrics
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Max Return Reconciliation Error",
-                value=m.get("max_abs_reconciliation_error"), unit="tolerance",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Factor Return Source",
-                value=m.get("factor_return_source", "supplied"), unit="provenance",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Max Return Reconciliation Error",
+                    value=m.get("max_abs_reconciliation_error"),
+                    unit="tolerance",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Factor Return Source",
+                    value=m.get("factor_return_source", "supplied"),
+                    unit="provenance",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "attribution.risk_attribution" in rec_map(records):
             r = rec_map(records)["attribution.risk_attribution"]
             m = r.metrics
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Factor Model to Empirical Ratio",
-                value=m.get("factor_model_to_empirical_ratio"), unit="ratio",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Attribution Variance Shortfall",
-                value=m.get("variance_shortfall"), unit="percentage",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Factor Model to Empirical Ratio",
+                    value=m.get("factor_model_to_empirical_ratio"),
+                    unit="ratio",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Attribution Variance Shortfall",
+                    value=m.get("variance_shortfall"),
+                    unit="percentage",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "attribution.risk_change_decomposition" in rec_map(records):
             r = rec_map(records)["attribution.risk_change_decomposition"]
             m = r.metrics
-            attr_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Risk Change Total Delta Variance",
-                value=m.get("delta_total_variance_periodic"), unit="variance_delta",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            attr_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Risk Change Total Delta Variance",
+                    value=m.get("delta_total_variance_periodic"),
+                    unit="variance_delta",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         for art in all_artifacts:
             spec = getattr(art, "spec", None)
@@ -407,53 +538,88 @@ def build_presentation_model(
         if "covariance.empirical" in rec_map(records):
             r = rec_map(records)["covariance.empirical"]
             m = r.metrics
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Empirical Covariance PSD",
-                value=m.get("is_psd", True), unit="boolean",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Empirical Covariance PSD",
+                    value=m.get("is_psd", True),
+                    unit="boolean",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "covariance.ledoit_wolf_shrinkage" in rec_map(records):
             r = rec_map(records)["covariance.ledoit_wolf_shrinkage"]
             m = r.metrics
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Ledoit-Wolf Shrinkage Intensity",
-                value=m.get("shrinkage_intensity"), unit="intensity",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Condition Number Before",
-                value=m.get("condition_number_before"), unit="kappa",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Condition Number After",
-                value=m.get("condition_number_after"), unit="kappa",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Ledoit-Wolf Shrinkage Intensity",
+                    value=m.get("shrinkage_intensity"),
+                    unit="intensity",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Condition Number Before",
+                    value=m.get("condition_number_before"),
+                    unit="kappa",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Condition Number After",
+                    value=m.get("condition_number_after"),
+                    unit="kappa",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "portfolio.covariance_conditioning" in rec_map(records):
             r = rec_map(records)["portfolio.covariance_conditioning"]
             m = r.metrics
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Covariance Condition Number",
-                value=m.get("condition_number"), unit="kappa",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Full Rank Status",
-                value=m.get("full_rank"), unit="boolean",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Covariance Condition Number",
+                    value=m.get("condition_number"),
+                    unit="kappa",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Full Rank Status",
+                    value=m.get("full_rank"),
+                    unit="boolean",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "validation.regem_structural" in rec_map(records):
             r = rec_map(records)["validation.regem_structural"]
             m = r.metrics
-            cov_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="RegEM Structural Criteria Met",
-                value=m.get("classification", "all cells met"), unit="validation",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            cov_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="RegEM Structural Criteria Met",
+                    value=m.get("classification", "all cells met"),
+                    unit="validation",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         for art in all_artifacts:
             spec = getattr(art, "spec", None)
@@ -478,67 +644,112 @@ def build_presentation_model(
         if "traded_risk.var_exceptions" in rec_map(records):
             r = rec_map(records)["traded_risk.var_exceptions"]
             m = r.metrics
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="VaR Exception Count",
-                value=m.get("n_exceptions"), unit="count",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Expected Exceptions",
-                value=m.get("expected_exceptions"), unit="count",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Exception Rate",
-                value=m.get("exception_rate"), unit="rate",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="VaR Exception Count",
+                    value=m.get("n_exceptions"),
+                    unit="count",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Expected Exceptions",
+                    value=m.get("expected_exceptions"),
+                    unit="count",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Exception Rate",
+                    value=m.get("exception_rate"),
+                    unit="rate",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "traded_risk.var_kupiec_pof" in rec_map(records):
             r = rec_map(records)["traded_risk.var_kupiec_pof"]
             m = r.metrics
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Kupiec POF p-value",
-                value=m.get("p_value"), unit="p_value",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Kupiec Test Rejected",
-                value=m.get("rejected"), unit="boolean",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Kupiec POF p-value",
+                    value=m.get("p_value"),
+                    unit="p_value",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Kupiec Test Rejected",
+                    value=m.get("rejected"),
+                    unit="boolean",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "traded_risk.var_christoffersen_independence" in rec_map(records):
             r = rec_map(records)["traded_risk.var_christoffersen_independence"]
             m = r.metrics
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Christoffersen Independence Rejected",
-                value=m.get("rejected"), unit="boolean",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Christoffersen Independence Rejected",
+                    value=m.get("rejected"),
+                    unit="boolean",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "scenario.linear_return" in rec_map(records):
             r = rec_map(records)["scenario.linear_return"]
             m = r.metrics
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Scenario Shock P&L",
-                value=m.get("portfolio_pnl_periodic"), unit="pnl",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Scenario Shock P&L",
+                    value=m.get("portfolio_pnl_periodic"),
+                    unit="pnl",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         if "scenario.reverse_stress" in rec_map(records):
             r = rec_map(records)["scenario.reverse_stress"]
             m = r.metrics
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Reverse Stress Minimal Distance",
-                value=m.get("distance"), unit="mahalanobis_distance",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
-            tail_rows.append(QuantitativeMetricRow(
-                test_id=r.test_id, metric="Reverse Stress Target Loss Gap",
-                value=m.get("target_loss_gap"), unit="gap",
-                status=str(r.status).upper(), evidence_id=r.evidence_id,
-            ))
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Reverse Stress Minimal Distance",
+                    value=m.get("distance"),
+                    unit="mahalanobis_distance",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
+            tail_rows.append(
+                QuantitativeMetricRow(
+                    test_id=r.test_id,
+                    metric="Reverse Stress Target Loss Gap",
+                    value=m.get("target_loss_gap"),
+                    unit="gap",
+                    status=str(r.status).upper(),
+                    evidence_id=r.evidence_id,
+                )
+            )
 
         for art in all_artifacts:
             spec = getattr(art, "spec", None)
@@ -565,10 +776,15 @@ def build_presentation_model(
             if tid in rec_map(records):
                 r = rec_map(records)[tid]
                 for k, v in list(r.metrics.items())[:3]:
-                    pred_data_rows.append(QuantitativeMetricRow(
-                        test_id=r.test_id, metric=k, value=v,
-                        status=str(r.status).upper(), evidence_id=r.evidence_id,
-                    ))
+                    pred_data_rows.append(
+                        QuantitativeMetricRow(
+                            test_id=r.test_id,
+                            metric=k,
+                            value=v,
+                            status=str(r.status).upper(),
+                            evidence_id=r.evidence_id,
+                        )
+                    )
 
         if pred_data_rows:
             model.blocks["DATA_PREPROCESSING"] = PresentationBlock(
@@ -584,10 +800,15 @@ def build_presentation_model(
             if tid in rec_map(records):
                 r = rec_map(records)[tid]
                 for k, v in list(r.metrics.items())[:3]:
-                    arch_rows.append(QuantitativeMetricRow(
-                        test_id=r.test_id, metric=k, value=v,
-                        status=str(r.status).upper(), evidence_id=r.evidence_id,
-                    ))
+                    arch_rows.append(
+                        QuantitativeMetricRow(
+                            test_id=r.test_id,
+                            metric=k,
+                            value=v,
+                            status=str(r.status).upper(),
+                            evidence_id=r.evidence_id,
+                        )
+                    )
         if arch_rows:
             model.blocks["MODEL_ARCHITECTURE"] = PresentationBlock(
                 block_id="MODEL_ARCHITECTURE",
@@ -602,10 +823,15 @@ def build_presentation_model(
             if tid in rec_map(records):
                 r = rec_map(records)[tid]
                 for k, v in list(r.metrics.items())[:3]:
-                    tune_rows.append(QuantitativeMetricRow(
-                        test_id=r.test_id, metric=k, value=v,
-                        status=str(r.status).upper(), evidence_id=r.evidence_id,
-                    ))
+                    tune_rows.append(
+                        QuantitativeMetricRow(
+                            test_id=r.test_id,
+                            metric=k,
+                            value=v,
+                            status=str(r.status).upper(),
+                            evidence_id=r.evidence_id,
+                        )
+                    )
         if tune_rows:
             model.blocks["TRAINING_TUNING"] = PresentationBlock(
                 block_id="TRAINING_TUNING",
@@ -616,14 +842,24 @@ def build_presentation_model(
 
         # PERFORMANCE & DISCRIMINATION
         perf_rows: list[QuantitativeMetricRow] = []
-        for tid in ("metrics.performance", "supervised.classification_metrics", "metrics.calibration", "supervised.discrimination"):
+        for tid in (
+            "metrics.performance",
+            "supervised.classification_metrics",
+            "metrics.calibration",
+            "supervised.discrimination",
+        ):
             if tid in rec_map(records):
                 r = rec_map(records)[tid]
                 for k, v in list(r.metrics.items())[:4]:
-                    perf_rows.append(QuantitativeMetricRow(
-                        test_id=r.test_id, metric=k, value=v,
-                        status=str(r.status).upper(), evidence_id=r.evidence_id,
-                    ))
+                    perf_rows.append(
+                        QuantitativeMetricRow(
+                            test_id=r.test_id,
+                            metric=k,
+                            value=v,
+                            status=str(r.status).upper(),
+                            evidence_id=r.evidence_id,
+                        )
+                    )
 
         if perf_rows:
             model.blocks["PERFORMANCE"] = PresentationBlock(
@@ -635,14 +871,24 @@ def build_presentation_model(
 
         # SENSITIVITY & ROBUSTNESS
         sens_rows: list[QuantitativeMetricRow] = []
-        for tid in ("sensitivity.perturbation", "robustness.missingness", "stability.seed_dispersion", "supervised.discrimination"):
+        for tid in (
+            "sensitivity.perturbation",
+            "robustness.missingness",
+            "stability.seed_dispersion",
+            "supervised.discrimination",
+        ):
             if tid in rec_map(records):
                 r = rec_map(records)[tid]
                 for k, v in list(r.metrics.items())[:3]:
-                    sens_rows.append(QuantitativeMetricRow(
-                        test_id=r.test_id, metric=k, value=v,
-                        status=str(r.status).upper(), evidence_id=r.evidence_id,
-                    ))
+                    sens_rows.append(
+                        QuantitativeMetricRow(
+                            test_id=r.test_id,
+                            metric=k,
+                            value=v,
+                            status=str(r.status).upper(),
+                            evidence_id=r.evidence_id,
+                        )
+                    )
         if sens_rows:
             model.blocks["SENSITIVITY"] = PresentationBlock(
                 block_id="SENSITIVITY",
@@ -653,14 +899,24 @@ def build_presentation_model(
 
         # EXPLAINABILITY (XAI)
         xai_rows: list[QuantitativeMetricRow] = []
-        for tid in ("explainability.importance", "explainability.shap", "xai.global_importance", "supervised.discrimination"):
+        for tid in (
+            "explainability.importance",
+            "explainability.shap",
+            "xai.global_importance",
+            "supervised.discrimination",
+        ):
             if tid in rec_map(records):
                 r = rec_map(records)[tid]
                 for k, v in list(r.metrics.items())[:3]:
-                    xai_rows.append(QuantitativeMetricRow(
-                        test_id=r.test_id, metric=k, value=v,
-                        status=str(r.status).upper(), evidence_id=r.evidence_id,
-                    ))
+                    xai_rows.append(
+                        QuantitativeMetricRow(
+                            test_id=r.test_id,
+                            metric=k,
+                            value=v,
+                            status=str(r.status).upper(),
+                            evidence_id=r.evidence_id,
+                        )
+                    )
 
         if xai_rows:
             model.blocks["EXPLAINABILITY"] = PresentationBlock(
@@ -675,12 +931,18 @@ def build_presentation_model(
     # ----------------------------------------------------------------------- #
     gov_rows: list[QuantitativeMetricRow] = [
         QuantitativeMetricRow(
-            test_id="governance.disposition", metric="Final Governance Disposition",
-            value=governance_disposition, status="FINAL", evidence_id="GOV-FINAL",
+            test_id="governance.disposition",
+            metric="Final Governance Disposition",
+            value=governance_disposition,
+            status="FINAL",
+            evidence_id="GOV-FINAL",
         ),
         QuantitativeMetricRow(
-            test_id="governance.attestation_seal", metric="Attestation Seal Merkle Root",
-            value=attestation_seal_merkle_root, status="SIGNED", evidence_id="SEAL-ROOT",
+            test_id="governance.attestation_seal",
+            metric="Attestation Seal Merkle Root",
+            value=attestation_seal_merkle_root,
+            status="SIGNED",
+            evidence_id="SEAL-ROOT",
         ),
     ]
     model.blocks["GOVERNANCE"] = PresentationBlock(
@@ -708,8 +970,12 @@ def art_summary(art: Any) -> dict[str, Any]:
     spec = getattr(art, "spec", None)
     return {
         "artifact_id": getattr(art, "artifact_id", "ART"),
-        "title": getattr(spec, "title", getattr(art, "title", "Artifact")) if spec else getattr(art, "title", "Artifact"),
-        "artifact_type": getattr(spec, "artifact_type", getattr(art, "artifact_type", "unknown")) if spec else "unknown",
+        "title": getattr(spec, "title", getattr(art, "title", "Artifact"))
+        if spec
+        else getattr(art, "title", "Artifact"),
+        "artifact_type": getattr(spec, "artifact_type", getattr(art, "artifact_type", "unknown"))
+        if spec
+        else "unknown",
         "format": getattr(art, "rendering_format", getattr(art, "format", "svg")),
         "file_path": getattr(art, "file_path", None),
         "evidence_ids": list(getattr(art, "evidence_ids", ())),

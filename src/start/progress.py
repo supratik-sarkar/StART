@@ -22,8 +22,7 @@ from typing import Any
 
 
 @contextlib.contextmanager
-def spinner(description: str, *, enabled: bool = True,
-            console: Any = None) -> Iterator[None]:
+def spinner(description: str, *, enabled: bool = True, console: Any = None) -> Iterator[None]:
     """Indeterminate spinner + elapsed time for work without a known count."""
     if not enabled:
         yield
@@ -47,8 +46,9 @@ def spinner(description: str, *, enabled: bool = True,
 
 
 @contextlib.contextmanager
-def progress_bar(total: int, description: str, *, enabled: bool = True,
-                 console: Any = None) -> Iterator[Callable[[int], None]]:
+def progress_bar(
+    total: int, description: str, *, enabled: bool = True, console: Any = None
+) -> Iterator[Callable[[int], None]]:
     """Percentage progress bar for counted loops.
 
     Yields an ``advance(n=1)`` callable. Only use this when ``total`` is the

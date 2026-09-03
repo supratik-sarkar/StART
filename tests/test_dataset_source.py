@@ -64,6 +64,13 @@ def test_markdown_includes_url_for_demo():
 def test_to_dict_complete():
     df = load_attrition_dataset(seed=0)
     d = describe_demo_dataset(df, "attrition").to_dict()
-    for key in ("kind", "name", "public_url", "reason_selected", "task_suitability",
-                "loading_route", "data_hash"):
+    for key in (
+        "kind",
+        "name",
+        "public_url",
+        "reason_selected",
+        "task_suitability",
+        "loading_route",
+        "data_hash",
+    ):
         assert key in d

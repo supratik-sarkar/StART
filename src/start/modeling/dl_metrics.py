@@ -22,16 +22,13 @@ DL_METRIC_NAMES = (
 )
 
 
-
 def brier_score(y_true: np.ndarray, scores: np.ndarray) -> float:
     y_true = np.asarray(y_true, dtype=float)
     scores = np.asarray(scores, dtype=float)
     return float(np.mean((scores - y_true) ** 2))
 
 
-def expected_calibration_error(
-    y_true: np.ndarray, scores: np.ndarray, n_bins: int = 10
-) -> float:
+def expected_calibration_error(y_true: np.ndarray, scores: np.ndarray, n_bins: int = 10) -> float:
     """ECE: weighted average gap between confidence and accuracy across bins."""
     y_true = np.asarray(y_true, dtype=float)
     scores = np.asarray(scores, dtype=float)

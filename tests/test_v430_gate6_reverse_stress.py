@@ -28,6 +28,7 @@ from start.portfolio.scenario import solve_reverse_stress
 # 1. UNCONSTRAINED L2 ANALYTICAL CLOSED FORM
 # =========================================================================== #
 
+
 def test_unconstrained_l2_reverse_stress_closed_form():
     """Verify analytical unconstrained L2 closed-form solution: x* = -L* c / (c'c)."""
     # Exposures: c = [0.8, -0.6] -> c'c = 0.8^2 + (-0.6)^2 = 0.64 + 0.36 = 1.00
@@ -58,6 +59,7 @@ def test_unconstrained_l2_reverse_stress_closed_form():
 # 2. BOUNDED REVERSE STRESS
 # =========================================================================== #
 
+
 def test_bounded_reverse_stress_qp():
     """Verify bounded reverse stress where unconstrained shock exceeds bounds."""
     # Exposures: c = [1.0, 0.2]
@@ -84,6 +86,7 @@ def test_bounded_reverse_stress_qp():
 # =========================================================================== #
 # 3. WEIGHTED L2 & MAHALANOBIS GEOMETRY
 # =========================================================================== #
+
 
 def test_weighted_and_mahalanobis_reverse_stress():
     """Verify weighted L2 and Mahalanobis covariance geometry norms."""
@@ -116,6 +119,7 @@ def test_weighted_and_mahalanobis_reverse_stress():
 # =========================================================================== #
 # 4. FAIL-CLOSED INTEGRITY & BOUND INFEASIBILITY
 # =========================================================================== #
+
 
 def test_reverse_stress_fail_closed_checks():
     """Verify reverse stress fails closed on invalid target loss or all-zero exposures."""

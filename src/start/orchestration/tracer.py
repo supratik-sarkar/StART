@@ -130,7 +130,11 @@ class AgentExecutionTracer:
             guard_str = f"[{guard_style}]{e.policy_guardrail_decision}[/{guard_style}]"
 
             st_style = "green" if e.status == "SUCCESS" else "red"
-            lat_str = f"{e.latency_ms:.0f}ms [{st_style}]{e.status}[/{st_style}]" if e.latency_ms > 0 else f"[{st_style}]{e.status}[/{st_style}]"
+            lat_str = (
+                f"{e.latency_ms:.0f}ms [{st_style}]{e.status}[/{st_style}]"
+                if e.latency_ms > 0
+                else f"[{st_style}]{e.status}[/{st_style}]"
+            )
 
             table.add_row(
                 str(e.step_index),
@@ -156,7 +160,10 @@ class AgentExecutionTracer:
 
     def export_mermaid(self, output_path: Path | str) -> str:
         """Export real execution flow as Mermaid flowchart."""
-        lines = ["flowchart TD", "    classDef agent fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;"]
+        lines = [
+            "flowchart TD",
+            "    classDef agent fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;",
+        ]
         lines.append("    classDef tool fill:#0f172a,stroke:#f59e0b,stroke-width:1px,color:#f8fafc;")
         lines.append("    classDef gov fill:#1e1b4b,stroke:#a855f7,stroke-width:2px,color:#f8fafc;")
 
@@ -187,12 +194,12 @@ class AgentExecutionTracer:
         svg_lines = [
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="100%" height="100%" '
             'style="background:#090d16; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">',
-            '  <defs>',
+            "  <defs>",
             '    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">',
             '      <stop offset="0%" stop-color="#38bdf8" />',
             '      <stop offset="100%" stop-color="#818cf8" />',
-            '    </linearGradient>',
-            '  </defs>',
+            "    </linearGradient>",
+            "  </defs>",
             f'  <text x="30" y="35" fill="#f8fafc" font-size="18" font-weight="bold">StART Agent Orchestration Trace ({len(self.events)} Transitions)</text>',
             f'  <line x1="30" y1="50" x2="{w - 30}" y2="50" stroke="#334155" stroke-width="1"/>',
         ]
@@ -200,11 +207,17 @@ class AgentExecutionTracer:
         y = 80
         for e in self.events:
             # Step badge
-            svg_lines.append(f'  <rect x="30" y="{y - 15}" width="36" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="1"/>')
-            svg_lines.append(f'  <text x="48" y="{y + 2}" fill="#94a3b8" font-size="11" font-weight="bold" text-anchor="middle">{e.step_index}</text>')
+            svg_lines.append(
+                f'  <rect x="30" y="{y - 15}" width="36" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="1"/>'
+            )
+            svg_lines.append(
+                f'  <text x="48" y="{y + 2}" fill="#94a3b8" font-size="11" font-weight="bold" text-anchor="middle">{e.step_index}</text>'
+            )
 
             # Transition text
-            svg_lines.append(f'  <text x="80" y="{y + 2}" fill="#38bdf8" font-size="13" font-weight="bold">{e.source_agent} → {e.target_agent}</text>')
+            svg_lines.append(
+                f'  <text x="80" y="{y + 2}" fill="#38bdf8" font-size="13" font-weight="bold">{e.source_agent} → {e.target_agent}</text>'
+            )
 
             # Node / Tool badge
             tool_txt = e.tool_name or e.node
@@ -218,12 +231,16 @@ class AgentExecutionTracer:
 
             # Status pill
             status_color = "#4ade80" if e.status == "SUCCESS" else "#f87171"
-            svg_lines.append(f'  <rect x="{w - 110}" y="{y - 14}" width="80" height="22" rx="11" fill="#1e293b" stroke="{status_color}" stroke-width="1"/>')
-            svg_lines.append(f'  <text x="{w - 70}" y="{y + 1}" fill="{status_color}" font-size="10" font-weight="bold" text-anchor="middle">{e.status}</text>')
+            svg_lines.append(
+                f'  <rect x="{w - 110}" y="{y - 14}" width="80" height="22" rx="11" fill="#1e293b" stroke="{status_color}" stroke-width="1"/>'
+            )
+            svg_lines.append(
+                f'  <text x="{w - 70}" y="{y + 1}" fill="{status_color}" font-size="10" font-weight="bold" text-anchor="middle">{e.status}</text>'
+            )
 
             y += 42
 
-        svg_lines.append('</svg>')
+        svg_lines.append("</svg>")
         content = "\n".join(svg_lines)
         Path(output_path).write_text(content, encoding="utf-8")
         return content

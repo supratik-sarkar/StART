@@ -197,6 +197,7 @@ class EnterpriseReviewOrchestrator:
 
         # --- LLM activation preflight (Section A): visible, never silent ---
         from start.providers.llm_activation import preflight_llm
+
         # Prefer the explicitly requested provider so a fallback is reported
         # against what the user actually chose (e.g. "openai -> FALLBACK"),
         # not the degraded object's name ("none").
@@ -210,9 +211,7 @@ class EnterpriseReviewOrchestrator:
         _llm_used = activation_report.status == "CONNECTED"
         _backend = provider_name if _llm_used else "deterministic"
         _fallback = (
-            activation_report.detail
-            if (not _llm_used and activation_report.status == "FALLBACK")
-            else ""
+            activation_report.detail if (not _llm_used and activation_report.status == "FALLBACK") else ""
         )
 
         # --- Data + Model + Validation + Governance via the visible pipeline ---
@@ -249,14 +248,14 @@ class EnterpriseReviewOrchestrator:
 
         # --- Co-pilot: data statistics + FE recommendations (visible intel) ---
         single_target = (
-            base_outcome.target if isinstance(base_outcome.target, str)
-            else base_outcome.target[0]
+            base_outcome.target if isinstance(base_outcome.target, str) else base_outcome.target[0]
         )
         data_stats = compute_data_statistics(df, single_target)
         if dataset_source is None:
             dataset_source = describe_demo_dataset(df, single_target)
         action_log.record(
-            "DatasetDiscoveryAgent", f"{len(df)} rows x {df.shape[1]} cols",
+            "DatasetDiscoveryAgent",
+            f"{len(df)} rows x {df.shape[1]} cols",
             "computed data statistics",
             recommendation=f"suggested split: {data_stats.suggested_split}",
             evidence_ids=data_ids[:1],
@@ -267,7 +266,8 @@ class EnterpriseReviewOrchestrator:
             decision=f"profiled dataset; suggested split = {data_stats.suggested_split}",
             reasoning=f"{data_stats.n_numeric} numeric / {data_stats.n_categorical} "
             f"categorical; imbalance {data_stats.imbalance_warning}",
-            evidence_ids=data_ids[:1], confidence=0.9,
+            evidence_ids=data_ids[:1],
+            confidence=0.9,
             alternative_considered="random split",
             action_taken="emitted initial data statistics",
         )
@@ -276,13 +276,15 @@ class EnterpriseReviewOrchestrator:
             inputs=f"target '{single_target}', type {data_stats.target_type}",
             decision=base_outcome.task_type,
             reasoning=f"target has type {data_stats.target_type}",
-            confidence=0.95, alternative_considered="regression"
-            if data_stats.target_type != "continuous" else "classification",
+            confidence=0.95,
+            alternative_considered="regression"
+            if data_stats.target_type != "continuous"
+            else "classification",
             action_taken="set task type for downstream agents",
         )
-        fe_modality = {
-            "tabular": "tabular", "sequence": "sequential", "vision": "vision"
-        }.get(base_outcome.modality, "tabular")
+        fe_modality = {"tabular": "tabular", "sequence": "sequential", "vision": "vision"}.get(
+            base_outcome.modality, "tabular"
+        )
         fe_recs = recommend_feature_engineering(
             data_stats,
             modality=fe_modality,
@@ -290,7 +292,8 @@ class EnterpriseReviewOrchestrator:
         )
         if fe_recs.applicable():
             action_log.record(
-                "FeatureEngineeringAgent", "data statistics",
+                "FeatureEngineeringAgent",
+                "data statistics",
                 f"recommended {len(fe_recs.applicable())} preprocessing step(s)",
                 recommendation="; ".join(r.step for r in fe_recs.applicable()[:5]),
                 evidence_ids=[r.evidence_id for r in fe_recs.applicable()[:3]],
@@ -301,7 +304,8 @@ class EnterpriseReviewOrchestrator:
                 decision=f"recommended {len(fe_recs.applicable())} preprocessing step(s)",
                 reasoning="; ".join(r.step for r in fe_recs.applicable()[:5]),
                 evidence_ids=[r.evidence_id for r in fe_recs.applicable()[:3]],
-                confidence=0.85, alternative_considered="use raw features",
+                confidence=0.85,
+                alternative_considered="use raw features",
                 action_taken="surfaced recommendations for user accept/override",
             )
 
@@ -311,18 +315,19 @@ class EnterpriseReviewOrchestrator:
             if metric_dec and metric_dec.effective:
                 costlier_errors = str(metric_dec.effective)
 
-        metric_choice = select_primary_metric(
-            base_outcome.task_type, costlier_errors=costlier_errors
-        )
+        metric_choice = select_primary_metric(base_outcome.task_type, costlier_errors=costlier_errors)
         arch_review = ArchitectureReviewAgent().review(
-            user_family=architecture, user_activation=activation,
-            modality=base_outcome.modality, n_samples=len(df),
-            n_features=df.shape[1] - 1, task_type=base_outcome.task_type,
-            imbalanced="severe" in data_stats.imbalance_warning
-            or "moderate" in data_stats.imbalance_warning,
+            user_family=architecture,
+            user_activation=activation,
+            modality=base_outcome.modality,
+            n_samples=len(df),
+            n_features=df.shape[1] - 1,
+            task_type=base_outcome.task_type,
+            imbalanced="severe" in data_stats.imbalance_warning or "moderate" in data_stats.imbalance_warning,
         )
         action_log.record(
-            "ArchitectureReviewAgent", f"{architecture}+{activation}",
+            "ArchitectureReviewAgent",
+            f"{architecture}+{activation}",
             "reviewed architecture choice",
             recommendation=f"{arch_review.recommendation['family']}+"
             f"{arch_review.recommendation['activation']}",
@@ -350,23 +355,26 @@ class EnterpriseReviewOrchestrator:
             if arch_dec and arch_dec.effective != arch_dec.recommended:
                 trace_log.record(
                     "ModelExecutionAgent",
-                    inputs=f"user override: {arch_dec.effective} "
-                    f"(recommended {arch_dec.recommended})",
+                    inputs=f"user override: {arch_dec.effective} (recommended {arch_dec.recommended})",
                     decision=f"train user-selected {arch_dec.effective}",
                     reasoning="User override honored: the model under review is "
                     "the user's architecture, not the recommendation.",
-                    evidence_ids=[arch_review.evidence_id], confidence=1.0,
+                    evidence_ids=[arch_review.evidence_id],
+                    confidence=1.0,
                     alternative_considered=f"recommended {arch_dec.recommended}",
                     action_taken="honored user override in execution",
                     user_decision="override honored",
                 )
         tuning_plan = HyperparameterTuningAgent().plan(
-            task_type=base_outcome.task_type, family=architecture,
-            n_samples=len(df), costlier_errors=costlier_errors,
+            task_type=base_outcome.task_type,
+            family=architecture,
+            n_samples=len(df),
+            costlier_errors=costlier_errors,
             n_trials=tuning_trials,
         )
         action_log.record(
-            "HyperparameterTuningAgent", "search space",
+            "HyperparameterTuningAgent",
+            "search space",
             f"planned {tuning_plan.n_trials}-trial {tuning_plan.strategy}",
             recommendation=f"metric: {tuning_plan.primary_metric}",
             evidence_ids=[tuning_plan.evidence_id],
@@ -378,7 +386,8 @@ class EnterpriseReviewOrchestrator:
             f"metric {tuning_plan.primary_metric}",
             reasoning=f"metric routed by cost preference '{costlier_errors}'; "
             f"{tuning_plan.validation} (no test/OOS leakage)",
-            evidence_ids=[tuning_plan.evidence_id], confidence=0.8,
+            evidence_ids=[tuning_plan.evidence_id],
+            confidence=0.8,
             alternative_considered="exhaustive grid search",
             action_taken="planned bounded, leakage-safe tuning",
         )
@@ -407,9 +416,14 @@ class EnterpriseReviewOrchestrator:
                 _apply_winsorize = False
 
             sensitivity_result = self._run_sensitivity(
-                df, single_target, metric_choice["primary_metric"], seed,
-                architecture=architecture, task_type=base_outcome.task_type,
-                activation=activation, winsorize=_apply_winsorize
+                df,
+                single_target,
+                metric_choice["primary_metric"],
+                seed,
+                architecture=architecture,
+                task_type=base_outcome.task_type,
+                activation=activation,
+                winsorize=_apply_winsorize,
             )
             if sensitivity_result:
                 action_log.record(
@@ -429,10 +443,15 @@ class EnterpriseReviewOrchestrator:
             if session is not None and session.rejected("fe:correlation_pruning"):
                 _apply_pruning = False
             model_exec = run_model_execution(
-                df, single_target, split_props=split_props,
+                df,
+                single_target,
+                split_props=split_props,
                 metric_name=metric_choice["primary_metric"],
-                explain_method=explain_method, seed=seed,
-                output_root=output_root, run_id=run_id, registry=artifact_registry,
+                explain_method=explain_method,
+                seed=seed,
+                output_root=output_root,
+                run_id=run_id,
+                registry=artifact_registry,
                 apply_correlation_pruning=_apply_pruning,
                 architecture=architecture,
                 stratify=(split_strategy == "stratified"),
@@ -442,17 +461,21 @@ class EnterpriseReviewOrchestrator:
                 winsorize=_apply_winsorize,
                 custom_space=custom_space,
                 costlier_errors=costlier_errors,
-                tuning_params={"strategy": tuning_strategy, "trials": tuning_trials, "validation": validation},
+                tuning_params={
+                    "strategy": tuning_strategy,
+                    "trials": tuning_trials,
+                    "validation": validation,
+                },
             )
             if model_exec:
                 if model_exec.pruned_features:
                     trace_log.record(
                         "FeatureEngineeringAgent",
                         inputs=f"{len(model_exec.feature_columns)} features after pruning",
-                        decision=f"dropped {len(model_exec.pruned_features)} "
-                        "highly-correlated feature(s)",
+                        decision=f"dropped {len(model_exec.pruned_features)} highly-correlated feature(s)",
                         reasoning="Correlation pruning applied (>0.95); user did not reject it.",
-                        evidence_ids=[], confidence=0.8,
+                        evidence_ids=[],
+                        confidence=0.8,
                         alternative_considered="keep all features",
                         action_taken="pruned correlated features before training",
                     )
@@ -463,7 +486,8 @@ class EnterpriseReviewOrchestrator:
                         decision="kept all features",
                         reasoning="User override honored: correlation pruning was "
                         "declined, so no features were dropped.",
-                        evidence_ids=[], confidence=1.0,
+                        evidence_ids=[],
+                        confidence=1.0,
                         alternative_considered="prune correlated features",
                         action_taken="honored user rejection of pruning",
                     )
@@ -472,7 +496,8 @@ class EnterpriseReviewOrchestrator:
                     inputs=f"train/test/oos split {split_props}",
                     decision=f"trained {architecture}; explainability via {model_exec.explainability_method}",
                     reasoning=f"generalization gap {model_exec.generalization_gap}",
-                    evidence_ids=val_ids[:1], confidence=0.85,
+                    evidence_ids=val_ids[:1],
+                    confidence=0.85,
                     alternative_considered="diagnostics-only (no training)",
                     action_taken=f"emitted {len(model_exec.artifacts)} execution artifact(s)",
                 )
@@ -480,17 +505,31 @@ class EnterpriseReviewOrchestrator:
                 from start.modeling.model_execution import _stratified_split
                 from start.modeling.tuning_run import run_tuning
 
-                _effective_stratify = (split_strategy == "stratified") and (base_outcome.task_type not in ("regression", "forecasting"))
-                _splits = _stratified_split(df, single_target, split_props, seed, stratify=_effective_stratify)
+                _effective_stratify = (split_strategy == "stratified") and (
+                    base_outcome.task_type not in ("regression", "forecasting")
+                )
+                _splits = _stratified_split(
+                    df, single_target, split_props, seed, stratify=_effective_stratify
+                )
                 _train_only = _splits["train"]
 
                 tuning_run = run_tuning(
-                    _train_only, single_target, model_exec.feature_columns,
-                    strategy=tuning_strategy, n_trials=tuning_trials,
-                    primary_metric=metric_choice["primary_metric"], seed=seed,
-                    output_root=output_root, run_id=run_id, registry=artifact_registry,
-                    architecture=architecture, activation=activation, task_type=base_outcome.task_type,
-                    custom_space=custom_space, validation=validation, k_folds=k_folds,
+                    _train_only,
+                    single_target,
+                    model_exec.feature_columns,
+                    strategy=tuning_strategy,
+                    n_trials=tuning_trials,
+                    primary_metric=metric_choice["primary_metric"],
+                    seed=seed,
+                    output_root=output_root,
+                    run_id=run_id,
+                    registry=artifact_registry,
+                    architecture=architecture,
+                    activation=activation,
+                    task_type=base_outcome.task_type,
+                    custom_space=custom_space,
+                    validation=validation,
+                    k_folds=k_folds,
                     cost_specification=cost_specification,
                 )
                 if tuning_run:
@@ -502,15 +541,16 @@ class EnterpriseReviewOrchestrator:
                     trace_log.record(
                         "HyperparameterTuningAgent",
                         inputs=f"{tuning_run.n_trials}-trial {tuning_run.strategy}",
-                        decision=(f"best metric {tuning_run.best_metric:.4f} "
-                                  f"@ {tuning_run.best_params}") if tuning_run.ran
+                        decision=(f"best metric {tuning_run.best_metric:.4f} @ {tuning_run.best_params}")
+                        if tuning_run.ran
                         else tuning_run.note,
                         reasoning=f"train-internal {tuning_run.validation} only (no test/OOS leakage)",
                         evidence_ids=[tuning_plan.evidence_id],
                         confidence=0.85 if tuning_run.ran else 0.5,
                         alternative_considered="grid search",
                         action_taken=f"ran {len(tuning_run.trials)} trial(s)"
-                        if tuning_run.ran else "tuning disabled by user",
+                        if tuning_run.ran
+                        else "tuning disabled by user",
                     )
 
                 # v3.1.1: legacy run_kfold_tuning (logistic regression
@@ -563,7 +603,8 @@ class EnterpriseReviewOrchestrator:
                 "backends not installed (reported explicitly)."
             )
         self._finish(
-            ai_layer, t0,
+            ai_layer,
+            t0,
             f"{ai_report.available_count}/{ai_report.total} adapters available",
         )
 
@@ -575,9 +616,7 @@ class EnterpriseReviewOrchestrator:
                 artifact_registry.register(gp, category="graph")
         # register AI-engineering artifacts produced by adapters
         for art in ai_report.artifacts:
-            artifact_registry.register(
-                getattr(art, "path", str(art)), category="ai_engineering"
-            )
+            artifact_registry.register(getattr(art, "path", str(art)), category="ai_engineering")
 
         # --- Evidence layer: EvidenceCritic gate over findings ---
         t0 = time.perf_counter()
@@ -587,7 +626,8 @@ class EnterpriseReviewOrchestrator:
             ev_layer.warnings.append(f"{len(uncited)} uncited finding(s) flagged by EvidenceCritic.")
         ev_layer.evidence_ids = evidence_ids
         self._finish(
-            ev_layer, t0,
+            ev_layer,
+            t0,
             f"{len(evidence_ids)} evidence records; critique "
             f"{'PASSED' if base_outcome.agent_review.critique_ok else 'FAILED'}",
         )
@@ -596,20 +636,40 @@ class EnterpriseReviewOrchestrator:
         execution_path = None
         if execution_mode == "graph":
             execution_path = self._run_cyclic_graph(
-                df, single_target, base_outcome, register, gov_layer,
-                output_root=output_root, run_id=run_id, seed=seed,
-                architecture=architecture, activation=activation,
-                costlier_errors=costlier_errors, metric_choice=metric_choice,
-                explain_method=explain_method, tuning_strategy=tuning_strategy,
-                tuning_trials=tuning_trials, session=session, k_folds=k_folds,
-                validation=validation, class_weight=class_weight,
-                custom_space=custom_space, cost_specification=cost_specification,
-                split_strategy=split_strategy, split_props=split_props,
-                run_dl=run_dl, dataset_source=dataset_source,
-                data_stats=data_stats, fe_recs=fe_recs, arch_review=arch_review,
-                tuning_plan=tuning_plan, model_exec=model_exec,
-                sensitivity_result=sensitivity_result, tuning_run=tuning_run,
-                artifact_registry=artifact_registry, action_log=action_log,
+                df,
+                single_target,
+                base_outcome,
+                register,
+                gov_layer,
+                output_root=output_root,
+                run_id=run_id,
+                seed=seed,
+                architecture=architecture,
+                activation=activation,
+                costlier_errors=costlier_errors,
+                metric_choice=metric_choice,
+                explain_method=explain_method,
+                tuning_strategy=tuning_strategy,
+                tuning_trials=tuning_trials,
+                session=session,
+                k_folds=k_folds,
+                validation=validation,
+                class_weight=class_weight,
+                custom_space=custom_space,
+                cost_specification=cost_specification,
+                split_strategy=split_strategy,
+                split_props=split_props,
+                run_dl=run_dl,
+                dataset_source=dataset_source,
+                data_stats=data_stats,
+                fe_recs=fe_recs,
+                arch_review=arch_review,
+                tuning_plan=tuning_plan,
+                model_exec=model_exec,
+                sensitivity_result=sensitivity_result,
+                tuning_run=tuning_run,
+                artifact_registry=artifact_registry,
+                action_log=action_log,
                 trace_log=trace_log,
             )
             if not base_outcome.agent_review.critique_ok or "NOT READY" in base_outcome.agent_review.signoff:
@@ -619,7 +679,8 @@ class EnterpriseReviewOrchestrator:
 
         # --- Reporting layer: enterprise dashboard ---
         action_log.record(
-            "GovernanceSignoffAgent", f"{len(register.findings)} findings",
+            "GovernanceSignoffAgent",
+            f"{len(register.findings)} findings",
             "produced sign-off disposition",
             recommendation=base_outcome.agent_review.signoff.split(".")[0],
             evidence_ids=evidence_ids[:2],
@@ -629,12 +690,14 @@ class EnterpriseReviewOrchestrator:
             inputs=f"{len(register.findings)} findings, {len(evidence_ids)} evidence records",
             decision=base_outcome.agent_review.signoff.split(".")[0],
             reasoning=f"{register.summary()['total']} findings weighed against acceptance criteria",
-            evidence_ids=evidence_ids[:2], confidence=0.85,
+            evidence_ids=evidence_ids[:2],
+            confidence=0.85,
             alternative_considered="conditional sign-off",
             action_taken="recorded sign-off disposition",
         )
         action_log.record(
-            "EvidenceCriticAgent", "all findings + narrative",
+            "EvidenceCriticAgent",
+            "all findings + narrative",
             "ran citation gate",
             recommendation="PASSED" if base_outcome.agent_review.critique_ok else "FAILED",
             evidence_ids=evidence_ids[:1],
@@ -647,8 +710,7 @@ class EnterpriseReviewOrchestrator:
             evidence_ids=evidence_ids[:1],
             confidence=1.0 if base_outcome.agent_review.critique_ok else 0.5,
             alternative_considered="allow uncited narrative",
-            action_taken=f"{len(uncited)} uncited finding(s) flagged"
-            if uncited else "all findings cited",
+            action_taken=f"{len(uncited)} uncited finding(s) flagged" if uncited else "all findings cited",
         )
         t0 = time.perf_counter()
         rep_layer = self._layer("Reporting")
@@ -658,13 +720,25 @@ class EnterpriseReviewOrchestrator:
             _tr.llm_used = _llm_used
             _tr.fallback_reason = _fallback
         dashboard_paths = self._build_dashboard(
-            run_id, base_outcome, register, ai_report, cnn_config, output_root,
-            data_stats=data_stats, fe_recs=fe_recs, arch_review=arch_review,
-            tuning_plan=tuning_plan, sensitivity=sensitivity_result,
-            action_log=action_log, metric_choice=metric_choice,
-            dataset_source=dataset_source, trace_log=trace_log,
-            activation_report=activation_report, artifact_registry=artifact_registry,
-            model_exec=model_exec, tuning_run=tuning_run,
+            run_id,
+            base_outcome,
+            register,
+            ai_report,
+            cnn_config,
+            output_root,
+            data_stats=data_stats,
+            fe_recs=fe_recs,
+            arch_review=arch_review,
+            tuning_plan=tuning_plan,
+            sensitivity=sensitivity_result,
+            action_log=action_log,
+            metric_choice=metric_choice,
+            dataset_source=dataset_source,
+            trace_log=trace_log,
+            activation_report=activation_report,
+            artifact_registry=artifact_registry,
+            model_exec=model_exec,
+            tuning_run=tuning_run,
             review_session=session,
         )
         for dp in dashboard_paths.values():
@@ -759,7 +833,9 @@ class EnterpriseReviewOrchestrator:
         policy_budgets = {
             "overfitting->hyperparameter_tuning:remediation": rem_budgets.get("overfitting_to_tuning", 3),
             "sensitivity->hyperparameter_tuning:remediation": rem_budgets.get("sensitivity_to_tuning", 2),
-            "explainability->feature_engineering:remediation": rem_budgets.get("explainability_to_feature_engineering", 2),
+            "explainability->feature_engineering:remediation": rem_budgets.get(
+                "explainability_to_feature_engineering", 2
+            ),
             "validation->model_execution:remediation": rem_budgets.get("validation_to_execution", 2),
             "gate_architecture->gate_architecture:self_loop": rem_budgets.get("checkpoint_self_loop", 10),
             "gate_metric->gate_metric:self_loop": rem_budgets.get("checkpoint_self_loop", 10),
@@ -774,15 +850,21 @@ class EnterpriseReviewOrchestrator:
         # 2. dataset_discovery
         def _h_discovery(nid: str, ctx: dict[str, Any]) -> NodeResult:
             if ctx.get("force_data_defect"):
-                return NodeResult(outcome=NodeOutcome.BLOCK, detail="dataset discovery: blocking defect detected")
+                return NodeResult(
+                    outcome=NodeOutcome.BLOCK, detail="dataset discovery: blocking defect detected"
+                )
             fp = f"{len(df)}x{df.shape[1]}:{data_stats.suggested_split if data_stats else 'default'}"
-            return NodeResult(outcome=NodeOutcome.OK, detail=f"{len(df)} rows x {df.shape[1]} cols", fingerprint=fp)
+            return NodeResult(
+                outcome=NodeOutcome.OK, detail=f"{len(df)} rows x {df.shape[1]} cols", fingerprint=fp
+            )
+
         handlers["dataset_discovery"] = _h_discovery
 
         # 3. task_inference
         def _h_task(nid: str, ctx: dict[str, Any]) -> NodeResult:
             tt = ctx.get("task_type") or base_outcome.task_type
             return NodeResult(outcome=NodeOutcome.OK, detail=str(tt))
+
         handlers["task_inference"] = _h_task
 
         # 4. feature_engineering
@@ -792,20 +874,27 @@ class EnterpriseReviewOrchestrator:
             if remedy_attempt > 0:
                 chosen.append(f"remediation_attempt_{remedy_attempt}")
             fp = json.dumps(chosen, sort_keys=True)
-            return NodeResult(outcome=NodeOutcome.OK, detail=f"{len(chosen)} feature engineering steps", fingerprint=fp)
+            return NodeResult(
+                outcome=NodeOutcome.OK, detail=f"{len(chosen)} feature engineering steps", fingerprint=fp
+            )
+
         handlers["feature_engineering"] = _h_fe
 
         # 5. architecture_review
         def _h_arch(nid: str, ctx: dict[str, Any]) -> NodeResult:
             rec_family = arch_review.recommendation["family"] if arch_review else architecture
             return NodeResult(outcome=NodeOutcome.OK, detail=f"recommended {rec_family}")
+
         handlers["architecture_review"] = _h_arch
 
         # 6. gate_architecture
         def _h_gate_arch(nid: str, ctx: dict[str, Any]) -> NodeResult:
             if session is not None and session.decision_for("architecture_checkpoint_reenter"):
-                return NodeResult(outcome=NodeOutcome.REENTER, detail="checkpoint: architecture challenged by reviewer")
+                return NodeResult(
+                    outcome=NodeOutcome.REENTER, detail="checkpoint: architecture challenged by reviewer"
+                )
             return NodeResult(outcome=NodeOutcome.OK, detail="checkpoint: architecture accepted")
+
         handlers["gate_architecture"] = _h_gate_arch
 
         # 7. hyperparameter_tuning
@@ -816,17 +905,26 @@ class EnterpriseReviewOrchestrator:
                     best_params = ctx.get("prev_best_params", {"reg": 0.01})
                 else:
                     cur_space = dict(custom_space or {})
-                    cur_space["regularization_penalty"] = round(0.01 * (5 ** remediation_count), 4)
+                    cur_space["regularization_penalty"] = round(0.01 * (5**remediation_count), 4)
                     cur_space["max_depth"] = max(2, 6 - remediation_count)
-                    cur_space["learning_rate"] = max(1e-4, 0.01 / (2 ** remediation_count))
+                    cur_space["learning_rate"] = max(1e-4, 0.01 / (2**remediation_count))
                     cur_space["remediation_attempt"] = remediation_count
                     best_params = cur_space
                 ctx["prev_best_params"] = best_params
-                return NodeResult(outcome=NodeOutcome.OK, fingerprint=json.dumps(best_params, sort_keys=True), detail=f"remediation attempt {remediation_count}")
+                return NodeResult(
+                    outcome=NodeOutcome.OK,
+                    fingerprint=json.dumps(best_params, sort_keys=True),
+                    detail=f"remediation attempt {remediation_count}",
+                )
             else:
                 best_params = tuning_run.best_params if (tuning_run and tuning_run.ran) else {"initial": True}
                 ctx["prev_best_params"] = best_params
-                return NodeResult(outcome=NodeOutcome.OK, fingerprint=json.dumps(best_params, sort_keys=True), detail=f"tuning {tuning_strategy}")
+                return NodeResult(
+                    outcome=NodeOutcome.OK,
+                    fingerprint=json.dumps(best_params, sort_keys=True),
+                    detail=f"tuning {tuning_strategy}",
+                )
+
         handlers["hyperparameter_tuning"] = _h_tuning
 
         # 8. gate_metric
@@ -834,28 +932,43 @@ class EnterpriseReviewOrchestrator:
             if session is not None and session.decision_for("metric_checkpoint_reenter"):
                 return NodeResult(outcome=NodeOutcome.REENTER, detail="checkpoint: metric challenged")
             return NodeResult(outcome=NodeOutcome.OK, detail="checkpoint: metric accepted")
+
         handlers["gate_metric"] = _h_gate_metric
 
         # 9. model_execution
         def _h_model_exec(nid: str, ctx: dict[str, Any]) -> NodeResult:
             if ctx.get("force_model_block"):
-                return NodeResult(outcome=NodeOutcome.BLOCK, detail="model execution failed: numerical defect")
+                return NodeResult(
+                    outcome=NodeOutcome.BLOCK, detail="model execution failed: numerical defect"
+                )
             metrics = model_exec.metrics_by_split if model_exec else base_outcome.cohort_metrics
-            return NodeResult(outcome=NodeOutcome.OK, fingerprint=json.dumps(metrics, sort_keys=True), detail=f"trained {architecture}")
+            return NodeResult(
+                outcome=NodeOutcome.OK,
+                fingerprint=json.dumps(metrics, sort_keys=True),
+                detail=f"trained {architecture}",
+            )
+
         handlers["model_execution"] = _h_model_exec
 
         # 11. explainability
         def _h_explain(nid: str, ctx: dict[str, Any]) -> NodeResult:
             if ctx.get("force_explainability_fail"):
-                return NodeResult(outcome=NodeOutcome.FAIL, detail="attribution concentrated on single dominating feature (>95%)")
+                return NodeResult(
+                    outcome=NodeOutcome.FAIL,
+                    detail="attribution concentrated on single dominating feature (>95%)",
+                )
             return NodeResult(outcome=NodeOutcome.OK, detail="explainability attribution verified")
+
         handlers["explainability"] = _h_explain
 
         # 12. sensitivity
         def _h_sensitivity(nid: str, ctx: dict[str, Any]) -> NodeResult:
             if ctx.get("force_sensitivity_fail"):
-                return NodeResult(outcome=NodeOutcome.FAIL, detail="feature-shock metric degradation exceeds tolerance")
+                return NodeResult(
+                    outcome=NodeOutcome.FAIL, detail="feature-shock metric degradation exceeds tolerance"
+                )
             return NodeResult(outcome=NodeOutcome.OK, detail="feature-shock sensitivity within tolerance")
+
         handlers["sensitivity"] = _h_sensitivity
 
         # 13. overfitting
@@ -867,12 +980,25 @@ class EnterpriseReviewOrchestrator:
                 resolve_at = int(ctx.get("resolve_overfitting_on_attempt"))
                 gap = 0.04 if attempt >= resolve_at else 0.28
             else:
-                gap = float(getattr(model_exec, "generalization_gap", 0.0)) if model_exec else float(ctx.get("generalization_gap", 0.0))
+                gap = (
+                    float(getattr(model_exec, "generalization_gap", 0.0))
+                    if model_exec
+                    else float(ctx.get("generalization_gap", 0.0))
+                )
 
             threshold = float(ctx.get("max_generalization_gap", 0.10))
             if abs(gap) > threshold:
-                return NodeResult(outcome=NodeOutcome.FAIL, detail=f"generalisation gap {gap:.4f} exceeds {threshold:.2f}", state={"generalization_gap": gap})
-            return NodeResult(outcome=NodeOutcome.OK, detail=f"generalisation gap {gap:.4f}", state={"generalization_gap": gap})
+                return NodeResult(
+                    outcome=NodeOutcome.FAIL,
+                    detail=f"generalisation gap {gap:.4f} exceeds {threshold:.2f}",
+                    state={"generalization_gap": gap},
+                )
+            return NodeResult(
+                outcome=NodeOutcome.OK,
+                detail=f"generalisation gap {gap:.4f}",
+                state={"generalization_gap": gap},
+            )
+
         handlers["overfitting"] = _h_overfit
 
         # 15. validation
@@ -880,6 +1006,7 @@ class EnterpriseReviewOrchestrator:
             if ctx.get("force_validation_fail"):
                 return NodeResult(outcome=NodeOutcome.FAIL, detail="adversarial perturbation checks failed")
             return NodeResult(outcome=NodeOutcome.OK, detail="validation checks passed")
+
         handlers["validation"] = _h_val
 
         # 16. gate_validation
@@ -887,13 +1014,18 @@ class EnterpriseReviewOrchestrator:
             if session is not None and session.decision_for("validation_checkpoint_reenter"):
                 return NodeResult(outcome=NodeOutcome.REENTER, detail="checkpoint: validation challenged")
             return NodeResult(outcome=NodeOutcome.OK, detail="checkpoint: validation accepted")
+
         handlers["gate_validation"] = _h_gate_val
 
         # 17. governance_signoff
-        handlers["governance_signoff"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="governance sign-off evaluated")
+        handlers["governance_signoff"] = lambda nid, ctx: NodeResult(
+            outcome=NodeOutcome.OK, detail="governance sign-off evaluated"
+        )
 
         # 18. evidence_critic
-        handlers["evidence_critic"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="critic citations verified")
+        handlers["evidence_critic"] = lambda nid, ctx: NodeResult(
+            outcome=NodeOutcome.OK, detail="critic citations verified"
+        )
 
         # 19. seal
         handlers["seal"] = lambda nid, ctx: NodeResult(outcome=NodeOutcome.OK, detail="review seal committed")
@@ -913,8 +1045,16 @@ class EnterpriseReviewOrchestrator:
         # Process governance findings from graph path
         findings = path.governance_findings()
         for gf in findings:
-            sev = Severity.HIGH if gf["severity"] == "blocker" else (Severity.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
-            mat = Materiality.HIGH if gf["severity"] == "blocker" else (Materiality.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
+            sev = (
+                Severity.HIGH
+                if gf["severity"] == "blocker"
+                else (Severity.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
+            )
+            mat = (
+                Materiality.HIGH
+                if gf["severity"] == "blocker"
+                else (Materiality.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
+            )
             finding_obj = Finding(
                 title=gf["kind"].replace("_", " ").title(),
                 description=gf["detail"],
@@ -930,7 +1070,9 @@ class EnterpriseReviewOrchestrator:
 
         has_blocker = any(gf["severity"] == "blocker" for gf in findings)
         if has_blocker:
-            base_outcome.agent_review.signoff = "NOT READY. Model review blocked by exhausted remediation attempts."
+            base_outcome.agent_review.signoff = (
+                "NOT READY. Model review blocked by exhausted remediation attempts."
+            )
             base_outcome.agent_review.critique_ok = False
 
         ev_rec = EvidenceRecord(
@@ -953,53 +1095,76 @@ class EnterpriseReviewOrchestrator:
         base_outcome.evidence.append(ev_rec)
         return path
 
-    def _run_sensitivity(self, df, target, metric_name, seed, architecture="mlp", task_type="binary_classification", activation="relu", winsorize=False):
+    def _run_sensitivity(
+        self,
+        df,
+        target,
+        metric_name,
+        seed,
+        architecture="mlp",
+        task_type="binary_classification",
+        activation="relu",
+        winsorize=False,
+    ):
         """Train a quick tabular model on the same data and shock its top
         features. Real computation; uses model coefficients/importance proxy
         via variance of standardized features to pick the top set."""
         try:
-
             from start.modeling.models import resolve_model
             from start.modeling.sensitivity_analysis import run_sensitivity_analysis
             from start.modeling.tuning_run import _model_family
 
-            features = [
-                c for c in df.columns
-                if c != target and pd.api.types.is_numeric_dtype(df[c])
-            ]
+            features = [c for c in df.columns if c != target and pd.api.types.is_numeric_dtype(df[c])]
             if len(features) < 2:
                 return None
             X, y = df[features], df[target].to_numpy()
-            
+
             family = _model_family(architecture)
             if family == "sklearn":
                 from sklearn.impute import SimpleImputer
+
                 imputer = SimpleImputer(strategy="median")
                 X = pd.DataFrame(imputer.fit_transform(X), columns=features)
             if family == "tabular_dl":
                 from start.modeling.tabular_dl import TabularDLClassifier
+
                 clf = TabularDLClassifier(
-                    task=task_type, family=architecture, activation=activation, epochs=8, random_state=seed, winsorize=winsorize
+                    task=task_type,
+                    family=architecture,
+                    activation=activation,
+                    epochs=8,
+                    random_state=seed,
+                    winsorize=winsorize,
                 )
             elif family == "sequence_dl":
                 from start.modeling.sequence_dl import SequenceClassifier
+
                 clf = SequenceClassifier(
-                    family=architecture, epochs=8, random_state=seed,
+                    family=architecture,
+                    epochs=8,
+                    random_state=seed,
                 )
             elif family == "vision_dl":
                 from start.modeling.vision_dl import VisionCNNClassifier
+
                 arch = "simple_cnn_small" if architecture == "cnn" else architecture
                 clf = VisionCNNClassifier(
-                    architecture=arch, epochs=8, random_state=seed,
+                    architecture=arch,
+                    epochs=8,
+                    random_state=seed,
                 )
             else:
                 clf, _, _ = resolve_model(architecture, seed)
-            
+
             clf.fit(X, y)
             # top features by standardized variance (cheap, model-agnostic proxy)
             variances = X.std().sort_values(ascending=False)
             top = list(variances.index[:5])
-            metric = metric_name if metric_name in ("auc_roc", "pr_auc", "recall", "f1", "rmse", "mae", "r2") else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
+            metric = (
+                metric_name
+                if metric_name in ("auc_roc", "pr_auc", "recall", "f1", "rmse", "mae", "r2")
+                else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
+            )
             return run_sensitivity_analysis(clf, X, y, top_features=top, metric_name=metric)
         except Exception:
             return None
@@ -1017,11 +1182,28 @@ class EnterpriseReviewOrchestrator:
         return g.write_graph_artifacts(run_id, state)
 
     def _build_dashboard(
-        self, run_id, base_outcome, register, ai_report, cnn_config, output_root,
-        *, data_stats=None, fe_recs=None, arch_review=None, tuning_plan=None,
-        sensitivity=None, action_log=None, metric_choice=None, dataset_source=None,
-        trace_log=None, activation_report=None, artifact_registry=None,
-        model_exec=None, tuning_run=None, review_session=None,
+        self,
+        run_id,
+        base_outcome,
+        register,
+        ai_report,
+        cnn_config,
+        output_root,
+        *,
+        data_stats=None,
+        fe_recs=None,
+        arch_review=None,
+        tuning_plan=None,
+        sensitivity=None,
+        action_log=None,
+        metric_choice=None,
+        dataset_source=None,
+        trace_log=None,
+        activation_report=None,
+        artifact_registry=None,
+        model_exec=None,
+        tuning_run=None,
+        review_session=None,
     ) -> dict[str, str]:
         ai_rows = ai_report.summary_rows()
         evidence_rows = [
@@ -1040,15 +1222,17 @@ class EnterpriseReviewOrchestrator:
             recommended_family=base_outcome.recommended_family,
             cohort_metrics=base_outcome.cohort_metrics,
             dataset_summary=next(
-                (r.interpretation for r in base_outcome.evidence
-                 if r.test_id.startswith("discovery.dataset")),
+                (
+                    r.interpretation
+                    for r in base_outcome.evidence
+                    if r.test_id.startswith("discovery.dataset")
+                ),
                 "",
             ),
             model_summary=f"Recommended family: {base_outcome.recommended_family}.",
             cnn_config=cnn_config,
             explainability=(
-                {"note": f"Global feature importance shown below "
-                 f"({model_exec.explainability_method})."}
+                {"note": f"Global feature importance shown below ({model_exec.explainability_method})."}
                 if model_exec and model_exec.global_importance
                 else {"note": "No model execution (diagnostics-only review)."}
             ),
@@ -1064,8 +1248,7 @@ class EnterpriseReviewOrchestrator:
             signoff=base_outcome.agent_review.signoff,
             critique_ok=base_outcome.agent_review.critique_ok,
             stage_timeline=[
-                {"stage": e.stage, "status": e.status, "detail": e.detail}
-                for e in base_outcome.stage_events
+                {"stage": e.stage, "status": e.status, "detail": e.detail} for e in base_outcome.stage_events
             ],
             data_statistics=data_stats.to_dict() if data_stats else None,
             fe_recommendations=fe_recs.to_list() if fe_recs else [],

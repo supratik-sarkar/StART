@@ -39,7 +39,5 @@ def test_cache_hit_for_identical_invocation(tmp_path):
     ledger = EvidenceLedger(tmp_path / "ledger.jsonl", tmp_path / "store")
     rec = _record(1)
     ledger.append(rec)
-    cached = ledger.store.cached(
-        test_id="t1", input_artifact_hash="abc", params=rec.params, policy_hash="ph"
-    )
+    cached = ledger.store.cached(test_id="t1", input_artifact_hash="abc", params=rec.params, policy_hash="ph")
     assert cached is not None and cached.metrics["v"] == 1

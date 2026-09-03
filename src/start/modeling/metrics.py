@@ -9,7 +9,6 @@ from sklearn import metrics as skm
 METRIC_NAMES = ("auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1", "top_decile_lift")
 
 
-
 def top_decile_lift(y_true: np.ndarray, scores: np.ndarray, fraction: float = 0.10) -> float:
     """Lift = event rate in the top `fraction` of scores / overall event rate."""
     y_true = np.asarray(y_true)
@@ -32,6 +31,7 @@ def compute_cohort_metrics(
     try:
         from sklearn.metrics import auc as sk_auc
         from sklearn.metrics import precision_recall_curve
+
         precision_pts, recall_pts, _ = precision_recall_curve(y_true, scores)
         pr_auc_val = float(sk_auc(recall_pts, precision_pts))
     except Exception:
@@ -47,12 +47,8 @@ def compute_cohort_metrics(
     }
 
 
-
 def cohort_comparison(
     cohorts: dict[str, tuple[np.ndarray, np.ndarray]], decision_threshold: float = 0.5
 ) -> dict[str, dict[str, float]]:
     """cohorts: name -> (y_true, scores). Returns name -> metric dict."""
-    return {
-        name: compute_cohort_metrics(y, s, decision_threshold)
-        for name, (y, s) in cohorts.items()
-    }
+    return {name: compute_cohort_metrics(y, s, decision_threshold) for name, (y, s) in cohorts.items()}

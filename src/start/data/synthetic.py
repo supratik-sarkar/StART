@@ -88,9 +88,7 @@ def generate_synthetic_transactions(
     )
 
     # Hours since previous transaction
-    hours_since_prev = np.clip(
-        rng.exponential(scale=12.0, size=n_rows) - (y * 1.8 * s), 0.1, 72.0
-    )
+    hours_since_prev = np.clip(rng.exponential(scale=12.0, size=n_rows) - (y * 1.8 * s), 0.1, 72.0)
 
     # Foreign transaction flag
     p_foreign = np.clip(0.08 + (y * 0.14 * s), 0.0, 1.0)

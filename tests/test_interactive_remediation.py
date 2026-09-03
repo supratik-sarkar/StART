@@ -43,29 +43,43 @@ def test_blank_split_uses_defaults():
 
 # -- Section C: interactive run_dl defaults true ------------------------------ #
 def test_interactive_run_dl_defaults_true():
-    answers = iter([
-        "n",  # committee workflow? -> legacy
-        "", "attrition", "stratified", "mlp", "relu",
-        "standard",  # robustness
-        "1",  # Select backend -> 1: deterministic
-        "",  # run_dl blank -> default Y
-        "0.60", "0.20", "0.20",  # split proportions
-        "bounded_random_search",  # tuning strategy
-        "5",  # trials
-        "integrated_gradients",  # explainability (explain_method)
-    ])
+    answers = iter(
+        [
+            "n",  # committee workflow? -> legacy
+            "",
+            "attrition",
+            "stratified",
+            "mlp",
+            "relu",
+            "standard",  # robustness
+            "1",  # Select backend -> 1: deterministic
+            "",  # run_dl blank -> default Y
+            "0.60",
+            "0.20",
+            "0.20",  # split proportions
+            "bounded_random_search",  # tuning strategy
+            "5",  # trials
+            "integrated_gradients",  # explainability (explain_method)
+        ]
+    )
     cfg = prompt_review_config(ReviewConfig(), ask=lambda *_: next(answers))
     assert cfg.run_dl is True
 
 
 def test_interactive_run_dl_explicit_no():
-    answers = iter([
-        "n",  # committee workflow? -> legacy
-        "", "attrition", "stratified", "mlp", "relu",
-        "standard",  # robustness
-        "1",  # Select backend -> 1: deterministic
-        "n",  # run_dl no -> diagnostics only
-    ])
+    answers = iter(
+        [
+            "n",  # committee workflow? -> legacy
+            "",
+            "attrition",
+            "stratified",
+            "mlp",
+            "relu",
+            "standard",  # robustness
+            "1",  # Select backend -> 1: deterministic
+            "n",  # run_dl no -> diagnostics only
+        ]
+    )
     cfg = prompt_review_config(ReviewConfig(), ask=lambda *_: next(answers))
     assert cfg.run_dl is False
 

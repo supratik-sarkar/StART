@@ -113,9 +113,7 @@ def test_responses_api_completed_with_nested_output_text(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-mock")
     msg_item = types.SimpleNamespace(
         type="message",
-        content=[
-            types.SimpleNamespace(type="output_text", text="Nested answer text [EV-2].")
-        ],
+        content=[types.SimpleNamespace(type="output_text", text="Nested answer text [EV-2].")],
     )
     mock_resp = make_mock_response(
         status="completed",
@@ -256,9 +254,7 @@ def test_responses_api_reasoning_item_plus_message_output():
     )
     msg_item = types.SimpleNamespace(
         type="message",
-        content=[
-            types.SimpleNamespace(type="output_text", text="Visible answer: Volatility is 0.0937.")
-        ],
+        content=[types.SimpleNamespace(type="output_text", text="Visible answer: Volatility is 0.0937.")],
     )
     resp = types.SimpleNamespace(
         output_text=None,

@@ -63,8 +63,12 @@ def solve_max_diversification(
         return MaxDiversificationResult(
             weights=w_dict,
             diversification_ratio=1.0,
-            weighted_asset_volatility_annualised=math.sqrt(float(sigma[0, 0])) * math.sqrt(periods_per_year) if n == 1 else 0.0,
-            portfolio_volatility_annualised=math.sqrt(float(sigma[0, 0])) * math.sqrt(periods_per_year) if n == 1 else 0.0,
+            weighted_asset_volatility_annualised=math.sqrt(float(sigma[0, 0])) * math.sqrt(periods_per_year)
+            if n == 1
+            else 0.0,
+            portfolio_volatility_annualised=math.sqrt(float(sigma[0, 0])) * math.sqrt(periods_per_year)
+            if n == 1
+            else 0.0,
             effective_n_positions=1.0,
             constraint_verification=ver_res,
         )
@@ -76,7 +80,7 @@ def solve_max_diversification(
         port_var = float(w @ sigma @ w)
         port_vol = math.sqrt(max(1e-15, port_var))
         weighted_vol = float(w @ asset_vols)
-        return - float(weighted_vol / port_vol)
+        return -float(weighted_vol / port_vol)
 
     bounds: list[tuple[float | None, float | None]] = []
     for _i, a in enumerate(asset_names):

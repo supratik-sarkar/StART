@@ -14,8 +14,18 @@ from start.modeling.architecture_registry import (
 
 
 def test_activation_set_complete():
-    assert set(ACTIVATIONS) == {"relu", "leaky_relu", "gelu", "tanh", "selu", "elu", "swish", "mish", "sigmoid", "softplus"}
-
+    assert set(ACTIVATIONS) == {
+        "relu",
+        "leaky_relu",
+        "gelu",
+        "tanh",
+        "selu",
+        "elu",
+        "swish",
+        "mish",
+        "sigmoid",
+        "softplus",
+    }
 
 
 def test_new_family_activation_form():

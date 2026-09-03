@@ -21,11 +21,12 @@ from start.interactive_checkpoints import resolve_checkpoint
 from start.review_session import Decision, ReviewSession
 
 
-def _ask_factory(agent: str, ctx: AgentContext, session: ReviewSession,
-                 llm: Any, llm_connected: bool) -> Callable[[str], str]:
+def _ask_factory(
+    agent: str, ctx: AgentContext, session: ReviewSession, llm: Any, llm_connected: bool
+) -> Callable[[str], str]:
     def _ask(question: str) -> str:
-        return ask_agent(agent, question, ctx, session,
-                         llm=llm, llm_connected=llm_connected).answer
+        return ask_agent(agent, question, ctx, session, llm=llm, llm_connected=llm_connected).answer
+
     return _ask
 
 
@@ -69,10 +70,12 @@ def run_feature_engineering_checkpoints(
         ctx = AgentContext(
             agent="FeatureEngineeringAgent",
             recommendation=rec.recommendation,
-            reason=rec.reason, risk_if_ignored=rec.risk_if_ignored,
+            reason=rec.reason,
+            risk_if_ignored=rec.risk_if_ignored,
             alternatives=None,
             dataset_summary="",
-            checkpoint=f"fe:{rec.step}", evidence=evidence,
+            checkpoint=f"fe:{rec.step}",
+            evidence=evidence,
             business_context=business_context,
             reviewer_clarification=reviewer_clarification,
             task_type=task_type,
@@ -84,7 +87,11 @@ def run_feature_engineering_checkpoints(
         numeric_cols: list[str] = []
         if df is not None:
             numeric_cols = [c for c in df.columns if c != target and pd.api.types.is_numeric_dtype(df[c])]
-            cat_cols = [c for c in df.columns if c != target and (df[c].dtype == "object" or isinstance(df[c].dtype, pd.CategoricalDtype))]
+            cat_cols = [
+                c
+                for c in df.columns
+                if c != target and (df[c].dtype == "object" or isinstance(df[c].dtype, pd.CategoricalDtype))
+            ]
             if rec.step == "outliers" and numeric_cols:
                 menu = outlier_options(df, numeric_cols, iqr_multiplier=1.5)
             elif rec.step == "imputation":
@@ -112,9 +119,12 @@ def run_feature_engineering_checkpoints(
                 for line in menu.render_lines():
                     say(line)
                 while True:
-                    prompt_line = f"    [A] Accept  [1-{len(menu.options)}] Choose  [P] Plot  [Q] Ask {current_agent}: "
+                    prompt_line = (
+                        f"    [A] Accept  [1-{len(menu.options)}] Choose  [P] Plot  [Q] Ask {current_agent}: "
+                    )
                     if ask is input:
                         from start.interactive_checkpoints import read_multiline_paste_normalized
+
                         resp_raw = read_multiline_paste_normalized(prompt_line)
                     else:
                         resp_raw = ask(prompt_line)
@@ -128,7 +138,9 @@ def run_feature_engineering_checkpoints(
                         q_text = stripped[1:].strip() if len(stripped) > 1 else ""
                         if not q_text:
                             prompt_q = f"    Ask {current_agent}: "
-                            q_text = (read_multiline_paste_normalized(prompt_q) if ask is input else ask(prompt_q)).strip()
+                            q_text = (
+                                read_multiline_paste_normalized(prompt_q) if ask is input else ask(prompt_q)
+                            ).strip()
                         if q_text and q_text.lower() not in ("q", "ask", "?"):
                             agent_answer = on_ask(q_text)
                             say(f"    {agent_answer}")
@@ -138,13 +150,24 @@ def run_feature_engineering_checkpoints(
                         c_text = stripped[1:].strip() if len(stripped) > 1 else ""
                         if not c_text:
                             prompt_c = f"    Enter challenge to {current_agent}: "
-                            c_text = (read_multiline_paste_normalized(prompt_c) if ask is input else ask(prompt_c)).strip()
+                            c_text = (
+                                read_multiline_paste_normalized(prompt_c) if ask is input else ask(prompt_c)
+                            ).strip()
                         if not c_text:
                             c_text = f"Why is the recommendation '{rec.recommendation}' appropriate?"
                         agent_answer = on_ask(c_text)
                         say(f"    {agent_answer}")
                         from start.governance.challenge_disposition import CONCESSION_PROMPT
-                        c_ans = (read_multiline_paste_normalized(CONCESSION_PROMPT) if ask is input else ask(CONCESSION_PROMPT)).strip().lower()
+
+                        c_ans = (
+                            (
+                                read_multiline_paste_normalized(CONCESSION_PROMPT)
+                                if ask is input
+                                else ask(CONCESSION_PROMPT)
+                            )
+                            .strip()
+                            .lower()
+                        )
                         if session and getattr(session, "challenges", None):
                             session.challenges[-1].conceded = c_ans in {"y", "yes"}
                             session.challenges[-1].changes_disposition = session.challenges[-1].conceded
@@ -153,6 +176,7 @@ def run_feature_engineering_checkpoints(
                     if resp in ("p", "plot"):
                         from start.reporting.figure_viewer import open_figure
                         from start.reporting.figures import plot_distribution_with_bounds
+
                         col_to_plot = numeric_cols[0] if numeric_cols else ""
                         if col_to_plot and col_to_plot in df.columns:
                             plot_path = plot_distribution_with_bounds(df, col_to_plot, methods=menu.options)
@@ -172,7 +196,11 @@ def run_feature_engineering_checkpoints(
                         action = chosen_opt.key
                         if chosen_opt.key == "custom":
                             prompt_cust = "    Enter custom parameter value: "
-                            cust_val = (read_multiline_paste_normalized(prompt_cust) if ask is input else ask(prompt_cust)).strip()
+                            cust_val = (
+                                read_multiline_paste_normalized(prompt_cust)
+                                if ask is input
+                                else ask(prompt_cust)
+                            ).strip()
                             action = f"custom:{cust_val}"
 
                         if chosen_opt.recommended:
@@ -181,7 +209,11 @@ def run_feature_engineering_checkpoints(
                         else:
                             choice = "override"
                             prompt_rat = "    Reviewer rationale for choice: "
-                            rat = (read_multiline_paste_normalized(prompt_rat) if ask is input else ask(prompt_rat)).strip()
+                            rat = (
+                                read_multiline_paste_normalized(prompt_rat)
+                                if ask is input
+                                else ask(prompt_rat)
+                            ).strip()
                             fe_rationale = rat or f"Reviewer selected option {chosen_opt.label}"
                         break
 
@@ -196,12 +228,14 @@ def run_feature_engineering_checkpoints(
 
                         from start.cli.view import get_styled_agent_name
                         from start.interactive_checkpoints import read_multiline_paste_normalized
+
                         c = Console()
                         c.print(f"    Apply {rec.step}? [Y]es / [n]o / [Q] ask ", end="")
                         c.print(get_styled_agent_name(current_agent), end=": ")
                         resp_raw = read_multiline_paste_normalized("")
                     else:
                         from start.cli.view import get_ansi_agent_name
+
                         resp_raw = ask(
                             f"    Apply {rec.step}? [Y]es / [n]o / [Q] ask {get_ansi_agent_name(current_agent)}: "
                         )
@@ -215,7 +249,9 @@ def run_feature_engineering_checkpoints(
                         q_text = stripped[1:].strip() if len(stripped) > 1 else ""
                         if not q_text:
                             prompt_q = f"    Ask {current_agent}: "
-                            q_text = (read_multiline_paste_normalized(prompt_q) if ask is input else ask(prompt_q)).strip()
+                            q_text = (
+                                read_multiline_paste_normalized(prompt_q) if ask is input else ask(prompt_q)
+                            ).strip()
                         if q_text and q_text.lower() not in ("q", "ask", "?"):
                             agent_answer = on_ask(q_text)
                             say(f"    {agent_answer}")
@@ -225,13 +261,24 @@ def run_feature_engineering_checkpoints(
                         c_text = stripped[1:].strip() if len(stripped) > 1 else ""
                         if not c_text:
                             prompt_c = f"    Enter challenge to {current_agent}: "
-                            c_text = (read_multiline_paste_normalized(prompt_c) if ask is input else ask(prompt_c)).strip()
+                            c_text = (
+                                read_multiline_paste_normalized(prompt_c) if ask is input else ask(prompt_c)
+                            ).strip()
                         if not c_text:
                             c_text = f"Why is the recommendation '{rec.recommendation}' for step '{rec.step}' appropriate?"
                         agent_answer = on_ask(c_text)
                         say(f"    {agent_answer}")
                         from start.governance.challenge_disposition import CONCESSION_PROMPT
-                        c_ans = (read_multiline_paste_normalized(CONCESSION_PROMPT) if ask is input else ask(CONCESSION_PROMPT)).strip().lower()
+
+                        c_ans = (
+                            (
+                                read_multiline_paste_normalized(CONCESSION_PROMPT)
+                                if ask is input
+                                else ask(CONCESSION_PROMPT)
+                            )
+                            .strip()
+                            .lower()
+                        )
                         if session and getattr(session, "challenges", None):
                             session.challenges[-1].conceded = c_ans in {"y", "yes"}
                             session.challenges[-1].changes_disposition = session.challenges[-1].conceded
@@ -246,12 +293,19 @@ def run_feature_engineering_checkpoints(
                     break
 
         overrides[rec.step] = action
-        session.record_decision(Decision(
-            key=f"fe:{rec.step}", prompt=f"Apply {rec.step}?",
-            recommended=rec_key, user_value=action, effective=action,
-            choice=choice, rationale=fe_rationale,
-            agent_rationale=rec.reason, evidence_ids=[rec.evidence_id],
-        ))
+        session.record_decision(
+            Decision(
+                key=f"fe:{rec.step}",
+                prompt=f"Apply {rec.step}?",
+                recommended=rec_key,
+                user_value=action,
+                effective=action,
+                choice=choice,
+                rationale=fe_rationale,
+                agent_rationale=rec.reason,
+                evidence_ids=[rec.evidence_id],
+            )
+        )
     return overrides
 
 
@@ -277,11 +331,13 @@ def run_metric_checkpoint(
     say = emit or (lambda _m: None)
     ctx = AgentContext(
         agent="HyperparameterTuningAgent",
-        recommendation=recommended_cost, reason=reason,
+        recommendation=recommended_cost,
+        reason=reason,
         risk_if_ignored="Wrong metric can optimize for the wrong error type.",
-        alternatives=[{"family": "false_negatives"}, {"family": "false_positives"},
-                      {"family": "balanced"}],
-        dataset_summary="", checkpoint="metric_priority", evidence=evidence,
+        alternatives=[{"family": "false_negatives"}, {"family": "false_positives"}, {"family": "balanced"}],
+        dataset_summary="",
+        checkpoint="metric_priority",
+        evidence=evidence,
         business_context=business_context,
         reviewer_clarification=reviewer_clarification,
         task_type=task_type,
@@ -289,18 +345,32 @@ def run_metric_checkpoint(
     )
     on_ask = _ask_factory("HyperparameterTuningAgent", ctx, session, llm, llm_connected)
     dec = resolve_checkpoint(
-        "metric_priority", user_cost, recommended_cost, reason,
-        explanation=reason, interactive=interactive, auto_accept=auto_accept,
-        ask=ask, emit=say, on_ask=on_ask,
-        llm=llm, session=session, ctx=ctx,
+        "metric_priority",
+        user_cost,
+        recommended_cost,
+        reason,
+        explanation=reason,
+        interactive=interactive,
+        auto_accept=auto_accept,
+        ask=ask,
+        emit=say,
+        on_ask=on_ask,
+        llm=llm,
+        session=session,
+        ctx=ctx,
     )
-    session.record_decision(Decision(
-        key="metric_priority", prompt="Cost priority?",
-        recommended=recommended_cost, user_value=dec.user_value,
-        effective=dec.effective_value, choice=dec.choice,
-        rationale=dec.rationale or reason,
-        agent_rationale=reason,
-    ))
+    session.record_decision(
+        Decision(
+            key="metric_priority",
+            prompt="Cost priority?",
+            recommended=recommended_cost,
+            user_value=dec.user_value,
+            effective=dec.effective_value,
+            choice=dec.choice,
+            rationale=dec.rationale or reason,
+            agent_rationale=reason,
+        )
+    )
     return dec.effective_value
 
 
@@ -321,22 +391,41 @@ def run_target_checkpoint(
     """Confirm / override the target (item 4). Returns the effective target."""
     say = emit or (lambda _m: None)
     ctx = AgentContext(
-        agent="DatasetDiscoveryAgent", recommendation=recommended_target,
-        reason=reason, risk_if_ignored="Wrong target invalidates the entire review.",
-        alternatives=None, dataset_summary="", checkpoint="target", evidence=evidence,
+        agent="DatasetDiscoveryAgent",
+        recommendation=recommended_target,
+        reason=reason,
+        risk_if_ignored="Wrong target invalidates the entire review.",
+        alternatives=None,
+        dataset_summary="",
+        checkpoint="target",
+        evidence=evidence,
     )
     on_ask = _ask_factory("DatasetDiscoveryAgent", ctx, session, llm, llm_connected)
     dec = resolve_checkpoint(
-        "target", candidate_target, recommended_target, reason,
-        explanation=reason, interactive=interactive, auto_accept=auto_accept,
-        ask=ask, emit=say, on_ask=on_ask,
-        llm=llm, session=session, ctx=ctx,
+        "target",
+        candidate_target,
+        recommended_target,
+        reason,
+        explanation=reason,
+        interactive=interactive,
+        auto_accept=auto_accept,
+        ask=ask,
+        emit=say,
+        on_ask=on_ask,
+        llm=llm,
+        session=session,
+        ctx=ctx,
     )
-    session.record_decision(Decision(
-        key="target", prompt="Confirm target column?",
-        recommended=recommended_target, user_value=dec.user_value,
-        effective=dec.effective_value, choice=dec.choice,
-        rationale=dec.rationale or reason,
-        agent_rationale=reason,
-    ))
+    session.record_decision(
+        Decision(
+            key="target",
+            prompt="Confirm target column?",
+            recommended=recommended_target,
+            user_value=dec.user_value,
+            effective=dec.effective_value,
+            choice=dec.choice,
+            rationale=dec.rationale or reason,
+            agent_rationale=reason,
+        )
+    )
     return dec.effective_value

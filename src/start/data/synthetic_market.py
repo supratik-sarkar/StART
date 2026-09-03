@@ -58,8 +58,13 @@ __all__ = [
 
 #: Adversarial modes, each deterministic under seed.
 ADVERSARIAL_MODES: tuple[str, ...] = (
-    "regime_shift", "fat_tails", "near_singular", "constant_asset",
-    "mcar_missing", "mar_missing", "var_misspecification",
+    "regime_shift",
+    "fat_tails",
+    "near_singular",
+    "constant_asset",
+    "mcar_missing",
+    "mar_missing",
+    "var_misspecification",
 )
 
 
@@ -199,14 +204,18 @@ def generate_short_rate_path(
     for t in range(1, n_periods):
         previous = rates[t - 1]
         drift = kappa * (theta - previous) * dt
-        diffusion = sigma * (previous ** gamma) * sqrt_dt * rng.standard_normal()
+        diffusion = sigma * (previous**gamma) * sqrt_dt * rng.standard_normal()
         value = previous + drift + diffusion
         rates[t] = value if value > floor else floor + (floor - value)
 
     index = pd.date_range(start, periods=n_periods, freq="B")
     truth = {
-        "gamma": float(gamma), "kappa": float(kappa), "theta": float(theta),
-        "sigma": float(sigma), "r0": float(r0), "dt": float(dt),
+        "gamma": float(gamma),
+        "kappa": float(kappa),
+        "theta": float(theta),
+        "sigma": float(sigma),
+        "r0": float(r0),
+        "dt": float(dt),
     }
     return pd.Series(rates, index=index, name="short_rate"), truth
 
@@ -215,8 +224,13 @@ def generate_short_rate_path(
 # Barrier paths
 # --------------------------------------------------------------------------- #
 def barrier_crossing_probability(
-    start_price: float, end_price: float, barrier: float, sigma: float, dt: float,
-    *, direction: str = "up",
+    start_price: float,
+    end_price: float,
+    barrier: float,
+    sigma: float,
+    dt: float,
+    *,
+    direction: str = "up",
 ) -> float:
     """Closed-form Brownian-bridge crossing probability, in **log-price** space.
 
@@ -272,10 +286,7 @@ def generate_barrier_paths(
         for step in range(n_steps):
             for _ in range(fine_steps_per_step):
                 shock = rng.standard_normal()
-                price *= np.exp(
-                    (mu - 0.5 * sigma * sigma) * fine_dt
-                    + sigma * np.sqrt(fine_dt) * shock
-                )
+                price *= np.exp((mu - 0.5 * sigma * sigma) * fine_dt + sigma * np.sqrt(fine_dt) * shock)
                 if price >= barrier:
                     crossed_fine[path] = True
             coarse[path, step + 1] = price
@@ -353,9 +364,7 @@ def generate_market_world(
         factor_draws = raw @ chol.T
         modes.append("fat_tails")
     else:
-        factor_draws = rng.multivariate_normal(
-            np.zeros(n_factors), factor_cov, size=n_periods
-        )
+        factor_draws = rng.multivariate_normal(np.zeros(n_factors), factor_cov, size=n_periods)
 
     if regime_shift_at is not None and 0 < regime_shift_at < n_periods:
         factor_draws[regime_shift_at:] *= 2.0
@@ -377,15 +386,14 @@ def generate_market_world(
 
     # -- asset returns: r = X f + e ----------------------------------------
     specific = rng.normal(0.0, 1.0, (n_periods, n_assets)) * specific_sd
-    returns = pd.DataFrame(
-        factor_draws @ exposures.T + specific, index=index, columns=asset_ids
-    )
+    returns = pd.DataFrame(factor_draws @ exposures.T + specific, index=index, columns=asset_ids)
     prices = (1.0 + returns).cumprod() * 100.0
 
     # True asset covariance = X F X' + D, from the generator's own inputs.
     true_asset_cov = pd.DataFrame(
         exposures @ factor_cov @ exposures.T + np.diag(specific_sd**2),
-        index=asset_ids, columns=asset_ids,
+        index=asset_ids,
+        columns=asset_ids,
     )
 
     # -- portfolio ---------------------------------------------------------
@@ -409,7 +417,8 @@ def generate_market_world(
         modes.append("var_misspecification")
     var_series = pd.Series(
         np.full(n_periods, true_var * var_misspecification_factor),
-        index=index, name="var",
+        index=index,
+        name="var",
     )
 
     # -- missingness -------------------------------------------------------
@@ -421,7 +430,8 @@ def generate_market_world(
         if mechanism == "mcar":
             mask = pd.DataFrame(
                 rng.random((n_periods, n_assets)) < missing_rate,
-                index=index, columns=asset_ids,
+                index=index,
+                columns=asset_ids,
             )
             modes.append("mcar_missing")
         elif mechanism == "mar":
@@ -430,14 +440,13 @@ def generate_market_world(
             # value itself would be MNAR and would break RegEM's stated assumptions.
             driver = returns[asset_ids[0]].to_numpy()
             centred = (driver - driver.mean()) / (driver.std() + 1e-12)
-            probability = np.clip(
-                missing_rate * (1.0 + 1.5 * centred[:, None]), 0.0, 0.95
-            )
+            probability = np.clip(missing_rate * (1.0 + 1.5 * centred[:, None]), 0.0, 0.95)
             mask = pd.DataFrame(
                 rng.random((n_periods, n_assets)) < probability,
-                index=index, columns=asset_ids,
+                index=index,
+                columns=asset_ids,
             )
-            mask.iloc[:, 0] = False      # the driver stays observed
+            mask.iloc[:, 0] = False  # the driver stays observed
             modes.append("mar_missing")
         else:
             raise ValueError(f"missing_mechanism={missing_mechanism!r} must be mcar or mar")
@@ -448,8 +457,11 @@ def generate_market_world(
     short_truth: dict[str, float] = {}
     if include_short_rate:
         short_rate, short_truth = generate_short_rate_path(
-            n_periods=n_periods, gamma=short_rate_gamma,
-            periods_per_year=periods_per_year, seed=seed + 1, start=start,
+            n_periods=n_periods,
+            gamma=short_rate_gamma,
+            periods_per_year=periods_per_year,
+            seed=seed + 1,
+            start=start,
         )
 
     # -- barrier -----------------------------------------------------------
@@ -459,28 +471,42 @@ def generate_market_world(
     if include_barrier_paths:
         barrier_level = 115.0
         barrier_paths, true_barrier = generate_barrier_paths(
-            n_paths=200, n_steps=25, barrier=barrier_level,
-            periods_per_year=periods_per_year, seed=seed + 2,
+            n_paths=200,
+            n_steps=25,
+            barrier=barrier_level,
+            periods_per_year=periods_per_year,
+            seed=seed + 2,
         )
 
     # -- asset metadata: synthetic sector, class, region, currency ---------
-    sectors = ["Technology", "Healthcare", "Financials", "Consumer", "Industrials", "Energy", "Utilities", "Materials"]
+    sectors = [
+        "Technology",
+        "Healthcare",
+        "Financials",
+        "Consumer",
+        "Industrials",
+        "Energy",
+        "Utilities",
+        "Materials",
+    ]
     asset_classes = ["Equity", "Fixed_Income", "Commodities", "Real_Estate"]
     regions = ["North_America", "Europe", "Asia_Pacific", "Emerging_Markets"]
     currencies = ["USD", "EUR", "GBP", "JPY"]
 
     meta_rows = []
     for i, aid in enumerate(asset_ids):
-        meta_rows.append({
-            "asset_id": aid,
-            "name": f"Synthetic Asset {i:03d}",
-            "sector": sectors[i % len(sectors)],
-            "asset_class": asset_classes[i % len(asset_classes)],
-            "region": regions[i % len(regions)],
-            "currency": currencies[i % len(currencies)],
-            "is_synthetic_demo": True,
-            "provenance_tag": "SYNTHETIC_DEMO / NON-PRODUCTION / FICTIONAL ASSET METADATA",
-        })
+        meta_rows.append(
+            {
+                "asset_id": aid,
+                "name": f"Synthetic Asset {i:03d}",
+                "sector": sectors[i % len(sectors)],
+                "asset_class": asset_classes[i % len(asset_classes)],
+                "region": regions[i % len(regions)],
+                "currency": currencies[i % len(currencies)],
+                "is_synthetic_demo": True,
+                "provenance_tag": "SYNTHETIC_DEMO / NON-PRODUCTION / FICTIONAL ASSET METADATA",
+            }
+        )
     asset_metadata_df = pd.DataFrame(meta_rows).set_index("asset_id")
 
     # -- prior weights & constraints ---------------------------------------
@@ -581,7 +607,7 @@ def generate_market_world(
     # -- Attribution prior comparison state --------------------------------
     x0 = pd.Series(exposures.T @ prior_weights.to_numpy(dtype=float), index=factor_ids)
     F0 = pd.DataFrame(factor_cov * 0.95, index=factor_ids, columns=factor_ids)
-    S0 = float((prior_weights.to_numpy(dtype=float)**2) @ (specific_sd**2))
+    S0 = float((prior_weights.to_numpy(dtype=float) ** 2) @ (specific_sd**2))
     comparison_state = AttributionState(
         exposure=x0,
         factor_covariance=F0,
@@ -599,22 +625,34 @@ def generate_market_world(
     }
 
     return MarketWorld(
-        returns=returns, prices=prices, factor_returns=factor_returns,
-        factor_exposures=exposures_frame, weights=weights, benchmark_weights=benchmark,
-        pnl=pnl, hypothetical_pnl=hypothetical_pnl, var_series=var_series,
+        returns=returns,
+        prices=prices,
+        factor_returns=factor_returns,
+        factor_exposures=exposures_frame,
+        weights=weights,
+        benchmark_weights=benchmark,
+        pnl=pnl,
+        hypothetical_pnl=hypothetical_pnl,
+        var_series=var_series,
         var_confidence=var_confidence,
         true_factor_covariance=pd.DataFrame(factor_cov, index=factor_ids, columns=factor_ids),
         true_specific_variance=specific_variance,
         true_asset_covariance=true_asset_cov,
         true_portfolio_variance=true_portfolio_variance,
         var_misspecification_factor=float(var_misspecification_factor),
-        incomplete_returns=incomplete, missing_mask=mask, missing_mechanism=mechanism,
-        short_rate=short_rate, true_short_rate_params=short_truth,
-        barrier_paths=barrier_paths, true_barrier_probability=true_barrier,
+        incomplete_returns=incomplete,
+        missing_mask=mask,
+        missing_mechanism=mechanism,
+        short_rate=short_rate,
+        true_short_rate_params=short_truth,
+        barrier_paths=barrier_paths,
+        true_barrier_probability=true_barrier,
         barrier_level=barrier_level,
         asset_metadata=asset_metadata_df,
         prior_weights=prior_weights,
         constraints=portfolio_constraints,
         extra=extra_dict,
-        periods_per_year=periods_per_year, seed=seed, modes=tuple(modes),
+        periods_per_year=periods_per_year,
+        seed=seed,
+        modes=tuple(modes),
     )

@@ -75,11 +75,14 @@ def view_artifacts(artifacts: list[Any], mode: str | None = None, max_open: int 
     visual_first = sorted(
         artifacts,
         key=lambda a: (
-            0 if "dendrogram" in str(getattr(getattr(a, "spec", None), "artifact_type", "")) else
-            1 if "heatmap" in str(getattr(getattr(a, "spec", None), "artifact_type", "")) else
-            2 if "waterfall" in str(getattr(getattr(a, "spec", None), "artifact_type", "")) else
-            3
-        )
+            0
+            if "dendrogram" in str(getattr(getattr(a, "spec", None), "artifact_type", ""))
+            else 1
+            if "heatmap" in str(getattr(getattr(a, "spec", None), "artifact_type", ""))
+            else 2
+            if "waterfall" in str(getattr(getattr(a, "spec", None), "artifact_type", ""))
+            else 3
+        ),
     )
 
     for art in visual_first:

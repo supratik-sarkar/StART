@@ -171,9 +171,7 @@ def describe_cnn(
     conv blocks, channels, kernel, pooling, dense, dropout, image size, and the
     real trainable parameter count. Used by the notebook/dashboard CNN UX so all
     architecture choices become evidence-backed metadata."""
-    net, stamp = build_vision_network(
-        architecture, channels, image_size, n_classes, config=config
-    )
+    net, stamp = build_vision_network(architecture, channels, image_size, n_classes, config=config)
     descriptor = dict(stamp)
     descriptor.update(
         {
@@ -185,9 +183,7 @@ def describe_cnn(
     )
     # Per-block channel progression for the configurable CNN (transparency).
     if architecture in CNN_PRESETS or architecture == "simple_cnn":
-        cfg = config or (
-            config_from_preset(architecture) if architecture in CNN_PRESETS else CNNConfig()
-        )
+        cfg = config or (config_from_preset(architecture) if architecture in CNN_PRESETS else CNNConfig())
         chans, c = [], cfg.base_channels
         for _ in range(cfg.n_blocks):
             chans.append(c)

@@ -18,8 +18,14 @@ def execution(tmp_path_factory):
     reg = ArtifactRegistry()
     out = str(tmp_path_factory.mktemp("model_execution"))
     ex = run_model_execution(
-        df, "attrition", split_props=(0.60, 0.20, 0.20), metric_name="pr_auc",
-        seed=0, output_root=out, run_id="RUN-TEST", registry=reg,
+        df,
+        "attrition",
+        split_props=(0.60, 0.20, 0.20),
+        metric_name="pr_auc",
+        seed=0,
+        output_root=out,
+        run_id="RUN-TEST",
+        registry=reg,
     )
     return ex, reg
 
@@ -50,8 +56,7 @@ def test_metrics_by_split_generated(execution):
     ex, _ = execution
     assert set(ex.metrics_by_split) == {"train", "test", "oos"}
     for m in ex.metrics_by_split.values():
-        for key in ("auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1",
-                    "brier_score", "ece"):
+        for key in ("auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1", "brier_score", "ece"):
             assert key in m
 
 
@@ -95,6 +100,12 @@ def test_markdown_render(execution):
 def test_to_dict_complete(execution):
     ex, _ = execution
     d = ex.to_dict()
-    for key in ("split_table", "metrics_by_split", "training_diagnostics",
-                "explainability_method", "global_importance", "generalization_gap"):
+    for key in (
+        "split_table",
+        "metrics_by_split",
+        "training_diagnostics",
+        "explainability_method",
+        "global_importance",
+        "generalization_gap",
+    ):
         assert key in d

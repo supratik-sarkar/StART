@@ -3,6 +3,7 @@
 Expected values here are computed by hand or from closed-form algebra, never by calling
 the production function whose output is under test.
 """
+
 from __future__ import annotations
 
 import math
@@ -54,8 +55,15 @@ def _frame(data, freq="D"):
 # ================================================== FROZEN CONTRACT ==
 def test_max_sharpe_contract_is_frozen_with_every_required_field():
     """The grid must be a specification, not an implementation detail."""
-    for key in ("feasible_bound_method", "coarse_points", "refinement_points",
-                "sharpe_basis", "annualisation", "tie_tolerance", "tie_break_order"):
+    for key in (
+        "feasible_bound_method",
+        "coarse_points",
+        "refinement_points",
+        "sharpe_basis",
+        "annualisation",
+        "tie_tolerance",
+        "tie_break_order",
+    ):
         assert key in MAX_SHARPE_CONTRACT
     assert MAX_SHARPE_CONTRACT["coarse_points"] == 101
     assert MAX_SHARPE_CONTRACT["refinement_points"] == 21
@@ -96,7 +104,7 @@ def test_applying_the_wrong_wealth_rule_is_detectable():
 
 def test_geometric_annualisation_simple_known_answer():
     """4 periods doubling overall, ppy=4 -> exactly 100%."""
-    r = _series([2 ** 0.25 - 1] * 4)
+    r = _series([2**0.25 - 1] * 4)
     assert abs(annualised_geometric_return(r, 4.0, "simple") - 1.0) < 1e-12
 
 
@@ -167,8 +175,7 @@ def test_return_basis_is_recorded_and_honoured():
 
 def test_returns_derived_from_prices_are_flagged():
     prices = _frame({"A": [100.0, 110.0, 121.0], "B": [50.0, 55.0, 60.5]})
-    ctx = MarketContext(prices=prices,
-                        portfolio=PortfolioSpec(weights=pd.Series(0.5, index=["A", "B"])))
+    ctx = MarketContext(prices=prices, portfolio=PortfolioSpec(weights=pd.Series(0.5, index=["A", "B"])))
     result = historical_returns(ctx)
     assert result.metrics["derived_from_prices"] is True
     assert abs(result.metrics["mean_periodic_return"] - 0.10) < 1e-12
@@ -199,8 +206,7 @@ def test_risk_free_is_converted_to_the_return_period():
     """Subtracting an annual rate from a daily return is wrong by ~252x."""
     values = [0.001] * 100
     frame = _frame({"A": values})
-    ctx = _market(frame, pd.Series([1.0], index=["A"]),
-                  risk_free_rate=0.03, risk_free_frequency="annual")
+    ctx = _market(frame, pd.Series([1.0], index=["A"]), risk_free_rate=0.03, risk_free_frequency="annual")
     result = risk_statistics(ctx)
     assert result.metrics["risk_free_source_periods_per_year"] == 1.0
     assert result.metrics["risk_free_target_periods_per_year"] == 252.0
@@ -218,9 +224,7 @@ def test_sortino_records_its_downside_convention():
 def test_calmar_is_geometric_return_over_drawdown():
     frame = _frame({"A": [0.2, -0.5, 0.5]})
     result = risk_statistics(_market(frame, pd.Series([1.0], index=["A"])))
-    expected = result.metrics["annualised_geometric_return"] / abs(
-        result.metrics["max_drawdown"]
-    )
+    expected = result.metrics["annualised_geometric_return"] / abs(result.metrics["max_drawdown"])
     assert abs(result.metrics["calmar_ratio"] - expected) < 1e-9
 
 
@@ -236,8 +240,7 @@ def test_historical_var_known_answer():
     """95% VaR of 0..99 is the 5th percentile, negated."""
     values = list(np.arange(100, dtype=float) / 1000.0 - 0.05)
     frame = _frame({"A": values})
-    result = risk_statistics(_market(frame, pd.Series([1.0], index=["A"])),
-                             var_confidence=0.95)
+    result = risk_statistics(_market(frame, pd.Series([1.0], index=["A"])), var_confidence=0.95)
     expected = -float(np.percentile(values, 5))
     assert abs(result.metrics["historical_var"] - expected) < 1e-12
 
@@ -245,16 +248,18 @@ def test_historical_var_known_answer():
 def test_es_requires_enough_tail_observations():
     """An ES from two observations is noise with a decimal point."""
     frame = _frame({"A": list(np.linspace(-0.05, 0.05, 20))})
-    result = risk_statistics(_market(frame, pd.Series([1.0], index=["A"])),
-                             var_confidence=0.95, min_tail_observations=10)
+    result = risk_statistics(
+        _market(frame, pd.Series([1.0], index=["A"])), var_confidence=0.95, min_tail_observations=10
+    )
     assert result.metrics["historical_es"] is None
     assert "tail observation" in result.metrics["es_insufficient_reason"]
 
 
 def test_es_is_reported_with_enough_tail():
     frame = _frame({"A": list(np.linspace(-0.05, 0.05, 500))})
-    result = risk_statistics(_market(frame, pd.Series([1.0], index=["A"])),
-                             var_confidence=0.95, min_tail_observations=10)
+    result = risk_statistics(
+        _market(frame, pd.Series([1.0], index=["A"])), var_confidence=0.95, min_tail_observations=10
+    )
     assert result.metrics["historical_es"] is not None
     assert result.metrics["historical_es"] > result.metrics["historical_var"]
 
@@ -325,9 +330,11 @@ def test_minimum_variance_with_correlation_closed_form():
 
 def test_target_return_constraint_is_met_exactly():
     rng = np.random.default_rng(4)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (300, 4)),
-                         index=pd.date_range("2024-01-01", periods=300, freq="D"),
-                         columns=list("ABCD"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (300, 4)),
+        index=pd.date_range("2024-01-01", periods=300, freq="D"),
+        columns=list("ABCD"),
+    )
     ctx = _market(frame)
     mu = frame.mean().to_numpy()
     target = float(np.median(mu))
@@ -338,9 +345,11 @@ def test_target_return_constraint_is_met_exactly():
 
 def test_long_only_is_respected():
     rng = np.random.default_rng(5)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (200, 5)),
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"),
-                         columns=list("ABCDE"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (200, 5)),
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+        columns=list("ABCDE"),
+    )
     ctx = _market(frame, weights=pd.Series(0.2, index=list("ABCDE")))
     ctx.portfolio.constraints = PortfolioConstraints(long_only=True)
     result = mean_variance(ctx, objective="min_variance")
@@ -349,9 +358,11 @@ def test_long_only_is_respected():
 
 def test_max_weight_cap_is_respected():
     rng = np.random.default_rng(6)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (200, 5)),
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"),
-                         columns=list("ABCDE"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (200, 5)),
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+        columns=list("ABCDE"),
+    )
     ctx = _market(frame, weights=pd.Series(0.2, index=list("ABCDE")))
     ctx.portfolio.constraints = PortfolioConstraints(long_only=True, max_weight=0.30)
     result = mean_variance(ctx, objective="min_variance")
@@ -360,9 +371,11 @@ def test_max_weight_cap_is_respected():
 
 def test_infeasible_constraints_error_before_solving():
     rng = np.random.default_rng(7)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (100, 3)),
-                         index=pd.date_range("2024-01-01", periods=100, freq="D"),
-                         columns=list("ABC"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (100, 3)),
+        index=pd.date_range("2024-01-01", periods=100, freq="D"),
+        columns=list("ABC"),
+    )
     ctx = _market(frame, weights=pd.Series(1 / 3, index=list("ABC")))
     ctx.portfolio.constraints = PortfolioConstraints(min_weight=0.5, max_weight=0.2)
     result = mean_variance(ctx)
@@ -373,9 +386,11 @@ def test_infeasible_constraints_error_before_solving():
 def test_concentration_with_long_short_is_rejected():
     """HHI is not a concentration measure on a long/short book."""
     rng = np.random.default_rng(8)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (100, 3)),
-                         index=pd.date_range("2024-01-01", periods=100, freq="D"),
-                         columns=list("ABC"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (100, 3)),
+        index=pd.date_range("2024-01-01", periods=100, freq="D"),
+        columns=list("ABC"),
+    )
     ctx = _market(frame, weights=pd.Series(1 / 3, index=list("ABC")))
     ctx.portfolio.constraints = PortfolioConstraints(long_only=False, max_concentration=0.4)
     result = mean_variance(ctx)
@@ -385,9 +400,11 @@ def test_concentration_with_long_short_is_rejected():
 
 def test_max_sharpe_records_the_frozen_grid():
     rng = np.random.default_rng(9)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (250, 4)),
-                         index=pd.date_range("2024-01-01", periods=250, freq="D"),
-                         columns=list("ABCD"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (250, 4)),
+        index=pd.date_range("2024-01-01", periods=250, freq="D"),
+        columns=list("ABCD"),
+    )
     ctx = _market(frame)
     result = mean_variance(ctx, objective="max_sharpe")
     assert result.status == Status.RECORDED
@@ -399,9 +416,11 @@ def test_max_sharpe_records_the_frozen_grid():
 
 def test_max_sharpe_beats_or_matches_min_variance_on_sharpe():
     rng = np.random.default_rng(10)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (250, 4)),
-                         index=pd.date_range("2024-01-01", periods=250, freq="D"),
-                         columns=list("ABCD"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (250, 4)),
+        index=pd.date_range("2024-01-01", periods=250, freq="D"),
+        columns=list("ABCD"),
+    )
     ctx = _market(frame)
     best = mean_variance(ctx, objective="max_sharpe").metrics["sharpe_periodic"]
     minvar = mean_variance(ctx, objective="min_variance").metrics["sharpe_periodic"]
@@ -410,9 +429,11 @@ def test_max_sharpe_beats_or_matches_min_variance_on_sharpe():
 
 def test_max_sharpe_is_deterministic():
     rng = np.random.default_rng(11)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (200, 4)),
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"),
-                         columns=list("ABCD"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (200, 4)),
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+        columns=list("ABCD"),
+    )
     ctx = _market(frame)
     a = mean_variance(ctx, objective="max_sharpe")
     b = mean_variance(ctx, objective="max_sharpe")
@@ -423,9 +444,11 @@ def test_max_sharpe_is_deterministic():
 
 def test_ewma_expected_return_differs_from_the_mean():
     rng = np.random.default_rng(12)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (200, 3)),
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"),
-                         columns=list("ABC"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (200, 3)),
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+        columns=list("ABC"),
+    )
     ctx = _market(frame, weights=pd.Series(1 / 3, index=list("ABC")))
     plain = mean_variance(ctx, objective="max_sharpe", expected_return="mean")
     ewma = mean_variance(ctx, objective="max_sharpe", expected_return="ewma")
@@ -435,9 +458,11 @@ def test_ewma_expected_return_differs_from_the_mean():
 
 def test_ledoit_wolf_covariance_is_selectable():
     rng = np.random.default_rng(13)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (60, 8)),
-                         index=pd.date_range("2024-01-01", periods=60, freq="D"),
-                         columns=[f"A{i}" for i in range(8)])
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (60, 8)),
+        index=pd.date_range("2024-01-01", periods=60, freq="D"),
+        columns=[f"A{i}" for i in range(8)],
+    )
     ctx = _market(frame, weights=pd.Series(0.125, index=frame.columns))
     result = mean_variance(ctx, objective="min_variance", covariance="ledoit_wolf")
     assert result.status == Status.RECORDED
@@ -446,9 +471,11 @@ def test_ledoit_wolf_covariance_is_selectable():
 
 def test_turnover_is_reported_against_prior_weights():
     rng = np.random.default_rng(14)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (150, 3)),
-                         index=pd.date_range("2024-01-01", periods=150, freq="D"),
-                         columns=list("ABC"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (150, 3)),
+        index=pd.date_range("2024-01-01", periods=150, freq="D"),
+        columns=list("ABC"),
+    )
     prior = pd.Series([1.0, 0.0, 0.0], index=list("ABC"))
     ctx = _market(frame, weights=pd.Series(1 / 3, index=list("ABC")))
     ctx.portfolio.prior_weights = prior
@@ -459,12 +486,13 @@ def test_turnover_is_reported_against_prior_weights():
 
 def test_unknown_objective_is_rejected():
     rng = np.random.default_rng(15)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (50, 3)),
-                         index=pd.date_range("2024-01-01", periods=50, freq="D"),
-                         columns=list("ABC"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (50, 3)),
+        index=pd.date_range("2024-01-01", periods=50, freq="D"),
+        columns=list("ABC"),
+    )
     with pytest.raises(ValueError, match="not supported"):
-        mean_variance(_market(frame, pd.Series(1 / 3, index=list("ABC"))),
-                      objective="max_return")
+        mean_variance(_market(frame, pd.Series(1 / 3, index=list("ABC"))), objective="max_return")
 
 
 # ==================================== HRP ==
@@ -494,16 +522,14 @@ def test_hrp_equal_variance_uncorrelated_is_equal_weight():
 def test_hrp_weights_sum_to_one_and_are_non_negative():
     rng = np.random.default_rng(16)
     data = rng.normal(size=(300, 6))
-    cov = pd.DataFrame(np.cov(data, rowvar=False),
-                       index=list("ABCDEF"), columns=list("ABCDEF"))
+    cov = pd.DataFrame(np.cov(data, rowvar=False), index=list("ABCDEF"), columns=list("ABCDEF"))
     weights, _ = hrp_weights(cov)
     assert abs(float(weights.sum()) - 1.0) < 1e-9
     assert (weights >= -1e-12).all()
 
 
 def test_hrp_gives_lower_weight_to_the_riskier_asset():
-    cov = pd.DataFrame(np.diag([0.09, 0.01, 0.04, 0.01]),
-                       index=list("ABCD"), columns=list("ABCD"))
+    cov = pd.DataFrame(np.diag([0.09, 0.01, 0.04, 0.01]), index=list("ABCD"), columns=list("ABCD"))
     weights, _ = hrp_weights(cov)
     assert float(weights.loc["A"]) < float(weights.loc["B"])
 
@@ -518,20 +544,23 @@ def test_hrp_degeneracy_check_is_relative_not_exact():
     """A constant column has variance ~1e-36, not exactly 0. An exact test lets it
     through and the inverse-variance step then hands it almost the whole book."""
     rng = np.random.default_rng(31)
-    frame = pd.DataFrame({"A": rng.normal(size=200), "B": [0.01] * 200,
-                          "C": rng.normal(size=200)},
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"))
+    frame = pd.DataFrame(
+        {"A": rng.normal(size=200), "B": [0.01] * 200, "C": rng.normal(size=200)},
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+    )
     variances = np.diag(frame.cov().to_numpy())
-    assert 0.0 < float(variances.min()) < 1e-30      # not exactly zero
+    assert 0.0 < float(variances.min()) < 1e-30  # not exactly zero
     with pytest.raises(ValueError, match="degenerate variance"):
         hrp_weights(frame.cov())
 
 
 def test_hrp_test_records_the_quasi_diagonal_order():
     rng = np.random.default_rng(17)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (200, 5)),
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"),
-                         columns=list("ABCDE"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (200, 5)),
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+        columns=list("ABCDE"),
+    )
     result = hierarchical_risk_parity(_market(frame, pd.Series(0.2, index=list("ABCDE"))))
     assert result.status == Status.RECORDED
     assert result.metrics["quasi_diagonal_order"]
@@ -540,18 +569,24 @@ def test_hrp_test_records_the_quasi_diagonal_order():
 
 
 def test_hrp_errors_cleanly_on_a_degenerate_asset():
-    frame = _frame({"A": list(np.random.default_rng(18).normal(size=100)),
-                    "B": [0.01] * 100,
-                    "C": list(np.random.default_rng(19).normal(size=100))})
+    frame = _frame(
+        {
+            "A": list(np.random.default_rng(18).normal(size=100)),
+            "B": [0.01] * 100,
+            "C": list(np.random.default_rng(19).normal(size=100)),
+        }
+    )
     result = hierarchical_risk_parity(_market(frame, pd.Series(1 / 3, index=list("ABC"))))
     assert result.status == Status.ERROR
 
 
 def test_hrp_is_deterministic():
     rng = np.random.default_rng(20)
-    frame = pd.DataFrame(rng.normal(0.001, 0.01, (200, 5)),
-                         index=pd.date_range("2024-01-01", periods=200, freq="D"),
-                         columns=list("ABCDE"))
+    frame = pd.DataFrame(
+        rng.normal(0.001, 0.01, (200, 5)),
+        index=pd.date_range("2024-01-01", periods=200, freq="D"),
+        columns=list("ABCDE"),
+    )
     ctx = _market(frame, pd.Series(0.2, index=list("ABCDE")))
     a = hierarchical_risk_parity(ctx)
     b = hierarchical_risk_parity(ctx)

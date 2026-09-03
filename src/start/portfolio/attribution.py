@@ -69,7 +69,9 @@ def compute_factor_return_attribution(
 
     # Exposures B (can be static N x K or dynamic T x N x K)
     if isinstance(exposures, pd.DataFrame):
-        B_static = exposures.reindex(index=list(asset_names), columns=list(factor_names)).to_numpy(dtype=float)
+        B_static = exposures.reindex(index=list(asset_names), columns=list(factor_names)).to_numpy(
+            dtype=float
+        )
     else:
         B_static = np.asarray(exposures, dtype=float)
 
@@ -241,7 +243,9 @@ def compute_carino_multi_period_linking(
     # Check for invalid returns <= -1.0 (-100%)
     for t, (rp_t, rb_t) in enumerate(zip(period_portfolio_returns, period_benchmark_returns, strict=True)):
         if rp_t <= -1.0 or rb_t <= -1.0:
-            raise ValueError(f"Period {t} return <= -100% is undefined under Carino logarithmic linking (fail-closed)")
+            raise ValueError(
+                f"Period {t} return <= -100% is undefined under Carino logarithmic linking (fail-closed)"
+            )
 
     # 1. Geometric cumulative returns
     r_p_geom = float(np.prod([1.0 + r for r in period_portfolio_returns]) - 1.0)

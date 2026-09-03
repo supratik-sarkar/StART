@@ -292,7 +292,9 @@ def compute_tail_risk_contributions(
         data_mat = returns_or_losses.to_numpy(dtype=float)
     else:
         data_mat = np.asarray(returns_or_losses, dtype=float)
-        assets = list(asset_names) if asset_names is not None else [f"Asset_{i}" for i in range(data_mat.shape[1])]
+        assets = (
+            list(asset_names) if asset_names is not None else [f"Asset_{i}" for i in range(data_mat.shape[1])]
+        )
 
     n_assets = len(assets)
     if isinstance(weights, dict):
@@ -339,8 +341,13 @@ def compute_tail_risk_contributions(
         comp_var_dict = {a: float(comp_var_arr[i]) for i, a in enumerate(assets)}
         comp_es_dict = {a: float(comp_es_arr[i]) for i, a in enumerate(assets)}
 
-        pct_var = {a: float(comp_var_arr[i] / port_var) if abs(port_var) > 1e-12 else 0.0 for i, a in enumerate(assets)}
-        pct_es = {a: float(comp_es_arr[i] / port_es) if abs(port_es) > 1e-12 else 0.0 for i, a in enumerate(assets)}
+        pct_var = {
+            a: float(comp_var_arr[i] / port_var) if abs(port_var) > 1e-12 else 0.0
+            for i, a in enumerate(assets)
+        }
+        pct_es = {
+            a: float(comp_es_arr[i] / port_es) if abs(port_es) > 1e-12 else 0.0 for i, a in enumerate(assets)
+        }
 
         var_err = abs(float(np.sum(comp_var_arr) - port_var))
         es_err = abs(float(np.sum(comp_es_arr) - port_es))
@@ -390,7 +397,9 @@ def compute_tail_risk_contributions(
             comp_es_arr[i] = float(scenario_weights @ (w_vec[i] * loss_mat[:, i]))
 
         comp_es_dict = {a: float(comp_es_arr[i]) for i, a in enumerate(assets)}
-        pct_es = {a: float(comp_es_arr[i] / port_es) if abs(port_es) > 1e-12 else 0.0 for i, a in enumerate(assets)}
+        pct_es = {
+            a: float(comp_es_arr[i] / port_es) if abs(port_es) > 1e-12 else 0.0 for i, a in enumerate(assets)
+        }
         es_err = abs(float(np.sum(comp_es_arr) - port_es))
 
         # Historical VaR contribution is formally non-smooth and deferred

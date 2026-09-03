@@ -130,17 +130,25 @@ class CrossAnalyticalCommittee:
 
         # 1. Kupiec vs Christoffersen (Tail Risk)
         kupiec_recs = [r for r in evidence_records if "kupiec" in r.test_id or "unconditional" in r.test_id]
-        christoffersen_recs = [r for r in evidence_records if "christoffersen" in r.test_id or "independence" in r.test_id]
+        christoffersen_recs = [
+            r for r in evidence_records if "christoffersen" in r.test_id or "independence" in r.test_id
+        ]
         for k_rec in kupiec_recs:
             for c_rec in christoffersen_recs:
                 claim, edges = eval_var_frequency_vs_independence(k_rec, c_rec)
                 claims.append(claim)
                 for edge in edges:
-                    graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                    graph.add_edge(
+                        edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                    )
 
         # 2. Optimization vs Covariance Sensitivity
-        sample_covs = [r for r in evidence_records if r.test_id == "covariance.empirical" or "sample" in r.test_id]
-        lw_covs = [r for r in evidence_records if r.test_id == "covariance.ledoit_wolf" or "ledoit" in r.test_id]
+        sample_covs = [
+            r for r in evidence_records if r.test_id == "covariance.empirical" or "sample" in r.test_id
+        ]
+        lw_covs = [
+            r for r in evidence_records if r.test_id == "covariance.ledoit_wolf" or "ledoit" in r.test_id
+        ]
         for s_rec in sample_covs:
             for lw_rec in lw_covs:
                 w_s = s_rec.params.get("weights", s_rec.metrics.get("weights", {"A0": 0.5, "A1": 0.5}))
@@ -149,26 +157,34 @@ class CrossAnalyticalCommittee:
                     claim, edges = eval_optimization_covariance_sensitivity(s_rec, lw_rec, w_s, w_lw)
                     claims.append(claim)
                     for edge in edges:
-                        graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                        graph.add_edge(
+                            edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                        )
 
         # 3. Factor Exposure vs Scenario Factor Contribution
         factor_recs = [r for r in evidence_records if r.test_id.startswith("factor_risk.")]
-        scen_recs = [r for r in evidence_records if r.test_id in ("scenario.factor_linear", "scenario.linear_return")]
+        scen_recs = [
+            r for r in evidence_records if r.test_id in ("scenario.factor_linear", "scenario.linear_return")
+        ]
         for f_rec in factor_recs:
             for sc_rec in scen_recs:
                 claim, edges = eval_factor_exposure_vs_scenario_alignment(f_rec, sc_rec)
                 claims.append(claim)
                 for edge in edges:
-                    graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                    graph.add_edge(
+                        edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                    )
 
         # 4. Reconciliation Contradictions (True contradiction check across pairs)
         for i, r_a in enumerate(evidence_records):
-            for r_b in evidence_records[i + 1:]:
+            for r_b in evidence_records[i + 1 :]:
                 r_claim, r_edges = eval_reconciliation_identity_contradiction(r_a, r_b)
                 if r_claim is not None:
                     claims.append(r_claim)
                     for edge in r_edges:
-                        graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                        graph.add_edge(
+                            edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                        )
 
         # 5. VaR vs Reverse Stress
         var_recs = [r for r in evidence_records if "var" in r.test_id or "cvar" in r.test_id]
@@ -178,7 +194,9 @@ class CrossAnalyticalCommittee:
                 claim, edges = eval_var_vs_reverse_stress(v_rec, r_rec)
                 claims.append(claim)
                 for edge in edges:
-                    graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                    graph.add_edge(
+                        edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                    )
 
         # 6. Factor Attribution vs Factor Risk Model
         attrib_recs = [r for r in evidence_records if "attribution" in r.test_id]
@@ -187,7 +205,9 @@ class CrossAnalyticalCommittee:
                 claim, edges = eval_attribution_vs_factor_risk(a_rec, f_rec)
                 claims.append(claim)
                 for edge in edges:
-                    graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                    graph.add_edge(
+                        edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                    )
 
         # 7. Optimizer Convergence vs Scenario Stress
         opt_recs = [r for r in evidence_records if r.test_id.startswith("portfolio.")]
@@ -196,7 +216,9 @@ class CrossAnalyticalCommittee:
                 claim, edges = eval_solver_convergence_vs_scenario_stress(op_rec, sc_rec)
                 claims.append(claim)
                 for edge in edges:
-                    graph.add_edge(edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload)
+                    graph.add_edge(
+                        edge.source_id, edge.target_id, edge.relation, edge.provenance_rule, edge.payload
+                    )
 
         return graph, claims
 
@@ -218,7 +240,8 @@ class CrossAnalyticalCommittee:
         diag_evidence: list[EvidenceRecord] = []
 
         unresolved_claims = [
-            c for c in claims
+            c
+            for c in claims
             if c.status in (ClaimStatus.UNRESOLVED, ClaimStatus.CONTRADICTED, ClaimStatus.EVIDENCE_ONLY)
         ]
 
@@ -253,17 +276,23 @@ class CrossAnalyticalCommittee:
             graph.add_node(diag_ev, domain=claim.domain)
             for src_id in claim.source_evidence_ids:
                 if graph.get_node(src_id):
-                    graph.add_edge(diag_ev.evidence_id, src_id, RelationshipType.DIAGNOSTIC_OF, "cross_challenge")
+                    graph.add_edge(
+                        diag_ev.evidence_id, src_id, RelationshipType.DIAGNOSTIC_OF, "cross_challenge"
+                    )
 
             # Create resolution
             res = ChallengeResolution(
                 challenge_id=chal_id,
-                status=ChallengeState.RESOLVED_EVIDENCE_ONLY if claim.threshold_provenance is None else ChallengeState.RESOLVED_FINDING,
+                status=ChallengeState.RESOLVED_EVIDENCE_ONLY
+                if claim.threshold_provenance is None
+                else ChallengeState.RESOLVED_FINDING,
                 tool_name=req_tool,
                 source_evidence_ids=claim.source_evidence_ids,
                 generated_evidence_ids=(diag_ev.evidence_id,),
                 tool_parameters={"claim_id": claim.claim_id},
-                details={"results_summary": f"Diagnostic executed for {claim.claim_type.value}; status={claim.status.value}."},
+                details={
+                    "results_summary": f"Diagnostic executed for {claim.claim_type.value}; status={claim.status.value}."
+                },
             )
             resolutions.append(res)
 
@@ -273,12 +302,14 @@ class CrossAnalyticalCommittee:
         critic_disp = str(critic_out.get("disposition", "READY_FOR_GOVERNANCE"))
 
         # 4. Governance Evaluation
-        gov_out = self.governance_agent.execute({
-            "evidence_records": all_records_for_critic,
-            "challenges": challenges,
-            "resolutions": resolutions,
-            "critic_disposition": critic_disp,
-        })
+        gov_out = self.governance_agent.execute(
+            {
+                "evidence_records": all_records_for_critic,
+                "challenges": challenges,
+                "resolutions": resolutions,
+                "critic_disposition": critic_disp,
+            }
+        )
         signoff = gov_out.get("governance_signoff", {})
         gov_decision = str(signoff.get("verdict", "ACCEPT_WITH_CONDITIONS"))
         gov_conditions = list(signoff.get("conditions", []))

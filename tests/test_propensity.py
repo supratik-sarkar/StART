@@ -96,9 +96,7 @@ def test_propensity_cli_non_interactive(tmp_path, monkeypatch):
         yaml.safe_dump({"name": "test", "version": "0.0.1"})
     )
     runner = CliRunner()
-    result = runner.invoke(
-        app, ["propensity-demo", "--non-interactive", "--tuning", "none", "--seed", "1"]
-    )
+    result = runner.invoke(app, ["propensity-demo", "--non-interactive", "--tuning", "none", "--seed", "1"])
     assert result.exit_code == 0, result.output
     assert "Cohort metrics comparison" in result.output
     assert (Path("start_output") / "ledger.jsonl").exists()
@@ -110,15 +108,15 @@ def test_interactive_prompt_flow_with_scripted_input():
     answers = iter(
         [
             "random_forest",  # model
-            "grid",           # tuning
-            "50,100",         # n_estimators custom grid
-            "",               # max_depth -> accept default
-            "",               # min_samples_split
-            "",               # min_samples_leaf
-            "",               # max_features
-            "kfold",          # validation scheme
-            "5",              # K
-            "oos",            # sensitivity cohort
+            "grid",  # tuning
+            "50,100",  # n_estimators custom grid
+            "",  # max_depth -> accept default
+            "",  # min_samples_split
+            "",  # min_samples_leaf
+            "",  # max_features
+            "kfold",  # validation scheme
+            "5",  # K
+            "oos",  # sensitivity cohort
         ]
     )
     opts = prompt_options(ask=lambda _prompt: next(answers))

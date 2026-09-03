@@ -34,9 +34,7 @@ PROVIDER_DISPLAY_NAMES = {
 def format_safe_provider_diagnostic(res: ProviderResult) -> str:
     """Format safe live-diagnostic metadata block for terminal display without exposing secrets."""
     prov_str = (
-        PROVIDER_DISPLAY_NAMES.get(res.provider.lower(), res.provider.title())
-        if res.provider
-        else "Unknown"
+        PROVIDER_DISPLAY_NAMES.get(res.provider.lower(), res.provider.title()) if res.provider else "Unknown"
     )
     lines = [
         "  [bold red]Provider Diagnostic[/bold red]",
@@ -205,9 +203,7 @@ class OpenAIProvider(LLMProvider):
             raise RuntimeError(f"OpenAI error: {res.error_message or res.error_type}")
         return res.text
 
-    def complete_result(
-        self, system: str, user: str, *, output_token_budget: int = 1024
-    ) -> ProviderResult:
+    def complete_result(self, system: str, user: str, *, output_token_budget: int = 1024) -> ProviderResult:
         from openai import OpenAI
 
         client = OpenAI()
@@ -724,9 +720,7 @@ class EnterpriseLLMGatewayProvider(LLMProvider):
             metadata={"output_token_budget": output_token_budget, "max_tokens": output_token_budget},
         )
 
-    def generate(
-        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
-    ) -> str:
+    def generate(self, prompt: str, *, system: str | None = None, metadata: dict | None = None) -> str:
         return self._adapter.generate(prompt, system=system, metadata=metadata)
 
 

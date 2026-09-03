@@ -80,11 +80,13 @@ def verify_turnstile_token(token: str | None, remote_ip: str | None = None) -> b
         return False
 
     try:
-        post_data = urllib.parse.urlencode({
-            "secret": TURNSTILE_SECRET_KEY,
-            "response": token,
-            "remoteip": remote_ip or "",
-        }).encode("utf-8")
+        post_data = urllib.parse.urlencode(
+            {
+                "secret": TURNSTILE_SECRET_KEY,
+                "response": token,
+                "remoteip": remote_ip or "",
+            }
+        ).encode("utf-8")
 
         req = urllib.request.Request(
             "https://challenges.cloudflare.com/turnstile/v0/siteverify",

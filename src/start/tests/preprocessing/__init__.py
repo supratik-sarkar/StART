@@ -47,10 +47,7 @@ def missingness(ctx: TestContext, warn_pct: float = 5.0, fail_pct: float = 30.0)
             ThresholdSpec(metric="overall_missing_pct", warn=warn_pct, fail=fail_pct),
             ThresholdSpec(metric="max_column_missing_pct", warn=warn_pct * 2, fail=fail_pct * 2),
         ],
-        interpretation=(
-            f"Overall missingness is {overall:.2f}%; "
-            f"the most affected column is '{worst_col}'."
-        ),
+        interpretation=(f"Overall missingness is {overall:.2f}%; the most affected column is '{worst_col}'."),
         limitations=["Missingness mechanism (MCAR/MAR/MNAR) is not inferred."],
     )
     return result.apply_thresholds()
@@ -128,13 +125,10 @@ def outliers(
             "n_numeric_columns": len(cols),
         },
         thresholds=[ThresholdSpec(metric="max_outlier_pct", warn=warn_pct, fail=fail_pct)],
-        interpretation=(
-            f"Maximum Tukey-fence outlier rate is {max_rate:.2f}% (column '{worst}')."
-        ),
+        interpretation=(f"Maximum Tukey-fence outlier rate is {max_rate:.2f}% (column '{worst}')."),
         limitations=["IQR fences assume roughly unimodal distributions."],
     )
     return result.apply_thresholds()
-
 
 
 def _render_outlier_boxplot(
@@ -196,9 +190,7 @@ def _render_outlier_boxplot(
                 va="top",
                 fontsize=7,
             )
-        ax.set_title(
-            f"Tukey-fence outliers  (IQR multiplier k = {iqr_multiplier:g})", fontsize=11
-        )
+        ax.set_title(f"Tukey-fence outliers  (IQR multiplier k = {iqr_multiplier:g})", fontsize=11)
         ax.set_ylabel("value")
         ax.tick_params(axis="x", rotation=45, labelsize=8)
         ax.grid(axis="y", alpha=0.25, linestyle=":")
@@ -332,9 +324,7 @@ def target_leakage(ctx: TestContext, warn_corr: float = 0.95, fail_corr: float =
         params={"warn_corr": warn_corr, "fail_corr": fail_corr},
         metrics={"max_abs_target_corr": round(max_corr, 6), "worst_feature": worst},
         thresholds=[ThresholdSpec(metric="max_abs_target_corr", warn=warn_corr, fail=fail_corr)],
-        interpretation=(
-            f"Maximum absolute feature-target correlation is {max_corr:.4f} ('{worst}')."
-        ),
+        interpretation=(f"Maximum absolute feature-target correlation is {max_corr:.4f} ('{worst}')."),
         limitations=["Correlation screening misses non-linear and conditional leakage."],
     )
     return result.apply_thresholds()
@@ -442,9 +432,7 @@ def constant_features(ctx: TestContext, near_constant_top_freq: float = 0.99) ->
             ThresholdSpec(metric="n_constant_features", warn=0.5, fail=5.5),
             ThresholdSpec(metric="n_near_constant_features", warn=0.5, fail=10.5),
         ],
-        interpretation=(
-            f"Found {len(constant)} constant and {len(near_constant)} near-constant features."
-        ),
+        interpretation=(f"Found {len(constant)} constant and {len(near_constant)} near-constant features."),
         limitations=["Near-constant detection uses a single top-frequency cutoff."],
     )
     return result.apply_thresholds()
@@ -460,14 +448,8 @@ def constant_features(ctx: TestContext, near_constant_top_freq: float = 0.99) ->
 def high_cardinality(ctx: TestContext, warn_unique_ratio: float = 0.5) -> TestResult:
     """Flags object/categorical columns whose unique-value ratio is ID-like."""
     df: pd.DataFrame = ctx.train
-    cat_cols = [
-        c
-        for c in df.select_dtypes(include=["object", "category"]).columns
-        if c != ctx.target_column
-    ]
-    ratios = {
-        c: float(df[c].nunique() / max(len(df), 1)) for c in cat_cols if len(df) > 0
-    }
+    cat_cols = [c for c in df.select_dtypes(include=["object", "category"]).columns if c != ctx.target_column]
+    ratios = {c: float(df[c].nunique() / max(len(df), 1)) for c in cat_cols if len(df) > 0}
     max_ratio = max(ratios.values()) if ratios else 0.0
     worst = max(ratios, key=ratios.get) if ratios else ""  # type: ignore[arg-type]
     result = TestResult(
@@ -481,8 +463,7 @@ def high_cardinality(ctx: TestContext, warn_unique_ratio: float = 0.5) -> TestRe
         },
         thresholds=[ThresholdSpec(metric="max_unique_ratio", warn=warn_unique_ratio, fail=0.95)],
         interpretation=(
-            f"{len(cat_cols)} categorical columns scanned; maximum unique-value ratio "
-            f"is {max_ratio:.2f}."
+            f"{len(cat_cols)} categorical columns scanned; maximum unique-value ratio is {max_ratio:.2f}."
             if cat_cols
             else "No categorical columns present; nothing to scan."
         ),

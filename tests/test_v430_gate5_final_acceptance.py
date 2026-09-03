@@ -148,13 +148,21 @@ def test_gate5_dual_plane_artifact_generation(tmp_path: Path) -> None:
     out_dir = str(tmp_path)
     artifacts = [
         render_tail_loss_distribution_artifact(est, evidence_ids=(ev_est.evidence_id,), output_dir=out_dir),
-        render_var_pnl_timeline_artifact(backtest, evidence_ids=(ev_backtest.evidence_id,), output_dir=out_dir),
-        render_exception_transition_artifact(backtest, evidence_ids=(ev_backtest.evidence_id,), output_dir=out_dir),
+        render_var_pnl_timeline_artifact(
+            backtest, evidence_ids=(ev_backtest.evidence_id,), output_dir=out_dir
+        ),
+        render_exception_transition_artifact(
+            backtest, evidence_ids=(ev_backtest.evidence_id,), output_dir=out_dir
+        ),
         render_duration_diagnostics_artifact(dur, evidence_ids=(ev_dur.evidence_id,), output_dir=out_dir),
         render_tail_severity_artifact(sev, evidence_ids=(ev_sev.evidence_id,), output_dir=out_dir),
-        render_backtest_summary_artifact(backtest, evidence_ids=(ev_backtest.evidence_id,), output_dir=out_dir),
+        render_backtest_summary_artifact(
+            backtest, evidence_ids=(ev_backtest.evidence_id,), output_dir=out_dir
+        ),
         render_tail_comparison_artifact(compare, evidence_ids=(ev_comp.evidence_id,), output_dir=out_dir),
-        render_tail_risk_contribution_artifact(contrib, evidence_ids=(ev_contrib.evidence_id,), output_dir=out_dir),
+        render_tail_risk_contribution_artifact(
+            contrib, evidence_ids=(ev_contrib.evidence_id,), output_dir=out_dir
+        ),
     ]
 
     for art in artifacts:

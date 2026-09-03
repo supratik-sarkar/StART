@@ -70,9 +70,7 @@ def load_any_tabular(path: str | Path, *, allow_pickle: bool = False) -> pd.Data
         try:
             return pd.read_excel(p)
         except ImportError as exc:
-            raise ImportError(
-                "Reading Excel requires openpyxl: pip install openpyxl"
-            ) from exc
+            raise ImportError("Reading Excel requires openpyxl: pip install openpyxl") from exc
     if suffix == ".json":
         return pd.read_json(p)
     if suffix in {".jsonl", ".ndjson"}:
@@ -89,8 +87,7 @@ def load_any_tabular(path: str | Path, *, allow_pickle: bool = False) -> pd.Data
             raise ValueError(f"Pickle did not contain a DataFrame (got {type(obj).__name__}).")
         return obj
     raise ValueError(
-        f"Unsupported tabular format '{suffix}'. Supported: "
-        f"{', '.join(SUPPORTED_TABULAR_FORMATS)}."
+        f"Unsupported tabular format '{suffix}'. Supported: {', '.join(SUPPORTED_TABULAR_FORMATS)}."
     )
 
 

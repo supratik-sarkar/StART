@@ -152,8 +152,7 @@ _BUILTIN: tuple[RiskStripe, ...] = (
     RiskStripe(
         id="capital_stress",
         label="Capital adequacy and stress testing",
-        description="Firm-wide scenario projection, capital planning, and the model chains "
-        "that feed them.",
+        description="Firm-wide scenario projection, capital planning, and the model chains that feed them.",
         mandatory_dimensions=(
             "conceptual_soundness",
             "assumption_validity",
@@ -429,9 +428,7 @@ def register_stripe(new_stripe: RiskStripe, *, overwrite: bool = False) -> None:
     redefine what "credit risk" means for everyone else in the process.
     """
     if new_stripe.id in STRIPES and not overwrite:
-        raise ValueError(
-            f"Risk stripe {new_stripe.id!r} already exists. Pass overwrite=True to replace it."
-        )
+        raise ValueError(f"Risk stripe {new_stripe.id!r} already exists. Pass overwrite=True to replace it.")
     STRIPES[new_stripe.id] = new_stripe
 
 

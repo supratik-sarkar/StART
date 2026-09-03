@@ -29,15 +29,17 @@ def test_compute_router_priority():
         assert dev == ComputeDevice.CUDA
 
     # 2. CUDA unavailable, MPS available
-    with patch("torch.cuda.is_available", return_value=False), patch(
-        "torch.backends.mps.is_available", return_value=True
+    with (
+        patch("torch.cuda.is_available", return_value=False),
+        patch("torch.backends.mps.is_available", return_value=True),
     ):
         dev = detect_device()
         assert dev == ComputeDevice.MPS
 
     # 3. Neither available
-    with patch("torch.cuda.is_available", return_value=False), patch(
-        "torch.backends.mps.is_available", return_value=False
+    with (
+        patch("torch.cuda.is_available", return_value=False),
+        patch("torch.backends.mps.is_available", return_value=False),
     ):
         dev = detect_device()
         assert dev == ComputeDevice.CPU

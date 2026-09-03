@@ -71,6 +71,7 @@ from start.review.tables import (
 # Fixture Helpers
 # =========================================================================== #
 
+
 def _make_base_var_records() -> list[EvidenceRecord]:
     common = {"model_id": "M-MARKET", "dataset_id": "D-MARKET", "run_id": "RUN-01"}
     r_kupiec = EvidenceRecord(
@@ -168,6 +169,7 @@ def _make_base_var_records() -> list[EvidenceRecord]:
 # =========================================================================== #
 # Tests 1-4: Statistical Decision Provenance & Gamma
 # =========================================================================== #
+
 
 def test_kupiec_table_gets_statistic_from_evidence() -> None:
     """1. Kupiec table renders exact empirical statistic LR=1.886 from lr_uc."""
@@ -298,6 +300,7 @@ def test_missing_decision_renders_na() -> None:
 # Tests 5-9: Size & Power Evidence Provenance & Status
 # =========================================================================== #
 
+
 def test_size_power_no_hardcoded_band() -> None:
     """5. When required.size_correct_forecast is missing, table renders band=N/A."""
     records = _make_base_var_records()
@@ -405,6 +408,7 @@ def test_status_comes_from_evidence_record() -> None:
 # Tests 10-11: Collision-Safe Metric Identity
 # =========================================================================== #
 
+
 def test_metric_path_collisions_do_not_overwrite() -> None:
     """10. 3 distinct VaR p_values (0.1696, 0.7877, 0.3755) survive simultaneously."""
     records = _make_base_var_records()
@@ -457,6 +461,7 @@ def test_wrong_ev_plus_right_numeric_value_does_not_ground() -> None:
 # Tests 12-15: Precision-Derived Rounding & Restricted Criterion Parsing
 # =========================================================================== #
 
+
 def test_precision_derived_rounding() -> None:
     """12. 1.886 matches 1.8862 under 3 decimal places; exact integer 1000 matches 1000.0."""
     claim_3dec = Claim(value=1.886, surface="1.886", unit="", position=0, context="")
@@ -465,7 +470,9 @@ def test_precision_derived_rounding() -> None:
     assert match[0] == "lr_uc"
 
     claim_int = Claim(value=1000.0, surface="1,000", unit="", position=0, context="")
-    match_int = _match_candidates_in_fields({1000.0}, {"n_observations": 1000.0}, tolerance=5e-4, claim=claim_int)
+    match_int = _match_candidates_in_fields(
+        {1000.0}, {"n_observations": 1000.0}, tolerance=5e-4, claim=claim_int
+    )
     assert match_int is not None
     assert match_int[0] == "n_observations"
 
@@ -484,7 +491,9 @@ def test_typed_percent_normalization() -> None:
     assert match_alpha is not None
     assert match_alpha[0] == "alpha"
 
-    match_count = _match_candidates_in_fields({5.0, 0.05}, {"n_exceptions": 0.05}, tolerance=5e-4, claim=claim_pct)
+    match_count = _match_candidates_in_fields(
+        {5.0, 0.05}, {"n_exceptions": 0.05}, tolerance=5e-4, claim=claim_pct
+    )
     assert match_count is None
 
 
@@ -504,6 +513,7 @@ def test_criterion_parsing_restricted() -> None:
 # Tests 16-17: Factor Artifact Zero Recomputation & Lineage
 # =========================================================================== #
 
+
 def test_factor_artifact_zero_recomputation() -> None:
     """16. Spy test: build_linear_factor_model is called 0 additional times during review execution."""
     with patch("start.portfolio.factor_risk.build_linear_factor_model") as spy_fac:
@@ -514,6 +524,7 @@ def test_factor_artifact_zero_recomputation() -> None:
             market=world,
         )
         from start.review.applicability import applicable_tests
+
         applicable = applicable_tests(bundle.domains)
         results, products = execute_market_treasury_tests(bundle, applicable, return_products=True)
 
@@ -536,6 +547,7 @@ def test_artifact_evidence_lineage() -> None:
         market=world,
     )
     from start.review.applicability import applicable_tests
+
     applicable = applicable_tests(bundle.domains)
     results, products = execute_market_treasury_tests(bundle, applicable, return_products=True)
 
@@ -556,6 +568,7 @@ def test_artifact_evidence_lineage() -> None:
 # Tests 18-20: Committee, Governance & Grounding Census Invariants
 # =========================================================================== #
 
+
 def test_committee_consumer_provenance() -> None:
     """18. Committee consumes EvidenceRecords directly without bare path-only metric lookups."""
     records = _make_base_var_records()
@@ -567,7 +580,12 @@ def test_committee_consumer_provenance() -> None:
 
 def test_governance_consumer_provenance() -> None:
     """19. Governance table consumes metadata and decisions without recomputation."""
-    meta = {"mode": "single_domain", "domains": ["market"], "materiality": "tier_1", "lifecycle": "pre_implementation"}
+    meta = {
+        "mode": "single_domain",
+        "domains": ["market"],
+        "materiality": "tier_1",
+        "lifecycle": "pre_implementation",
+    }
     decisions = [{"checkpoint": "VaR Backtest", "action": "A", "response": "PASS"}]
     table = build_governance_table(meta, decisions)
     fields = [str(c) for c in table.columns[0]._cells]
@@ -592,6 +610,7 @@ def test_grounding_census_invariant() -> None:
 # =========================================================================== #
 # Tests 21-22: Provider Call Count Invariants (Exact 1 Provider Call)
 # =========================================================================== #
+
 
 def test_provider_call_count_on_grounding_pass() -> None:
     """21. Grounding PASS executes exactly 1 provider call."""
@@ -658,6 +677,7 @@ def test_provider_call_count_on_grounding_fail() -> None:
 # =========================================================================== #
 # Tests 23-24: Gate-12 Live Provider & State Machine Flow
 # =========================================================================== #
+
 
 def test_gate12_live_provider_mocked_path_still_works() -> None:
     """23. Live-provider mocked path executes end-to-end and validates."""

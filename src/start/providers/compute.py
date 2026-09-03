@@ -104,9 +104,7 @@ def get_compute_provider(config: ComputeConfig) -> ComputeProvider:
         )
 
     on_databricks = is_databricks_runtime() or config.mode == "databricks"
-    wants_gpu = config.mode == "gpu" or (
-        config.mode == "auto" and detect_device() != ComputeDevice.CPU
-    )
+    wants_gpu = config.mode == "gpu" or (config.mode == "auto" and detect_device() != ComputeDevice.CPU)
     if config.device in {"cuda", "mps"}:
         wants_gpu = True
     if config.device == "cpu" or config.mode == "cpu":

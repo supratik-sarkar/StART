@@ -41,9 +41,7 @@ def _new_axes():
     return plt
 
 
-def learning_curve_figure(
-    history: dict[str, list[float]], output_root: str, run_id: str
-) -> str:
+def learning_curve_figure(history: dict[str, list[float]], output_root: str, run_id: str) -> str:
     if not matplotlib_available():
         return ""
     plt = _new_axes()
@@ -112,9 +110,7 @@ def attribution_figure(
     return str(path)
 
 
-def shock_sensitivity_figure(
-    rows: list[dict[str, Any]], output_root: str, run_id: str
-) -> str:
+def shock_sensitivity_figure(rows: list[dict[str, Any]], output_root: str, run_id: str) -> str:
     if not matplotlib_available() or not rows:
         return ""
     plt = _new_axes()

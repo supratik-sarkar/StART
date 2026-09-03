@@ -33,11 +33,34 @@ def _is_conceptual_question(question: str) -> bool:
     q = question.lower()
     # Check if the question is conceptual, mathematical, or structural
     conceptual_keywords = [
-        "what is", "how does", "why does", "explain", "concept", "theory", "theoretical",
-        "mathematical", "algorithmic", "design", "gradient", "behavior", "lookahead",
-        "imputation", "critique", "difference between", "definition", "architectural",
-        "structural choice", "neural structural", "design-pattern", "why did you", "why use",
-        "pros and cons", "trade-off", "why not", "i disagree", "challenge"
+        "what is",
+        "how does",
+        "why does",
+        "explain",
+        "concept",
+        "theory",
+        "theoretical",
+        "mathematical",
+        "algorithmic",
+        "design",
+        "gradient",
+        "behavior",
+        "lookahead",
+        "imputation",
+        "critique",
+        "difference between",
+        "definition",
+        "architectural",
+        "structural choice",
+        "neural structural",
+        "design-pattern",
+        "why did you",
+        "why use",
+        "pros and cons",
+        "trade-off",
+        "why not",
+        "i disagree",
+        "challenge",
     ]
     return any(kw in q for kw in conceptual_keywords)
 
@@ -100,10 +123,15 @@ def compare_model_families(families: list[str]) -> list[dict[str, str]]:
     """Item 6: a ranked comparison table for the candidate families."""
     rows = []
     for fam in families:
-        prof = _FAMILY_PROFILES.get(fam, {
-            "performance": "Not profiled in the public guidance table.",
-            "interpretability": "—", "maintenance": "—", "governance": "—",
-        })
+        prof = _FAMILY_PROFILES.get(
+            fam,
+            {
+                "performance": "Not profiled in the public guidance table.",
+                "interpretability": "—",
+                "maintenance": "—",
+                "governance": "—",
+            },
+        )
         rows.append({"family": fam, **prof})
     return rows
 
@@ -170,12 +198,10 @@ def _llm_answer(question: str, ctx: AgentContext, llm: Any) -> str | None:
     """Ask a connected LLM, grounded only in data-free context. None on failure."""
     alt_text = ""
     if ctx.alternatives:
-        alt_text = "; ".join(
-            f"{r.get('family', '?')}" for r in ctx.alternatives
-        )
+        alt_text = "; ".join(f"{r.get('family', '?')}" for r in ctx.alternatives)
     prompt = (
         f"You are {ctx.agent}, a model-risk review agent. A reviewer asked: "
-        f"\"{question}\".\n"
+        f'"{question}".\n'
         f"Your recommendation: {ctx.recommendation}.\n"
         f"Your reason: {ctx.reason}.\n"
         f"Risk if ignored: {ctx.risk_if_ignored or 'n/a'}.\n"
@@ -239,9 +265,7 @@ def ask_agent(
 
     # Determine if LLM is connected
     is_connected = llm_connected or (
-        llm is not None 
-        and getattr(llm, "name", "none") != "none" 
-        and type(llm).__name__ != "NoLLMProvider"
+        llm is not None and getattr(llm, "name", "none") != "none" and type(llm).__name__ != "NoLLMProvider"
     )
 
     # 1. Deterministic Evidence Lookup (Enriches prompt context, does not short-circuit)
@@ -249,6 +273,7 @@ def ask_agent(
     evidence_ids = []
     if ctx.evidence is not None:
         from start.evidence_dialogue import answer_from_evidence
+
         ea = answer_from_evidence(question, ctx.evidence)
         if ea is not None:
             evidence_content = ea.answer
@@ -286,7 +311,7 @@ def ask_agent(
             f"Reviewer Clarification: {ctx.reviewer_clarification or 'n/a'}\n"
             f"Evidence IDs: {', '.join(evidence_ids) or 'n/a'}\n"
             f"Evidence Content: {evidence_content or 'n/a'}\n\n"
-            f"Reviewer Question/Challenge: \"{question}\"\n\n"
+            f'Reviewer Question/Challenge: "{question}"\n\n'
             f"Please answer the reviewer's question/challenge directly, concisely, and specifically. "
             f"Support your answer with the provided dataset/model context and evidence. "
             f"Do not invent metrics."
@@ -322,6 +347,7 @@ def ask_agent(
         # If it was a diagnostic question, use the evidence answer directly
         if ctx.evidence is not None:
             from start.evidence_dialogue import answer_from_evidence
+
             ea = answer_from_evidence(question, ctx.evidence)
             if ea is not None:
                 if not (ea.refused and _is_conceptual_question(question)):
@@ -361,7 +387,9 @@ def ask_agent(
     from datetime import UTC, datetime
 
     now_iso = datetime.now(UTC).isoformat(timespec="seconds")
-    exchange_backend = "deterministic" if backend == "fallback" else (provider if backend == "llm" else backend)
+    exchange_backend = (
+        "deterministic" if backend == "fallback" else (provider if backend == "llm" else backend)
+    )
     exchange = Exchange(
         agent=agent,
         question=question,

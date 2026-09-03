@@ -288,13 +288,11 @@ def eval_reconciliation_identity_contradiction(
 ) -> tuple[AnalyticalClaim | None, list[EvidenceEdge]]:
     """Evaluate true logical/algebraic contradiction on identical contract reconciliation identities."""
     # Check if both records reference the same reconciliation contract identity
-    identity_a = (
-        claim_a_record.params.get("reconciliation_identity")
-        or claim_a_record.metrics.get("identity")
+    identity_a = claim_a_record.params.get("reconciliation_identity") or claim_a_record.metrics.get(
+        "identity"
     )
-    identity_b = (
-        claim_b_record.params.get("reconciliation_identity")
-        or claim_b_record.metrics.get("identity")
+    identity_b = claim_b_record.params.get("reconciliation_identity") or claim_b_record.metrics.get(
+        "identity"
     )
 
     if not identity_a or not identity_b or identity_a != identity_b:
@@ -458,9 +456,7 @@ def eval_solver_convergence_vs_scenario_stress(
     scen_loss = float(
         cast(
             Any,
-            scenario_record.metrics.get(
-                "scenario_loss", scenario_record.metrics.get("portfolio_loss", 0.0)
-            ),
+            scenario_record.metrics.get("scenario_loss", scenario_record.metrics.get("portfolio_loss", 0.0)),
         )
     )
 

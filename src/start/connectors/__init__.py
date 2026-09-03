@@ -66,10 +66,9 @@ class DatasetBundle:
             stratify=stratify,
         )
         split_type = "stratified" if stratify else "random"
+        p0, p1, p2 = split_proportions[0] * 100, split_proportions[1] * 100, split_proportions[2] * 100
         self.notes.append(
-            f"Single dataset supplied; applied {split_type} "
-            f"{split_proportions[0]*100:.0f}/{split_proportions[1]*100:.0f}/{split_proportions[2]*100:.0f} "
-            "train/test/OOS split."
+            f"Single dataset supplied; applied {split_type} {p0:.0f}/{p1:.0f}/{p2:.0f} train/test/OOS split."
         )
         return DatasetBundle(
             train=train,
@@ -176,9 +175,10 @@ class LocalFileConnector(DataConnector):
             test=load_local_file(self.test) if self.test else None,
             oos=load_local_file(self.oos) if self.oos else None,
             source=f"files:{self.train}",
-            **{k: self.meta.get(k) for k in (
-                "target_column", "score_column", "timestamp_column", "entity_id_column"
-            )},
+            **{
+                k: self.meta.get(k)
+                for k in ("target_column", "score_column", "timestamp_column", "entity_id_column")
+            },
         )
         stratify = self.meta.get("stratify", True)
         split_props = self.meta.get("split_proportions", (0.6, 0.2, 0.2))
@@ -209,9 +209,10 @@ class PandasConnector(DataConnector):
             test=self.test_df,
             oos=self.oos_df,
             source="pandas:in-memory",
-            **{k: self.meta.get(k) for k in (
-                "target_column", "score_column", "timestamp_column", "entity_id_column"
-            )},
+            **{
+                k: self.meta.get(k)
+                for k in ("target_column", "score_column", "timestamp_column", "entity_id_column")
+            },
         )
         stratify = self.meta.get("stratify", True)
         split_props = self.meta.get("split_proportions", (0.6, 0.2, 0.2))
@@ -268,9 +269,10 @@ class SparkConnector(DataConnector):
             oos=convert(self.oos),
             source="spark",
             notes=[f"Spark sources converted to pandas (row guard: {self.adapter.max_rows})."],
-            **{k: self.meta.get(k) for k in (
-                "target_column", "score_column", "timestamp_column", "entity_id_column"
-            )},
+            **{
+                k: self.meta.get(k)
+                for k in ("target_column", "score_column", "timestamp_column", "entity_id_column")
+            },
         )
         return bundle.ensure_split(self.seed)
 
@@ -342,9 +344,10 @@ class SnowflakeConnector(DataConnector):
         bundle = DatasetBundle(
             train=df,
             source=f"snowflake:{self.table or 'query'}",
-            **{k: self.meta.get(k) for k in (
-                "target_column", "score_column", "timestamp_column", "entity_id_column"
-            )},
+            **{
+                k: self.meta.get(k)
+                for k in ("target_column", "score_column", "timestamp_column", "entity_id_column")
+            },
         )
         return bundle.ensure_split(self.seed)
 
@@ -385,8 +388,13 @@ def resolve_connector(
         if ds is None or not ds.train:
             raise ValueError("source 'spark' requires data.dataset.train (table or SQL).")
         return SparkConnector(
-            ds.train, ds.test, ds.oos, spark=spark,
-            max_rows=getattr(data_config, "spark_max_rows", 1_000_000), seed=seed, **meta,
+            ds.train,
+            ds.test,
+            ds.oos,
+            spark=spark,
+            max_rows=getattr(data_config, "spark_max_rows", 1_000_000),
+            seed=seed,
+            **meta,
         )
     if source == "snowflake":
         sf = getattr(data_config, "snowflake", None)

@@ -25,7 +25,18 @@ from dataclasses import dataclass, field
 ACTIVATIONS = ("relu", "leaky_relu", "gelu", "tanh", "selu", "elu", "swish", "mish", "sigmoid", "softplus")
 
 # Families that have a real tabular training path today.
-_TABULAR_IMPLEMENTED = {"mlp", "residual_mlp", "wide_deep", "rnn", "gru", "lstm", "bi_lstm", "cnn", "gnn", "dcn"}
+_TABULAR_IMPLEMENTED = {
+    "mlp",
+    "residual_mlp",
+    "wide_deep",
+    "rnn",
+    "gru",
+    "lstm",
+    "bi_lstm",
+    "cnn",
+    "gnn",
+    "dcn",
+}
 # Sequence families implemented in the sequence track.
 _SEQUENCE_IMPLEMENTED = {"rnn", "gru", "lstm", "bi_lstm"}
 # Vision families implemented in the vision track (resnet18 gated separately).
@@ -48,25 +59,14 @@ _REGISTRY: dict[str, ArchitectureSpec] = {
     "residual_mlp": ArchitectureSpec(
         "residual_mlp", "tabular", "MLP with residual skip connections.", "relu", True
     ),
-    "wide_deep": ArchitectureSpec(
-        "wide_deep", "tabular", "Wide linear path + deep MLP.", "relu", True
-    ),
+    "wide_deep": ArchitectureSpec("wide_deep", "tabular", "Wide linear path + deep MLP.", "relu", True),
     "rnn": ArchitectureSpec("rnn", "sequence", "Vanilla RNN classifier.", "tanh", True),
     "gru": ArchitectureSpec("gru", "sequence", "GRU classifier.", "tanh", True),
     "lstm": ArchitectureSpec("lstm", "sequence", "LSTM classifier.", "tanh", True),
-    "bi_lstm": ArchitectureSpec(
-        "bi_lstm", "sequence", "Bidirectional LSTM classifier.", "tanh", True
-    ),
-
-    "cnn": ArchitectureSpec(
-        "cnn", "tabular", "1D Conv classifier.", "relu", True
-    ),
-    "gnn": ArchitectureSpec(
-        "gnn", "tabular", "Graph Neural Network (GCN/GAT).", "relu", True
-    ),
-    "dcn": ArchitectureSpec(
-        "dcn", "tabular", "Deep & Cross Network.", "relu", True
-    ),
+    "bi_lstm": ArchitectureSpec("bi_lstm", "sequence", "Bidirectional LSTM classifier.", "tanh", True),
+    "cnn": ArchitectureSpec("cnn", "tabular", "1D Conv classifier.", "relu", True),
+    "gnn": ArchitectureSpec("gnn", "tabular", "Graph Neural Network (GCN/GAT).", "relu", True),
+    "dcn": ArchitectureSpec("dcn", "tabular", "Deep & Cross Network.", "relu", True),
     "simple_cnn": ArchitectureSpec(
         "simple_cnn", "vision", "Compact pure-PyTorch CNN for image classification.", "relu", True
     ),
@@ -83,9 +83,7 @@ _REGISTRY: dict[str, ArchitectureSpec] = {
     "transformer": ArchitectureSpec(
         "transformer", "sequence", "Transformer encoder (roadmap).", "gelu", False
     ),
-    "tft": ArchitectureSpec(
-        "tft", "sequence", "Temporal Fusion Transformer (roadmap).", "gelu", False
-    ),
+    "tft": ArchitectureSpec("tft", "sequence", "Temporal Fusion Transformer (roadmap).", "gelu", False),
 }
 
 # Deprecated architecture names -> (family, activation).
@@ -105,11 +103,7 @@ class ResolvedArchitecture:
 
 
 def list_families(modality: str | None = None) -> list[str]:
-    return [
-        name
-        for name, spec in _REGISTRY.items()
-        if modality is None or spec.modality == modality
-    ]
+    return [name for name, spec in _REGISTRY.items() if modality is None or spec.modality == modality]
 
 
 def torchvision_available() -> bool:
@@ -178,9 +172,7 @@ def resolve_architecture(
 
     resolved_activation = activation or spec.default_activation
     if resolved_activation not in ACTIVATIONS:
-        raise ValueError(
-            f"Unknown activation '{resolved_activation}'. Known: {ACTIVATIONS}."
-        )
+        raise ValueError(f"Unknown activation '{resolved_activation}'. Known: {ACTIVATIONS}.")
 
     return ResolvedArchitecture(
         family=resolved_family,

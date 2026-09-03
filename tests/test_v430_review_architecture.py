@@ -1,4 +1,5 @@
 """v4.3.0 — review routing, multiline input and registry-driven applicability."""
+
 from __future__ import annotations
 
 import io
@@ -29,8 +30,7 @@ D = ReviewDomain
 
 
 def _read(text, **kw):
-    return read_multiline_text("Business Context", stream=io.StringIO(text),
-                               printer=lambda _: None, **kw)
+    return read_multiline_text("Business Context", stream=io.StringIO(text), printer=lambda _: None, **kw)
 
 
 # ==================================================== MODE / DOMAIN ==
@@ -45,9 +45,15 @@ def test_exactly_three_atomic_domains():
 def test_no_composite_or_technology_domain_values():
     """market+treasury is a composition; deep learning is a technology."""
     values = {str(d) for d in ReviewDomain}
-    for forbidden in ("integrated", "market_treasury", "deep_learning",
-                      "traditional_ml", "integrated_model_risk", "genai",
-                      "genai_agentic"):
+    for forbidden in (
+        "integrated",
+        "market_treasury",
+        "deep_learning",
+        "traditional_ml",
+        "integrated_model_risk",
+        "genai",
+        "genai_agentic",
+    ):
         assert forbidden not in values
 
 
@@ -61,9 +67,14 @@ def test_lifecycle_has_five_options():
 
 
 # ==================================================== DOMAIN MAPPING ==
-@pytest.mark.parametrize("domain,context", [
-    (D.PREDICTIVE, "tabular"), (D.MARKET, "market"), (D.TREASURY, "short_rate"),
-])
+@pytest.mark.parametrize(
+    "domain,context",
+    [
+        (D.PREDICTIVE, "tabular"),
+        (D.MARKET, "market"),
+        (D.TREASURY, "short_rate"),
+    ],
+)
 def test_domain_maps_to_exactly_one_context(domain, context):
     assert DOMAIN_CONTEXT[domain] == context
 
@@ -73,13 +84,11 @@ def test_market_plus_treasury_is_a_union_not_a_new_type():
 
 
 def test_all_three_domains_union():
-    assert required_context_types((D.PREDICTIVE, D.MARKET, D.TREASURY)) == (
-        "tabular", "market", "short_rate")
+    assert required_context_types((D.PREDICTIVE, D.MARKET, D.TREASURY)) == ("tabular", "market", "short_rate")
 
 
 def test_no_synthetic_context_type_is_ever_produced():
-    for combo in [(D.MARKET,), (D.TREASURY,), (D.MARKET, D.TREASURY),
-                  (D.PREDICTIVE, D.MARKET, D.TREASURY)]:
+    for combo in [(D.MARKET,), (D.TREASURY,), (D.MARKET, D.TREASURY), (D.PREDICTIVE, D.MARKET, D.TREASURY)]:
         for context in required_context_types(combo):
             assert context in {"tabular", "market", "short_rate"}
 
@@ -119,23 +128,32 @@ def test_whitespace_separated_selection_is_accepted():
 
 
 # ==================================================== TECHNOLOGY GATING ==
-@pytest.mark.parametrize("domains,expected", [
-    ((D.MARKET,), False),
-    ((D.TREASURY,), False),
-    ((D.MARKET, D.TREASURY), False),
-    ((D.PREDICTIVE,), True),
-    ((D.PREDICTIVE, D.MARKET), True),
-    ((D.PREDICTIVE, D.MARKET, D.TREASURY), True),
-])
+@pytest.mark.parametrize(
+    "domains,expected",
+    [
+        ((D.MARKET,), False),
+        ((D.TREASURY,), False),
+        ((D.MARKET, D.TREASURY), False),
+        ((D.PREDICTIVE,), True),
+        ((D.PREDICTIVE, D.MARKET), True),
+        ((D.PREDICTIVE, D.MARKET, D.TREASURY), True),
+    ],
+)
 def test_technology_offered_only_when_predictive_selected(domains, expected):
     assert requires_predictive_technology(domains) is expected
 
 
 def test_legacy_tree_model_menu_survives_intact():
     """The functionality moves under Predictive -> Traditional ML; it is not deleted."""
-    for model in ("Random Forest", "CatBoost", "XGBoost", "LightGBM",
-                  "Distributed Random Forest", "Extra Trees",
-                  "Random Rotation Forest"):
+    for model in (
+        "Random Forest",
+        "CatBoost",
+        "XGBoost",
+        "LightGBM",
+        "Distributed Random Forest",
+        "Extra Trees",
+        "Random Rotation Forest",
+    ):
         assert model in TRADITIONAL_ML_MODELS
 
 
@@ -150,16 +168,14 @@ def test_market_applicability_is_twenty_five():
 def test_market_family_breakdown():
     """Verify Market family breakdown: portfolio=10 (5 basic + 5 optimization), attribution=6, traded_risk=6, covariance=3."""
     by_family = applicable_tests((D.MARKET,)).by_family
-    assert by_family == {"portfolio": 10, "attribution": 6,
-                         "traded_risk": 6, "covariance": 3}
+    assert by_family == {"portfolio": 10, "attribution": 6, "traded_risk": 6, "covariance": 3}
 
 
 def test_treasury_applicability_is_exactly_cev_and_stanton():
     """Verify Treasury domain applicability is exactly 2 registered root tests (CEV and Stanton)."""
     result = applicable_tests((D.TREASURY,))
     assert result.count == 2
-    assert set(result.test_ids) == {"traded_risk.cev_elasticity",
-                                    "traded_risk.stanton_nonparametric"}
+    assert set(result.test_ids) == {"traded_risk.cev_elasticity", "traded_risk.stanton_nonparametric"}
 
 
 def test_market_plus_treasury_is_twenty_seven():
@@ -182,8 +198,7 @@ def test_market_var_tests_never_leak_into_treasury_only():
 def test_applicability_is_derived_from_the_registry_not_a_constant():
     """Every applicable ID must be a live TestSpec with a matching context_type."""
     specs = {s.test_id: s for s in list_tests()}
-    for domains in [(D.MARKET,), (D.TREASURY,), (D.MARKET, D.TREASURY),
-                    (D.PREDICTIVE,)]:
+    for domains in [(D.MARKET,), (D.TREASURY,), (D.MARKET, D.TREASURY), (D.PREDICTIVE,)]:
         result = applicable_tests(domains)
         wanted = set(result.context_types)
         for test_id in result.test_ids:
@@ -229,25 +244,23 @@ def test_bundle_complete_when_populated():
 
 
 def test_bundle_describe_carries_no_objects():
-    bundle = ReviewContextBundle(domains=(D.MARKET,), market=object(),
-                                 mode=ReviewMode.SINGLE_DOMAIN)
+    bundle = ReviewContextBundle(domains=(D.MARKET,), market=object(), mode=ReviewMode.SINGLE_DOMAIN)
     for value in bundle.describe().values():
         assert isinstance(value, (str, list, bool, type(None)))
 
 
 # ==================================================== PLAN PREVIEW ==
 def test_plan_preview_counts_are_derived():
-    bundle = ReviewContextBundle(domains=(D.MARKET, D.TREASURY),
-                                 mode=ReviewMode.CROSS_DOMAIN,
-                                 market=object(), short_rate=object())
+    bundle = ReviewContextBundle(
+        domains=(D.MARKET, D.TREASURY), mode=ReviewMode.CROSS_DOMAIN, market=object(), short_rate=object()
+    )
     text = build_plan_preview(bundle).render()
     assert "Applicable Registered Tests: 27" in text
     assert "Traded Risk" in text and "Portfolio" in text
 
 
 def test_plan_preview_flags_missing_context():
-    bundle = ReviewContextBundle(domains=(D.MARKET, D.TREASURY),
-                                 mode=ReviewMode.CROSS_DOMAIN)
+    bundle = ReviewContextBundle(domains=(D.MARKET, D.TREASURY), mode=ReviewMode.CROSS_DOMAIN)
     text = build_plan_preview(bundle).render()
     assert "Missing required context" in text
 
@@ -256,8 +269,8 @@ def test_plan_preview_shows_technology_only_when_predictive():
     market = ReviewContextBundle(domains=(D.MARKET,), market=object())
     assert "Technology:" not in build_plan_preview(market).render()
     predictive = ReviewContextBundle(
-        domains=(D.PREDICTIVE,), tabular=object(),
-        technology=PredictiveTechnology.TRADITIONAL_ML)
+        domains=(D.PREDICTIVE,), tabular=object(), technology=PredictiveTechnology.TRADITIONAL_ML
+    )
     assert "Technology:" in build_plan_preview(predictive).render()
 
 
@@ -294,8 +307,7 @@ def test_menu_looking_strings_are_content():
 
 def test_terminator_is_case_sensitive():
     """'the end of the sample' must not terminate a reviewer's paragraph."""
-    assert _read("end\nEnd\nthe end of the sample\nEND\n") == (
-        "end\nEnd\nthe end of the sample")
+    assert _read("end\nEnd\nthe end of the sample\nEND\n") == ("end\nEnd\nthe end of the sample")
 
 
 def test_optional_field_accepts_immediate_end():
@@ -333,8 +345,9 @@ def test_paste_leak_regression_mandatory():
         "2\n"
     )
     stream = io.StringIO(pasted)
-    business_context = read_multiline_text("Business Context", stream=stream,
-                                           printer=lambda _: None, required=True)
+    business_context = read_multiline_text(
+        "Business Context", stream=stream, printer=lambda _: None, required=True
+    )
 
     assert "high-materiality market and treasury" in business_context
     assert "independent risk oversight" in business_context
@@ -359,13 +372,12 @@ def test_four_governance_fields_read_sequentially_without_leakage():
         "Business ctx line 1\nBusiness ctx line 2\nEND\n"
         "Clarification text\nEND\n"
         "Intended use\nEND\n"
-        "END\n"                      # optional limitations, skipped
-        "3\n"                        # the menu that follows
+        "END\n"  # optional limitations, skipped
+        "3\n"  # the menu that follows
     )
     fields = [
         read_multiline_text(label, stream=stream, printer=lambda _: None)
-        for label in ("Business Context", "Reviewer Clarification",
-                      "Intended Use", "Known Limitations")
+        for label in ("Business Context", "Reviewer Clarification", "Intended Use", "Known Limitations")
     ]
     assert fields[0] == "Business ctx line 1\nBusiness ctx line 2"
     assert fields[1] == "Clarification text"

@@ -60,7 +60,9 @@ def test_scenario_stress_agent_synthesis():
 
     # Reverse stress
     rev_spec = ReverseStressSpec(target_loss=0.05, distance_norm=ReverseStressNorm.L2)
-    rev_res = solve_reverse_stress(spec=rev_spec, sensitivities_or_weights=np.array([0.60, 0.40]), factors=["A1", "A2"])
+    rev_res = solve_reverse_stress(
+        spec=rev_spec, sensitivities_or_weights=np.array([0.60, 0.40]), factors=["A1", "A2"]
+    )
     ev_rev = reverse_stress_to_evidence(rev_res)
 
     agent = ScenarioStressAgent()

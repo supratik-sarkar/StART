@@ -74,18 +74,18 @@ def render_validation_review_rich(sensitivity: Any, console: Any) -> dict[str, A
     impact = "low feature dependence; no signoff concern from sensitivity."
     if max_drift is not None:
         if max_drift > 0.30:
-            impact = (f"excessive dependence on '{feat}' (drift {max_drift:.4f}); "
-                      "this blocks an unconditional READY.")
+            impact = (
+                f"excessive dependence on '{feat}' (drift {max_drift:.4f}); "
+                "this blocks an unconditional READY."
+            )
         elif max_drift > 0.15:
-            impact = (f"elevated dependence on '{feat}' (drift {max_drift:.4f}); "
-                      "signoff should be conditional.")
+            impact = (
+                f"elevated dependence on '{feat}' (drift {max_drift:.4f}); signoff should be conditional."
+            )
     console.print(f"\n[bold]Signoff impact:[/bold] {impact}")
 
     return {
-        "ranking": [
-            {"feature": f, "max_abs_drift": d}
-            for f, d in _ranking(rows)
-        ],
+        "ranking": [{"feature": f, "max_abs_drift": d} for f, d in _ranking(rows)],
         "most_sensitive_feature": feat,
         "max_abs_drift": max_drift,
         "business_interpretation": interp,
@@ -126,40 +126,54 @@ def run_validation_checkpoint(
         recommendation="proceed to signoff with noted sensitivity",
         reason=summary["signoff_impact"],
         risk_if_ignored="Unreviewed feature dependence can mask model fragility.",
-        checkpoint="validation", evidence=evidence,
+        checkpoint="validation",
+        evidence=evidence,
     )
 
     if auto_accept or not interactive:
-        session.record_decision(Decision(
-            key="validation", prompt="Accept validation review?",
-            recommended="accept", user_value="accept", effective="accept",
-            choice="auto_accept", rationale=summary["signoff_impact"],
-        ))
+        session.record_decision(
+            Decision(
+                key="validation",
+                prompt="Accept validation review?",
+                recommended="accept",
+                user_value="accept",
+                effective="accept",
+                choice="auto_accept",
+                rationale=summary["signoff_impact"],
+            )
+        )
         return summary
 
     while True:
-        resp = (ask("\n  ValidationAgent review — [A]ccept / [Q] ask / [C]hallenge: ")
-                or "").strip().lower()
+        resp = (ask("\n  ValidationAgent review — [A]ccept / [Q] ask / [C]hallenge: ") or "").strip().lower()
         if resp in ("q", "ask", "?"):
             q = (ask("    Ask ValidationAgent: ") or "").strip()
             if q:
-                ans = ask_agent("ValidationAgent", q, ctx, session,
-                                llm=llm, llm_connected=llm_connected).answer
+                ans = ask_agent(
+                    "ValidationAgent", q, ctx, session, llm=llm, llm_connected=llm_connected
+                ).answer
                 console.print(f"    {ans}")
             continue
         if resp in ("c", "challenge"):
             q = (ask("    State your challenge: ") or "").strip()
             if q:
                 # routed through ask_agent so it's recorded as a challenge
-                ans = ask_agent("ValidationAgent", q, ctx, session,
-                                llm=llm, llm_connected=llm_connected).answer
+                ans = ask_agent(
+                    "ValidationAgent", q, ctx, session, llm=llm, llm_connected=llm_connected
+                ).answer
                 console.print(f"    {ans}")
             continue
         # accept (default)
-        session.record_decision(Decision(
-            key="validation", prompt="Accept validation review?",
-            recommended="accept", user_value="accept", effective="accept",
-            choice="accept", rationale=summary["signoff_impact"],
-        ))
+        session.record_decision(
+            Decision(
+                key="validation",
+                prompt="Accept validation review?",
+                recommended="accept",
+                user_value="accept",
+                effective="accept",
+                choice="accept",
+                rationale=summary["signoff_impact"],
+            )
+        )
         break
     return summary

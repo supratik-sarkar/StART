@@ -71,9 +71,7 @@ def test_no_challenges_at_all_reads_correctly() -> None:
 
 
 def test_unanswered_challenge_blocks() -> None:
-    outstanding = classify_challenge(
-        {"challenge_id": "c1", "agent": "A", "status": "open", "response": ""}
-    )
+    outstanding = classify_challenge({"challenge_id": "c1", "agent": "A", "status": "open", "response": ""})
     assert outstanding.disposition is ChallengeDisposition.OUTSTANDING
     assert challenge_factor([outstanding])[0] == "blocker"
 
@@ -197,12 +195,11 @@ def test_architecture_override_impact_wording() -> None:
 def test_override_factor_names_the_checkpoints() -> None:
     verdicts = [
         classify_override(
-            {"key": "architecture", "recommended": "lstm", "effective": "mlp",
-             "rationale": "r"}, conceded_keys={"architecture"}
+            {"key": "architecture", "recommended": "lstm", "effective": "mlp", "rationale": "r"},
+            conceded_keys={"architecture"},
         ),
         classify_override(
-            {"key": "metric_priority", "recommended": "balanced", "effective": "recall",
-             "rationale": "r"}
+            {"key": "metric_priority", "recommended": "balanced", "effective": "recall", "rationale": "r"}
         ),
     ]
     status, detail, _ = override_factor(verdicts)
@@ -233,9 +230,7 @@ def test_ci_suppresses_opening() -> None:
 def test_figures_are_announced_even_when_not_opened() -> None:
     """A reviewer over SSH still needs to know what was produced and where."""
     messages: list[str] = []
-    presentation = FigurePresentation(
-        enabled=False, suppressed_reason="not a terminal", echo=messages.append
-    )
+    presentation = FigurePresentation(enabled=False, suppressed_reason="not a terminal", echo=messages.append)
     presentation.present(
         [FigureSpec(key="roc_curve", path="/tmp/roc.png", headline="AUC 0.8913", cohort="OOS")]
     )
@@ -440,9 +435,7 @@ def test_a_model_that_barely_beats_a_stump_is_flagged() -> None:
     split = 400
     weak_scores = X["signal"].to_numpy()[split:] * 0.5 + rng.normal(0, 2.0, n - split)
 
-    report = benchmark_against_baselines(
-        X.iloc[:split], y[:split], X.iloc[split:], y[split:], weak_scores
-    )
+    report = benchmark_against_baselines(X.iloc[:split], y[:split], X.iloc[split:], y[split:], weak_scores)
     assert report.stump() is not None
     assert report.stump().auc is not None
     assert report.status in {"ok", "concern", "blocker"}
@@ -458,9 +451,7 @@ def test_benchmark_includes_all_three_baselines() -> None:
     n = 400
     X = pd.DataFrame({"a": rng.normal(0, 1, n), "b": rng.normal(0, 1, n)})
     y = rng.binomial(1, 0.3, n)
-    report = benchmark_against_baselines(
-        X.iloc[:300], y[:300], X.iloc[300:], y[300:], rng.uniform(0, 1, 100)
-    )
+    report = benchmark_against_baselines(X.iloc[:300], y[:300], X.iloc[300:], y[300:], rng.uniform(0, 1, 100))
     names = {b.name for b in report.baselines}
     assert names == {"majority_class", "base_rate", "decision_stump"}
 

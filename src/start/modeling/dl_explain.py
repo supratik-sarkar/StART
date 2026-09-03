@@ -100,9 +100,7 @@ def dl_global_importance(
     fitted = isinstance(model, TorchMLPClassifier) and model._net is not None
     if not fitted:
         if y is None:
-            return DLImportanceResult(
-                "unavailable", [], "Model is not a fitted DL classifier.", available
-            )
+            return DLImportanceResult("unavailable", [], "Model is not a fitted DL classifier.", available)
         ranked = _permutation_importance(model, X, y, seed)
         return DLImportanceResult("permutation", ranked, "Model is not a torch DL classifier.", available)
 
@@ -125,14 +123,13 @@ def dl_global_importance(
         return DLImportanceResult(
             "unavailable",
             [],
-            "Captum not installed (pip install -e \".[torch]\"); permutation importance "
-            "needs labels (pass y).",
+            'Captum not installed (pip install -e ".[torch]"); permutation importance needs labels (pass y).',
             available,
         )
     ranked = _permutation_importance(model, X, y, seed)
     return DLImportanceResult(
         "permutation",
         ranked,
-        "Captum not installed (pip install -e \".[torch]\"); used permutation importance.",
+        'Captum not installed (pip install -e ".[torch]"); used permutation importance.',
         available,
     )

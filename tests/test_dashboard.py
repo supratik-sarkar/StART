@@ -28,18 +28,42 @@ def model():
         explainability={"method": "integrated_gradients", "top_feature": "balance"},
         robustness={"baseline_auc": 0.82, "max_noise_drift": -0.03},
         ai_engineering_rows=[
-            {"adapter": "OpenTelemetry", "category": "telemetry", "status": "complete",
-             "runtime_s": 0.05, "artifacts": 1, "evidence": 1},
-            {"adapter": "OPA", "category": "policy", "status": "not_installed",
-             "runtime_s": 0.0, "artifacts": 0, "evidence": 1},
+            {
+                "adapter": "OpenTelemetry",
+                "category": "telemetry",
+                "status": "complete",
+                "runtime_s": 0.05,
+                "artifacts": 1,
+                "evidence": 1,
+            },
+            {
+                "adapter": "OPA",
+                "category": "policy",
+                "status": "not_installed",
+                "runtime_s": 0.0,
+                "artifacts": 0,
+                "evidence": 1,
+            },
         ],
         findings=[
-            {"title": "Target Leakage", "description": "post-event var", "severity": "High",
-             "materiality": "High", "risk_category": "Data Quality", "evidence_ids": ["EV-3"],
-             "recommendation": "Remove post-event variables."},
-            {"title": "Calibration drift", "description": "ECE elevated", "severity": "Medium",
-             "materiality": "Medium", "risk_category": "Calibration", "evidence_ids": ["EV-7"],
-             "recommendation": "Recalibrate."},
+            {
+                "title": "Target Leakage",
+                "description": "post-event var",
+                "severity": "High",
+                "materiality": "High",
+                "risk_category": "Data Quality",
+                "evidence_ids": ["EV-3"],
+                "recommendation": "Remove post-event variables.",
+            },
+            {
+                "title": "Calibration drift",
+                "description": "ECE elevated",
+                "severity": "Medium",
+                "materiality": "Medium",
+                "risk_category": "Calibration",
+                "evidence_ids": ["EV-7"],
+                "recommendation": "Recalibrate.",
+            },
         ],
         evidence_summary={"total": 8},
         evidence_rows=[
@@ -75,9 +99,18 @@ def test_html_is_self_contained(model):
 def test_json_structure(model):
     d = json.loads(render_dashboard_json(model))
     assert set(
-        ["executive_summary", "dataset_review", "model_review", "validation_review",
-         "explainability_review", "robustness_review", "ai_engineering_review",
-         "governance_findings", "evidence_ledger_summary", "final_signoff"]
+        [
+            "executive_summary",
+            "dataset_review",
+            "model_review",
+            "validation_review",
+            "explainability_review",
+            "robustness_review",
+            "ai_engineering_review",
+            "governance_findings",
+            "evidence_ledger_summary",
+            "final_signoff",
+        ]
     ) <= set(d)
     ex = d["executive_summary"]
     assert ex["total_findings"] == 2
@@ -101,11 +134,21 @@ def test_write_dashboard_produces_three_files(model, tmp_path):
 
 def test_cnn_config_rendered():
     model = DashboardModel(
-        run_id="RUN-CNN", task_type="vision_image_classification", target="label",
-        modality="vision", recommended_family="simple_cnn_small",
-        cnn_config={"preset": "simple_cnn_small", "n_blocks": 2, "base_channels": 16,
-                    "kernel_size": 3, "pooling": "max", "dropout": 0.1, "dense": 64,
-                    "param_count": 12345},
+        run_id="RUN-CNN",
+        task_type="vision_image_classification",
+        target="label",
+        modality="vision",
+        recommended_family="simple_cnn_small",
+        cnn_config={
+            "preset": "simple_cnn_small",
+            "n_blocks": 2,
+            "base_channels": 16,
+            "kernel_size": 3,
+            "pooling": "max",
+            "dropout": 0.1,
+            "dense": 64,
+            "param_count": 12345,
+        },
     )
     md = render_dashboard_md(model)
     assert "CNN configuration" in md
@@ -127,21 +170,53 @@ def _v211_model():
     from start.reporting.dashboard import DashboardModel
 
     return DashboardModel(
-        run_id="RUN-X", task_type="binary_classification", target="y",
-        modality="tabular", recommended_family="mlp",
-        activation_report={"provider": "openai", "model": "gpt-4.1",
-                           "trust_domain": "public", "endpoint": "https://api.openai.com/v1",
-                           "status": "FALLBACK", "detail": "no key"},
-        agent_traces=[{"agent": "ArchitectureReviewAgent", "inputs": "569 rows",
-                       "reasoning": "small tabular", "decision": "recommend MLP",
-                       "confidence": 0.8, "alternative_considered": "Wide&Deep",
-                       "evidence_ids": ["ARCH-01"]}],
-        control_surface=[{"adapter": "OPA", "category": "policy", "purpose": "policy as code",
-                          "role": "validate governance", "status": "not_installed",
-                          "would_do": "validate controls", "expected_outputs": ["policy_report.json"],
-                          "install_guidance": "install OPA", "artifacts": 0, "evidence": 1}],
-        artifact_catalog=[{"name": "sensitivity.csv", "path": "/out/sensitivity.csv",
-                           "type": "table (CSV)", "category": "sensitivity", "description": ""}],
+        run_id="RUN-X",
+        task_type="binary_classification",
+        target="y",
+        modality="tabular",
+        recommended_family="mlp",
+        activation_report={
+            "provider": "openai",
+            "model": "gpt-4.1",
+            "trust_domain": "public",
+            "endpoint": "https://api.openai.com/v1",
+            "status": "FALLBACK",
+            "detail": "no key",
+        },
+        agent_traces=[
+            {
+                "agent": "ArchitectureReviewAgent",
+                "inputs": "569 rows",
+                "reasoning": "small tabular",
+                "decision": "recommend MLP",
+                "confidence": 0.8,
+                "alternative_considered": "Wide&Deep",
+                "evidence_ids": ["ARCH-01"],
+            }
+        ],
+        control_surface=[
+            {
+                "adapter": "OPA",
+                "category": "policy",
+                "purpose": "policy as code",
+                "role": "validate governance",
+                "status": "not_installed",
+                "would_do": "validate controls",
+                "expected_outputs": ["policy_report.json"],
+                "install_guidance": "install OPA",
+                "artifacts": 0,
+                "evidence": 1,
+            }
+        ],
+        artifact_catalog=[
+            {
+                "name": "sensitivity.csv",
+                "path": "/out/sensitivity.csv",
+                "type": "table (CSV)",
+                "category": "sensitivity",
+                "description": "",
+            }
+        ],
     )
 
 
@@ -149,8 +224,12 @@ def test_dashboard_md_has_v211_sections():
     from start.reporting.dashboard import render_dashboard_md
 
     md = render_dashboard_md(_v211_model())
-    for sec in ("## LLM Activation", "## Agent Reasoning Traces",
-                "## AI-Engineering Control Surface", "## Artifact Catalog"):
+    for sec in (
+        "## LLM Activation",
+        "## Agent Reasoning Traces",
+        "## AI-Engineering Control Surface",
+        "## Artifact Catalog",
+    ):
         assert sec in md, f"markdown missing {sec}"
     assert "ArchitectureReviewAgent" in md
     assert "policy as code" in md
@@ -161,14 +240,22 @@ def test_dashboard_html_has_v211_sections():
     from start.reporting.dashboard import render_dashboard_html
 
     html = render_dashboard_html(_v211_model())
-    for sec in ("LLM Activation", "Agent Reasoning Traces",
-                "AI-Engineering Control Surface", "Artifact Catalog"):
+    for sec in (
+        "LLM Activation",
+        "Agent Reasoning Traces",
+        "AI-Engineering Control Surface",
+        "Artifact Catalog",
+    ):
         assert sec in html, f"html missing {sec}"
     assert "FALLBACK" in html
 
 
 def test_dashboard_json_has_v211_keys():
     d = _v211_model().to_dict()
-    for key in ("llm_activation", "agent_reasoning_traces",
-                "ai_engineering_control_surface", "artifact_catalog"):
+    for key in (
+        "llm_activation",
+        "agent_reasoning_traces",
+        "ai_engineering_control_surface",
+        "artifact_catalog",
+    ):
         assert key in d

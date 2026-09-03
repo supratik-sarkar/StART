@@ -51,9 +51,7 @@ def test_profile_panel_and_time_series():
     assert ts.dataset_type == "time_series"
     assert ts.target_type == "continuous"
     panel_df = pd.DataFrame({**base, "asset": ["A", "B", "C"] * 20})
-    panel = profile_dataset(
-        panel_df, target_column="y", timestamp_column="ts", entity_id_column="asset"
-    )
+    panel = profile_dataset(panel_df, target_column="y", timestamp_column="ts", entity_id_column="asset")
     assert panel.dataset_type == "panel_time_series"
     assert panel.n_entities == 3
 

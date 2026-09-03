@@ -73,9 +73,7 @@ class GraphReviewOrchestrator:
         self.order: list[str] = []
         self.engine = "langgraph" if langgraph_available() else "builtin_dag"
 
-    def add_node(
-        self, name: str, fn: Callable[[dict[str, Any]], dict[str, Any]], depends_on=None
-    ) -> None:
+    def add_node(self, name: str, fn: Callable[[dict[str, Any]], dict[str, Any]], depends_on=None) -> None:
         self.nodes[name] = GraphNode(name=name, fn=fn, depends_on=list(depends_on or []))
         self.order.append(name)
 
@@ -101,7 +99,9 @@ class GraphReviewOrchestrator:
         return resolved
 
     def run(
-        self, run_id: str, initial_state: dict[str, Any] | None = None,
+        self,
+        run_id: str,
+        initial_state: dict[str, Any] | None = None,
         resume_from: GraphRunState | None = None,
     ) -> GraphRunState:
         state = resume_from or GraphRunState(run_id=run_id, state=dict(initial_state or {}))
@@ -147,11 +147,7 @@ class GraphReviewOrchestrator:
                 }
                 for n in (self.nodes[name] for name in self.order)
             ],
-            "edges": [
-                {"from": dep, "to": n.name}
-                for n in self.nodes.values()
-                for dep in n.depends_on
-            ],
+            "edges": [{"from": dep, "to": n.name} for n in self.nodes.values() for dep in n.depends_on],
             "final_state_keys": sorted(state.state.keys()) if state else [],
         }
 
@@ -220,10 +216,10 @@ class GraphReviewOrchestrator:
     def _render_mermaid(self, graph: dict[str, Any], out_dir: Path) -> str:
         lines = ["graph TD"]
         for e in graph["edges"]:
-            lines.append(f'  {_safe(e["from"])} --> {_safe(e["to"])}')
+            lines.append(f"  {_safe(e['from'])} --> {_safe(e['to'])}")
         if not graph["edges"]:
             for n in graph["nodes"]:
-                lines.append(f'  {_safe(n["name"])}')
+                lines.append(f"  {_safe(n['name'])}")
         path = out_dir / "review_graph.mmd"
         path.write_text("\n".join(lines))
         return str(path)

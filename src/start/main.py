@@ -5,7 +5,7 @@ from typing import Any
 
 def execute_pre_flight_summary_card(config: dict[str, Any]) -> None:
     """Renders a meticulous pre-flight card layout before waking the agent committee."""
-    os.system('clear' if os.name == 'posix' else 'cls')
+    os.system("clear" if os.name == "posix" else "cls")
     print("╭─ Pre-Flight Configuration Review ──────────────────────────────────────────╮")
     print(f"│  Workflow Mode     {config['workflow_mode']:55} │")
     print(f"│  Agent Mode        {config.get('agent_mode', 'deterministic'):55} │")
@@ -13,12 +13,12 @@ def execute_pre_flight_summary_card(config: dict[str, Any]) -> None:
     if config.get("llm_model"):
         print(f"│  LLM Model         {config['llm_model']:55} │")
     print(f"│  Selected Model    {config['model']:55} │")
-    if config['workflow_mode'] == "Deep Learning Suite":
+    if config["workflow_mode"] == "Deep Learning Suite":
         print(f"│  Activation        {config.get('activation', 'relu'):55} │")
-        if "Regression" in config['problem_frame']:
+        if "Regression" in config["problem_frame"]:
             out_act, loss_fn = "Linear", "Mean Squared Error"
             out_layer = "1 output"
-        elif "Multi-Class" in config['problem_frame']:
+        elif "Multi-Class" in config["problem_frame"]:
             out_act, loss_fn = "Softmax", "Categorical Cross Entropy"
             out_layer = f"{config.get('n_classes', 3)} outputs"
         else:
@@ -33,12 +33,12 @@ def execute_pre_flight_summary_card(config: dict[str, Any]) -> None:
     print(f"│  Problem Frame     {config['problem_frame']:55} │")
     print(f"│  Target Column     {config['target_column']:55} │")
     print(f"│  Class Dist.       {config['class_distribution']:55} │")
-    
+
     strat_status = "Enabled" if config["stratify"] else "Disabled"
     cw_status = "Balanced (sample weight)" if config["class_weight"] else "Disabled"
     print(f"│  Stratification    {strat_status:55} │")
     print(f"│  Class Weighting   {cw_status:55} │")
-    
+
     train_pct = int(config["split_proportions"][0] * 100)
     test_pct = int(config["split_proportions"][1] * 100)
     oos_pct = int(config["split_proportions"][2] * 100)
@@ -47,25 +47,28 @@ def execute_pre_flight_summary_card(config: dict[str, Any]) -> None:
     print("│  Numerical Guard   Epsilon Bounds Active (Denom Min: 1e-15)               │")
     print("╰────────────────────────────────────────────────────────────────────────────╯")
     choice = input("Proceed to execute AI Engineering Review Committee? [Y/n]: ").strip().lower()
-    if choice == 'n':
+    if choice == "n":
         print("Execution halted by engineering override command.")
         sys.exit(0)
+
 
 def run_interactive_setup_wizard() -> dict[str, Any]:
     """Interactive wizard parsing user inputs into a structured configuration state."""
     print("=== StART Model Review — Interactive Setup Wizard ===")
-    
+
     # 0. AI Reviewer Agent Backend Selection (LLM Mode)
     print("\nSelect AI Reviewer Agent Backend (LLM Mode):")
     print("  [1] None (Deterministic Rule-Based / Local Engines) (default)")
     print("  [2] Enterprise LLM Gateway (Firm Environment)")
-    print("  [3] Public LLM Providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq, etc. - Paid API Keys required)")
+    print(
+        "  [3] Public LLM Providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq, etc. - Paid API Keys required)"
+    )
     backend_choice = input("Select backend [default: 1]: ").strip() or "1"
-    
+
     agent_mode = "deterministic"
     llm_provider = "none"
     llm_model = None
-    
+
     if backend_choice == "2":
         agent_mode = "llm"
         llm_provider = "enterprise_llm_gateway"
@@ -78,19 +81,14 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         print("  [4] DeepSeek")
         print("  [5] Grok")
         provider_choice = input("Select provider [default: 1]: ").strip() or "1"
-        provider_map = {
-            "1": "openai",
-            "2": "anthropic",
-            "3": "gemini",
-            "4": "deepseek",
-            "5": "grok"
-        }
+        provider_map = {"1": "openai", "2": "anthropic", "3": "gemini", "4": "deepseek", "5": "grok"}
         llm_provider = provider_map.get(provider_choice, "openai")
-        
+
         # Securely prompt for key immediately if needed
         import sys
 
         from start.providers.keys import ensure_provider_key, key_required
+
         if key_required(llm_provider) and sys.stdin.isatty():
             status = ensure_provider_key(llm_provider, prompt_for_key=True, interactive=True)
             if not status.ok:
@@ -102,6 +100,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         llm_model = None
         if llm_provider != "none" and llm_provider in ("openai", "anthropic"):
             from start.providers.model_discovery import RealProviderModelDiscovery
+
             discovery = RealProviderModelDiscovery()
             print(f"\nQuerying available models for {llm_provider}...")
             available_models = discovery.list_models(llm_provider)
@@ -165,7 +164,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
             "4": "lightgbm",
             "5": "distributed_random_forest",
             "6": "extra_trees",
-            "7": "random_rotation_forest"
+            "7": "random_rotation_forest",
         }
         model = model_map.get(model_choice, "random_forest")
     else:
@@ -187,7 +186,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
             "5": "gru",
             "6": "bi_lstm",
             "7": "gnn",
-            "8": "dcn"
+            "8": "dcn",
         }
         model = model_map.get(model_choice, "mlp")
 
@@ -214,7 +213,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
             "7": "selu",
             "8": "tanh",
             "9": "sigmoid",
-            "10": "softplus"
+            "10": "softplus",
         }
         activation = act_map.get(act_choice, "relu")
 
@@ -250,10 +249,16 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         problem_frame = "Regression ──> Continuous Numbers"
     else:
         seg_type = input("Select Segmentation Mode [1=Binary / 2=Multi-Class]: ").strip() or "1"
-        problem_frame = "Classification ──> Binary Segment" if seg_type == "1" else "Classification ──> Multi-Class Segmentation"
+        problem_frame = (
+            "Classification ──> Binary Segment"
+            if seg_type == "1"
+            else "Classification ──> Multi-Class Segmentation"
+        )
 
     # 4. Target Column Selection & Verification
-    target_input = input(f"\nEnter target column name (blank = auto-lock fallback choice '{default_target}'): ").strip()
+    target_input = input(
+        f"\nEnter target column name (blank = auto-lock fallback choice '{default_target}'): "
+    ).strip()
     target_column = target_input or default_target
 
     # Rename target column in demo dataset if needed
@@ -285,15 +290,19 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         nunique = df[target_column].dropna().nunique()
         n_classes = nunique
         if seg_type == "1" and nunique > 2:
-            print(f"\n[Warning] Target column '{target_column}' has {nunique} unique values, "
-                  f"which requires Multi-Class classification, but you selected Binary Segmentation.")
+            print(
+                f"\n[Warning] Target column '{target_column}' has {nunique} unique values, "
+                f"which requires Multi-Class classification, but you selected Binary Segmentation."
+            )
             choice = input("Confirm: Switch to Multi-Class Segmentation? [Y/n]: ").strip().lower()
             if choice in ("", "y", "yes"):
                 seg_type = "2"
                 problem_frame = "Classification ──> Multi-Class Segmentation"
                 print("Switched to Multi-Class classification.")
             else:
-                print("Execution aborted: Selected binary classification is incompatible with multiclass target.")
+                print(
+                    "Execution aborted: Selected binary classification is incompatible with multiclass target."
+                )
                 sys.exit(1)
 
     if task_type == "2":
@@ -304,7 +313,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
     # 5. Split and Weighting Choices
     sample_weight = False
     split_strategy = "stratified"
-    
+
     if task_type == "2":
         # Regression
         print("\nSelect Split Strategy for Regression:")
@@ -313,16 +322,11 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         print("  [3] Group-Based")
         print("  [4] Binned Target Split (disclosed target stratification)")
         split_choice = input("Select split strategy [default: 1]: ").strip() or "1"
-        split_map = {
-            "1": "random",
-            "2": "time_based",
-            "3": "group",
-            "4": "stratified"
-        }
+        split_map = {"1": "random", "2": "time_based", "3": "group", "4": "stratified"}
         split_strategy = split_map.get(split_choice, "random")
-        stratify = (split_strategy == "stratified")
+        stratify = split_strategy == "stratified"
         class_weight = None
-        
+
         print("\nSelect Sample Weighting Logic for Regression:")
         print("  [1] No weighting (default)")
         print("  [2] Inverse Variance Weighting")
@@ -330,7 +334,9 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         print("  [4] Custom Weighting Logic")
         sw_choice = input("Select weighting logic [default: 1]: ").strip() or "1"
         if sw_choice in ("2", "3", "4"):
-            justification = input("Enter explicit justification for the selected weighting logic (blank to disable weighting): ").strip()
+            justification = input(
+                "Enter explicit justification for the selected weighting logic (blank to disable weighting): "
+            ).strip()
             if justification:
                 sample_weight = True
                 print(f"Sample weights enabled with justification: {justification}")
@@ -341,11 +347,19 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
             sample_weight = False
     else:
         # Classification
-        strat_choice = input("\nApply stratified splitting to training/test/OOS cohorts? [Y/n]: ").strip().lower()
+        strat_choice = (
+            input("\nApply stratified splitting to training/test/OOS cohorts? [Y/n]: ").strip().lower()
+        )
         stratify = strat_choice not in ("n", "no")
         split_strategy = "stratified" if stratify else "random"
-        
-        cw_choice = input("\nApply class-weight balancing (highly recommended for imbalanced datasets / anomaly detection)? [y/N]: ").strip().lower()
+
+        cw_choice = (
+            input(
+                "\nApply class-weight balancing (highly recommended for imbalanced datasets / anomaly detection)? [y/N]: "
+            )
+            .strip()
+            .lower()
+        )
         class_weight = "balanced" if cw_choice in ("y", "yes") else None
 
     # Print user-friendly notes/warnings about sequential lookahead leakage
@@ -358,13 +372,15 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
         print("       This guards against lookahead data leakage by training only on historical data.")
 
     # 7. Split Proportions Choice
-    split_choice = input("\nEnter train/test/OOS split proportions (must sum to 100, e.g., 60/20/20) [default: 60/20/20]: ").strip()
+    split_choice = input(
+        "\nEnter train/test/OOS split proportions (must sum to 100, e.g., 60/20/20) [default: 60/20/20]: "
+    ).strip()
     split_props = (0.6, 0.2, 0.2)
     if split_choice:
         try:
             parts = [float(p.strip()) for p in split_choice.split("/")]
             if len(parts) == 3 and sum(parts) == 100:
-                split_props = (parts[0]/100.0, parts[1]/100.0, parts[2]/100.0)
+                split_props = (parts[0] / 100.0, parts[1] / 100.0, parts[2] / 100.0)
             else:
                 print("Proportions must be 3 numbers summing to 100. Using default 60/20/20.")
         except Exception:
@@ -373,41 +389,33 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
     # 8. User-Controlled Hyperparameter Tuning configuration
     tuning_needed_choice = input("\nEnable hyperparameter tuning? [y/N]: ").strip().lower()
     tuning_needed = tuning_needed_choice in ("y", "yes")
-    
+
     tuning_strategy = "none"
     tuning_trials = 0
     validation_scheme = "holdout"
     k_folds = 3
     custom_tuning_params = {}
-    
+
     if tuning_needed:
         print("\nSelect Tuning Method:")
         print("  [1] Bounded Random Search (default)")
         print("  [2] Grid Search")
         print("  [3] Optuna Search (if available)")
         method_choice = input("Select method [default: 1]: ").strip() or "1"
-        method_map = {
-            "1": "bounded_random_search",
-            "2": "grid_search",
-            "3": "optuna_if_available"
-        }
+        method_map = {"1": "bounded_random_search", "2": "grid_search", "3": "optuna_if_available"}
         tuning_strategy = method_map.get(method_choice, "bounded_random_search")
-        
+
         trials_choice = input("\nEnter number of trials [default: 5]: ").strip()
         tuning_trials = int(trials_choice) if trials_choice.isdigit() and int(trials_choice) > 0 else 5
-        
+
         print("\nSelect Validation Scheme:")
         print("  [1] Holdout (default)")
         print("  [2] K-Fold")
         print("  [3] Time-Series Split")
         val_choice = input("Select validation scheme [default: 1]: ").strip() or "1"
-        val_map = {
-            "1": "holdout",
-            "2": "k_fold",
-            "3": "time_series_split"
-        }
+        val_map = {"1": "holdout", "2": "k_fold", "3": "time_series_split"}
         validation_scheme = val_map.get(val_choice, "holdout")
-        
+
         if validation_scheme == "k_fold":
             print("\nSelect Number of Folds:")
             print("  [1] 3 (default)")
@@ -416,157 +424,161 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
             k_choice = input("Select folds [default: 1]: ").strip() or "1"
             k_map = {"1": 3, "2": 5, "3": 7}
             k_folds = k_map.get(k_choice, 3)
-            
+
         # Hyperparameters prompting by architecture/model:
         # MLP / Wide & Deep / DCN
         if model in ("mlp", "wide_deep", "dcn"):
-            h_dims_raw = input("\nEnter hidden dimensions (comma separated integers) [default: 128, 64]: ").strip()
+            h_dims_raw = input(
+                "\nEnter hidden dimensions (comma separated integers) [default: 128, 64]: "
+            ).strip()
             if h_dims_raw:
                 custom_tuning_params["hidden_dims"] = [int(x.strip()) for x in h_dims_raw.split(",")]
-            
+
             lr_raw = input("\nEnter learning rate [default: 0.003]: ").strip()
             if lr_raw:
                 custom_tuning_params["learning_rate"] = float(lr_raw)
-            
+
             dr_raw = input("\nEnter dropout [default: 0.1]: ").strip()
             if dr_raw:
                 custom_tuning_params["dropout"] = float(dr_raw)
-            
+
             wd_raw = input("\nEnter weight decay [default: 1e-4]: ").strip()
             if wd_raw:
                 custom_tuning_params["weight_decay"] = float(wd_raw)
-            
+
             bs_raw = input("\nEnter batch size [default: 64]: ").strip()
             if bs_raw:
                 custom_tuning_params["batch_size"] = int(bs_raw)
-            
+
             ep_raw = input("\nEnter epochs [default: 50]: ").strip()
             if ep_raw:
                 custom_tuning_params["epochs"] = int(ep_raw)
-            
+
         # RNN / LSTM / GRU / Bi-LSTM
         elif model in ("rnn", "lstm", "gru", "bi_lstm"):
             hs_raw = input("\nEnter hidden size [default: 64]: ").strip()
             if hs_raw:
                 custom_tuning_params["hidden_size"] = int(hs_raw)
-            
+
             nl_raw = input("\nEnter number of layers [default: 1]: ").strip()
             if nl_raw:
                 custom_tuning_params["num_layers"] = int(nl_raw)
-            
+
             lr_raw = input("\nEnter learning rate [default: 0.003]: ").strip()
             if lr_raw:
                 custom_tuning_params["learning_rate"] = float(lr_raw)
-            
+
             dr_raw = input("\nEnter dropout [default: 0.1]: ").strip()
             if dr_raw:
                 custom_tuning_params["dropout"] = float(dr_raw)
-            
+
             seq_raw = input("\nEnter sequence length [default: auto]: ").strip()
             if seq_raw:
                 custom_tuning_params["sequence_length"] = int(seq_raw) if seq_raw.isdigit() else "auto"
-            
+
             bs_raw = input("\nEnter batch size [default: 64]: ").strip()
             if bs_raw:
                 custom_tuning_params["batch_size"] = int(bs_raw)
-            
+
         # CNN
         elif model == "cnn":
             nf_raw = input("\nEnter number of filters [default: 32]: ").strip()
             if nf_raw:
                 custom_tuning_params["num_filters"] = int(nf_raw)
-            
+
             ks_raw = input("\nEnter kernel size [default: 3]: ").strip()
             if ks_raw:
                 custom_tuning_params["kernel_size"] = int(ks_raw)
-            
+
             lr_raw = input("\nEnter learning rate [default: 0.003]: ").strip()
             if lr_raw:
                 custom_tuning_params["learning_rate"] = float(lr_raw)
-            
+
             dr_raw = input("\nEnter dropout [default: 0.1]: ").strip()
             if dr_raw:
                 custom_tuning_params["dropout"] = float(dr_raw)
-            
+
             bs_raw = input("\nEnter batch size [default: 64]: ").strip()
             if bs_raw:
                 custom_tuning_params["batch_size"] = int(bs_raw)
-            
+
             ep_raw = input("\nEnter epochs [default: 50]: ").strip()
             if ep_raw:
                 custom_tuning_params["epochs"] = int(ep_raw)
-            
+
         # GNN
         elif model == "gnn":
             hc_raw = input("\nEnter hidden channels [default: 64]: ").strip()
             if hc_raw:
                 custom_tuning_params["hidden_channels"] = int(hc_raw)
-            
+
             nl_raw = input("\nEnter number of layers [default: 2]: ").strip()
             if nl_raw:
                 custom_tuning_params["num_layers"] = int(nl_raw)
-            
+
             lr_raw = input("\nEnter learning rate [default: 0.003]: ").strip()
             if lr_raw:
                 custom_tuning_params["learning_rate"] = float(lr_raw)
-            
+
             dr_raw = input("\nEnter dropout [default: 0.1]: ").strip()
             if dr_raw:
                 custom_tuning_params["dropout"] = float(dr_raw)
-            
+
             agg_raw = input("\nEnter aggregation method (mean/sum/max) [default: mean]: ").strip().lower()
             if agg_raw:
                 custom_tuning_params["aggregation"] = agg_raw if agg_raw in ("mean", "sum", "max") else "mean"
-            
+
             ep_raw = input("\nEnter epochs [default: 50]: ").strip()
             if ep_raw:
                 custom_tuning_params["epochs"] = int(ep_raw)
-            
+
         # Random Forest (Propensity Suite)
         elif model in ("random_forest", "distributed_random_forest", "extra_trees", "random_rotation_forest"):
             ne_raw = input("\nEnter number of estimators [default: 300]: ").strip()
             if ne_raw:
                 custom_tuning_params["n_estimators"] = int(ne_raw)
-            
+
             md_raw = input("\nEnter max depth (integer or auto) [default: auto]: ").strip()
             if md_raw:
                 custom_tuning_params["max_depth"] = int(md_raw) if md_raw.isdigit() else None
-            
+
             msl_raw = input("\nEnter min samples leaf [default: 5]: ").strip()
             if msl_raw:
                 custom_tuning_params["min_samples_leaf"] = int(msl_raw)
-            
+
             mf_raw = input("\nEnter max features (sqrt/log2/None) [default: sqrt]: ").strip()
             if mf_raw:
-                custom_tuning_params["max_features"] = mf_raw if mf_raw in ("sqrt", "log2", "none") else "sqrt"
+                custom_tuning_params["max_features"] = (
+                    mf_raw if mf_raw in ("sqrt", "log2", "none") else "sqrt"
+                )
                 if custom_tuning_params["max_features"] == "none":
                     custom_tuning_params["max_features"] = None
-                
+
             custom_tuning_params["class_weight"] = "balanced" if task_type == "1" else None
             custom_tuning_params["random_state"] = 42
-            
+
         # XGBoost / LightGBM / CatBoost (Propensity Suite)
         elif model in ("xgboost", "lightgbm", "catboost"):
             ne_raw = input("\nEnter number of estimators/iterations [default: 300]: ").strip()
             if ne_raw:
                 custom_tuning_params["n_estimators"] = int(ne_raw)
-            
+
             md_raw = input("\nEnter max depth [default: 4]: ").strip()
             if md_raw:
                 custom_tuning_params["max_depth"] = int(md_raw)
-            
+
             lr_raw = input("\nEnter learning rate [default: 0.05]: ").strip()
             if lr_raw:
                 custom_tuning_params["learning_rate"] = float(lr_raw)
-            
+
             ss_raw = input("\nEnter subsample [default: 0.8]: ").strip()
             if ss_raw:
                 custom_tuning_params["subsample"] = float(ss_raw)
-            
+
             cbt_raw = input("\nEnter colsample by tree [default: 0.8]: ").strip()
             if cbt_raw:
                 custom_tuning_params["colsample_bytree"] = float(cbt_raw)
-            
+
             rl_raw = input("\nEnter reg lambda [default: 1.0]: ").strip()
             if rl_raw:
                 custom_tuning_params["reg_lambda"] = float(rl_raw)
@@ -577,11 +589,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
     print("  [2] Gradient SHAP")
     print("  [3] Permutation Importance")
     exp_choice = input("Select explainability method [default: 1]: ").strip() or "1"
-    exp_map = {
-        "1": "integrated_gradients",
-        "2": "gradient_shap",
-        "3": "permutation"
-    }
+    exp_map = {"1": "integrated_gradients", "2": "gradient_shap", "3": "permutation"}
     explain_method = exp_map.get(exp_choice, "integrated_gradients")
 
     # Calculate class distribution percentages
@@ -628,6 +636,7 @@ def run_interactive_setup_wizard() -> dict[str, Any]:
 
     execute_pre_flight_summary_card(config_state)
     return config_state
+
 
 if __name__ == "__main__":
     config = run_interactive_setup_wizard()

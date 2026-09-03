@@ -13,8 +13,7 @@ from start.review_session import Challenge, Decision, ReviewSession
 
 def _strong_store():
     s = EvidenceStore()
-    s.cohort_metrics = {"train": {"auc_roc": 0.97, "ece": 0.05},
-                        "oos": {"auc_roc": 0.96, "ece": 0.06}}
+    s.cohort_metrics = {"train": {"auc_roc": 0.97, "ece": 0.05}, "oos": {"auc_roc": 0.96, "ece": 0.06}}
     s.max_abs_drift = 0.02
     s.most_sensitive_feature = "worst_perimeter"
     return s
@@ -59,8 +58,16 @@ def test_unresolved_challenge_blocks():
 
 def test_override_makes_conditional():
     sess = ReviewSession(run_id="R")
-    sess.record_decision(Decision(key="architecture", prompt="", recommended="mlp",
-                                  user_value="wide_deep", effective="wide_deep", choice="keep"))
+    sess.record_decision(
+        Decision(
+            key="architecture",
+            prompt="",
+            recommended="mlp",
+            user_value="wide_deep",
+            effective="wide_deep",
+            choice="keep",
+        )
+    )
     d = evaluate_signoff(_strong_store(), sess)
     assert d.verdict == CONDITIONAL
 

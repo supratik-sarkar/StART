@@ -79,9 +79,7 @@ def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
     llm = get_llm_provider(config.llm)
     compute = get_compute_provider(config.compute)
     out_root = Path(config.output.root)
-    ledger = EvidenceLedger(
-        out_root / config.output.ledger_file, out_root / config.output.evidence_store
-    )
+    ledger = EvidenceLedger(out_root / config.output.ledger_file, out_root / config.output.evidence_store)
     experiments = get_experiment_provider(
         config.experiment.provider,
         config.experiment.tracking_uri,
@@ -143,9 +141,7 @@ def run_review(config: StartConfig, ctx: TestContext) -> RunResult:
     if config.agent.llm_provider and config.agent.llm_provider != config.llm.provider:
         from start.core.config import LLMConfig
 
-        agent_llm = get_llm_provider(
-            LLMConfig(provider=config.agent.llm_provider, model=config.llm.model)
-        )
+        agent_llm = get_llm_provider(LLMConfig(provider=config.agent.llm_provider, model=config.llm.model))
     agent_review = run_agent_review(
         records,
         mode=config.agent.mode,
@@ -222,12 +218,14 @@ def review_dataframes(
 # --- StART v2.4.0 Core Interceptor & Telemetry UI Bridge ---
 
 
-async def execute_pipeline_v240_bridge(workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"):
+async def execute_pipeline_v240_bridge(
+    workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"
+):
     bus = TelemetryBus()
     checkpointer = StepCheckpointer()
     ui = ProgressDashboardUI(bus)
     interceptor = SelfHealingExecutionInterceptor(telemetry_bus=bus, checkpointer=checkpointer)
-    
+
     async def wrapped_execution():
         ui.set_global_progress(15.0)
         # Wrap the legacy test function execution inside the self-healing interceptor framework
@@ -235,7 +233,7 @@ async def execute_pipeline_v240_bridge(workflow_id: str, stage_name: str, core_r
             workflow_id=workflow_id,
             stage_name=stage_name,
             test_callable=lambda ctx: core_runner_func(ctx),
-            test_context=context_payload
+            test_context=context_payload,
         )
         ui.set_global_progress(100.0)
         await asyncio.sleep(0.5)
@@ -243,11 +241,22 @@ async def execute_pipeline_v240_bridge(workflow_id: str, stage_name: str, core_r
 
     return await ui.monitor_execution(wrapped_execution())
 
-def run_v240_sync_entry(workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"):
+
+def run_v240_sync_entry(
+    workflow_id: str, stage_name: str, core_runner_func, context_payload, violation_type="class_imbalance"
+):
     """Synchronous entry point proxy to execute the async TUI inside the legacy CLI thread context."""
     try:
-        return asyncio.run(execute_pipeline_v240_bridge(workflow_id, stage_name, core_runner_func, context_payload, violation_type))
+        return asyncio.run(
+            execute_pipeline_v240_bridge(
+                workflow_id, stage_name, core_runner_func, context_payload, violation_type
+            )
+        )
     except RuntimeError:
         # Fallback if an event loop is already running in the current thread
         loop = asyncio.get_event_loop()
-        return loop.run_until_complete(execute_pipeline_v240_bridge(workflow_id, stage_name, core_runner_func, context_payload, violation_type))
+        return loop.run_until_complete(
+            execute_pipeline_v240_bridge(
+                workflow_id, stage_name, core_runner_func, context_payload, violation_type
+            )
+        )

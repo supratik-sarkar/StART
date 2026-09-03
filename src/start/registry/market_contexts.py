@@ -355,7 +355,7 @@ class MarketContext:
     prices: pd.DataFrame | None = None
     periods_per_year: float = 252.0
     frequency: str | None = None
-    return_basis: str = "simple"          # simple | log
+    return_basis: str = "simple"  # simple | log
     risk_free_rate: float | pd.Series | None = None
     risk_free_frequency: str | None = None
     factor_returns: pd.DataFrame | None = None
@@ -449,9 +449,7 @@ class MarketContext:
         """Risk-free converted to the RETURN period, with the conversion recorded."""
         if self.risk_free_rate is None:
             return None, {"risk_free_supplied": False}
-        source = FREQUENCY_PERIODS.get(
-            (self.risk_free_frequency or "annual").lower(), 1.0
-        )
+        source = FREQUENCY_PERIODS.get((self.risk_free_frequency or "annual").lower(), 1.0)
         record = {
             "risk_free_supplied": True,
             "risk_free_source_frequency": self.risk_free_frequency or "annual",
@@ -503,9 +501,12 @@ class MarketContext:
             problems.append("var_series supplied without var_confidence")
 
         indexed = {
-            "returns": self.returns, "prices": self.prices,
-            "factor_returns": self.factor_returns, "pnl": self.pnl,
-            "hypothetical_pnl": self.hypothetical_pnl, "var_series": self.var_series,
+            "returns": self.returns,
+            "prices": self.prices,
+            "factor_returns": self.factor_returns,
+            "pnl": self.pnl,
+            "hypothetical_pnl": self.hypothetical_pnl,
+            "var_series": self.var_series,
         }
         for name, obj in indexed.items():
             if obj is None:
@@ -516,9 +517,7 @@ class MarketContext:
             if isinstance(index, pd.DatetimeIndex) and not index.is_monotonic_increasing:
                 problems.append(f"{name}: index is not monotonically increasing")
         if self.portfolio and self.portfolio.constraints:
-            problems.extend(
-                f"constraints: {p}" for p in self.portfolio.constraints.validate()
-            )
+            problems.extend(f"constraints: {p}" for p in self.portfolio.constraints.validate())
         return problems
 
     def fingerprint(self) -> str:
@@ -526,14 +525,17 @@ class MarketContext:
         digest = hashlib.sha256()
         digest.update(b"MarketContext/1")
         for name, frame in (
-            ("returns", self.returns), ("prices", self.prices),
-            ("factor_returns", self.factor_returns), ("covariance", self.covariance),
+            ("returns", self.returns),
+            ("prices", self.prices),
+            ("factor_returns", self.factor_returns),
+            ("covariance", self.covariance),
             ("asset_metadata", self.asset_metadata),
         ):
             digest.update(b"\x1e" + name.encode("ascii"))
             digest.update(canonical_frame_bytes(frame, label=name))
         for name, series in (
-            ("pnl", self.pnl), ("hypothetical_pnl", self.hypothetical_pnl),
+            ("pnl", self.pnl),
+            ("hypothetical_pnl", self.hypothetical_pnl),
             ("var_series", self.var_series),
         ):
             digest.update(b"\x1e" + name.encode("ascii"))
@@ -545,9 +547,7 @@ class MarketContext:
         else:
             for key in _sorted_labels(self._exposures_canonical):
                 digest.update(canonical_scalar(key))
-                digest.update(canonical_frame_bytes(
-                    self._exposures_canonical[key], label="exposures"
-                ))
+                digest.update(canonical_frame_bytes(self._exposures_canonical[key], label="exposures"))
 
         digest.update(b"\x1eportfolio")
         digest.update(self.portfolio.canonical_bytes() if self.portfolio else b"\x00absent")
@@ -581,7 +581,7 @@ class ShortRateContext:
     """
 
     rates: pd.Series | None = None
-    units: str = "decimal"                 # decimal | percent
+    units: str = "decimal"  # decimal | percent
     periods_per_year: float = 252.0
     frequency: str | None = None
     day_count: str = "act/365"
@@ -649,8 +649,7 @@ class ShortRateContext:
             )
         if int(self.rates.dropna().size) < self.min_observations:
             problems.append(
-                f"{self.rates.dropna().size} observation(s) below the required "
-                f"{self.min_observations}"
+                f"{self.rates.dropna().size} observation(s) below the required {self.min_observations}"
             )
         return problems
 
@@ -659,8 +658,10 @@ class ShortRateContext:
         digest.update(b"ShortRateContext/1")
         digest.update(canonical_series_bytes(self.rates, label="rates"))
         for name, value in (
-            ("units", self.units), ("periods_per_year", self.periods_per_year),
-            ("day_count", self.day_count), ("min_observations", self.min_observations),
+            ("units", self.units),
+            ("periods_per_year", self.periods_per_year),
+            ("day_count", self.day_count),
+            ("min_observations", self.min_observations),
             ("seed", self.seed),
         ):
             digest.update(b"\x1e" + name.encode("ascii") + canonical_scalar(value))

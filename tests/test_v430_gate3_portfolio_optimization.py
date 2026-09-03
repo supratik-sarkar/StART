@@ -73,15 +73,17 @@ def synthetic_market_data():
     """Deterministic 4-asset market scenario."""
     np.random.seed(42)
     assets = ["SPY", "TLT", "GLD", "EEM"]
-    cov_matrix = np.array([
-        [0.0400, 0.0040, 0.0060, 0.0240],
-        [0.0040, 0.0225, 0.0030, 0.0015],
-        [0.0060, 0.0030, 0.0256, 0.0080],
-        [0.0240, 0.0015, 0.0080, 0.0625],
-    ])
+    cov_matrix = np.array(
+        [
+            [0.0400, 0.0040, 0.0060, 0.0240],
+            [0.0040, 0.0225, 0.0030, 0.0015],
+            [0.0060, 0.0030, 0.0256, 0.0080],
+            [0.0240, 0.0015, 0.0080, 0.0625],
+        ]
+    )
     mu = np.array([0.08, 0.03, 0.05, 0.09])
     market_weights = np.array([0.50, 0.25, 0.15, 0.10])
-    
+
     # 252 synthetic daily scenario returns
     n_days = 252
     returns_arr = np.random.multivariate_normal(mu / 252.0, cov_matrix / 252.0, size=n_days)
@@ -103,7 +105,7 @@ def synthetic_market_data():
 def test_constraint_verifier_valid_and_violations(synthetic_market_data):
     assets = synthetic_market_data["assets"]
     cov = synthetic_market_data["covariance"]
-    
+
     # Compliant weights
     w_valid = np.array([0.25, 0.25, 0.25, 0.25])
     constraints = PortfolioConstraints(
@@ -153,7 +155,7 @@ def test_constraint_verifier_factor_and_group(synthetic_market_data):
         group_constraints=group_spec,
         factor_constraints=factor_spec,
     )
-    
+
     # Compliant: Equities = 0.50 <= 0.55; Duration = 0.25 * 15.0 = 3.75 <= 5.0
     w_comp = np.array([0.40, 0.25, 0.25, 0.10])
     res = verify_portfolio_constraints(w_comp, assets, constraints)
@@ -163,7 +165,9 @@ def test_constraint_verifier_factor_and_group(synthetic_market_data):
     w_breach = np.array([0.55, 0.20, 0.10, 0.15])
     res_b = verify_portfolio_constraints(w_breach, assets, constraints)
     assert res_b.is_valid is False
-    assert any("group_exposure.Sector.Equities" in v.constraint for v in res_b.violations if v.status == "VIOLATED")
+    assert any(
+        "group_exposure.Sector.Equities" in v.constraint for v in res_b.violations if v.status == "VIOLATED"
+    )
 
 
 # =========================================================================== #
@@ -183,15 +187,15 @@ def test_black_litterman_equilibrium_and_posterior(synthetic_market_data):
 
     # View 1: SPY will return 12% (Absolute view)
     # View 2: EEM will outperform SPY by 2% (Relative view: EEM - SPY = 0.02)
-    P = np.array([
-        [1.0, 0.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0, 1.0],
-    ])
+    P = np.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0, 1.0],
+        ]
+    )
     Q = np.array([0.12, 0.02])
 
-    mu_bl, cov_bl, resids = compute_black_litterman_posterior(
-        cov, wm, P, Q, tau=tau
-    )
+    mu_bl, cov_bl, resids = compute_black_litterman_posterior(cov, wm, P, Q, tau=tau)
     assert len(mu_bl) == 4
     assert cov_bl.shape == (4, 4)
     # Posterior covariance should remain symmetric positive definite
@@ -296,7 +300,9 @@ def test_cvar_optimization_lp_and_tail_ordering(synthetic_market_data):
     # Confidence sensitivity: CVaR increases (worse tail loss) at 99% vs 90%
     cvar_90 = solve_cvar_portfolio(returns_df, confidence_level=0.90, assets=assets)
     cvar_99 = solve_cvar_portfolio(returns_df, confidence_level=0.99, assets=assets)
-    assert cvar_99.cvar_at_scenario_horizon > cvar_95.cvar_at_scenario_horizon > cvar_90.cvar_at_scenario_horizon
+    assert (
+        cvar_99.cvar_at_scenario_horizon > cvar_95.cvar_at_scenario_horizon > cvar_90.cvar_at_scenario_horizon
+    )
 
 
 # =========================================================================== #
@@ -321,14 +327,16 @@ def test_herc_hierarchical_equal_risk_contribution(synthetic_market_data):
 def test_maximum_diversification_properties():
     # Diagonal covariance with volatilities [0.10, 0.20]
     # In uncorrelated case, MDP weights are proportional to 1 / sigma_i
-    cov_diag = np.array([
-        [0.0100, 0.0000],
-        [0.0000, 0.0400],
-    ])
+    cov_diag = np.array(
+        [
+            [0.0100, 0.0000],
+            [0.0000, 0.0400],
+        ]
+    )
     assets = ["AssetA", "AssetB"]
     res = solve_max_diversification(cov_diag, assets=assets)
     assert isinstance(res, MaxDiversificationResult)
-    
+
     # Ratio of weights should be (1/0.10) / (1/0.20) = 2.0 -> AssetA = 2/3, AssetB = 1/3
     w_a = res.weights["AssetA"]
     w_b = res.weights["AssetB"]
@@ -457,7 +465,9 @@ def test_evidence_bridge_and_artifact_generation(synthetic_market_data, tmp_path
     assert art_ret.data_fingerprint == art_ret.data_fingerprint.lower()
     assert (tmp_path / f"{art_ret.artifact_id}.json").exists()
 
-    art_alloc = render_bl_allocation_artifact(bl_res, evidence_ids=(ev_record.evidence_id,), output_dir=tmp_path)
+    art_alloc = render_bl_allocation_artifact(
+        bl_res, evidence_ids=(ev_record.evidence_id,), output_dir=tmp_path
+    )
     assert isinstance(art_alloc, ArtifactRecord)
     assert (tmp_path / f"{art_alloc.artifact_id}.json").exists()
 
@@ -497,7 +507,9 @@ def test_agent_orchestration_and_governance_role_separation(synthetic_market_dat
 
     p_agent = PortfolioConstructionAgent()
     with pytest.raises(PermissionError):
-        p_agent.execute_tool("cophenetic_distance_diagnostic")  # Tree diagnostic not allowed for construction agent
+        p_agent.execute_tool(
+            "cophenetic_distance_diagnostic"
+        )  # Tree diagnostic not allowed for construction agent
 
     # 2. EvidenceCriticAgent may NOT emit ACCEPT/APPROVE
     critic = EvidenceCriticAgent()
@@ -511,12 +523,14 @@ def test_agent_orchestration_and_governance_role_separation(synthetic_market_dat
 
     # 3. GovernanceAgent alone issues ACCEPT
     gov = GovernanceAgent()
-    gov_out = gov.execute({
-        "evidence_records": [ev_bl, ev_herc],
-        "critic_disposition": crit_out["critique"]["disposition"],
-        "findings": [],
-        "challenges": [],
-    })
+    gov_out = gov.execute(
+        {
+            "evidence_records": [ev_bl, ev_herc],
+            "critic_disposition": crit_out["critique"]["disposition"],
+            "findings": [],
+            "challenges": [],
+        }
+    )
     assert gov_out["governance_signoff"]["verdict"] == GovernanceVerdict.ACCEPT.value
 
     # 4. MarketReviewDirectorAgent full pipeline orchestration

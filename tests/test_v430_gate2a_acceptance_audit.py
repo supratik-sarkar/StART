@@ -89,6 +89,7 @@ def audit_market_data():
 # 1. ENGINE -> EVIDENCE INTEGRATION (ZERO ORPHAN QUANTITATIVE CAPABILITIES)
 # ========================================================================= #
 
+
 def test_engine_to_evidence_integration_all_11_capabilities(audit_market_data):
     """Verify that all 11 Gate-2 analytical capabilities cleanly produce EvidenceRecords."""
     df, cov = audit_market_data
@@ -194,6 +195,7 @@ def test_engine_to_evidence_integration_all_11_capabilities(audit_market_data):
 # 2. COMPLETE 10-ARTIFACT SUITE RENDERING & PROVENANCE INVARIANTS
 # ========================================================================= #
 
+
 def test_all_10_artifacts_render_and_enforce_provenance(audit_market_data, tmp_path):
     """Verify all 10 artifacts render cleanly and strictly reject empty evidence provenance."""
     df, cov = audit_market_data
@@ -204,7 +206,7 @@ def test_all_10_artifacts_render_and_enforce_provenance(audit_market_data, tmp_p
 
     _, tree_res = hrp_weights_and_tree(cov)
     cluster_map = {"Tech": ["AAPL", "MSFT", "GOOGL", "AMZN"], "Finance": ["JPM"]}
-    rc = calculate_risk_contributions(pd.Series([0.2]*5, index=assets), cov, cluster_map=cluster_map)
+    rc = calculate_risk_contributions(pd.Series([0.2] * 5, index=assets), cov, cluster_map=cluster_map)
     frontier = trace_efficient_frontier(mu_vec, cov_mat, assets, n_points=10)
     w_dict = {"AAPL": 0.25, "MSFT": 0.25, "GOOGL": 0.2, "AMZN": 0.15, "JPM": 0.15}
     cluster_w = {"Tech": 0.85, "Finance": 0.15}
@@ -227,10 +229,14 @@ def test_all_10_artifacts_render_and_enforce_provenance(audit_market_data, tmp_p
     # Render all 10 with valid provenance
     art1 = render_dendrogram_artifact(tree_res, evidence_ids=ev_ids, output_dir=tmp_path)
     art2 = render_raw_correlation_artifact(corr_mat, assets, evidence_ids=ev_ids, output_dir=tmp_path)
-    art3 = render_seriated_correlation_artifact(corr_mat, tree_res.quasi_diagonal_order, assets, evidence_ids=ev_ids, output_dir=tmp_path)
+    art3 = render_seriated_correlation_artifact(
+        corr_mat, tree_res.quasi_diagonal_order, assets, evidence_ids=ev_ids, output_dir=tmp_path
+    )
     art4 = render_distance_matrix_artifact(dist_mat, assets, evidence_ids=ev_ids, output_dir=tmp_path)
     art5 = render_cluster_tree_artifact(tree_res, evidence_ids=ev_ids, output_dir=tmp_path)
-    art6 = render_cluster_allocation_artifact(cluster_w, rc.cluster_percentage_contributions, evidence_ids=ev_ids, output_dir=tmp_path)
+    art6 = render_cluster_allocation_artifact(
+        cluster_w, rc.cluster_percentage_contributions, evidence_ids=ev_ids, output_dir=tmp_path
+    )
     art7 = render_asset_weights_artifact(w_dict, evidence_ids=ev_ids, output_dir=tmp_path)
     art8 = render_risk_contribution_artifact(rc, assets, evidence_ids=ev_ids, output_dir=tmp_path)
     art9 = render_cluster_risk_artifact(rc, evidence_ids=ev_ids, output_dir=tmp_path)
@@ -259,6 +265,7 @@ def test_all_10_artifacts_render_and_enforce_provenance(audit_market_data, tmp_p
 # 3. AGENT TOOL ALLOWLISTS & BOUNDARY ENFORCEMENT
 # ========================================================================= #
 
+
 def test_agent_tool_allowlists_and_disallowed_execution():
     """Verify specialist agents enforce strict tool allowlists."""
     h_agent = HierarchicalAllocationAgent()
@@ -284,6 +291,7 @@ def test_agent_tool_allowlists_and_disallowed_execution():
 # ========================================================================= #
 # 4. NUMERICAL CLAIM GROUNDING & FAIL CLOSED
 # ========================================================================= #
+
 
 def test_numerical_claim_grounding_and_fail_closed():
     """Verify get_grounded_metric succeeds on valid paths and fails closed on invalid ones."""
@@ -315,6 +323,7 @@ def test_numerical_claim_grounding_and_fail_closed():
 # 5. WARD LINKAGE GEOMETRY SAFEGUARDS
 # ========================================================================= #
 
+
 def test_ward_linkage_geometry_safeguards(audit_market_data):
     """Verify Ward linkage is strictly validated on Euclidean geometry vs arbitrary distance."""
     _, cov = audit_market_data
@@ -333,6 +342,7 @@ def test_ward_linkage_geometry_safeguards(audit_market_data):
 # ========================================================================= #
 # 6. ERC CONTRACT & INDEPENDENT POST-SOLVE VERIFICATION
 # ========================================================================= #
+
 
 def test_erc_contract_known_answers():
     """Verify ERC known answers on diagonal, symmetric, and heterogeneous matrices."""
@@ -363,17 +373,22 @@ def test_erc_contract_known_answers():
 # 7. WALK-FORWARD NON-LEAKY BOUNDARY & COST CONTRACT
 # ========================================================================= #
 
+
 def test_walk_forward_strict_non_leakage(audit_market_data):
     """Verify walk-forward enforce strict [t-W, t) estimation and [t, t+F) evaluation."""
     df, _ = audit_market_data
 
     # Default is gross (0.0 cost)
-    wf_gross = run_walk_forward_evaluation(df, estimation_window=80, rebalance_frequency=20, transaction_cost_bps=0.0)
+    wf_gross = run_walk_forward_evaluation(
+        df, estimation_window=80, rebalance_frequency=20, transaction_cost_bps=0.0
+    )
     assert wf_gross.transaction_cost_bps == 0.0
     assert len(wf_gross.rebalance_dates) > 0
 
     # Configured cost applies drag
-    wf_cost = run_walk_forward_evaluation(df, estimation_window=80, rebalance_frequency=20, transaction_cost_bps=25.0)
+    wf_cost = run_walk_forward_evaluation(
+        df, estimation_window=80, rebalance_frequency=20, transaction_cost_bps=25.0
+    )
     assert wf_cost.transaction_cost_bps == 25.0
     assert wf_cost.annualised_return <= wf_gross.annualised_return
 
@@ -381,6 +396,7 @@ def test_walk_forward_strict_non_leakage(audit_market_data):
 # ========================================================================= #
 # 8. NON-INTERACTIVE SHOWCASE END-TO-END VERIFICATION
 # ========================================================================= #
+
 
 def test_non_interactive_showcase_execution(tmp_path):
     """Verify scripts/demo_portfolio_intelligence.py executes cleanly end-to-end."""

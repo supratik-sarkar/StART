@@ -65,9 +65,7 @@ def load_image_folder(
     try:
         from PIL import Image
     except ImportError as exc:
-        raise ImportError(
-            "Loading real image folders requires Pillow: pip install pillow"
-        ) from exc
+        raise ImportError("Loading real image folders requires Pillow: pip install pillow") from exc
     from start.data.loaders import discover_image_folder
 
     class_names = discover_labels(root)
@@ -106,10 +104,10 @@ def generate_image_dataset(
     for i in range(n):
         cls = y[i]
         if cls % 3 == 0:  # horizontal bands
-            band = (np.sin(coords * 6 * np.pi)[:, None] * 0.4)
+            band = np.sin(coords * 6 * np.pi)[:, None] * 0.4
             X[i] += band[None, :, :]
         elif cls % 3 == 1:  # vertical bands
-            band = (np.sin(coords * 6 * np.pi)[None, :] * 0.4)
+            band = np.sin(coords * 6 * np.pi)[None, :] * 0.4
             X[i] += band[None, :, :]
         else:  # diagonal gradient
             diag = (coords[:, None] + coords[None, :]) * 0.3
@@ -142,9 +140,12 @@ def split_images(
     tr_i, te_i, oo_i = np.array(tr_i), np.array(te_i), np.array(oo_i)
     rng.shuffle(tr_i)
     return VisionBundle(
-        X_train=X[tr_i], y_train=y[tr_i],
-        X_test=X[te_i], y_test=y[te_i],
-        X_oos=X[oo_i], y_oos=y[oo_i],
+        X_train=X[tr_i],
+        y_train=y[tr_i],
+        X_test=X[te_i],
+        y_test=y[te_i],
+        X_oos=X[oo_i],
+        y_oos=y[oo_i],
         class_names=class_names,
         image_size=image_size,
         channels=X.shape[1],

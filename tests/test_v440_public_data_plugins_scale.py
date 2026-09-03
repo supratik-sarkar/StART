@@ -90,10 +90,12 @@ def test_local_file_adapter_and_chunked_reduction():
     """Verify LocalFileAdapter and execute_chunked reduction yields identical semantic result."""
     with tempfile.TemporaryDirectory() as tmpdir:
         csv_path = Path(tmpdir) / "synthetic_returns.csv"
-        df_full = pd.DataFrame({
-            "asset_ret": [0.01 * (i + 1) for i in range(100)],
-            "market_ret": [0.005 * (i + 1) for i in range(100)],
-        })
+        df_full = pd.DataFrame(
+            {
+                "asset_ret": [0.01 * (i + 1) for i in range(100)],
+                "market_ret": [0.005 * (i + 1) for i in range(100)],
+            }
+        )
         df_full.to_csv(csv_path, index=False)
 
         adapter = LocalFileAdapter(csv_path)
@@ -154,7 +156,9 @@ def test_plugin_registration_overlay_and_builtins_invariance():
         test_id="plugin.synthetic_custom_risk",
         family="custom_risk",
         name="Custom Synthetic Risk Metric",
-        fn=lambda ctx: TestResult(test_id="plugin.synthetic_custom_risk", test_name="Custom", status=Status.PASS),
+        fn=lambda ctx: TestResult(
+            test_id="plugin.synthetic_custom_risk", test_name="Custom", status=Status.PASS
+        ),
     )
     manifest = PluginManifest(
         name="synthetic_risk_plugin",

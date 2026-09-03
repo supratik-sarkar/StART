@@ -151,6 +151,7 @@ class SequenceClassifier:
         if self.task == "multiclass_classification":
             if self.class_weight == "balanced":
                 from sklearn.utils.class_weight import compute_class_weight
+
                 weights = compute_class_weight("balanced", classes=np.arange(self.n_outputs_), y=y_arr)
                 weights = np.asarray(weights, dtype=np.float32)
 
@@ -166,7 +167,9 @@ class SequenceClassifier:
                             weights[i] *= rel_cost
 
             if weights is not None:
-                loss_fn = torch.nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
+                loss_fn = torch.nn.CrossEntropyLoss(
+                    weight=torch.tensor(weights, dtype=torch.float32, device=device)
+                )
             else:
                 loss_fn = torch.nn.CrossEntropyLoss()
         else:
@@ -228,7 +231,7 @@ class SequenceClassifier:
         self._net.eval()
         with torch.no_grad():
             logits = self._net(torch.tensor(X).to(device)).cpu().numpy()
-        
+
         if self.task == "multiclass_classification":
             e = np.exp(logits - logits.max(axis=1, keepdims=True))
             return e / e.sum(axis=1, keepdims=True)
@@ -248,14 +251,17 @@ class SequenceClassifier:
             cost_matrix = None
             if cost_spec.get("type", "balanced") != "balanced":
                 from start.modeling.cost_sensitive import cost_spec_to_matrix, validate_cost_matrix
+
                 classes_list = [str(c) for c in self.classes_]
                 cost_matrix = cost_spec_to_matrix(cost_spec, classes_list)
                 if cost_matrix is not None:
                     # Assertions to validate cost matrix before prediction
-                    assert cost_matrix.shape == (len(self.classes_), len(self.classes_)), f"Cost matrix shape must be {len(self.classes_)}x{len(self.classes_)}"
+                    assert cost_matrix.shape == (len(self.classes_), len(self.classes_)), (
+                        f"Cost matrix shape must be {len(self.classes_)}x{len(self.classes_)}"
+                    )
                     assert np.all(np.isfinite(cost_matrix)), "Cost matrix must contain only finite values"
                     assert np.all(cost_matrix >= 0), "Cost matrix must contain non-negative values"
-                    
+
                     if cost_spec.get("type") == "matrix":
                         errors = validate_cost_matrix(cost_spec["matrix"], classes_list)
                         critical_errors = [e for e in errors if "Warning" not in e]
@@ -263,6 +269,7 @@ class SequenceClassifier:
 
             if cost_matrix is not None:
                 from start.modeling.cost_sensitive import cost_sensitive_predictions
+
                 cost_sensitive_preds = cost_sensitive_predictions(proba, cost_matrix, self.classes_)
                 self.last_predictions_cost_sensitive_ = cost_sensitive_preds
                 return cost_sensitive_preds
@@ -345,9 +352,7 @@ def sequence_robustness(
         else:
             Xj = np.stack([np.roll(seq, rng.integers(-shift, shift + 1), axis=0) for seq in X])
             auc = float(roc_auc_score(y, model.predict_proba(Xj.astype(np.float32))[:, 1]))
-        jitter_rows.append(
-            {"max_shift": shift, "auc": round(auc, 6), "drift": round(auc - baseline, 6)}
-        )
+        jitter_rows.append({"max_shift": shift, "auc": round(auc, 6), "drift": round(auc - baseline, 6)})
 
     return {
         "baseline_auc": round(baseline, 6),

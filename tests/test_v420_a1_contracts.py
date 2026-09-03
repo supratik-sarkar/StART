@@ -2,6 +2,7 @@
 
 Each test names the property it defends or the incident it prevents.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -79,8 +80,18 @@ def test_methods_are_additive_only():
     added = set(context_methods_for_test_context())
     assert added == {"context_kind", "describe", "validate_context"}
     ctx = _ctx(np.zeros(200, dtype=int))
-    for field in ("train", "test", "target_column", "prediction_column", "score_column",
-                  "timestamp_column", "entity_id_column", "model", "seed", "extra"):
+    for field in (
+        "train",
+        "test",
+        "target_column",
+        "prediction_column",
+        "score_column",
+        "timestamp_column",
+        "entity_id_column",
+        "model",
+        "seed",
+        "extra",
+    ):
         assert hasattr(ctx, field)
 
 
@@ -178,8 +189,10 @@ def test_guard_records_the_inference_in_params():
     inference, _ = require_target_type(_ctx(np.random.default_rng(11).integers(0, 2, 200)), "binary")
     params = inference.as_params()
     assert set(params) == {
-        "target_type_inferred", "target_type_source",
-        "target_type_confidence", "target_n_unique",
+        "target_type_inferred",
+        "target_type_source",
+        "target_type_confidence",
+        "target_n_unique",
     }
 
 

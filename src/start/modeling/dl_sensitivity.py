@@ -45,9 +45,7 @@ def feature_shock_sensitivity(
                 if feat in Xs.columns:
                     Xs[feat] = Xs[feat] * (1.0 + shock)
             auc = _auc(model, Xs, y)
-        rows.append(
-            {"shock": shock, "auc_roc": round(auc, 6), "auc_drift": round(auc - baseline, 6)}
-        )
+        rows.append({"shock": shock, "auc_roc": round(auc, 6), "auc_drift": round(auc - baseline, 6)})
     return rows
 
 
@@ -71,9 +69,7 @@ def input_noise_robustness(
             for feat, std in stds.items():
                 Xn[feat] = Xn[feat] + rng.normal(0.0, level * std, size=len(Xn))
             auc = _auc(model, Xn, y)
-        rows.append(
-            {"noise": level, "auc_roc": round(auc, 6), "auc_drift": round(auc - baseline, 6)}
-        )
+        rows.append({"noise": level, "auc_roc": round(auc, 6), "auc_drift": round(auc - baseline, 6)})
     return rows
 
 

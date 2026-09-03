@@ -23,9 +23,7 @@ _NUMERIC_SENTENCE_RE = re.compile(r"\d")
     requires=(),
     default_params={"warn_uncited": 0.0, "fail_uncited": 0.25},
 )
-def citation_coverage(
-    ctx: TestContext, warn_uncited: float = 0.0, fail_uncited: float = 0.25
-) -> TestResult:
+def citation_coverage(ctx: TestContext, warn_uncited: float = 0.0, fail_uncited: float = 0.25) -> TestResult:
     """Fraction of numeric sentences in generated text lacking a citation tag."""
     text: str = str(ctx.extra.get("generated_text", ""))
     if not text:
@@ -49,9 +47,7 @@ def citation_coverage(
             "uncited_rate": round(rate, 6),
         },
         thresholds=[ThresholdSpec(metric="uncited_rate", warn=warn_uncited, fail=fail_uncited)],
-        interpretation=(
-            f"{len(uncited)} of {len(numeric)} numeric sentences lack an evidence citation."
-        ),
+        interpretation=(f"{len(uncited)} of {len(numeric)} numeric sentences lack an evidence citation."),
         limitations=["Surface-level check; does not verify the cited evidence supports the claim."],
     )
     return result.apply_thresholds()

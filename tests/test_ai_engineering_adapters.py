@@ -120,8 +120,15 @@ def test_adapter_describe_has_control_surface_fields():
 
     for A in (OPAAdapter, OpenTelemetryAdapter):
         d = A().describe()
-        for key in ("adapter", "purpose", "role", "status", "would_do",
-                    "expected_outputs", "install_guidance"):
+        for key in (
+            "adapter",
+            "purpose",
+            "role",
+            "status",
+            "would_do",
+            "expected_outputs",
+            "install_guidance",
+        ):
             assert key in d
         assert d["purpose"] and d["role"]
 
@@ -143,6 +150,7 @@ def test_report_control_surface_merges_status():
     rep = run_ai_engineering_layer({}, output_root=tempfile.mkdtemp())
     cs = rep.control_surface()
     from start.ai_engineering.adapters import ADAPTER_CLASSES
+
     assert len(cs) == len(ADAPTER_CLASSES)
     valid = {"complete", "available", "not_installed", "error"}
     # Environment-robust: every adapter reports a valid status with purpose/role,

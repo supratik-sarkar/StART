@@ -74,13 +74,11 @@ FIGURE_CATALOGUE: dict[str, tuple[str, str]] = {
     ),
     "calibration_curve": (
         "Calibration reliability diagram",
-        "Whether predicted probabilities mean what they say. Points below the "
-        "diagonal are over-confident.",
+        "Whether predicted probabilities mean what they say. Points below the diagonal are over-confident.",
     ),
     "confusion_matrix": (
         "Confusion matrix",
-        "Counts at the chosen decision threshold — not at 0.5 unless that is what "
-        "was chosen.",
+        "Counts at the chosen decision threshold — not at 0.5 unless that is what was chosen.",
     ),
     "feature_drift": (
         "Feature sensitivity / drift",
@@ -250,9 +248,7 @@ class FigurePresentation:
         total = len(figures)
         self.echo("")
         if not self.enabled and self.suppressed_reason:
-            self.echo(
-                f"  {total} figure(s) written to disk; not opening ({self.suppressed_reason})."
-            )
+            self.echo(f"  {total} figure(s) written to disk; not opening ({self.suppressed_reason}).")
 
         for index, figure in enumerate(figures, start=1):
             headline = f"  {figure.headline}" if figure.headline else ""
@@ -291,8 +287,5 @@ class FigurePresentation:
             "figures_opened": sum(1 for r in self.presented if r["opened"]),
             "opening_enabled": self.enabled,
             "suppressed_reason": self.suppressed_reason,
-            "figures": [
-                {"key": r["key"], "path": r["path"], "opened": r["opened"]}
-                for r in self.presented
-            ],
+            "figures": [{"key": r["key"], "path": r["path"], "opened": r["opened"]} for r in self.presented],
         }

@@ -145,7 +145,10 @@ class OTelTracer:
                                     "traceId": f"{s.get_span_context().trace_id:032x}",
                                     "parentSpanId": f"{s.parent.span_id:016x}" if s.parent else "",
                                     "status": {"code": s.status.status_code.name},
-                                    "attributes": [{"key": k, "value": {"stringValue": str(v)}} for k, v in (s.attributes or {}).items()],
+                                    "attributes": [
+                                        {"key": k, "value": {"stringValue": str(v)}}
+                                        for k, v in (s.attributes or {}).items()
+                                    ],
                                 }
                                 for s in finished
                             ],

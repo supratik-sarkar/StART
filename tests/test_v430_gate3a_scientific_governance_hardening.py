@@ -62,12 +62,14 @@ from start.registry.market_contexts import PortfolioConstraints
 @pytest.fixture
 def market_fixture() -> dict[str, Any]:
     assets = ["SPY", "TLT", "GLD", "EEM"]
-    cov = np.array([
-        [0.0400, 0.0040, 0.0060, 0.0240],
-        [0.0040, 0.0225, 0.0030, 0.0015],
-        [0.0060, 0.0030, 0.0256, 0.0080],
-        [0.0240, 0.0015, 0.0080, 0.0625],
-    ])
+    cov = np.array(
+        [
+            [0.0400, 0.0040, 0.0060, 0.0240],
+            [0.0040, 0.0225, 0.0030, 0.0015],
+            [0.0060, 0.0030, 0.0256, 0.0080],
+            [0.0240, 0.0015, 0.0080, 0.0625],
+        ]
+    )
     mu = np.array([0.08, 0.03, 0.05, 0.09])
     cov_df = pd.DataFrame(cov, index=assets, columns=assets)
     returns_df = pd.DataFrame(
@@ -109,13 +111,15 @@ def test_governance_open_challenges_block_accept():
         "challenge_question": "Does tau dominate prior?",
         "status": ChallengeState.OPEN.value if hasattr(ChallengeState, "OPEN") else "OPEN",
     }
-    gov_out = gov.execute({
-        "evidence_records": [ev_record],
-        "critic_disposition": CriticDisposition.READY_FOR_GOVERNANCE.value,
-        "findings": [],
-        "challenges": [open_chal],
-        "challenge_resolutions": [],
-    })
+    gov_out = gov.execute(
+        {
+            "evidence_records": [ev_record],
+            "critic_disposition": CriticDisposition.READY_FOR_GOVERNANCE.value,
+            "findings": [],
+            "challenges": [open_chal],
+            "challenge_resolutions": [],
+        }
+    )
     # MUST NOT be ACCEPT
     assert gov_out["governance_signoff"]["verdict"] != GovernanceVerdict.ACCEPT.value
     assert gov_out["governance_signoff"]["verdict"] in [
@@ -144,9 +148,12 @@ def test_adversarial_challenge_resolution_pipeline(market_fixture):
         risk_aversion=3.0,
         tau=0.05,
         assets=assets,
-        uncertainty_policy=ViewUncertaintyPolicy.PROPORTIONAL_TAU_SIGMA if hasattr(ViewUncertaintyPolicy, "PROPORTIONAL_TAU_SIGMA") else None,
+        uncertainty_policy=ViewUncertaintyPolicy.PROPORTIONAL_TAU_SIGMA
+        if hasattr(ViewUncertaintyPolicy, "PROPORTIONAL_TAU_SIGMA")
+        else None,
     )
     from start.portfolio import black_litterman_to_evidence
+
     ev_bl = black_litterman_to_evidence(bl_res)
 
     agent = AdversarialChallengeAgent()
@@ -284,7 +291,9 @@ def test_cvar_empirical_scenario_horizon_no_sqrt_scaling(market_fixture):
     assert res.cvar_at_scenario_horizon == pytest.approx(res.cvar_periodic, rel=1e-6)
     # The legacy annualised field must NOT simply multiply by sqrt(252)
     if res.cvar_annualised is not None:
-        assert not math.isclose(res.cvar_annualised, res.cvar_at_scenario_horizon * math.sqrt(252.0), rel_tol=1e-4)
+        assert not math.isclose(
+            res.cvar_annualised, res.cvar_at_scenario_horizon * math.sqrt(252.0), rel_tol=1e-4
+        )
 
 
 # =========================================================================== #
@@ -465,12 +474,14 @@ def test_herc_scientific_cluster_risk_parity():
     # Cluster A has high internal correlation (0.9), Cluster B has high internal correlation (0.9)
     # Cross-cluster correlation is 0.0
     vols = np.array([0.20, 0.20, 0.10, 0.10])
-    corr = np.array([
-        [1.0, 0.9, 0.0, 0.0],
-        [0.9, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.9],
-        [0.0, 0.0, 0.9, 1.0],
-    ])
+    corr = np.array(
+        [
+            [1.0, 0.9, 0.0, 0.0],
+            [0.9, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.9],
+            [0.0, 0.0, 0.9, 1.0],
+        ]
+    )
     cov = np.diag(vols) @ corr @ np.diag(vols)
     assets = ["A1", "A2", "B1", "B2"]
 

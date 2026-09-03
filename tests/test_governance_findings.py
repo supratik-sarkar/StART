@@ -64,12 +64,16 @@ def test_derive_findings_from_evidence():
     from start.core.schemas import Status, TestResult
 
     fail = TestResult(
-        test_id="feature_engineering.diagnostics", test_name="Leakage check",
-        status=Status.FAIL, interpretation="Leakage detected.",
+        test_id="feature_engineering.diagnostics",
+        test_name="Leakage check",
+        status=Status.FAIL,
+        interpretation="Leakage detected.",
     )
     warn = TestResult(
-        test_id="deep_learning.calibration_diagnostics", test_name="Calibration",
-        status=Status.WARN, interpretation="ECE elevated.",
+        test_id="deep_learning.calibration_diagnostics",
+        test_name="Calibration",
+        status=Status.WARN,
+        interpretation="ECE elevated.",
     )
     ok = TestResult(test_id="x.y", test_name="OK", status=Status.PASS)
     findings = derive_findings_from_evidence([fail, warn, ok])

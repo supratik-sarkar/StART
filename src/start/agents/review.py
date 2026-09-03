@@ -37,9 +37,7 @@ from start.agents.prompts import (
 from start.core.schemas import AgentReview, EvidenceRecord, Status
 
 
-def _deterministic_sections(
-    records: list[EvidenceRecord], ctx: Any = None
-) -> dict[str, Any]:
+def _deterministic_sections(records: list[EvidenceRecord], ctx: Any = None) -> dict[str, Any]:
     """Mode 1 — deterministic governance fallback (no LLM, no network)."""
     governance_ok, governance_items = GovernanceAgent().review(records)
     skipped = [
@@ -51,9 +49,7 @@ def _deterministic_sections(
         f"Read '{rec.test_name}' (status: {rec.status.value}). [{rec.evidence_id}]"
         for rec in sorted(
             records,
-            key=lambda r: {"fail": 0, "error": 0, "warn": 1, "pass": 2, "skipped": 3}.get(
-                r.status.value, 4
-            ),
+            key=lambda r: {"fail": 0, "error": 0, "warn": 1, "pass": 2, "skipped": 3}.get(r.status.value, 4),
         )
     ]
     return {
@@ -96,9 +92,7 @@ def _llm_section(
     critique = critic.critique_section(text, records)
     if not critique.ok:
         issues = "\n".join(f"- {i.code}: {i.message}" for i in critique.issues)
-        text = llm.generate(
-            prompt + CORRECTION_SUFFIX.format(issues=issues), system=SYSTEM_PROMPT
-        )
+        text = llm.generate(prompt + CORRECTION_SUFFIX.format(issues=issues), system=SYSTEM_PROMPT)
         critique = critic.critique_section(text, records)
     if not critique.ok:
         return None, False
@@ -149,8 +143,7 @@ def run_agent_review(
             except Exception as exc:  # provider failure is never silent
                 lines, accepted = None, False
                 review.notes.append(
-                    f"Section '{target}': provider error ({type(exc).__name__}); "
-                    "deterministic fallback used."
+                    f"Section '{target}': provider error ({type(exc).__name__}); deterministic fallback used."
                 )
             if accepted and lines:
                 if target == "signoff":

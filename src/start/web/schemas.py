@@ -18,8 +18,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-START_SCHEMA_VERSION: str = "4.5.0"
-START_VERSION: str = "4.5.0"
+START_SCHEMA_VERSION: str = "4.5.1"
+START_VERSION: str = "4.5.1"
 
 
 # --------------------------------------------------------------------------- #
@@ -33,9 +33,7 @@ class SystemInfo(BaseModel):
     compute_runtime: str = "local"  # "local" | "oracle_a1_arm64"
     max_concurrency: int = 1
     engine_status: Literal["READY", "BUSY", "MAINTENANCE"] = "READY"
-    supported_domains: list[str] = Field(
-        default_factory=lambda: ["market", "predictive", "deep_learning"]
-    )
+    supported_domains: list[str] = Field(default_factory=lambda: ["market", "predictive", "deep_learning"])
     synthetic_profiles: list[str] = Field(
         default_factory=lambda: [
             "institutional_market_v1",

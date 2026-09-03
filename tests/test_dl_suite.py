@@ -78,7 +78,6 @@ def test_roadmap_architectures_raise():
     assert set(DL_ARCHITECTURES) == {"mlp", "leaky_relu_mlp", "residual_mlp", "wide_deep"}
 
 
-
 def test_training_history_and_early_stopping(dl_splits):
     train, _, _ = dl_splits
     features = feature_columns(train)
@@ -275,22 +274,29 @@ def test_llm_mode_without_key_falls_back_explicitly(tmp_path, monkeypatch):
         monkeypatch.delenv(var, raising=False)
 
     opts = DLReviewOptions(
-        architecture="mlp", epochs=4, seed=0, output_root=str(tmp_path),
-        agent_mode="llm", llm_provider="none",
+        architecture="mlp",
+        epochs=4,
+        seed=0,
+        output_root=str(tmp_path),
+        agent_mode="llm",
+        llm_provider="none",
     )
     result = run_dl_review(opts)
     # provider 'none' is unavailable -> explicit deterministic fallback
     assert result.agent_review.mode == "deterministic"
-    assert any("fell back" in n.lower() or "deterministic" in n.lower()
-               for n in result.agent_review.notes)
+    assert any("fell back" in n.lower() or "deterministic" in n.lower() for n in result.agent_review.notes)
 
 
 def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
     from start.modeling import dl_training
 
     train_opts = DLReviewOptions(
-        architecture="mlp", epochs=4, seed=0, output_root=str(tmp_path),
-        agent_mode="llm", llm_provider="openai",
+        architecture="mlp",
+        epochs=4,
+        seed=0,
+        output_root=str(tmp_path),
+        agent_mode="llm",
+        llm_provider="openai",
     )
 
     class CitingFake:
@@ -310,9 +316,7 @@ def test_llm_mode_with_fake_provider_passes_gate(tmp_path):
             ev = next((i for i in ids if i.startswith("[")), "")
             return f"- Evidence reviewed across all diagnostics. {ev}".strip()
 
-        def generate(
-            self, prompt: str, *, system: str | None = None, metadata: dict | None = None
-        ) -> str:
+        def generate(self, prompt: str, *, system: str | None = None, metadata: dict | None = None) -> str:
             return self.complete(system or "", prompt)
 
     # inject the fake provider in place of the real resolver
@@ -350,9 +354,7 @@ def test_no_key_leakage_in_dl_outputs(tmp_path, monkeypatch):
 def test_dl_notebook_compiles():
     import py_compile
 
-    py_compile.compile(
-        str(REPO_ROOT / "notebooks" / "03_deep_learning_model_review.py"), doraise=True
-    )
+    py_compile.compile(str(REPO_ROOT / "notebooks" / "03_deep_learning_model_review.py"), doraise=True)
 
 
 def test_dl_ipynb_is_valid_notebook():
@@ -361,9 +363,7 @@ def test_dl_ipynb_is_valid_notebook():
     nb = json.loads((REPO_ROOT / "notebooks" / "03_deep_learning_model_review.ipynb").read_text())
     assert nb["nbformat"] == 4
     assert len(nb["cells"]) > 5
-    code = "\n".join(
-        "".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"
-    )
+    code = "\n".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code")
     assert "run_dl_review" in code
     assert "ensure_provider_key" in code  # secure key handling present
     # no hardcoded secrets / endpoints in the notebook

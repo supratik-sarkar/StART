@@ -46,6 +46,7 @@ def generate_all_report_figures(
 
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -58,6 +59,7 @@ def generate_all_report_figures(
     # 1. ROC Curve
     try:
         from sklearn.metrics import roc_auc_score, roc_curve
+
         fpr, tpr, _ = roc_curve(y, s)
         auc_val = roc_auc_score(y, s)
 
@@ -82,6 +84,7 @@ def generate_all_report_figures(
     # 2. Precision-Recall Curve
     try:
         from sklearn.metrics import average_precision_score, precision_recall_curve
+
         prec, rec, _ = precision_recall_curve(y, s)
         pr_auc = average_precision_score(y, s)
         base_rate = float(np.mean(y))
@@ -107,6 +110,7 @@ def generate_all_report_figures(
     # 3. Calibration Curve
     try:
         from sklearn.calibration import calibration_curve
+
         prob_true, prob_pred = calibration_curve(y, s, n_bins=10)
 
         fig, ax = plt.subplots(figsize=(6, 5), dpi=150)
@@ -185,8 +189,10 @@ def generate_all_report_figures(
                 items = list(global_importance_data.items())
             elif isinstance(global_importance_data, list):
                 if global_importance_data and isinstance(global_importance_data[0], dict):
-                    items = [(d.get("feature", f"feat_{i}"), float(d.get("importance", 0.0)))
-                             for i, d in enumerate(global_importance_data)]
+                    items = [
+                        (d.get("feature", f"feat_{i}"), float(d.get("importance", 0.0)))
+                        for i, d in enumerate(global_importance_data)
+                    ]
                 else:
                     items = [(str(k), float(v)) for k, v in global_importance_data]
             else:
@@ -236,16 +242,20 @@ def generate_all_report_figures(
                 names = list(row.index)[:6]
                 vals = [float(row[n]) if isinstance(row[n], (int, float, np.number)) else 1.0 for n in names]
             elif global_importance_data:
-                if isinstance(global_importance_data, list) and global_importance_data and isinstance(global_importance_data[0], dict):
+                if (
+                    isinstance(global_importance_data, list)
+                    and global_importance_data
+                    and isinstance(global_importance_data[0], dict)
+                ):
                     names = [d.get("feature", f"f_{i}") for i, d in enumerate(global_importance_data[:6])]
                     base_imp = [float(d.get("importance", 1.0)) for d in global_importance_data[:6]]
                 else:
-                    names = [f"Feature_{i+1}" for i in range(6)]
+                    names = [f"Feature_{i + 1}" for i in range(6)]
                     base_imp = [0.4, 0.3, 0.25, 0.15, 0.1, 0.05]
                 mult = (s[idx] - 0.5) * 2.0
                 vals = [round(b * (1.0 + 0.3 * (i % 2 == 0) * mult), 4) for i, b in enumerate(base_imp)]
             else:
-                names = [f"Feature_{i+1}" for i in range(5)]
+                names = [f"Feature_{i + 1}" for i in range(5)]
                 vals = [0.35, 0.22, -0.15, 0.08, -0.04]
 
             bar_colors = ["#22c55e" if v >= 0 else "#ef4444" for v in vals]
@@ -277,6 +287,7 @@ def plot_distribution_with_bounds(
     """Plot feature distribution with candidate outlier cut-lines drawn on it."""
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -296,19 +307,41 @@ def plot_distribution_with_bounds(
     z3_low, z3_high = mean_val - 3 * std_val, mean_val + 3 * std_val
 
     fig, ax = plt.subplots(figsize=(8, 4.5), dpi=150)
-    ax.hist(series, bins=35, color="#cbd5e1", edgecolor="#64748b", alpha=0.7, density=True, label="Data Distribution")
+    ax.hist(
+        series,
+        bins=35,
+        color="#cbd5e1",
+        edgecolor="#64748b",
+        alpha=0.7,
+        density=True,
+        label="Data Distribution",
+    )
 
     # Draw bounds
-    ax.axvline(iqr15_low, color="#2563eb", linestyle="--", lw=1.8, label=f"IQR 1.5 [{iqr15_low:.1f}, {iqr15_high:.1f}]")
+    ax.axvline(
+        iqr15_low,
+        color="#2563eb",
+        linestyle="--",
+        lw=1.8,
+        label=f"IQR 1.5 [{iqr15_low:.1f}, {iqr15_high:.1f}]",
+    )
     ax.axvline(iqr15_high, color="#2563eb", linestyle="--", lw=1.8)
 
-    ax.axvline(iqr30_low, color="#06b6d4", linestyle=":", lw=1.8, label=f"IQR 3.0 [{iqr30_low:.1f}, {iqr30_high:.1f}]")
+    ax.axvline(
+        iqr30_low,
+        color="#06b6d4",
+        linestyle=":",
+        lw=1.8,
+        label=f"IQR 3.0 [{iqr30_low:.1f}, {iqr30_high:.1f}]",
+    )
     ax.axvline(iqr30_high, color="#06b6d4", linestyle=":", lw=1.8)
 
     ax.axvline(p1, color="#f59e0b", linestyle="-.", lw=1.5, label=f"1st/99th pct [{p1:.1f}, {p99:.1f}]")
     ax.axvline(p99, color="#f59e0b", linestyle="-.", lw=1.5)
 
-    ax.axvline(z3_low, color="#ef4444", linestyle="-", lw=1.2, label=f"Z-score ±3 [{z3_low:.1f}, {z3_high:.1f}]")
+    ax.axvline(
+        z3_low, color="#ef4444", linestyle="-", lw=1.2, label=f"Z-score ±3 [{z3_low:.1f}, {z3_high:.1f}]"
+    )
     ax.axvline(z3_high, color="#ef4444", linestyle="-", lw=1.2)
 
     ax.set_xlabel(f"Feature: {column}")

@@ -213,11 +213,11 @@ def _generate_dendrogram_svg(tree: HierarchicalTreeResult) -> str:
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
             f'width="{width}" height="{height}">'
         ),
-        '  <style>',
-        '    .title { font: bold 14px sans-serif; fill: #1e293b; }',
-        '    .label { font: 12px sans-serif; fill: #475569; }',
-        '    .link { fill: none; stroke: #2563eb; stroke-width: 2px; }',
-        '  </style>',
+        "  <style>",
+        "    .title { font: bold 14px sans-serif; fill: #1e293b; }",
+        "    .label { font: 12px sans-serif; fill: #475569; }",
+        "    .link { fill: none; stroke: #2563eb; stroke-width: 2px; }",
+        "  </style>",
         f'  <text x="20" y="30" class="title">HRP Dendrogram ({tree.linkage_method} linkage)</text>',
     ]
     step = (width - 100) / max(n, 1)
@@ -225,9 +225,9 @@ def _generate_dendrogram_svg(tree: HierarchicalTreeResult) -> str:
         x = 50 + i * step
         y = height - 40
         lines.append(f'  <text x="{x}" y="{y}" class="label" text-anchor="middle">{asset}</text>')
-        lines.append(f'  <line x1="{x}" y1="{y-15}" x2="{x}" y2="{y-40}" class="link" />')
+        lines.append(f'  <line x1="{x}" y1="{y - 15}" x2="{x}" y2="{y - 40}" class="link" />')
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -434,7 +434,7 @@ def render_cluster_tree_artifact(
             left_str = ", ".join(s["left"])
             right_str = ", ".join(s["right"])
             rows.append(
-                f"| {idx+1} | {left_str} | {right_str} | {s['v_left']:.4e} | "
+                f"| {idx + 1} | {left_str} | {right_str} | {s['v_left']:.4e} | "
                 f"{s['v_right']:.4e} | {s['alpha']:.4f} |"
             )
         md = "### Hierarchical Cluster Bisection Tree\n\n" + "\n".join(rows) + "\n"
@@ -524,8 +524,7 @@ def render_asset_weights_artifact(
     """Render Asset Weights Table and Concentration Summary."""
     _validate_provenance(evidence_ids, allow_empty=allow_empty_evidence)
     w_dict = {
-        str(k): float(v)
-        for k, v in (weights.items() if hasattr(weights, "items") else enumerate(weights))
+        str(k): float(v) for k, v in (weights.items() if hasattr(weights, "items") else enumerate(weights))
     }
     values = np.array(list(w_dict.values()), dtype=float)
     h = float(np.sum(values**2))
@@ -794,21 +793,21 @@ def _generate_frontier_svg(frontier: EfficientFrontierResult) -> str:
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
             f'width="{width}" height="{height}">'
         ),
-        '  <style>',
-        '    .title { font: bold 14px sans-serif; fill: #1e293b; }',
-        '    .axis { stroke: #94a3b8; stroke-width: 1px; }',
-        '    .curve { fill: none; stroke: #2563eb; stroke-width: 3px; }',
-        '    .point { fill: #dc2626; stroke: #fff; stroke-width: 2px; }',
-        '    .label { font: 11px sans-serif; fill: #334155; }',
-        '  </style>',
+        "  <style>",
+        "    .title { font: bold 14px sans-serif; fill: #1e293b; }",
+        "    .axis { stroke: #94a3b8; stroke-width: 1px; }",
+        "    .curve { fill: none; stroke: #2563eb; stroke-width: 3px; }",
+        "    .point { fill: #dc2626; stroke: #fff; stroke-width: 2px; }",
+        "    .label { font: 11px sans-serif; fill: #334155; }",
+        "  </style>",
         '  <text x="20" y="30" class="title">Parametric Efficient Frontier and Reference Overlays</text>',
-        f'  <line x1="60" y1="{height-50}" x2="{width-30}" y2="{height-50}" class="axis" />',
-        f'  <line x1="60" y1="50" x2="60" y2="{height-50}" class="axis" />',
+        f'  <line x1="60" y1="{height - 50}" x2="{width - 30}" y2="{height - 50}" class="axis" />',
+        f'  <line x1="60" y1="50" x2="60" y2="{height - 50}" class="axis" />',
         (
-            f'  <text x="{width/2}" y="{height-15}" class="label" '
+            f'  <text x="{width / 2}" y="{height - 15}" class="label" '
             f'text-anchor="middle">Annualized Volatility</text>'
         ),
-        '</svg>',
+        "</svg>",
     ]
     return "\n".join(lines)
 
@@ -1033,7 +1032,10 @@ def render_herc_hierarchy_artifact(
         title="HERC Hierarchy & Cluster Risk Parity",
         test_id=test_id,
         evidence_ids=evidence_ids,
-        parameters={"linkage_method": herc_res.tree_result.linkage_method, "risk_measure": herc_res.risk_measure},
+        parameters={
+            "linkage_method": herc_res.tree_result.linkage_method,
+            "risk_measure": herc_res.risk_measure,
+        },
     )
     semantic_payload: dict[str, Any] = {
         "linkage_method": herc_res.tree_result.linkage_method,
@@ -1247,12 +1249,12 @@ def _generate_matrix_heatmap_svg(
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
-        '  <style>',
+        "  <style>",
         '    .title { font: bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }',
         '    .subtitle { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }',
         '    .header { font: bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #334155; }',
         '    .cell-txt { font: 11px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }',
-        '  </style>',
+        "  </style>",
         '  <rect width="100%" height="100%" fill="#ffffff" />',
         f'  <text x="24" y="32" class="title">{title}</text>',
     ]
@@ -1304,10 +1306,14 @@ def _generate_matrix_heatmap_svg(
                 fill_color = f"rgb({r},{g},{b})"
                 txt_val = f"{val:{fmt}}"
 
-            lines.append(f'  <rect x="{cx}" y="{cy}" width="{cell_w-2}" height="{cell_h-2}" rx="4" fill="{fill_color}" stroke="#cbd5e1" stroke-width="0.5" />')
-            lines.append(f'  <text x="{cx + cell_w/2.0}" y="{cy + cell_h/2.0 + 4}" class="cell-txt" fill="{txt_color}" text-anchor="middle">{txt_val}</text>')
+            lines.append(
+                f'  <rect x="{cx}" y="{cy}" width="{cell_w - 2}" height="{cell_h - 2}" rx="4" fill="{fill_color}" stroke="#cbd5e1" stroke-width="0.5" />'
+            )
+            lines.append(
+                f'  <text x="{cx + cell_w / 2.0}" y="{cy + cell_h / 2.0 + 4}" class="cell-txt" fill="{txt_color}" text-anchor="middle">{txt_val}</text>'
+            )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -1332,12 +1338,12 @@ def _generate_eigenspectrum_svg(
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
-        '  <style>',
+        "  <style>",
         '    .title { font: bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }',
         '    .subtitle { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }',
         '    .axis-lbl { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #475569; }',
         '    .bar-val { font: 10px "SFMono-Regular", Consolas, monospace; fill: #0f172a; font-weight: bold; }',
-        '  </style>',
+        "  </style>",
         '  <rect width="100%" height="100%" fill="#ffffff" />',
         f'  <text x="24" y="32" class="title">{title}</text>',
     ]
@@ -1346,7 +1352,9 @@ def _generate_eigenspectrum_svg(
 
     # Zero line
     zero_y = top_m + chart_h * (max_eig / total_span)
-    lines.append(f'  <line x1="{left_m}" y1="{zero_y}" x2="{left_m + chart_w}" y2="{zero_y}" stroke="#94a3b8" stroke-width="1" />')
+    lines.append(
+        f'  <line x1="{left_m}" y1="{zero_y}" x2="{left_m + chart_w}" y2="{zero_y}" stroke="#94a3b8" stroke-width="1" />'
+    )
 
     bar_step = chart_w / max(n, 1)
     bar_w = min(45, bar_step * 0.7)
@@ -1364,11 +1372,17 @@ def _generate_eigenspectrum_svg(
             fill = "#ef4444"
             txt_y = by + bh + 14
 
-        lines.append(f'  <rect x="{bx}" y="{by}" width="{bar_w}" height="{max(1.0, bh)}" rx="3" fill="{fill}" />')
-        lines.append(f'  <text x="{bx + bar_w/2.0}" y="{txt_y}" class="bar-val" text-anchor="middle">{eig:.4f}</text>')
-        lines.append(f'  <text x="{bx + bar_w/2.0}" y="{height - 20}" class="axis-lbl" text-anchor="middle">&lambda;{i+1}</text>')
+        lines.append(
+            f'  <rect x="{bx}" y="{by}" width="{bar_w}" height="{max(1.0, bh)}" rx="3" fill="{fill}" />'
+        )
+        lines.append(
+            f'  <text x="{bx + bar_w / 2.0}" y="{txt_y}" class="bar-val" text-anchor="middle">{eig:.4f}</text>'
+        )
+        lines.append(
+            f'  <text x="{bx + bar_w / 2.0}" y="{height - 20}" class="axis-lbl" text-anchor="middle">&lambda;{i + 1}</text>'
+        )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -1409,12 +1423,12 @@ def _generate_waterfall_svg(
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
-        '  <style>',
+        "  <style>",
         '    .title { font: bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }',
         '    .subtitle { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }',
         '    .axis-lbl { font: 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #334155; }',
         '    .val-lbl { font: 10px "SFMono-Regular", Consolas, monospace; font-weight: bold; }',
-        '  </style>',
+        "  </style>",
         '  <rect width="100%" height="100%" fill="#ffffff" />',
         f'  <text x="24" y="32" class="title">{html.escape(str(title))}</text>',
     ]
@@ -1422,7 +1436,9 @@ def _generate_waterfall_svg(
         lines.append(f'  <text x="24" y="52" class="subtitle">{html.escape(str(subtitle))}</text>')
 
     # Zero axis line
-    lines.append(f'  <line x1="{left_m}" y1="{zero_y}" x2="{left_m + chart_w}" y2="{zero_y}" stroke="#cbd5e1" stroke-dasharray="3,3" />')
+    lines.append(
+        f'  <line x1="{left_m}" y1="{zero_y}" x2="{left_m + chart_w}" y2="{zero_y}" stroke="#cbd5e1" stroke-dasharray="3,3" />'
+    )
 
     step_w = chart_w / max(n, 1)
     bar_w = min(50, step_w * 0.7)
@@ -1437,8 +1453,12 @@ def _generate_waterfall_svg(
         lines.append(f'  <rect x="{bx}" y="{sy}" width="{bar_w}" height="{bh}" rx="3" fill="{fill}" />')
         lbl_y = sy - 6 if delta >= 0 else ey + 14
         txt_fill = "#16a34a" if delta >= 0 else "#dc2626"
-        lines.append(f'  <text x="{bx + bar_w/2.0}" y="{lbl_y}" class="val-lbl" fill="{txt_fill}" text-anchor="middle">{delta:+.4f}{unit}</text>')
-        lines.append(f'  <text x="{bx + bar_w/2.0}" y="{height - 25}" class="axis-lbl" text-anchor="middle">{html.escape(str(name))}</text>')
+        lines.append(
+            f'  <text x="{bx + bar_w / 2.0}" y="{lbl_y}" class="val-lbl" fill="{txt_fill}" text-anchor="middle">{delta:+.4f}{unit}</text>'
+        )
+        lines.append(
+            f'  <text x="{bx + bar_w / 2.0}" y="{height - 25}" class="axis-lbl" text-anchor="middle">{html.escape(str(name))}</text>'
+        )
 
     # Total bar
     tot_bx = left_m + len(steps) * step_w + (step_w - bar_w) / 2.0
@@ -1446,12 +1466,18 @@ def _generate_waterfall_svg(
     tot_ey = to_svg_y(min(0.0, total_val))
     tot_bh = max(2.0, tot_ey - tot_sy)
 
-    lines.append(f'  <rect x="{tot_bx}" y="{tot_sy}" width="{bar_w}" height="{tot_bh}" rx="3" fill="#2563eb" />')
+    lines.append(
+        f'  <rect x="{tot_bx}" y="{tot_sy}" width="{bar_w}" height="{tot_bh}" rx="3" fill="#2563eb" />'
+    )
     tot_lbl_y = tot_sy - 6 if total_val >= 0 else tot_ey + 14
-    lines.append(f'  <text x="{tot_bx + bar_w/2.0}" y="{tot_lbl_y}" class="val-lbl" fill="#2563eb" text-anchor="middle">{total_val:.4f}{unit}</text>')
-    lines.append(f'  <text x="{tot_bx + bar_w/2.0}" y="{height - 25}" class="axis-lbl" font-weight="bold" text-anchor="middle">TOTAL</text>')
+    lines.append(
+        f'  <text x="{tot_bx + bar_w / 2.0}" y="{tot_lbl_y}" class="val-lbl" fill="#2563eb" text-anchor="middle">{total_val:.4f}{unit}</text>'
+    )
+    lines.append(
+        f'  <text x="{tot_bx + bar_w / 2.0}" y="{height - 25}" class="axis-lbl" font-weight="bold" text-anchor="middle">TOTAL</text>'
+    )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -1479,12 +1505,12 @@ def _generate_bars_svg(
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
-        '  <style>',
+        "  <style>",
         '    .title { font: bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }',
         '    .subtitle { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }',
         '    .cat-lbl { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #334155; }',
         '    .bar-val { font: 10px "SFMono-Regular", Consolas, monospace; font-weight: bold; }',
-        '  </style>',
+        "  </style>",
         '  <rect width="100%" height="100%" fill="#ffffff" />',
         f'  <text x="24" y="32" class="title">{html.escape(str(title))}</text>',
     ]
@@ -1498,7 +1524,9 @@ def _generate_bars_svg(
 
     for i, (cat, val) in enumerate(zip(categories, values, strict=False)):
         cy = top_m + i * row_step + (row_step - bar_h) / 2.0
-        lines.append(f'  <text x="{left_m - 10}" y="{cy + bar_h/2.0 + 4}" class="cat-lbl" text-anchor="end">{html.escape(str(cat))}</text>')
+        lines.append(
+            f'  <text x="{left_m - 10}" y="{cy + bar_h / 2.0 + 4}" class="cat-lbl" text-anchor="end">{html.escape(str(cat))}</text>'
+        )
 
         if val >= 0:
             bw = (val / span) * chart_w
@@ -1515,10 +1543,14 @@ def _generate_bars_svg(
             txt_anchor = "end"
             txt_fill = "#b91c1c"
 
-        lines.append(f'  <rect x="{bx}" y="{cy}" width="{max(1.0, bw)}" height="{bar_h}" rx="3" fill="{fill}" />')
-        lines.append(f'  <text x="{txt_x}" y="{cy + bar_h/2.0 + 4}" class="bar-val" fill="{txt_fill}" text-anchor="{txt_anchor}">{val:{fmt}}</text>')
+        lines.append(
+            f'  <rect x="{bx}" y="{cy}" width="{max(1.0, bw)}" height="{bar_h}" rx="3" fill="{fill}" />'
+        )
+        lines.append(
+            f'  <text x="{txt_x}" y="{cy + bar_h / 2.0 + 4}" class="bar-val" fill="{txt_fill}" text-anchor="{txt_anchor}">{val:{fmt}}</text>'
+        )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -1542,13 +1574,13 @@ def _generate_dashboard_svg(
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
-        '  <style>',
+        "  <style>",
         '    .title { font: bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }',
         '    .subtitle { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }',
         '    .card-title { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; font-weight: 600; text-transform: uppercase; }',
         '    .card-val { font: bold 18px "SFMono-Regular", Consolas, monospace; fill: #0f172a; }',
         '    .card-note { font: 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #475569; }',
-        '  </style>',
+        "  </style>",
         '  <rect width="100%" height="100%" fill="#ffffff" />',
         f'  <text x="24" y="32" class="title">{html.escape(str(title))}</text>',
     ]
@@ -1561,12 +1593,16 @@ def _generate_dashboard_svg(
         x = left_m + c * (card_w + gap)
         y = top_m + r * (card_h + gap)
 
-        lines.append(f'  <rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />')
-        lines.append(f'  <text x="{x + 14}" y="{y + 24}" class="card-title">{html.escape(str(m_title))}</text>')
+        lines.append(
+            f'  <rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />'
+        )
+        lines.append(
+            f'  <text x="{x + 14}" y="{y + 24}" class="card-title">{html.escape(str(m_title))}</text>'
+        )
         lines.append(f'  <text x="{x + 14}" y="{y + 54}" class="card-val">{html.escape(str(m_val))}</text>')
         lines.append(f'  <text x="{x + 14}" y="{y + 78}" class="card-note">{html.escape(str(m_note))}</text>')
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -1586,12 +1622,12 @@ def _generate_table_svg(
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
-        '  <style>',
+        "  <style>",
         '    .title { font: bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #0f172a; }',
         '    .subtitle { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }',
         '    .th { font: bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #ffffff; }',
         '    .td { font: 11px "SFMono-Regular", Consolas, monospace; fill: #1e293b; }',
-        '  </style>',
+        "  </style>",
         '  <rect width="100%" height="100%" fill="#ffffff" />',
         f'  <text x="24" y="32" class="title">{html.escape(str(title))}</text>',
     ]
@@ -1599,19 +1635,27 @@ def _generate_table_svg(
         lines.append(f'  <text x="24" y="52" class="subtitle">{html.escape(str(subtitle))}</text>')
 
     # Header row
-    lines.append(f'  <rect x="{left_m}" y="{top_m}" width="{len(headers) * col_w}" height="{row_h}" rx="4" fill="#1e293b" />')
+    lines.append(
+        f'  <rect x="{left_m}" y="{top_m}" width="{len(headers) * col_w}" height="{row_h}" rx="4" fill="#1e293b" />'
+    )
     for j, h in enumerate(headers):
-        lines.append(f'  <text x="{left_m + j * col_w + col_w/2.0}" y="{top_m + row_h/2.0 + 4}" class="th" text-anchor="middle">{html.escape(str(h))}</text>')
+        lines.append(
+            f'  <text x="{left_m + j * col_w + col_w / 2.0}" y="{top_m + row_h / 2.0 + 4}" class="th" text-anchor="middle">{html.escape(str(h))}</text>'
+        )
 
     # Table rows
     for i, row in enumerate(rows):
         ry = top_m + (i + 1) * row_h
         bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
-        lines.append(f'  <rect x="{left_m}" y="{ry}" width="{len(headers) * col_w}" height="{row_h}" fill="{bg}" stroke="#e2e8f0" stroke-width="0.5" />')
+        lines.append(
+            f'  <rect x="{left_m}" y="{ry}" width="{len(headers) * col_w}" height="{row_h}" fill="{bg}" stroke="#e2e8f0" stroke-width="0.5" />'
+        )
         for j, cell in enumerate(row):
-            lines.append(f'  <text x="{left_m + j * col_w + col_w/2.0}" y="{ry + row_h/2.0 + 4}" class="td" text-anchor="middle">{html.escape(str(cell))}</text>')
+            lines.append(
+                f'  <text x="{left_m + j * col_w + col_w / 2.0}" y="{ry + row_h / 2.0 + 4}" class="td" text-anchor="middle">{html.escape(str(cell))}</text>'
+            )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -1788,7 +1832,11 @@ def render_psd_repair_artifact(
         file_path = str(out_p / f"{artifact_id}.svg")
         metrics = [
             ("Method", str(repair.repair_method).split(".")[-1], "Intervention Type"),
-            ("Frobenius Distortion", f"{repair.frobenius_distortion:.4f}", f"Rel: {repair.relative_frobenius_distortion:.2%}"),
+            (
+                "Frobenius Distortion",
+                f"{repair.frobenius_distortion:.4f}",
+                f"Rel: {repair.relative_frobenius_distortion:.2%}",
+            ),
             ("Original Min Eigenvalue", f"{repair.original_minimum_eigenvalue:.4f}", "Non-PSD Input"),
             ("Repaired Min Eigenvalue", f"{repair.repaired_minimum_eigenvalue:.2e}", "Guaranteed PSD"),
             ("Iterations Used", str(repair.iterations_used), f"Converged: {repair.converged}"),
@@ -1856,7 +1904,9 @@ def render_covariance_comparison_artifact(
                 else:
                     k1 = f"{ests[i]}_vs_{ests[j]}"
                     k2 = f"{ests[j]}_vs_{ests[i]}"
-                    matrix[i][j] = comp.pairwise_frobenius_distances.get(k1, comp.pairwise_frobenius_distances.get(k2, 0.0))
+                    matrix[i][j] = comp.pairwise_frobenius_distances.get(
+                        k1, comp.pairwise_frobenius_distances.get(k2, 0.0)
+                    )
 
         svg_content = _generate_matrix_heatmap_svg(
             matrix=matrix,
@@ -1985,7 +2035,9 @@ def render_factor_risk_waterfall_artifact(
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
         file_path = str(out_p / f"{artifact_id}.svg")
-        items = list(frd.factor_variance_contributions_periodic.items()) + [("Specific Risk", frd.specific_variance_periodic)]
+        items = list(frd.factor_variance_contributions_periodic.items()) + [
+            ("Specific Risk", frd.specific_variance_periodic)
+        ]
         svg_content = _generate_waterfall_svg(
             items=items,
             total_val=frd.total_variance_periodic,
@@ -2046,7 +2098,9 @@ def render_active_risk_decomposition_artifact(
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
         file_path = str(out_p / f"{artifact_id}.svg")
-        items = list(ard.active_factor_contributions_periodic.items()) + [("Active Specific", ard.specific_active_variance_periodic)]
+        items = list(ard.active_factor_contributions_periodic.items()) + [
+            ("Active Specific", ard.specific_active_variance_periodic)
+        ]
         svg_content = _generate_waterfall_svg(
             items=items,
             total_val=ard.total_active_variance_periodic,
@@ -2105,7 +2159,9 @@ def render_factor_return_attribution_artifact(
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
         file_path = str(out_p / f"{artifact_id}.svg")
-        items = list(fra.cumulative_factor_contributions.items()) + [("Specific Return", fra.total_specific_contribution)]
+        items = list(fra.cumulative_factor_contributions.items()) + [
+            ("Specific Return", fra.total_specific_contribution)
+        ]
         svg_content = _generate_waterfall_svg(
             items=items,
             total_val=fra.total_portfolio_return,
@@ -2313,7 +2369,11 @@ def render_tail_loss_distribution_artifact(
             ("Confidence", f"{estimate.confidence:.1%}", "alpha_var parameter"),
             ("VaR (Loss Mag)", f"{estimate.var:.4f}", "Positive Loss Magnitude"),
             ("Expected Shortfall", f"{estimate.es:.4f}", "Exact Finite-Sample Tail Avg"),
-            ("Tail Obs Count", f"{estimate.tail_observations_count} (q={estimate.parameters.get('q_tail_mass', 0):.2f})", "Tail support"),
+            (
+                "Tail Obs Count",
+                f"{estimate.tail_observations_count} (q={estimate.parameters.get('q_tail_mass', 0):.2f})",
+                "Tail support",
+            ),
             ("Boundary Weight", f"{estimate.boundary_weight:.4f}", "Fractional weight"),
         ]
         svg_content = _generate_dashboard_svg(
@@ -2570,7 +2630,13 @@ def render_tail_severity_artifact(
             ("Median Exceedance", f"{severity.median_absolute_exceedance:.4f}", "50th percentile excess"),
             ("Max Exceedance", f"{severity.max_absolute_exceedance:.4f}", "Worst excess loss"),
             ("Total Excess Loss", f"{severity.total_tail_exceedance_loss:.4f}", "Cumulative tail loss"),
-            ("Max Ratio (L/VaR)", f"{severity.max_normalized_exceedance:.2f}x" if severity.max_normalized_exceedance is not None else "N/A", "Worst relative severity"),
+            (
+                "Max Ratio (L/VaR)",
+                f"{severity.max_normalized_exceedance:.2f}x"
+                if severity.max_normalized_exceedance is not None
+                else "N/A",
+                "Worst relative severity",
+            ),
         ]
         svg_content = _generate_dashboard_svg(
             metrics=cards,
@@ -2639,12 +2705,36 @@ def render_backtest_summary_artifact(
         out_p.mkdir(parents=True, exist_ok=True)
         file_path = str(out_p / f"{artifact_id}.svg")
         cards = [
-            ("Kupiec POF", f"LR={backtest.kupiec_lr:.3f} (p={backtest.kupiec_p_value:.4f})", "REJECT" if backtest.kupiec_rejected else "DO NOT REJECT"),
-            ("Christoffersen Ind", f"LR={backtest.christoffersen_lr:.3f} (p={backtest.christoffersen_p_value:.4f})", "REJECT" if backtest.christoffersen_rejected else "DO NOT REJECT"),
-            ("Conditional Coverage", f"LR={backtest.conditional_coverage_lr:.3f} (p={backtest.conditional_coverage_p_value:.4f})", "REJECT" if backtest.conditional_coverage_rejected else "DO NOT REJECT"),
-            ("Exceptions", f"{backtest.n_exceptions} / {backtest.n_observations:,}", f"Observed Rate: {backtest.exception_rate:.2%}"),
-            ("Significance Level", f"gamma_test = {backtest.test_significance:.2%}", "Test critical threshold"),
-            ("VaR Confidence", f"alpha_var = {backtest.var_confidence:.2%}", f"Expected Rate: {backtest.expected_probability:.2%}"),
+            (
+                "Kupiec POF",
+                f"LR={backtest.kupiec_lr:.3f} (p={backtest.kupiec_p_value:.4f})",
+                "REJECT" if backtest.kupiec_rejected else "DO NOT REJECT",
+            ),
+            (
+                "Christoffersen Ind",
+                f"LR={backtest.christoffersen_lr:.3f} (p={backtest.christoffersen_p_value:.4f})",
+                "REJECT" if backtest.christoffersen_rejected else "DO NOT REJECT",
+            ),
+            (
+                "Conditional Coverage",
+                f"LR={backtest.conditional_coverage_lr:.3f} (p={backtest.conditional_coverage_p_value:.4f})",
+                "REJECT" if backtest.conditional_coverage_rejected else "DO NOT REJECT",
+            ),
+            (
+                "Exceptions",
+                f"{backtest.n_exceptions} / {backtest.n_observations:,}",
+                f"Observed Rate: {backtest.exception_rate:.2%}",
+            ),
+            (
+                "Significance Level",
+                f"gamma_test = {backtest.test_significance:.2%}",
+                "Test critical threshold",
+            ),
+            (
+                "VaR Confidence",
+                f"alpha_var = {backtest.var_confidence:.2%}",
+                f"Expected Rate: {backtest.expected_probability:.2%}",
+            ),
         ]
         svg_content = _generate_dashboard_svg(
             metrics=cards,
@@ -2751,13 +2841,15 @@ def render_tail_risk_contribution_artifact(
         p_var = contrib.percentage_var_contributions.get(a, float("nan"))
         c_es = contrib.component_es.get(a, 0.0)
         p_es = contrib.percentage_es_contributions.get(a, 0.0)
-        rows.append([
-            a,
-            f"{c_var:.4f}" if math.isfinite(c_var) else "DEFERRED",
-            f"{p_var:.1%}" if math.isfinite(p_var) else "DEFERRED",
-            f"{c_es:.4f}",
-            f"{p_es:.1%}",
-        ])
+        rows.append(
+            [
+                a,
+                f"{c_var:.4f}" if math.isfinite(c_var) else "DEFERRED",
+                f"{p_var:.1%}" if math.isfinite(p_var) else "DEFERRED",
+                f"{c_es:.4f}",
+                f"{p_es:.1%}",
+            ]
+        )
 
     semantic_payload: dict[str, Any] = {
         "method": contrib.method,
@@ -2806,6 +2898,7 @@ def render_tail_risk_contribution_artifact(
 # GATE 6: SCENARIO, STRESS & REVERSE-STRESS ARTIFACT GENERATORS
 # =========================================================================== #
 
+
 def render_scenario_pnl_waterfall_artifact(
     res: ScenarioResult,
     evidence_ids: tuple[str, ...],
@@ -2821,20 +2914,38 @@ def render_scenario_pnl_waterfall_artifact(
     )
     headers = ["Component", "Type", "Scenario Return", "P&L Contribution", "% Share"]
     rows = []
-    
+
     # Asset or factor contributions
     if res.asset_contributions:
         for a, c in res.asset_contributions.items():
             share = (c / res.scenario_return) if abs(res.scenario_return) > 1e-8 else 0.0
             pnl_c = (res.portfolio_value * c) if res.portfolio_value is not None else c
-            rows.append([a, "Asset Leg", f"{c:.4f}", f"{pnl_c:,.2f}" if res.portfolio_value else f"{pnl_c:.4f}", f"{share:.1%}"])
+            rows.append(
+                [
+                    a,
+                    "Asset Leg",
+                    f"{c:.4f}",
+                    f"{pnl_c:,.2f}" if res.portfolio_value else f"{pnl_c:.4f}",
+                    f"{share:.1%}",
+                ]
+            )
     elif res.factor_contributions:
         for f, c in res.factor_contributions.items():
             share = (c / res.scenario_return) if abs(res.scenario_return) > 1e-8 else 0.0
             pnl_c = (res.portfolio_value * c) if res.portfolio_value is not None else c
-            rows.append([f, "Factor Leg", f"{c:.4f}", f"{pnl_c:,.2f}" if res.portfolio_value else f"{pnl_c:.4f}", f"{share:.1%}"])
+            rows.append(
+                [
+                    f,
+                    "Factor Leg",
+                    f"{c:.4f}",
+                    f"{pnl_c:,.2f}" if res.portfolio_value else f"{pnl_c:.4f}",
+                    f"{share:.1%}",
+                ]
+            )
 
-    total_pnl_str = f"{res.scenario_pnl:,.2f}" if res.scenario_pnl is not None else f"{res.scenario_return:.4f}"
+    total_pnl_str = (
+        f"{res.scenario_pnl:,.2f}" if res.scenario_pnl is not None else f"{res.scenario_return:.4f}"
+    )
     rows.append(["TOTAL", "Portfolio", f"{res.scenario_return:.4f}", total_pnl_str, "100.0%"])
 
     semantic_payload: dict[str, Any] = {
@@ -3010,8 +3121,18 @@ def render_scenario_active_comparison_artifact(
     )
     headers = ["Portfolio Metric", "Portfolio", "Benchmark", "Active (Port - Bmk)"]
     rows = [
-        ["Scenario Return", f"{act_res.portfolio_return:.4f}", f"{act_res.benchmark_return:.4f}", f"{act_res.active_return:.4f}"],
-        ["Canonical Loss", f"{act_res.portfolio_loss:.4f}", f"{act_res.benchmark_loss:.4f}", f"{act_res.active_loss:.4f}"],
+        [
+            "Scenario Return",
+            f"{act_res.portfolio_return:.4f}",
+            f"{act_res.benchmark_return:.4f}",
+            f"{act_res.active_return:.4f}",
+        ],
+        [
+            "Canonical Loss",
+            f"{act_res.portfolio_loss:.4f}",
+            f"{act_res.benchmark_loss:.4f}",
+            f"{act_res.active_loss:.4f}",
+        ],
         ["Reconciliation Error", "-", "-", f"{act_res.reconciliation_error:.2e}"],
     ]
 
@@ -3130,7 +3251,10 @@ def render_scenario_set_ranking_artifact(
         title="Multi-Scenario Loss Rankings",
         test_id="scenario.set_comparison",
         evidence_ids=evidence_ids,
-        parameters={"ranking_metric": set_res.ranking_metric, "n_scenarios": len(set_res.scenarios_evaluated)},
+        parameters={
+            "ranking_metric": set_res.ranking_metric,
+            "n_scenarios": len(set_res.scenarios_evaluated),
+        },
     )
     headers = ["Rank", "Scenario ID", "Repricing Method", "Canonical Loss", "Return", "Classification"]
     rows = []
@@ -3138,7 +3262,11 @@ def render_scenario_set_ranking_artifact(
         loss_val = set_res.scenario_losses[sid]
         ret_val = set_res.scenario_returns[sid]
         meth = set_res.method_disclosures.get(sid, "LINEAR_RETURN")
-        tag = "WORST LOSS" if sid == set_res.worst_scenario_id else ("BEST RESULT" if sid == set_res.best_scenario_id else "INTERMEDIATE")
+        tag = (
+            "WORST LOSS"
+            if sid == set_res.worst_scenario_id
+            else ("BEST RESULT" if sid == set_res.best_scenario_id else "INTERMEDIATE")
+        )
         rows.append([str(rank), sid, meth, f"{loss_val:.4f}", f"{ret_val:.4f}", tag])
 
     semantic_payload = {
@@ -3199,13 +3327,15 @@ def render_scenario_sensitivity_curve_artifact(
     headers = ["Multiplier", "Raw Shock", "Normalized Shock", "Portfolio Loss", "Portfolio Return"]
     rows = []
     for pt in sens_res.grid_points:
-        rows.append([
-            f"x{pt.shock_multiplier:.2f}",
-            f"{pt.raw_shock_value:.4f}",
-            f"{pt.normalized_shock_value:.4f}",
-            f"{pt.portfolio_loss:.4f}",
-            f"{pt.portfolio_return:.4f}",
-        ])
+        rows.append(
+            [
+                f"x{pt.shock_multiplier:.2f}",
+                f"{pt.raw_shock_value:.4f}",
+                f"{pt.normalized_shock_value:.4f}",
+                f"{pt.portfolio_loss:.4f}",
+                f"{pt.portfolio_return:.4f}",
+            ]
+        )
 
     semantic_payload = {
         "risk_factor_id": sens_res.risk_factor_id,
@@ -3272,7 +3402,14 @@ def render_reverse_stress_profile_artifact(
     for rf, s in rev_res.shock_vector.items():
         rows.append([rf, f"{s:.4f}", f"{abs(s):.4f}", "SOLVED"])
     rows.append(["TARGET LOSS", f"{rev_res.target_loss:.4f}", "-", f"Achieved: {rev_res.achieved_loss:.4f}"])
-    rows.append(["NORM DISTANCE", f"{rev_res.distance:.4f}", "-", f"Norm: {rev_res.distance_norm} ({rev_res.solver_status})"])
+    rows.append(
+        [
+            "NORM DISTANCE",
+            f"{rev_res.distance:.4f}",
+            "-",
+            f"Norm: {rev_res.distance_norm} ({rev_res.solver_status})",
+        ]
+    )
 
     semantic_payload = {
         "target_loss": rev_res.target_loss,
@@ -3314,7 +3451,3 @@ def render_reverse_stress_profile_artifact(
         file_path=file_path,
         rendering_format="svg" if file_path else "json",
     )
-
-
-
-

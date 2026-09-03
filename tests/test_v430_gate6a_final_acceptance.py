@@ -70,6 +70,7 @@ from start.registry import list_tests
 # 5.A PRE-FLIGHT SCENARIO DATA INTEGRITY
 # =========================================================================== #
 
+
 def test_scenario_data_integrity_executes_before_repricing():
     """Verify deterministic pre-flight audit for ID validity, units, coverage, and execution ordering before repricing."""
     # 1. Valid ScenarioSpec
@@ -115,7 +116,9 @@ def test_scenario_data_integrity_executes_before_repricing():
     agent = ScenarioStressAgent()
     weights = {"AAPL": 0.5, "MSFT": 0.5}
 
-    with patch("start.portfolio.scenario.apply_asset_return_scenario", wraps=apply_asset_return_scenario) as mock_repricer:
+    with patch(
+        "start.portfolio.scenario.apply_asset_return_scenario", wraps=apply_asset_return_scenario
+    ) as mock_repricer:
         # A) Production call with invalid spec -> integrity fails -> ValueError raised -> repricing call count remains 0
         with pytest.raises(ValueError, match="Scenario data integrity validation failed"):
             evaluate_scenario(incompat_spec, weights, assets=list(weights.keys()))
@@ -123,7 +126,9 @@ def test_scenario_data_integrity_executes_before_repricing():
 
         # Also via ScenarioStressAgent.execute_tool
         with pytest.raises(ValueError, match="Scenario data integrity validation failed"):
-            agent.execute_tool("evaluate_scenario", spec=incompat_spec, weights=weights, assets=list(weights.keys()))
+            agent.execute_tool(
+                "evaluate_scenario", spec=incompat_spec, weights=weights, assets=list(weights.keys())
+            )
         assert mock_repricer.call_count == 0
 
         # B) Production call with valid spec -> integrity passes -> repricing is invoked -> call count = 1
@@ -133,7 +138,9 @@ def test_scenario_data_integrity_executes_before_repricing():
         assert math.isclose(res_good.scenario_return, -0.075, rel_tol=1e-9)
 
         # Also via ScenarioStressAgent.execute_tool -> call count becomes 2
-        res_agent = agent.execute_tool("evaluate_scenario", spec=valid_spec, weights=weights, assets=list(weights.keys()))
+        res_agent = agent.execute_tool(
+            "evaluate_scenario", spec=valid_spec, weights=weights, assets=list(weights.keys())
+        )
         assert res_agent is not None
         assert mock_repricer.call_count == 2
 
@@ -146,7 +153,13 @@ def test_scenario_data_integrity_executes_before_repricing():
         normalized_value=float("nan"),
         normalization_rule="invalid",
     )
-    nan_spec = ScenarioSpec("SCEN-NAN", "NaN Spec", ScenarioType.SYNTHETIC.value, (nan_shock,), RepricingMethod.LINEAR_RETURN.value)
+    nan_spec = ScenarioSpec(
+        "SCEN-NAN",
+        "NaN Spec",
+        ScenarioType.SYNTHETIC.value,
+        (nan_shock,),
+        RepricingMethod.LINEAR_RETURN.value,
+    )
     diag_nan = validate_scenario_data_integrity(nan_spec, portfolio_assets=["AAPL"])
     assert diag_nan.valid is False
     assert any("Non-finite" in iss for iss in diag_nan.issues)
@@ -167,6 +180,7 @@ def test_scenario_data_integrity_executes_before_repricing():
 # =========================================================================== #
 # 5.B MIXED-LEG NORMALIZATION KNOWN ANSWER
 # =========================================================================== #
+
 
 def test_mixed_leg_normalization_known_answer():
     """Verify exact raw-value and computational normalization rules across mixed legs."""
@@ -196,6 +210,7 @@ def test_mixed_leg_normalization_known_answer():
 # 5.C LOG_RETURN SEMANTICS
 # =========================================================================== #
 
+
 def test_log_return_semantics_known_answer():
     """Verify LOG_RETURN conversion to simple return exp(x) - 1 and computational unit labeling."""
     raw_log = math.log(0.90)  # ~ -0.1053605
@@ -214,6 +229,7 @@ def test_log_return_semantics_known_answer():
 # =========================================================================== #
 # 5.D FACTOR SPECIFIC-SHOCK SEMANTICS
 # =========================================================================== #
+
 
 def test_factor_specific_shock_semantics():
     """Verify distinct semantics: missing != explicit none != explicit zero vector."""
@@ -276,6 +292,7 @@ def test_factor_specific_shock_semantics():
 # 5.E REPRICING-METHOD COMPATIBILITY MATRIX
 # =========================================================================== #
 
+
 def test_repricing_method_compatibility_matrix():
     """Verify matrix validation accepting valid pairs and rejecting incompatible pairs."""
     # Valid
@@ -293,11 +310,15 @@ def test_repricing_method_compatibility_matrix():
     assert bad1 is False
     assert "Incompatible" in msg1
 
-    bad2, msg2 = validate_repricing_shock_compatibility(RepricingMethod.FACTOR_LINEAR, ShockSpace.ASSET_RETURN)
+    bad2, msg2 = validate_repricing_shock_compatibility(
+        RepricingMethod.FACTOR_LINEAR, ShockSpace.ASSET_RETURN
+    )
     assert bad2 is False
     assert "Incompatible" in msg2
 
-    bad3, msg3 = validate_repricing_shock_compatibility(RepricingMethod.FULL_REVALUATION_ADAPTER, ShockSpace.ASSET_RETURN)
+    bad3, msg3 = validate_repricing_shock_compatibility(
+        RepricingMethod.FULL_REVALUATION_ADAPTER, ShockSpace.ASSET_RETURN
+    )
     assert bad3 is False
     assert "deferred" in msg3.lower()
 
@@ -306,6 +327,7 @@ def test_repricing_method_compatibility_matrix():
 # 6. DELTA-GAMMA SCIENTIFIC KNOWN ANSWER
 # =========================================================================== #
 
+
 def test_delta_gamma_scientific_known_answer():
     """Verify 2-factor Delta-Gamma formula: P&L = delta' dx + 0.5 dx' Gamma dx with full symmetric Hessian."""
     sens = {
@@ -313,10 +335,12 @@ def test_delta_gamma_scientific_known_answer():
         "F2": SensitivitySpec(risk_factor_id="F2", delta=-200.0, gamma=150.0),
     }
     dx = {"F1": 0.10, "F2": -0.05}
-    Gamma_mat = np.array([
-        [-50.0, 20.0],
-        [20.0, 150.0],
-    ])
+    Gamma_mat = np.array(
+        [
+            [-50.0, 20.0],
+            [20.0, 150.0],
+        ]
+    )
 
     # Delta term: 100*(0.10) + (-200)*(-0.05) = 10.0 + 10.0 = 20.0
     # Quadratic term: 0.5 * [ -50*(0.10)^2 + 150*(-0.05)^2 + 2*20*(0.10)*(-0.05) ]
@@ -329,14 +353,18 @@ def test_delta_gamma_scientific_known_answer():
     )
     assert math.isclose(res.scenario_return, 19.8375, rel_tol=1e-9)
     assert math.isclose(res.scenario_loss, -19.8375, rel_tol=1e-9)
-    assert math.isclose(res.factor_contributions["F1"] + res.factor_contributions["F2"], 19.8375, rel_tol=1e-9)
+    assert math.isclose(
+        res.factor_contributions["F1"] + res.factor_contributions["F2"], 19.8375, rel_tol=1e-9
+    )
     assert res.reconciliation_error < 1e-12
 
     # Asymmetric Gamma matrix must fail closed
-    asym_gamma = np.array([
-        [-50.0, 20.0],
-        [10.0, 150.0],  # 10 != 20
-    ])
+    asym_gamma = np.array(
+        [
+            [-50.0, 20.0],
+            [10.0, 150.0],  # 10 != 20
+        ]
+    )
     with pytest.raises(ValueError, match="Gamma matrix must be symmetric"):
         apply_delta_gamma_scenario(sensitivities=sens, scenario_spec_or_shocks=dx, gamma_matrix=asym_gamma)
 
@@ -344,6 +372,7 @@ def test_delta_gamma_scientific_known_answer():
 # =========================================================================== #
 # 7. REVERSE-STRESS SUPPORTED SCOPE
 # =========================================================================== #
+
 
 def test_reverse_stress_supported_scope():
     """Verify that supported scopes run while deferred scopes fail closed with explicit disclosure."""
@@ -363,6 +392,7 @@ def test_reverse_stress_supported_scope():
 # =========================================================================== #
 # 8. UNCONSTRAINED L2 REVERSE STRESS KNOWN ANSWER
 # =========================================================================== #
+
 
 def test_unconstrained_l2_reverse_stress_known_answer():
     """Verify exact analytical solution x* = -L* c / (c' c) for unconstrained L2 reverse stress."""
@@ -390,6 +420,7 @@ def test_unconstrained_l2_reverse_stress_known_answer():
 # 9. ZERO EXPOSURE REVERSE STRESS FAILS CLOSED
 # =========================================================================== #
 
+
 def test_zero_exposure_reverse_stress_fails_closed():
     """Verify that zero sensitivities with positive target loss fails closed without div-by-zero or NaN."""
     c_zero = {"F1": 0.0, "F2": 0.0}
@@ -403,6 +434,7 @@ def test_zero_exposure_reverse_stress_fails_closed():
 # 10. BOUNDED REVERSE STRESS: ACTIVE BOUNDS & INFEASIBLE TARGET
 # =========================================================================== #
 
+
 def test_bounded_reverse_stress_active_bounds_and_infeasible():
     """Verify bounded QP solver when analytical L2 violates bounds, and fail-closed on infeasible target."""
     c = {"F1": 0.4, "F2": 0.3}
@@ -410,7 +442,9 @@ def test_bounded_reverse_stress_active_bounds_and_infeasible():
 
     # Bound: F1 >= -0.05 (unconstrained wants -0.128)
     bounds = {"F1": (-0.05, 0.10), "F2": (-0.50, 0.50)}
-    spec_bounded = ReverseStressSpec(target_loss=L_star, distance_norm=ReverseStressNorm.L2, shock_bounds=bounds)
+    spec_bounded = ReverseStressSpec(
+        target_loss=L_star, distance_norm=ReverseStressNorm.L2, shock_bounds=bounds
+    )
 
     # Constrained optimum: x_1 = -0.05, x_2 = (-0.08 - 0.4*(-0.05)) / (-0.3) = (-0.08 + 0.02)/(-0.3) = -0.20
     res_b = solve_reverse_stress(spec_bounded, c)
@@ -423,7 +457,9 @@ def test_bounded_reverse_stress_active_bounds_and_infeasible():
 
     # Infeasible target: bounds [-0.01, 0.01] -> max achievable loss = -(0.4*(-0.01) + 0.3*(-0.01)) = 0.007 < 0.08
     tight_bounds = {"F1": (-0.01, 0.01), "F2": (-0.01, 0.01)}
-    spec_infeasible = ReverseStressSpec(target_loss=L_star, distance_norm=ReverseStressNorm.L2, shock_bounds=tight_bounds)
+    spec_infeasible = ReverseStressSpec(
+        target_loss=L_star, distance_norm=ReverseStressNorm.L2, shock_bounds=tight_bounds
+    )
     res_inf = solve_reverse_stress(spec_infeasible, c)
     assert res_inf.converged is False
     assert res_inf.solver_status in ("INFEASIBLE", "BOUNDS_BREACHED")
@@ -432,6 +468,7 @@ def test_bounded_reverse_stress_active_bounds_and_infeasible():
 # =========================================================================== #
 # 11. WEIGHTED L2 REVERSE STRESS
 # =========================================================================== #
+
 
 def test_weighted_l2_reverse_stress_known_answer_and_rejection():
     """Verify weighted L2 reverse stress known answer in direction W^-1 c and non-positive weight rejection."""
@@ -467,6 +504,7 @@ def test_weighted_l2_reverse_stress_known_answer_and_rejection():
 # 12. HETEROGENEOUS-UNIT L2 REJECTION
 # =========================================================================== #
 
+
 def test_heterogeneous_unit_reverse_stress_rejection():
     """Verify rejection of unscaled Euclidean distance mixing raw heterogeneous financial coordinates."""
     c = {"EQUITY": 0.5, "RATE_BPS": 10.0, "VOL_PTS": 2.0}
@@ -486,6 +524,7 @@ def test_heterogeneous_unit_reverse_stress_rejection():
 # 13. MAHALANOBIS REVERSE STRESS
 # =========================================================================== #
 
+
 def test_mahalanobis_reverse_stress_metadata_and_fail_closed():
     """Verify Mahalanobis metadata alignment, label checking, and fail-closed on singular/indefinite matrix."""
     c = {"F1": 0.4, "F2": 0.3}
@@ -503,7 +542,9 @@ def test_mahalanobis_reverse_stress_metadata_and_fail_closed():
     assert math.isclose(res_m.achieved_loss, 0.0800, abs_tol=1e-4)
 
     # Label mismatch rejection
-    cov_mismatch = pd.DataFrame([[0.04, 0.01], [0.01, 0.09]], index=["WRONG1", "WRONG2"], columns=["WRONG1", "WRONG2"])
+    cov_mismatch = pd.DataFrame(
+        [[0.04, 0.01], [0.01, 0.09]], index=["WRONG1", "WRONG2"], columns=["WRONG1", "WRONG2"]
+    )
     spec_bad_labels = ReverseStressSpec(
         target_loss=L_star,
         distance_norm=ReverseStressNorm.MAHALANOBIS,
@@ -538,6 +579,7 @@ def test_mahalanobis_reverse_stress_metadata_and_fail_closed():
 # 14. HISTORICAL REPLAY PROVENANCE
 # =========================================================================== #
 
+
 def test_historical_replay_provenance():
     """Verify required provenance fields (source reference, observation date, fingerprint)."""
     weights = {"AAPL": 0.5, "MSFT": 0.5}
@@ -552,7 +594,9 @@ def test_historical_replay_provenance():
         replay_historical_scenario(hist_shocks, weights, source_reference="CRSP_DAILY", observation_date="")
 
     # Valid execution
-    res = replay_historical_scenario(hist_shocks, weights, source_reference="CRSP_DAILY", observation_date="2008-09-15")
+    res = replay_historical_scenario(
+        hist_shocks, weights, source_reference="CRSP_DAILY", observation_date="2008-09-15"
+    )
     assert res.scenario_id == "HIST-2008-09-15"
     assert math.isclose(res.scenario_return, -0.06, rel_tol=1e-9)
 
@@ -561,6 +605,7 @@ def test_historical_replay_provenance():
 # 15. HISTORICAL ASSET COVERAGE & PROXY MAPPING
 # =========================================================================== #
 
+
 def test_historical_replay_asset_coverage_and_proxy_mapping():
     """Verify missing asset failure without proxy, and explicit proxy mapping provenance."""
     weights = {"AAPL": 0.5, "NEW_IPO": 0.5}
@@ -568,7 +613,9 @@ def test_historical_replay_asset_coverage_and_proxy_mapping():
 
     # Missing asset without proxy fails closed
     with pytest.raises(ValueError, match="Historical shocks missing for assets"):
-        replay_historical_scenario(hist_shocks, weights, source_reference="CRSP", observation_date="2020-03-16")
+        replay_historical_scenario(
+            hist_shocks, weights, source_reference="CRSP", observation_date="2020-03-16"
+        )
 
     # Explicit proxy mapping succeeds with disclosure
     res_proxy = replay_historical_scenario(
@@ -585,6 +632,7 @@ def test_historical_replay_asset_coverage_and_proxy_mapping():
 # =========================================================================== #
 # 16. HISTORICAL CURRENCY SEMANTICS
 # =========================================================================== #
+
 
 def test_historical_replay_currency_mismatch_rejection():
     """Verify rejection of mismatched currencies without explicit FX conversion policy."""
@@ -607,6 +655,7 @@ def test_historical_replay_currency_mismatch_rejection():
 # 17. ACTIVE SCENARIO EXACT IDENTITY
 # =========================================================================== #
 
+
 def test_active_scenario_exact_identity():
     """Verify exact mathematical identity: R_port - R_bmk == R_active."""
     port_weights = {"AAPL": 0.6, "MSFT": 0.4}
@@ -624,13 +673,16 @@ def test_active_scenario_exact_identity():
     assert math.isclose(res_act.portfolio_return, -0.04, rel_tol=1e-12)
     assert math.isclose(res_act.benchmark_return, 0.005, rel_tol=1e-12)
     assert math.isclose(res_act.active_return, -0.045, rel_tol=1e-12)
-    assert math.isclose(res_act.portfolio_return - res_act.benchmark_return, res_act.active_return, rel_tol=1e-14)
+    assert math.isclose(
+        res_act.portfolio_return - res_act.benchmark_return, res_act.active_return, rel_tol=1e-14
+    )
     assert res_act.reconciliation_error < 1e-14
 
 
 # =========================================================================== #
 # 18. GROUP SCENARIO EXHAUSTIVE VS OVERLAPPING SEMANTICS
 # =========================================================================== #
+
 
 def test_group_scenario_exhaustive_vs_overlapping_semantics():
     """Verify exhaustive partition additive reconciliation vs overlapping analytical disclosure."""
@@ -662,12 +714,19 @@ def test_group_scenario_exhaustive_vs_overlapping_semantics():
 # 19. MULTI-SCENARIO RANKING & COMPARABILITY
 # =========================================================================== #
 
+
 def test_multi_scenario_ranking_and_comparability():
     """Verify canonical ranking key scenario_loss (worst = max loss, best = min loss)."""
     weights = {"AAPL": 0.5, "MSFT": 0.5}
-    r1 = apply_asset_return_scenario(weights, {"AAPL": -0.15, "MSFT": -0.10}, scenario_id="SCEN_CRISIS")  # loss = +0.125
-    r2 = apply_asset_return_scenario(weights, {"AAPL": -0.02, "MSFT": -0.04}, scenario_id="SCEN_MODERATE")  # loss = +0.030
-    r3 = apply_asset_return_scenario(weights, {"AAPL": 0.05, "MSFT": 0.03}, scenario_id="SCEN_RALLY")  # loss = -0.040
+    r1 = apply_asset_return_scenario(
+        weights, {"AAPL": -0.15, "MSFT": -0.10}, scenario_id="SCEN_CRISIS"
+    )  # loss = +0.125
+    r2 = apply_asset_return_scenario(
+        weights, {"AAPL": -0.02, "MSFT": -0.04}, scenario_id="SCEN_MODERATE"
+    )  # loss = +0.030
+    r3 = apply_asset_return_scenario(
+        weights, {"AAPL": 0.05, "MSFT": 0.03}, scenario_id="SCEN_RALLY"
+    )  # loss = -0.040
 
     set_res = compare_scenario_set([r1, r2, r3])
     assert set_res.worst_scenario_id == "SCEN_CRISIS"
@@ -702,8 +761,12 @@ def test_multi_scenario_ranking_and_comparability():
 def test_scenario_set_horizon_mismatch_rejection():
     """Verify that scenarios evaluated over different horizons fail comparability."""
     weights = {"AAPL": 0.5, "MSFT": 0.5}
-    r1 = apply_asset_return_scenario(weights, {"AAPL": -0.10, "MSFT": -0.05}, horizon=MetricHorizon.PERIODIC, scenario_id="S_1D")
-    r2 = apply_asset_return_scenario(weights, {"AAPL": -0.20, "MSFT": -0.15}, horizon=MetricHorizon.ANNUAL, scenario_id="S_1Y")
+    r1 = apply_asset_return_scenario(
+        weights, {"AAPL": -0.10, "MSFT": -0.05}, horizon=MetricHorizon.PERIODIC, scenario_id="S_1D"
+    )
+    r2 = apply_asset_return_scenario(
+        weights, {"AAPL": -0.20, "MSFT": -0.15}, horizon=MetricHorizon.ANNUAL, scenario_id="S_1Y"
+    )
 
     set_res = compare_scenario_set([r1, r2])
     assert set_res.comparability_valid is False
@@ -748,9 +811,15 @@ def test_scenario_set_portfolio_state_mismatch_rejection():
 
 def test_scenario_set_loss_pnl_basis_mismatch_rejection():
     """Verify that scenarios ranked on monetary loss fail comparability if portfolio values differ or are missing."""
-    r_pv1 = apply_asset_return_scenario({"AAPL": 1.0}, {"AAPL": -0.10}, portfolio_value=1_000_000.0, scenario_id="S_1M")
-    r_pv2 = apply_asset_return_scenario({"AAPL": 1.0}, {"AAPL": -0.10}, portfolio_value=5_000_000.0, scenario_id="S_5M")
-    r_nopv = apply_asset_return_scenario({"AAPL": 1.0}, {"AAPL": -0.10}, portfolio_value=None, scenario_id="S_NOPV")
+    r_pv1 = apply_asset_return_scenario(
+        {"AAPL": 1.0}, {"AAPL": -0.10}, portfolio_value=1_000_000.0, scenario_id="S_1M"
+    )
+    r_pv2 = apply_asset_return_scenario(
+        {"AAPL": 1.0}, {"AAPL": -0.10}, portfolio_value=5_000_000.0, scenario_id="S_5M"
+    )
+    r_nopv = apply_asset_return_scenario(
+        {"AAPL": 1.0}, {"AAPL": -0.10}, portfolio_value=None, scenario_id="S_NOPV"
+    )
 
     # A) Monetary ranking with differing portfolio values
     set_diff_pv = compare_scenario_set([r_pv1, r_pv2], ranking_metric="scenario_pnl")
@@ -785,10 +854,14 @@ def test_scenario_set_cross_method_opt_in_does_not_override_incompatibilities():
     )
 
     r_linear = apply_asset_return_scenario({"AAPL": 1.0}, spec_usd, portfolio_value=1_000_000.0)
-    r_factor = apply_factor_scenario({"AAPL": 1.0}, pd.DataFrame({"MKT": [1.0]}, index=["AAPL"]), spec_eur_ann, portfolio_value=5_000_000.0)
+    r_factor = apply_factor_scenario(
+        {"AAPL": 1.0}, pd.DataFrame({"MKT": [1.0]}, index=["AAPL"]), spec_eur_ann, portfolio_value=5_000_000.0
+    )
 
     # Cross-method opt-in is True, but horizons, currencies, and portfolio values all differ
-    set_res = compare_scenario_set([r_linear, r_factor], ranking_metric="scenario_loss", allow_cross_method=True)
+    set_res = compare_scenario_set(
+        [r_linear, r_factor], ranking_metric="scenario_loss", allow_cross_method=True
+    )
     assert set_res.comparability_valid is False
     assert any("Incompatible scenario horizons" in lim for lim in set_res.limitations)
     # Method disclosure is present
@@ -799,10 +872,13 @@ def test_scenario_set_cross_method_opt_in_does_not_override_incompatibilities():
 # 20. DEFERRED-SCOPE TRUTH TABLE
 # =========================================================================== #
 
+
 def test_deferred_scope_truth_table():
     """Verify explicit deferred status for pricing adapters and nonlinear reverse stress."""
     # Pricing adapters deferred
-    is_ok, msg = validate_repricing_shock_compatibility(RepricingMethod.FULL_REVALUATION_ADAPTER, ShockSpace.ASSET_RETURN)
+    is_ok, msg = validate_repricing_shock_compatibility(
+        RepricingMethod.FULL_REVALUATION_ADAPTER, ShockSpace.ASSET_RETURN
+    )
     assert is_ok is False
     assert "deferred" in msg.lower()
 
@@ -815,6 +891,7 @@ def test_deferred_scope_truth_table():
 # =========================================================================== #
 # 21. CHALLENGE PROVENANCE CLOSURE
 # =========================================================================== #
+
 
 def test_challenge_provenance_closure():
     """Verify adversarial challenge provenance: source ID -> diagnostic tool -> NEW evidence ID -> resolution."""
@@ -877,6 +954,7 @@ def test_challenge_provenance_closure():
 # 22. ARTIFACT PROVENANCE CLOSURE
 # =========================================================================== #
 
+
 def test_artifact_provenance_closure(tmp_path: Path):
     """Verify all 8 dual-plane SVG visual artifacts and JSON machine companions have non-empty evidence links."""
     out_dir = tmp_path / "artifacts"
@@ -885,15 +963,25 @@ def test_artifact_provenance_closure(tmp_path: Path):
     ev_id = "EV-20260901-000000-TEST"
 
     # 1. Scenario PnL Waterfall
-    spec = ScenarioSpec("S1", "Spec1", ScenarioType.SYNTHETIC.value, (create_scenario_shock("A", -0.05),), RepricingMethod.LINEAR_RETURN.value)
-    scen_res = apply_asset_return_scenario({"A": 1.0}, {"A": -0.05}, portfolio_value=1_000_000.0, scenario_id="S1")
+    spec = ScenarioSpec(
+        "S1",
+        "Spec1",
+        ScenarioType.SYNTHETIC.value,
+        (create_scenario_shock("A", -0.05),),
+        RepricingMethod.LINEAR_RETURN.value,
+    )
+    scen_res = apply_asset_return_scenario(
+        {"A": 1.0}, {"A": -0.05}, portfolio_value=1_000_000.0, scenario_id="S1"
+    )
     art1 = render_scenario_pnl_waterfall_artifact(scen_res, (ev_id,), output_dir=out_dir)
 
     # 2. Scenario Asset Contribution Table
     art2 = render_scenario_asset_contribution_artifact(scen_res, (ev_id,), output_dir=out_dir)
 
     # 3. Scenario Factor Contribution Table
-    fact_res = apply_factor_scenario({"A": 1.0}, pd.DataFrame({"MKT": [1.0]}, index=["A"]), {"MKT": -0.05}, scenario_id="S1")
+    fact_res = apply_factor_scenario(
+        {"A": 1.0}, pd.DataFrame({"MKT": [1.0]}, index=["A"]), {"MKT": -0.05}, scenario_id="S1"
+    )
     art3 = render_scenario_factor_contribution_artifact(fact_res, (ev_id,), output_dir=out_dir)
 
     # 4. Scenario Active Comparison
@@ -901,7 +989,13 @@ def test_artifact_provenance_closure(tmp_path: Path):
     art4 = render_scenario_active_comparison_artifact(act_res, (ev_id,), output_dir=out_dir)
 
     # 5. Group Stress Heatmap
-    art5 = render_scenario_group_heatmap_artifact("S1", {"TECH": -0.05, "FIN": -0.02}, PartitionContract.EXHAUSTIVE_PARTITION.value, (ev_id,), output_dir=out_dir)
+    art5 = render_scenario_group_heatmap_artifact(
+        "S1",
+        {"TECH": -0.05, "FIN": -0.02},
+        PartitionContract.EXHAUSTIVE_PARTITION.value,
+        (ev_id,),
+        output_dir=out_dir,
+    )
 
     # 6. Scenario Set Ranking
     set_res = compare_scenario_set([scen_res])
@@ -965,6 +1059,7 @@ def test_artifact_provenance_closure(tmp_path: Path):
 # =========================================================================== #
 # 23. REGISTRY CENSUS INVARIANT
 # =========================================================================== #
+
 
 def test_registry_census_remains_79():
     """Verify registry census maintains exactly 79 total, 79 unique, 0 duplicate tests."""

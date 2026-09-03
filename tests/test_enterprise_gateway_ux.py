@@ -1,5 +1,6 @@
 """Gateway UX tests (v2.3.0): yes/no-first selection, key-skip, fallback,
 env-var alias, trust-domain isolation, no secret leakage."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,11 +12,13 @@ FAKE_KEY = "sk-fake-do-not-log-1234567890ABCDEF"
 
 def _drive(answers_map):
     """Build an ask() that answers by substring match on the prompt."""
+
     def ask(prompt=""):
         for needle, val in answers_map.items():
             if needle.lower() in prompt.lower():
                 return val
         return ""  # default everything else
+
     return ask
 
 
@@ -88,8 +91,7 @@ def test_gateway_selected_resolves_to_deterministic_not_public(monkeypatch):
     from start.core.config import LLMConfig
     from start.providers.llm import NoLLMProvider, get_llm_provider
 
-    llm = get_llm_provider(LLMConfig(provider="enterprise_llm_gateway"),
-                           expected_domain="private")
+    llm = get_llm_provider(LLMConfig(provider="enterprise_llm_gateway"), expected_domain="private")
     # unavailable enterprise gateway degrades to the domain-neutral no-LLM path,
     # never to a public provider
     assert isinstance(llm, NoLLMProvider)
@@ -126,8 +128,7 @@ def test_trust_domain_crossover_blocked_both_ways():
         assert_no_crossover,
     )
 
-    for prov, dom in [("openai", TrustDomain.PRIVATE),
-                      ("enterprise_llm_gateway", TrustDomain.PUBLIC)]:
+    for prov, dom in [("openai", TrustDomain.PRIVATE), ("enterprise_llm_gateway", TrustDomain.PUBLIC)]:
         try:
             assert_no_crossover(prov, dom)
             raise AssertionError(f"crossover not blocked for {prov}")

@@ -27,7 +27,9 @@ def german_credit_df() -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # 7(c) Remediation loop never resolves -> remediation_exhausted BLOCKER
 # --------------------------------------------------------------------------- #
-def test_7c_remediation_exhausted_becomes_blocker_and_disposition_not_ready(german_credit_df: pd.DataFrame) -> None:
+def test_7c_remediation_exhausted_becomes_blocker_and_disposition_not_ready(
+    german_credit_df: pd.DataFrame,
+) -> None:
     """Section 7(c): A run where remediation never resolves.
 
     Must show `remediation_exhausted` as a BLOCKER finding, and the governance
@@ -58,8 +60,11 @@ def test_7c_remediation_exhausted_becomes_blocker_and_disposition_not_ready(germ
 
     # 2. Findings contain remediation_exhausted with blocker severity
     exhausted_findings = [
-        f for f in outcome.findings_register.findings
-        if f.title == "Remediation Exhausted" or "remediation_exhausted" in f.description.lower() or "not addressable by the routed remedy" in f.description
+        f
+        for f in outcome.findings_register.findings
+        if f.title == "Remediation Exhausted"
+        or "remediation_exhausted" in f.description.lower()
+        or "not addressable by the routed remedy" in f.description
     ]
     assert len(exhausted_findings) >= 1
     assert any(f.severity == Severity.HIGH for f in exhausted_findings)
@@ -141,7 +146,8 @@ def test_7d_remediation_resolved_shows_informational_finding(german_credit_df: p
     assert summary["budget_exhausted"] == 0
 
     succeeded_findings = [
-        f for f in outcome.findings_register.findings
+        f
+        for f in outcome.findings_register.findings
         if f.title == "Remediation Succeeded" or "resolved on attempt" in f.description
     ]
     assert len(succeeded_findings) >= 1

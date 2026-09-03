@@ -95,17 +95,49 @@ def test_public_repo_release_hazard_scan():
 def test_end_to_end_cross_analytical_committee_integration():
     """Verify end-to-end multi-lens review produces evidence graph, typed claims, distinct diagnostic evidence, and conditional sign-off."""
     # Construct complete synthetic evidence bundle spanning all 5 quantitative lenses
-    ev_opt = _make_synth_evidence("portfolio.mean_variance", "Mean Variance", {"converged": True, "sharpe": 1.45})
-    ev_cov_s = _make_synth_evidence("covariance.empirical", "Sample Cov", {"is_psd": True}, params={"weights": {"A": 0.6, "B": 0.4}})
-    ev_cov_lw = _make_synth_evidence("covariance.ledoit_wolf", "LW Cov", {"is_psd": True}, params={"weights": {"A": 0.45, "B": 0.55}})
-    ev_factor = _make_synth_evidence("factor_risk.decomposition", "Factor Risk", {"beta_MKT": 1.10, "beta_SMB": 0.40})
-    ev_attrib = _make_synth_evidence("attribution.brinson", "Brinson Attribution", {"reconciliation_error": 0.0})
-    ev_kupiec = _make_synth_evidence("traded_risk.kupiec_pof", "Kupiec POF", {"reject_unconditional_coverage": False, "gamma_test": 0.05})
-    ev_christ = _make_synth_evidence("traded_risk.christoffersen_independence", "Christoffersen Independence", {"reject_independence": True, "gamma_test": 0.05})
-    ev_scen = _make_synth_evidence("scenario.linear_return", "Macro Shock", {"scenario_loss": 0.15, "contrib_MKT": -0.12, "contrib_SMB": -0.03})
-    ev_rev = _make_synth_evidence("scenario.reverse_stress", "Reverse Stress", {"target_loss": 0.30, "minimum_distance": 0.22})
+    ev_opt = _make_synth_evidence(
+        "portfolio.mean_variance", "Mean Variance", {"converged": True, "sharpe": 1.45}
+    )
+    ev_cov_s = _make_synth_evidence(
+        "covariance.empirical", "Sample Cov", {"is_psd": True}, params={"weights": {"A": 0.6, "B": 0.4}}
+    )
+    ev_cov_lw = _make_synth_evidence(
+        "covariance.ledoit_wolf", "LW Cov", {"is_psd": True}, params={"weights": {"A": 0.45, "B": 0.55}}
+    )
+    ev_factor = _make_synth_evidence(
+        "factor_risk.decomposition", "Factor Risk", {"beta_MKT": 1.10, "beta_SMB": 0.40}
+    )
+    ev_attrib = _make_synth_evidence(
+        "attribution.brinson", "Brinson Attribution", {"reconciliation_error": 0.0}
+    )
+    ev_kupiec = _make_synth_evidence(
+        "traded_risk.kupiec_pof", "Kupiec POF", {"reject_unconditional_coverage": False, "gamma_test": 0.05}
+    )
+    ev_christ = _make_synth_evidence(
+        "traded_risk.christoffersen_independence",
+        "Christoffersen Independence",
+        {"reject_independence": True, "gamma_test": 0.05},
+    )
+    ev_scen = _make_synth_evidence(
+        "scenario.linear_return",
+        "Macro Shock",
+        {"scenario_loss": 0.15, "contrib_MKT": -0.12, "contrib_SMB": -0.03},
+    )
+    ev_rev = _make_synth_evidence(
+        "scenario.reverse_stress", "Reverse Stress", {"target_loss": 0.30, "minimum_distance": 0.22}
+    )
 
-    full_evidence_set = [ev_opt, ev_cov_s, ev_cov_lw, ev_factor, ev_attrib, ev_kupiec, ev_christ, ev_scen, ev_rev]
+    full_evidence_set = [
+        ev_opt,
+        ev_cov_s,
+        ev_cov_lw,
+        ev_factor,
+        ev_attrib,
+        ev_kupiec,
+        ev_christ,
+        ev_scen,
+        ev_rev,
+    ]
 
     committee = CrossAnalyticalCommittee()
     res = committee.conduct_committee_review(full_evidence_set)
@@ -167,6 +199,7 @@ def test_system_wide_artifact_sha256_integrity():
 def test_data_adapter_and_chunked_execution_invariance():
     """Verify DataFrameAdapter and chunked execution produce deterministically invariant results."""
     import pandas as pd
+
     df = pd.DataFrame({"x": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], "y": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]})
     adapter = DataFrameAdapter(df)
 

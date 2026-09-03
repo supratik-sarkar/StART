@@ -75,12 +75,16 @@ def test_all_gate6_svg_artifacts_xml_validity(tmp_path: Path):
     ET.parse(art1.file_path)
 
     # 2. Asset Contribution
-    art2 = render_scenario_asset_contribution_artifact(mock_res, evidence_ids=("EV-TEST-2",), output_dir=out_dir)
+    art2 = render_scenario_asset_contribution_artifact(
+        mock_res, evidence_ids=("EV-TEST-2",), output_dir=out_dir
+    )
     assert art2.file_path is not None
     ET.parse(art2.file_path)
 
     # 3. Factor Contribution
-    art3 = render_scenario_factor_contribution_artifact(mock_res, evidence_ids=("EV-TEST-3",), output_dir=out_dir)
+    art3 = render_scenario_factor_contribution_artifact(
+        mock_res, evidence_ids=("EV-TEST-3",), output_dir=out_dir
+    )
     assert art3.file_path is not None
     ET.parse(art3.file_path)
 
@@ -97,6 +101,7 @@ def test_all_gate6_svg_artifacts_xml_validity(tmp_path: Path):
 
     # 4b. Active Comparison
     from start.portfolio.contracts import ActiveScenarioResult
+
     mock_act = ActiveScenarioResult(
         scenario_id="SCEN-TEST-ACT",
         portfolio_return=-0.05,
@@ -109,7 +114,9 @@ def test_all_gate6_svg_artifacts_xml_validity(tmp_path: Path):
         active_factor_contributions={"F1": -0.01},
         reconciliation_error=0.0,
     )
-    art4b = render_scenario_active_comparison_artifact(mock_act, evidence_ids=("EV-TEST-4B",), output_dir=out_dir)
+    art4b = render_scenario_active_comparison_artifact(
+        mock_act, evidence_ids=("EV-TEST-4B",), output_dir=out_dir
+    )
     assert art4b.file_path is not None
     ET.parse(art4b.file_path)
 
@@ -144,13 +151,17 @@ def test_all_gate6_svg_artifacts_xml_validity(tmp_path: Path):
         max_loss=0.10,
         min_loss=0.025,
     )
-    art6 = render_scenario_sensitivity_curve_artifact(sens_res, evidence_ids=("EV-TEST-6",), output_dir=out_dir)
+    art6 = render_scenario_sensitivity_curve_artifact(
+        sens_res, evidence_ids=("EV-TEST-6",), output_dir=out_dir
+    )
     assert art6.file_path is not None
     ET.parse(art6.file_path)
 
     # 7. Reverse Stress Profile
     rev_spec = ReverseStressSpec(target_loss=0.05, distance_norm=ReverseStressNorm.L2)
-    rev_res = solve_reverse_stress(spec=rev_spec, sensitivities_or_weights=np.array([1.0, 0.5]), factors=["F1", "F2"])
+    rev_res = solve_reverse_stress(
+        spec=rev_spec, sensitivities_or_weights=np.array([1.0, 0.5]), factors=["F1", "F2"]
+    )
     art7 = render_reverse_stress_profile_artifact(rev_res, evidence_ids=("EV-TEST-7",), output_dir=out_dir)
     assert art7.file_path is not None
     ET.parse(art7.file_path)

@@ -135,9 +135,7 @@ class DatasetSelection:
                 errors.append("synthetic data must not claim a source_path")
         elif self.kind is DatasetKind.PUBLIC_BENCHMARK:
             if "http" not in ref:
-                errors.append(
-                    f"{self.display_name!r} is a public benchmark and must cite its source URL"
-                )
+                errors.append(f"{self.display_name!r} is a public benchmark and must cite its source URL")
             if "synthetic" in self.display_name.lower():
                 errors.append("a public benchmark must not be described as synthetic")
         elif self.kind is DatasetKind.USER_SUPPLIED:
@@ -154,9 +152,7 @@ class DatasetSelection:
 
         if self.frame is not None and self.target_column:
             if self.target_column not in getattr(self.frame, "columns", []):
-                errors.append(
-                    f"declared target {self.target_column!r} is not a column in the frame"
-                )
+                errors.append(f"declared target {self.target_column!r} is not a column in the frame")
         return errors
 
 
@@ -223,8 +219,7 @@ def select_german_credit() -> DatasetSelection:
             "The dataset ships a documented asymmetric cost matrix (5:1), so the "
             "metric-priority decision can cite the source rather than argue from first "
             "principles.",
-            "Contains age and personal-status attributes, so fairness and proxy analysis "
-            "have real material.",
+            "Contains age and personal-status attributes, so fairness and proxy analysis have real material.",
         ],
     )
 

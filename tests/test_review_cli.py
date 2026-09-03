@@ -16,10 +16,12 @@ def test_review_command_non_interactive_demo(tmp_path):
         [
             "review",
             "--non-interactive",
-            "--target", "attrition",
+            "--target",
+            "attrition",
             "--run-dl",
             "--standard",
-            "--output-root", str(tmp_path),
+            "--output-root",
+            str(tmp_path),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -41,8 +43,16 @@ def test_review_command_on_user_csv(tmp_path):
     df.to_csv(csv, index=False)
     result = runner.invoke(
         app,
-        ["review", str(csv), "--non-interactive", "--target", "churned",
-         "--standard", "--output-root", str(tmp_path / "out")],
+        [
+            "review",
+            str(csv),
+            "--non-interactive",
+            "--target",
+            "churned",
+            "--standard",
+            "--output-root",
+            str(tmp_path / "out"),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert "Review complete" in result.output
@@ -51,29 +61,40 @@ def test_review_command_on_user_csv(tmp_path):
 def test_review_command_diagnostics_only(tmp_path):
     result = runner.invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition",
-         "--no-run-dl", "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--no-run-dl",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert "SKIPPED" in result.output and "Model Execution" in result.output
 
 
 def test_interactive_config_deterministic_shows_no_llm_prompts():
-    answers = iter([
-        "n",           # committee workflow? -> legacy (test basic flow)
-        "",            # dataset path (demo)
-        "attrition",   # target
-        "stratified",  # split strategy
-        "mlp",         # architecture
-        "relu",        # activation
-        "standard",    # robustness
-        "1",           # Select backend -> 1: deterministic (agent mode -> NO llm prompts follow)
-        "yes",         # run_dl (Section C)
-        "0.60", "0.20", "0.20",  # split proportions (Section D)
-        "bounded_random_search",  # tuning strategy (Section H)
-        "5",           # trials
-        "integrated_gradients",  # explainability (explain_method)
-    ])
+    answers = iter(
+        [
+            "n",  # committee workflow? -> legacy (test basic flow)
+            "",  # dataset path (demo)
+            "attrition",  # target
+            "stratified",  # split strategy
+            "mlp",  # architecture
+            "relu",  # activation
+            "standard",  # robustness
+            "1",  # Select backend -> 1: deterministic (agent mode -> NO llm prompts follow)
+            "yes",  # run_dl (Section C)
+            "0.60",
+            "0.20",
+            "0.20",  # split proportions (Section D)
+            "bounded_random_search",  # tuning strategy (Section H)
+            "5",  # trials
+            "integrated_gradients",  # explainability (explain_method)
+        ]
+    )
     cfg = prompt_review_config(ReviewConfig(), ask=lambda *_: next(answers))
     assert cfg.agent_mode == "deterministic"
     assert cfg.llm_provider == "none"  # untouched
@@ -81,25 +102,29 @@ def test_interactive_config_deterministic_shows_no_llm_prompts():
 
 
 def test_interactive_config_llm_shows_objective_prompt():
-    answers = iter([
-        "n",           # committee workflow? -> legacy (test basic flow)
-        "",            # dataset path
-        "attrition",   # target
-        "stratified",  # split
-        "mlp",         # architecture
-        "relu",        # activation
-        "standard",    # robustness
-        "3",           # AI Reviewer Agent Backend -> 3: Public LLM Providers
-        "openai",      # Select Public LLM Provider -> openai
-        "1",           # Select model
-        "yes",         # run_dl (Section C)
-        "0.60", "0.20", "0.20",  # split proportions (Section D)
-        "bounded_random_search",  # tuning strategy (Section H)
-        "5",           # trials
-        "integrated_gradients",  # explainability (explain_method)
-        "Predict customer attrition",  # objective
-        "",            # clarification (none)
-    ])
+    answers = iter(
+        [
+            "n",  # committee workflow? -> legacy (test basic flow)
+            "",  # dataset path
+            "attrition",  # target
+            "stratified",  # split
+            "mlp",  # architecture
+            "relu",  # activation
+            "standard",  # robustness
+            "3",  # AI Reviewer Agent Backend -> 3: Public LLM Providers
+            "openai",  # Select Public LLM Provider -> openai
+            "1",  # Select model
+            "yes",  # run_dl (Section C)
+            "0.60",
+            "0.20",
+            "0.20",  # split proportions (Section D)
+            "bounded_random_search",  # tuning strategy (Section H)
+            "5",  # trials
+            "integrated_gradients",  # explainability (explain_method)
+            "Predict customer attrition",  # objective
+            "",  # clarification (none)
+        ]
+    )
     cfg = prompt_review_config(ReviewConfig(), ask=lambda *_: next(answers))
     assert cfg.agent_mode == "llm"
     assert cfg.llm_provider == "openai"
@@ -110,8 +135,15 @@ def test_interactive_config_llm_shows_objective_prompt():
 def test_review_help_lists_full_surface():
     result = runner.invoke(app, ["review", "--help"])
     assert result.exit_code == 0
-    for flag in ("--split-strategy", "--architecture", "--activation",
-                 "--explain-method", "--robustness", "--agent-mode", "--llm-provider"):
+    for flag in (
+        "--split-strategy",
+        "--architecture",
+        "--activation",
+        "--explain-method",
+        "--robustness",
+        "--agent-mode",
+        "--llm-provider",
+    ):
         assert flag in result.output
 
 
@@ -147,14 +179,20 @@ def test_enterprise_review_command(tmp_path):
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition", "--enterprise",
-         "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--enterprise",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert "AI review committee complete" in result.output
     # the seven layers stream visibly
-    for layer in ("Data", "Model", "Validation", "Governance", "AI-Engineering",
-                  "Evidence", "Reporting"):
+    for layer in ("Data", "Model", "Validation", "Governance", "AI-Engineering", "Evidence", "Reporting"):
         assert layer in result.output
     # dashboard generated
     from pathlib import Path
@@ -191,8 +229,14 @@ def test_enterprise_ipynb_exposes_full_surface():
     code = "\n".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code")
     assert "EnterpriseReviewOrchestrator" in code
     # widget-driven full surface incl. enterprise + CNN + governance
-    for token in ("enterprise_mode", "governance_mode", "cnn_preset", "provider",
-                  "describe_cnn", "trust_domain"):
+    for token in (
+        "enterprise_mode",
+        "governance_mode",
+        "cnn_preset",
+        "provider",
+        "describe_cnn",
+        "trust_domain",
+    ):
         assert token in code
     assert "sk-" not in code
 
@@ -207,8 +251,18 @@ def test_review_cost_flag_routes_metric(tmp_path):
 
     result = CliRunner().invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition", "--run-dl", "--enterprise",
-         "--cost", "false_negatives", "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--run-dl",
+            "--enterprise",
+            "--cost",
+            "false_negatives",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     dash = glob.glob(str(tmp_path / "dashboards" / "*" / "dashboard.json"))
@@ -237,8 +291,16 @@ def test_enterprise_terminal_shows_visibility(tmp_path):
 
     result = CliRunner().invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition", "--run-dl",
-         "--enterprise", "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--run-dl",
+            "--enterprise",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     # Section A: LLM activation visible
@@ -260,14 +322,23 @@ def test_enterprise_dashboard_has_v211_sections(tmp_path):
 
     result = CliRunner().invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition", "--run-dl",
-         "--enterprise", "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--run-dl",
+            "--enterprise",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     d = json.loads(open(glob.glob(str(tmp_path / "dashboards" / "*" / "dashboard.json"))[0]).read())
     assert d.get("llm_activation") is not None
     assert len(d.get("agent_reasoning_traces", [])) >= 5
     from start.ai_engineering.adapters import ADAPTER_CLASSES
+
     assert len(d.get("ai_engineering_control_surface", [])) == len(ADAPTER_CLASSES)
     # artifact catalog includes the dashboard's own files + optional telemetry + graph
     names = [a["name"] for a in d.get("artifact_catalog", [])]
@@ -282,9 +353,18 @@ def test_accept_recommendations_flag_shows_checkpoint(tmp_path):
 
     result = CliRunner().invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition", "--enterprise",
-         "--architecture", "wide_deep", "--accept-recommendations",
-         "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--enterprise",
+            "--architecture",
+            "wide_deep",
+            "--accept-recommendations",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert "Checkpoint: architecture" in result.output
@@ -297,8 +377,17 @@ def test_non_interactive_no_checkpoint_prompts(tmp_path):
 
     result = CliRunner().invoke(
         app,
-        ["review", "--non-interactive", "--target", "attrition", "--enterprise",
-         "--architecture", "wide_deep", "--output-root", str(tmp_path)],
+        [
+            "review",
+            "--non-interactive",
+            "--target",
+            "attrition",
+            "--enterprise",
+            "--architecture",
+            "wide_deep",
+            "--output-root",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     # without --accept-recommendations, no interactive checkpoint is shown

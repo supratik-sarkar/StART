@@ -35,11 +35,21 @@ from start.tests.feature_engineering.execution import (
 )
 
 __all__ = [
-    "run_imputation", "run_scaling", "run_numeric_transform", "run_winsorization",
-    "run_categorical_encoding", "run_rare_category_grouping", "run_woe_iv",
-    "run_monotonic_binning", "run_interactions", "run_temporal_features",
-    "run_aggregation_features", "run_pca_transform", "run_selection",
-    "numeric_columns", "categorical_columns",
+    "run_imputation",
+    "run_scaling",
+    "run_numeric_transform",
+    "run_winsorization",
+    "run_categorical_encoding",
+    "run_rare_category_grouping",
+    "run_woe_iv",
+    "run_monotonic_binning",
+    "run_interactions",
+    "run_temporal_features",
+    "run_aggregation_features",
+    "run_pca_transform",
+    "run_selection",
+    "numeric_columns",
+    "categorical_columns",
 ]
 
 
@@ -160,11 +170,14 @@ def run_imputation(
             f"{', '.join(all_missing[:8])}."
         )
     return _result(
-        "imputation", outputs, (train, test, oos),
+        "imputation",
+        outputs,
+        (train, test, oos),
         {"fill_values": fills, "indicator_columns": indicator_columns},
         FittingScope.TRAIN_ONLY,
         {"strategy": strategy, "add_indicator": add_indicator, "fill_value": fill_value},
-        affected + indicator_columns, notes,
+        affected + indicator_columns,
+        notes,
     )
 
 
@@ -221,23 +234,29 @@ def run_scaling(
     def transform(frame: pd.DataFrame) -> pd.DataFrame:
         for column in numeric:
             if column in frame.columns:
-                frame[column] = (
-                    pd.to_numeric(frame[column], errors="coerce") - centers[column]
-                ) / scales[column]
+                frame[column] = (pd.to_numeric(frame[column], errors="coerce") - centers[column]) / scales[
+                    column
+                ]
         return frame
 
     outputs = _apply([train, test, oos], transform)
     notes = (
-        [f"{len(degenerate)} zero-variance column(s) scaled with a unit divisor rather "
-         f"than producing infinities: {', '.join(sorted(set(degenerate))[:8])}."]
-        if degenerate else []
+        [
+            f"{len(degenerate)} zero-variance column(s) scaled with a unit divisor rather "
+            f"than producing infinities: {', '.join(sorted(set(degenerate))[:8])}."
+        ]
+        if degenerate
+        else []
     )
     return _result(
-        "scaling", outputs, (train, test, oos),
+        "scaling",
+        outputs,
+        (train, test, oos),
         {"centers": centers, "scales": scales, "method": method},
         FittingScope.TRAIN_ONLY,
         {"method": method, "quantile_range": list(quantile_range)},
-        numeric, notes,
+        numeric,
+        notes,
     )
 
 
@@ -291,9 +310,7 @@ def run_numeric_transform(
             _, lam = sp.yeojohnson(values.to_numpy(dtype=float))
             state["lambdas"][column] = float(lam)
         elif method == "quantile":
-            state["quantiles"][column] = [
-                float(x) for x in np.percentile(values, np.linspace(0, 100, 101))
-            ]
+            state["quantiles"][column] = [float(x) for x in np.percentile(values, np.linspace(0, 100, 101))]
 
     def transform(frame: pd.DataFrame) -> pd.DataFrame:
         for column in applied:
@@ -310,9 +327,7 @@ def run_numeric_transform(
                 lam = state["lambdas"][column]
                 arr = values.to_numpy(dtype=float)
                 with np.errstate(invalid="ignore", divide="ignore"):
-                    frame[column] = (
-                        np.log(arr) if abs(lam) < 1e-12 else (np.power(arr, lam) - 1) / lam
-                    )
+                    frame[column] = np.log(arr) if abs(lam) < 1e-12 else (np.power(arr, lam) - 1) / lam
             elif method == "yeo_johnson":
                 from scipy import stats as sp
 
@@ -325,22 +340,28 @@ def run_numeric_transform(
                 frame[column] = out
             elif method == "quantile":
                 grid = np.asarray(state["quantiles"][column], dtype=float)
-                frame[column] = np.interp(
-                    values.to_numpy(dtype=float), grid, np.linspace(0, 1, len(grid))
-                )
+                frame[column] = np.interp(values.to_numpy(dtype=float), grid, np.linspace(0, 1, len(grid)))
         return frame
 
     outputs = _apply([train, test, oos], transform)
     notes = (
-        [f"{len(skipped)} column(s) skipped as domain-invalid for {method} and left "
-         f"unchanged rather than shifted to force the transform: "
-         f"{', '.join(skipped[:8])}."]
-        if skipped else []
+        [
+            f"{len(skipped)} column(s) skipped as domain-invalid for {method} and left "
+            f"unchanged rather than shifted to force the transform: "
+            f"{', '.join(skipped[:8])}."
+        ]
+        if skipped
+        else []
     )
     return _result(
-        "numeric_transform", outputs, (train, test, oos), state,
+        "numeric_transform",
+        outputs,
+        (train, test, oos),
+        state,
         FittingScope.STATELESS if stateless else FittingScope.TRAIN_ONLY,
-        {"method": method}, applied, notes,
+        {"method": method},
+        applied,
+        notes,
     )
 
 
@@ -396,11 +417,18 @@ def run_winsorization(
 
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "winsorization", outputs, (train, test, oos),
+        "winsorization",
+        outputs,
+        (train, test, oos),
         {"bounds": {c: list(v) for c, v in bounds.items()}, "method": method},
         FittingScope.TRAIN_ONLY,
-        {"method": method, "k": k, "lower_pct": lower_pct, "upper_pct": upper_pct,
-         "z_threshold": z_threshold},
+        {
+            "method": method,
+            "k": k,
+            "lower_pct": lower_pct,
+            "upper_pct": upper_pct,
+            "z_threshold": z_threshold,
+        },
         list(bounds),
     )
 
@@ -439,8 +467,8 @@ def run_rare_category_grouping(
             if column in frame.columns:
                 allowed = set(kept)
                 frame[column] = frame[column].apply(
-                    lambda v, _allowed=allowed: v if (pd.notna(v) and str(v) in _allowed) else (
-                        other_label if pd.notna(v) else v
+                    lambda v, _allowed=allowed: (
+                        v if (pd.notna(v) and str(v) in _allowed) else (other_label if pd.notna(v) else v)
                     )
                 )
         return frame
@@ -448,13 +476,18 @@ def run_rare_category_grouping(
     affected = [c for c, kept in keep.items() if len(kept) < train[c].dropna().nunique()]
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "rare_category_grouping", outputs,
-        (train, test, oos), {"kept_levels": keep, "other_label": other_label},
-        FittingScope.TRAIN_ONLY, {"min_pct": min_pct, "other_label": other_label},
+        "rare_category_grouping",
+        outputs,
+        (train, test, oos),
+        {"kept_levels": keep, "other_label": other_label},
+        FittingScope.TRAIN_ONLY,
+        {"min_pct": min_pct, "other_label": other_label},
         affected,
-        ["Levels unseen in training also map to the other-label: they have no learned "
-         "representation, so treating them as their own category would create a value "
-         "the model has never encountered."],
+        [
+            "Levels unseen in training also map to the other-label: they have no learned "
+            "representation, so treating them as their own category would create a value "
+            "the model has never encountered."
+        ],
     )
 
 
@@ -468,9 +501,7 @@ def _fold_assignment(n: int, n_folds: int, seed: int) -> np.ndarray:
     return folds
 
 
-def _smoothed_target_map(
-    levels: pd.Series, y: pd.Series, prior: float, smoothing: float
-) -> dict[str, float]:
+def _smoothed_target_map(levels: pd.Series, y: pd.Series, prior: float, smoothing: float) -> dict[str, float]:
     frame = pd.DataFrame({"lvl": levels.astype(str), "y": y})
     grouped = frame.groupby("lvl")["y"].agg(["mean", "count"])
     weight = grouped["count"] / (grouped["count"] + smoothing)
@@ -535,12 +566,8 @@ def run_categorical_encoding(
                 # caught it here by flipping one row's target and observing that row's
                 # own encoding move.
                 fold_prior = float(y[fitting].mean())
-                fold_map = _smoothed_target_map(
-                    train.loc[fitting, column], y[fitting], fold_prior, smoothing
-                )
-                encoded[holdout] = [
-                    fold_map.get(str(v), fold_prior) for v in train.loc[holdout, column]
-                ]
+                fold_map = _smoothed_target_map(train.loc[fitting, column], y[fitting], fold_prior, smoothing)
+                encoded[holdout] = [fold_map.get(str(v), fold_prior) for v in train.loc[holdout, column]]
             train_out[column] = encoded
 
         def transform_eval(frame: pd.DataFrame) -> pd.DataFrame:
@@ -552,14 +579,24 @@ def run_categorical_encoding(
 
         outputs = [train_out, *(_apply([test, oos], transform_eval))]
         return _result(
-            "categorical_encoding", outputs, (train, test, oos), state,
+            "categorical_encoding",
+            outputs,
+            (train, test, oos),
+            state,
             FittingScope.TRAIN_FOLDS,
-            {"method": method, "n_folds": state["n_folds"], "smoothing": smoothing,
-             "seed": seed, "unseen": unseen},
+            {
+                "method": method,
+                "n_folds": state["n_folds"],
+                "smoothing": smoothing,
+                "seed": seed,
+                "unseen": unseen,
+            },
             categorical,
-            ["Train-side values are OUT-OF-FOLD: no row's encoding used its own target. "
-             "Evaluation cohorts use the full-training mapping, which no evaluation row "
-             "contributed to."],
+            [
+                "Train-side values are OUT-OF-FOLD: no row's encoding used its own target. "
+                "Evaluation cohorts use the full-training mapping, which no evaluation row "
+                "contributed to."
+            ],
         )
 
     for column in categorical:
@@ -597,11 +634,17 @@ def run_categorical_encoding(
 
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "categorical_encoding", outputs, (train, test, oos), state,
+        "categorical_encoding",
+        outputs,
+        (train, test, oos),
+        state,
         FittingScope.TRAIN_ONLY,
-        {"method": method, "unseen": unseen}, categorical,
-        [f"Unseen levels map to {'-1' if method == 'ordinal' else '0.0'} — an explicit "
-         "sentinel rather than a silent failure."],
+        {"method": method, "unseen": unseen},
+        categorical,
+        [
+            f"Unseen levels map to {'-1' if method == 'ordinal' else '0.0'} — an explicit "
+            "sentinel rather than a silent failure."
+        ],
     )
 
 
@@ -682,12 +725,11 @@ def run_woe_iv(
             # from the fitting folds only — including the median used to fill missing
             # values, which would otherwise carry the held-out rows' own values.
             fold_median = values[fitting].median()
-            fold_map, _ = woe_map(
-                values[fitting].fillna(fold_median), y[fitting].fillna(0), edges
-            )
+            fold_map, _ = woe_map(values[fitting].fillna(fold_median), y[fitting].fillna(0), edges)
             binned = np.digitize(
                 values[holdout].fillna(fold_median).to_numpy(dtype=float),
-                edges[1:-1], right=True,
+                edges[1:-1],
+                right=True,
             )
             encoded[holdout] = [fold_map.get(int(b), 0.0) for b in binned]
         train_out[column] = encoded
@@ -699,20 +741,32 @@ def run_woe_iv(
             edges = np.asarray(state["edges"][column], dtype=float)
             mapping = state["woe"][column]
             values = pd.to_numeric(frame[column], errors="coerce")
-            binned = np.digitize(values.fillna(values.median()).to_numpy(dtype=float),
-                                 edges[1:-1], right=True)
+            binned = np.digitize(
+                values.fillna(values.median()).to_numpy(dtype=float), edges[1:-1], right=True
+            )
             frame[column] = [mapping.get(str(int(b)), 0.0) for b in binned]
         return frame
 
     outputs = [train_out, *(_apply([test, oos], transform_eval))]
     return _result(
-        "woe_iv", outputs, (train, test, oos), state, FittingScope.TRAIN_FOLDS,
-        {"bins": bins, "min_bin_pct": min_bin_pct, "smoothing": smoothing,
-         "n_folds": state["n_folds"], "seed": seed},
+        "woe_iv",
+        outputs,
+        (train, test, oos),
+        state,
+        FittingScope.TRAIN_FOLDS,
+        {
+            "bins": bins,
+            "min_bin_pct": min_bin_pct,
+            "smoothing": smoothing,
+            "n_folds": state["n_folds"],
+            "seed": seed,
+        },
         applied,
-        ["Train-side WoE values are OUT-OF-FOLD, as for target encoding.",
-         "IV bands (0.02 / 0.1 / 0.3 / 0.5) are credit-scoring industry practice, not "
-         "a result with a single originating citation."],
+        [
+            "Train-side WoE values are OUT-OF-FOLD, as for target encoding.",
+            "IV bands (0.02 / 0.1 / 0.3 / 0.5) are credit-scoring industry practice, not "
+            "a result with a single originating citation.",
+        ],
     )
 
 
@@ -775,9 +829,7 @@ def run_monotonic_binning(
         if len(edges) < 3:
             continue
 
-        def rates_for(
-            edge_list: list[float], vals: pd.Series = values
-        ) -> tuple[list[float], list[int]]:
+        def rates_for(edge_list: list[float], vals: pd.Series = values) -> tuple[list[float], list[int]]:
             idx = np.digitize(vals.to_numpy(dtype=float), np.asarray(edge_list[1:-1]), right=True)
             frame = pd.DataFrame({"b": idx, "y": y})
             grouped = frame.groupby("b")["y"].agg(["mean", "count"])
@@ -835,20 +887,27 @@ def run_monotonic_binning(
                 edges = np.asarray(state["edges"][column], dtype=float)
                 frame[column] = np.digitize(
                     pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float),
-                    edges[1:-1], right=True,
+                    edges[1:-1],
+                    right=True,
                 )
         return frame
 
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "monotonic_binning", outputs, (train, test, oos), state, FittingScope.TRAIN_ONLY,
+        "monotonic_binning",
+        outputs,
+        (train, test, oos),
+        state,
+        FittingScope.TRAIN_ONLY,
         {"max_bins": max_bins, "min_bin_pct": min_bin_pct, "direction": direction},
         applied,
-        ["The merge rule is: lowest-indexed adjacent violation merged into its right "
-         "neighbour. This is a deterministic choice among several published "
-         "monotonic-binning procedures, not the uniquely canonical method.",
-         "Output is the bin index, which carries no target information and therefore "
-         "needs no out-of-fold treatment."],
+        [
+            "The merge rule is: lowest-indexed adjacent violation merged into its right "
+            "neighbour. This is a deterministic choice among several published "
+            "monotonic-binning procedures, not the uniquely canonical method.",
+            "Output is the bin index, which carries no target information and therefore "
+            "needs no out-of-fold treatment.",
+        ],
     )
 
 
@@ -900,25 +959,33 @@ def run_interactions(
             else:
                 # Floor the magnitude, preserving sign: a raw division produces inf
                 # that silently poisons every downstream fit.
-                safe = b.where(b.abs() >= denominator_floor,
-                               np.sign(b).replace(0, 1) * denominator_floor)
+                safe = b.where(b.abs() >= denominator_floor, np.sign(b).replace(0, 1) * denominator_floor)
                 frame[f"{left}__over__{right}"] = a / safe
         return frame
 
     outputs = _apply([train, test, oos], transform)
-    notes = [f"Denominator magnitudes below {denominator_floor:g} are floored with the "
-             "sign preserved; no infinities are produced."] if method == "ratio" else []
+    notes = (
+        [
+            f"Denominator magnitudes below {denominator_floor:g} are floored with the "
+            "sign preserved; no infinities are produced."
+        ]
+        if method == "ratio"
+        else []
+    )
     if truncated:
         notes.append(
             f"Pair generation capped at {max_features}; pairs are taken in sorted "
             "column order so the selection is reproducible."
         )
     return _result(
-        "interactions", outputs, (train, test, oos), {"pairs": [list(p) for p in pairs]},
+        "interactions",
+        outputs,
+        (train, test, oos),
+        {"pairs": [list(p) for p in pairs]},
         FittingScope.STATELESS,
-        {"method": method, "max_features": max_features,
-         "denominator_floor": denominator_floor},
-        [c for pair in pairs for c in pair], notes,
+        {"method": method, "max_features": max_features, "denominator_floor": denominator_floor},
+        [c for pair in pairs for c in pair],
+        notes,
     )
 
 
@@ -963,13 +1030,18 @@ def run_temporal_features(
 
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "temporal_features", outputs, (train, test, oos), state, FittingScope.TRAIN_ONLY,
+        "temporal_features",
+        outputs,
+        (train, test, oos),
+        state,
+        FittingScope.TRAIN_ONLY,
         {"timestamp_column": timestamp_column, "features": list(features)},
         [timestamp_column],
-        ["Every feature depends only on its own row's timestamp; none references a "
-         "future observation.",
-         "The days-since origin is fitted on training data so the same calendar date "
-         "yields the same value in every cohort."],
+        [
+            "Every feature depends only on its own row's timestamp; none references a future observation.",
+            "The days-since origin is fitted on training data so the same calendar date "
+            "yields the same value in every cohort.",
+        ],
     )
 
 
@@ -1008,8 +1080,8 @@ def run_aggregation_features(
     if not timestamp_column or timestamp_column not in train.columns:
         raise ValueError("aggregation features require a timestamp_column present in train.")
 
-    columns = list(value_columns) if value_columns else numeric_columns(
-        train, tuple(exclude) + (entity_id_column,)
+    columns = (
+        list(value_columns) if value_columns else numeric_columns(train, tuple(exclude) + (entity_id_column,))
     )
     state = {"value_columns": columns, "windows": list(windows)}
 
@@ -1036,15 +1108,24 @@ def run_aggregation_features(
 
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "aggregation_features", outputs, (train, test, oos), state, FittingScope.STATELESS,
-        {"entity_id_column": entity_id_column, "timestamp_column": timestamp_column,
-         "windows": list(windows)},
+        "aggregation_features",
+        outputs,
+        (train, test, oos),
+        state,
+        FittingScope.STATELESS,
+        {
+            "entity_id_column": entity_id_column,
+            "timestamp_column": timestamp_column,
+            "windows": list(windows),
+        },
         columns,
-        ["Windows are closed on the left, so a row is EXCLUDED from its own aggregate. "
-         "Including it is not future information, but it puts the observation being "
-         "predicted from inside the feature.",
-         "Verified by the fitting-scope audit: perturbing future rows leaves historical "
-         "feature values unchanged."],
+        [
+            "Windows are closed on the left, so a row is EXCLUDED from its own aggregate. "
+            "Including it is not future information, but it puts the observation being "
+            "predicted from inside the feature.",
+            "Verified by the fitting-scope audit: perturbing future rows leaves historical "
+            "feature values unchanged.",
+        ],
     )
 
 
@@ -1102,11 +1183,18 @@ def run_pca_transform(
 
     outputs = _apply([train, test, oos], transform)
     return _result(
-        "pca_transform", outputs, (train, test, oos), state, FittingScope.TRAIN_ONLY,
-        {"n_components": n_components, "whiten": whiten, "seed": seed}, usable,
-        ["Components are fitted on training data and applied unchanged to evaluation "
-         "cohorts. Refitting per cohort would produce different axes and make the "
-         "cohorts incomparable."],
+        "pca_transform",
+        outputs,
+        (train, test, oos),
+        state,
+        FittingScope.TRAIN_ONLY,
+        {"n_components": n_components, "whiten": whiten, "seed": seed},
+        usable,
+        [
+            "Components are fitted on training data and applied unchanged to evaluation "
+            "cohorts. Refitting per cohort would produce different axes and make the "
+            "cohorts incomparable."
+        ],
     )
 
 
@@ -1169,7 +1257,7 @@ def run_selection(
             ss_tot = float(np.sum((matrix[:, index] - matrix[:, index].mean()) ** 2))
             r2 = 1.0 - float(np.sum(residual**2)) / ss_tot if ss_tot > 0 else 0.0
             vif = float("inf") if r2 >= 1 - 1e-12 else 1.0 / (1.0 - r2)
-            scores[column] = -vif      # lower VIF is better, so negate to rank uniformly
+            scores[column] = -vif  # lower VIF is better, so negate to rank uniformly
         keep = [c for c in usable if -scores[c] < vif_threshold]
     else:
         if not target_column or target_column not in train.columns:
@@ -1198,8 +1286,8 @@ def run_selection(
         else:
             from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 
-            is_classification = (
-                yy.nunique() <= 20 and str(yy.dtype).startswith(("int", "bool", "str", "obj", "cat"))
+            is_classification = yy.nunique() <= 20 and str(yy.dtype).startswith(
+                ("int", "bool", "str", "obj", "cat")
             )
             fn = mutual_info_classif if is_classification else mutual_info_regression
             values = fn(X, yy, random_state=seed)
@@ -1232,11 +1320,23 @@ def run_selection(
         "training set and then cross-validating gives optimistic estimates."
     )
     return _result(
-        "selection", outputs, (train, test, oos),
-        {"scores": {k: round(v, 10) for k, v in scores.items()}, "kept": keep,
-         "dropped": dropped, "method": method},
+        "selection",
+        outputs,
+        (train, test, oos),
+        {
+            "scores": {k: round(v, 10) for k, v in scores.items()},
+            "kept": keep,
+            "dropped": dropped,
+            "method": method,
+        },
         FittingScope.TRAIN_ONLY,
-        {"method": method, "top_k": top_k, "threshold": threshold,
-         "vif_threshold": vif_threshold, "seed": seed},
-        dropped, notes,
+        {
+            "method": method,
+            "top_k": top_k,
+            "threshold": threshold,
+            "vif_threshold": vif_threshold,
+            "seed": seed,
+        },
+        dropped,
+        notes,
     )

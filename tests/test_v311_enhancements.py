@@ -63,11 +63,13 @@ class TestReviewConfigCostSpec:
     def test_cost_spec_critical_class(self):
         from start.interactive_review import ReviewConfig
 
-        cfg = ReviewConfig(cost_specification={
-            "type": "critical_class",
-            "critical_class": "fraud",
-            "relative_cost": 10.0,
-        })
+        cfg = ReviewConfig(
+            cost_specification={
+                "type": "critical_class",
+                "critical_class": "fraud",
+                "relative_cost": 10.0,
+            }
+        )
         assert cfg.cost_specification["type"] == "critical_class"
         assert cfg.cost_specification["critical_class"] == "fraud"
         assert cfg.cost_specification["relative_cost"] == 10.0
@@ -176,16 +178,20 @@ class TestCostSensitive:
         from start.modeling.cost_sensitive import cost_sensitive_predictions
 
         # 3 samples, 2 classes
-        probs = np.array([
-            [0.9, 0.1],  # strongly class A
-            [0.05, 0.95],  # strongly class B (probability high enough to overcome cost threshold)
-            [0.5, 0.5],  # tie — cost matrix breaks it
-        ])
+        probs = np.array(
+            [
+                [0.9, 0.1],  # strongly class A
+                [0.05, 0.95],  # strongly class B (probability high enough to overcome cost threshold)
+                [0.5, 0.5],  # tie — cost matrix breaks it
+            ]
+        )
         # Cost matrix: misclassifying A as B costs 10, B as A costs 1
-        cost_matrix = np.array([
-            [0.0, 10.0],
-            [1.0, 0.0],
-        ])
+        cost_matrix = np.array(
+            [
+                [0.0, 10.0],
+                [1.0, 0.0],
+            ]
+        )
         classes = np.array(["A", "B"])
         preds = cost_sensitive_predictions(probs, cost_matrix, classes)
         assert preds[0] == "A"  # high cost of misclassifying A
@@ -239,7 +245,7 @@ class TestCostSensitive:
         assert result.shape == (3, 3)
         assert result[0, 0] == 0.0  # diagonal
         assert result[0, 1] == 10.0  # critical class row off-diagonal
-        assert result[1, 0] == 1.0   # non-critical row
+        assert result[1, 0] == 1.0  # non-critical row
 
 
 # ─── Checkpoint Dialogue ─────────────────────────────────────────────
@@ -267,8 +273,12 @@ class TestCheckpointDialogue:
 
         responses = iter(["a"])
         decision = resolve_checkpoint(
-            "arch", "mlp", "random_forest", "reason",
-            interactive=True, ask=lambda _: next(responses),
+            "arch",
+            "mlp",
+            "random_forest",
+            "reason",
+            interactive=True,
+            ask=lambda _: next(responses),
             emit=lambda _: None,
         )
         assert decision.choice == "accept"
@@ -279,8 +289,12 @@ class TestCheckpointDialogue:
 
         responses = iter(["o", "xgboost"])
         decision = resolve_checkpoint(
-            "arch", "mlp", "random_forest", "reason",
-            interactive=True, ask=lambda _: next(responses),
+            "arch",
+            "mlp",
+            "random_forest",
+            "reason",
+            interactive=True,
+            ask=lambda _: next(responses),
             emit=lambda _: None,
         )
         assert decision.choice == "override"
@@ -292,9 +306,13 @@ class TestCheckpointDialogue:
         responses = iter(["c", "a"])
         emitted: list[str] = []
         decision = resolve_checkpoint(
-            "arch", "mlp", "random_forest", "better fit",
+            "arch",
+            "mlp",
+            "random_forest",
+            "better fit",
             explanation="Random forests handle tabular data better",
-            interactive=True, ask=lambda _: next(responses),
+            interactive=True,
+            ask=lambda _: next(responses),
             emit=lambda msg: emitted.append(msg),
         )
         assert decision.choice == "accept"
@@ -312,9 +330,14 @@ class TestCheckpointDialogue:
             return f"GBM is also good. ({question})"
 
         decision = resolve_checkpoint(
-            "arch", "mlp", "random_forest", "reason",
-            interactive=True, ask=lambda _: next(responses),
-            emit=lambda _: None, on_ask=on_ask,
+            "arch",
+            "mlp",
+            "random_forest",
+            "reason",
+            interactive=True,
+            ask=lambda _: next(responses),
+            emit=lambda _: None,
+            on_ask=on_ask,
         )
         assert len(agent_answers) == 1
         assert agent_answers[0] == "What about GBM?"
@@ -332,9 +355,14 @@ class TestCheckpointDialogue:
             return "answer"
 
         resolve_checkpoint(
-            "arch", "mlp", "rf", "reason",
-            interactive=True, ask=lambda _: next(responses),
-            emit=lambda _: None, on_ask=on_ask,
+            "arch",
+            "mlp",
+            "rf",
+            "reason",
+            interactive=True,
+            ask=lambda _: next(responses),
+            emit=lambda _: None,
+            on_ask=on_ask,
         )
         assert len(agent_calls) == 1
         assert agent_calls[0] == "Real question"
@@ -351,9 +379,14 @@ class TestCheckpointDialogue:
             return "answer"
 
         resolve_checkpoint(
-            "arch", "mlp", "rf", "reason",
-            interactive=True, ask=lambda _: next(responses),
-            emit=lambda _: None, on_ask=on_ask,
+            "arch",
+            "mlp",
+            "rf",
+            "reason",
+            interactive=True,
+            ask=lambda _: next(responses),
+            emit=lambda _: None,
+            on_ask=on_ask,
         )
         assert len(agent_calls) == 1
         assert agent_calls[0] == "Actual question"
@@ -375,9 +408,14 @@ class TestCheckpointDialogue:
             return "test answer"
 
         resolve_checkpoint(
-            "arch", "mlp", "rf", "reason",
-            interactive=True, ask=lambda _: next(responses),
-            emit=lambda msg: emitted.append(msg), on_ask=on_ask,
+            "arch",
+            "mlp",
+            "rf",
+            "reason",
+            interactive=True,
+            ask=lambda _: next(responses),
+            emit=lambda msg: emitted.append(msg),
+            on_ask=on_ask,
             llm=mock_llm,
         )
         assert any("resp_abc123" in e for e in emitted)
@@ -395,10 +433,15 @@ class TestCheckpointDialogue:
             return "agent answer"
 
         resolve_checkpoint(
-            "arch", "mlp", "rf", "reason",
+            "arch",
+            "mlp",
+            "rf",
+            "reason",
             evidence_id="EV-001",
-            interactive=True, ask=lambda _: next(responses),
-            emit=lambda _: None, on_ask=on_ask,
+            interactive=True,
+            ask=lambda _: next(responses),
+            emit=lambda _: None,
+            on_ask=on_ask,
             session=mock_session,
         )
         mock_session.record_qa.assert_called_once()
@@ -411,8 +454,12 @@ class TestCheckpointDialogue:
         from start.interactive_checkpoints import resolve_checkpoint
 
         decision = resolve_checkpoint(
-            "arch", "mlp", "rf", "reason",
-            auto_accept=True, emit=lambda _: None,
+            "arch",
+            "mlp",
+            "rf",
+            "reason",
+            auto_accept=True,
+            emit=lambda _: None,
         )
         assert decision.choice == "auto_accept"
         assert decision.effective_value == "rf"
@@ -421,8 +468,12 @@ class TestCheckpointDialogue:
         from start.interactive_checkpoints import resolve_checkpoint
 
         decision = resolve_checkpoint(
-            "arch", "mlp", "rf", "reason",
-            interactive=False, emit=lambda _: None,
+            "arch",
+            "mlp",
+            "rf",
+            "reason",
+            interactive=False,
+            emit=lambda _: None,
         )
         assert decision.choice == "non_interactive_keep"
         assert decision.effective_value == "mlp"
@@ -454,7 +505,8 @@ class TestCostSpecPrompt:
 
         responses = iter(["1"])
         result = _prompt_cost_specification(
-            "multiclass_classification", ["A", "B", "C"],
+            "multiclass_classification",
+            ["A", "B", "C"],
             ask=lambda _: next(responses),
         )
         assert result == {"type": "balanced"}
@@ -464,7 +516,8 @@ class TestCostSpecPrompt:
 
         responses = iter(["2", "B", "10.0"])
         result = _prompt_cost_specification(
-            "multiclass_classification", ["A", "B", "C"],
+            "multiclass_classification",
+            ["A", "B", "C"],
             ask=lambda _: next(responses),
         )
         assert result["type"] == "critical_class"
@@ -479,7 +532,8 @@ class TestCostSpecPrompt:
         # For B: Cost(B,A) = prompt, Cost(B,B) = skip
         responses = iter(["3", "2.0", "3.0"])
         result = _prompt_cost_specification(
-            "multiclass_classification", ["A", "B"],
+            "multiclass_classification",
+            ["A", "B"],
             ask=lambda _: next(responses),
         )
         assert result["type"] == "matrix"
@@ -493,7 +547,8 @@ class TestCostSpecPrompt:
 
         responses = iter(["2", "INVALID", "5.0"])
         result = _prompt_cost_specification(
-            "multiclass_classification", ["A", "B"],
+            "multiclass_classification",
+            ["A", "B"],
             ask=lambda _: next(responses),
         )
         assert result["critical_class"] == "A"  # falls back to first class
@@ -505,6 +560,7 @@ class TestTuningFoldTelemetry:
     def multiclass_df(self):
         """Create a simple 3-class dataset."""
         import pandas as pd
+
         rng = np.random.default_rng(42)
         n = 200
         X = rng.standard_normal((n, 5))
@@ -517,7 +573,9 @@ class TestTuningFoldTelemetry:
         from start.modeling.tuning_run import run_tuning
 
         result = run_tuning(
-            multiclass_df, "target", [f"f{i}" for i in range(5)],
+            multiclass_df,
+            "target",
+            [f"f{i}" for i in range(5)],
             strategy="bounded_random_search",
             n_trials=2,
             primary_metric="auc_roc",
@@ -534,6 +592,7 @@ class TestTuningFoldTelemetry:
         folds_csv = tmp_path / "tuning" / "TEST" / "tuning_folds.csv"
         assert folds_csv.exists()
         import pandas as pd
+
         folds_df = pd.read_csv(folds_csv)
         assert "trial_id" in folds_df.columns
         assert "fold_id" in folds_df.columns
@@ -547,7 +606,9 @@ class TestTuningFoldTelemetry:
         from start.modeling.tuning_run import run_tuning
 
         result = run_tuning(
-            multiclass_df, "target", [f"f{i}" for i in range(5)],
+            multiclass_df,
+            "target",
+            [f"f{i}" for i in range(5)],
             strategy="bounded_random_search",
             n_trials=2,
             primary_metric="auc_roc",
@@ -567,7 +628,9 @@ class TestTuningFoldTelemetry:
         from start.modeling.tuning_run import run_tuning
 
         result = run_tuning(
-            multiclass_df, "target", [f"f{i}" for i in range(5)],
+            multiclass_df,
+            "target",
+            [f"f{i}" for i in range(5)],
             strategy="bounded_random_search",
             n_trials=3,
             primary_metric="auc_roc",
@@ -590,7 +653,9 @@ class TestTuningFoldTelemetry:
         from start.modeling.tuning_run import run_tuning
 
         run_tuning(
-            multiclass_df, "target", [f"f{i}" for i in range(5)],
+            multiclass_df,
+            "target",
+            [f"f{i}" for i in range(5)],
             strategy="bounded_random_search",
             n_trials=1,
             primary_metric="auc_roc",
@@ -616,6 +681,7 @@ class TestPromptReviewConfigDiscovery:
         import inspect
 
         from start.interactive_review import prompt_review_config
+
         sig = inspect.signature(prompt_review_config)
         assert "model_discovery" in sig.parameters
 
@@ -625,18 +691,20 @@ class TestPromptReviewConfigDiscovery:
         from start.providers.model_discovery import FakeModelDiscovery
 
         # Simulate: select public LLM, select openai, select model 1
-        responses = iter([
-            "3",       # Public LLM Providers
-            "1",       # OpenAI
-            "1",       # Select first model
-            "",        # business objective
-            "",        # clarification
-            "1",       # preset
-            "",        # split
-            "N",       # tuning
-            "1",       # explain method
-            "",        # output dir
-        ])
+        responses = iter(
+            [
+                "3",  # Public LLM Providers
+                "1",  # OpenAI
+                "1",  # Select first model
+                "",  # business objective
+                "",  # clarification
+                "1",  # preset
+                "",  # split
+                "N",  # tuning
+                "1",  # explain method
+                "",  # output dir
+            ]
+        )
 
         discovery = FakeModelDiscovery(models=["gpt-4o", "gpt-4o-mini"])
         try:

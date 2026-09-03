@@ -140,9 +140,7 @@ class AdjudicationRecord:
     reviewer: str
     rationale: str
     adjudicator: str = ADJUDICATOR_CONSTANT
-    timestamp_utc: str = field(
-        default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat()
-    )
+    timestamp_utc: str = field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_evidence_record(self) -> dict[str, Any]:
@@ -205,18 +203,17 @@ def detect_collisions(
 
     # 2. Cascading Failure (Feature leakage vs High AUC pass)
     fe_records = [
-        r for r in evidence_records
-        if "leakage" in r.get("test_id", "") or "drift" in r.get("test_id", "")
+        r for r in evidence_records if "leakage" in r.get("test_id", "") or "drift" in r.get("test_id", "")
     ]
     metric_records = [
-        r for r in evidence_records
+        r
+        for r in evidence_records
         if "cohort_metrics" in r.get("test_id", "") or "performance" in r.get("test_id", "")
     ]
 
     has_leakage_warn_or_fail = any(r.get("status") in ("warn", "fail") for r in fe_records)
     high_auc_without_penalty = any(
-        r.get("status") == "pass" and r.get("metrics", {}).get("test_auc", 0.0) > 0.85
-        for r in metric_records
+        r.get("status") == "pass" and r.get("metrics", {}).get("test_auc", 0.0) > 0.85 for r in metric_records
     )
     if has_leakage_warn_or_fail and high_auc_without_penalty:
         fe_ids = tuple(r.get("evidence_id", "") for r in fe_records)
@@ -318,17 +315,14 @@ def adjudicate_collisions_interactive(
 
     resolved: list[AdjudicationRecord] = []
     rev_name = (
-        reviewer
-        or os.environ.get("START_REVIEWER")
-        or os.environ.get("USER")
-        or "human_reviewer"
+        reviewer or os.environ.get("START_REVIEWER") or os.environ.get("USER") or "human_reviewer"
     ).strip()
 
-    out(f"\n{'='*78}")
+    out(f"\n{'=' * 78}")
     out(" ⚖  ST-ART HUMAN ADJUDICATION COUNCIL")
     out(" The machine detected conflicts between agent recommendations.")
     out(" As the designated Model Risk Officer, you must choose the resolution.")
-    out(f"{'='*78}\n")
+    out(f"{'=' * 78}\n")
 
     for i, col in enumerate(collisions, 1):
         rule_up = col.rule_name.upper()

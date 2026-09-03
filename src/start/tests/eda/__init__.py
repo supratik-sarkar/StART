@@ -210,13 +210,9 @@ def descriptive_statistics(
             f"{', '.join(non_numeric[:8])}."
         )
     if excluded_non_feature:
-        limitations.append(
-            f"Excluded as outputs rather than features: {', '.join(excluded_non_feature)}."
-        )
+        limitations.append(f"Excluded as outputs rather than features: {', '.join(excluded_non_feature)}.")
     if total_non_finite:
-        limitations.append(
-            f"{total_non_finite} non-finite value(s) dropped before computing moments."
-        )
+        limitations.append(f"{total_non_finite} non-finite value(s) dropped before computing moments.")
 
     return TestResult(
         test_id="eda.descriptive_statistics",
@@ -262,9 +258,7 @@ def correlation(
     ``metrics``. Determinism: ``numerical``.
     """
     if method not in {"pearson", "spearman", "kendall"}:
-        raise ValueError(
-            f"method={method!r} is not supported. Use pearson, spearman or kendall."
-        )
+        raise ValueError(f"method={method!r} is not supported. Use pearson, spearman or kendall.")
 
     df: pd.DataFrame = ctx.train
     numeric = _numeric_columns(df, exclude=_non_feature_columns(ctx))
@@ -275,8 +269,7 @@ def correlation(
         return _skipped(
             "eda.correlation",
             "Correlation structure",
-            f"Correlation requires at least two non-constant numeric features; "
-            f"{len(usable)} available.",
+            f"Correlation requires at least two non-constant numeric features; {len(usable)} available.",
             method=method,
             high=high,
         )
@@ -371,9 +364,7 @@ def correlation(
     ).apply_thresholds()
 
 
-def _render_correlation_heatmap(
-    matrix: pd.DataFrame, method: str, high: float, ctx: TestContext
-) -> str:
+def _render_correlation_heatmap(matrix: pd.DataFrame, method: str, high: float, ctx: TestContext) -> str:
     """Deterministic heatmap. Returns "" when matplotlib is unavailable.
 
     Determinism here is *semantic*: fixed figure size, DPI, column ordering, colour map
@@ -412,15 +403,23 @@ def _render_correlation_heatmap(
                     continue
                 # Magnitude is printed, so the reading never depends on colour alone.
                 ax.text(
-                    j, i, f"{value:.2f}",
-                    ha="center", va="center", fontsize=7,
+                    j,
+                    i,
+                    f"{value:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
                     color="white" if abs(value) > 0.55 else "black",
                 )
                 if i != j and abs(value) >= high:
                     ax.add_patch(
                         plt.Rectangle(
-                            (j - 0.5, i - 0.5), 1, 1,
-                            fill=False, edgecolor="black", linewidth=1.8,
+                            (j - 0.5, i - 0.5),
+                            1,
+                            1,
+                            fill=False,
+                            edgecolor="black",
+                            linewidth=1.8,
                         )
                     )
         fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
@@ -523,9 +522,7 @@ def multicollinearity(
         "n_perfectly_collinear": n_perfect,
         "n_features_evaluated": len(usable),
         "n_complete_rows": int(len(frame)),
-        "condition_number": round(condition_number, 6)
-        if math.isfinite(condition_number)
-        else float("inf"),
+        "condition_number": round(condition_number, 6) if math.isfinite(condition_number) else float("inf"),
     }
     for column, value in vifs.items():
         metrics[f"vif.{column}"] = round(value, 6) if math.isfinite(value) else float("inf")
@@ -726,8 +723,7 @@ def categorical_distribution(ctx: TestContext, rare_pct: float = 1.0) -> TestRes
         return _skipped(
             "eda.categorical_distribution",
             "Categorical distribution",
-            "No categorical feature columns available after excluding target, score and "
-            "prediction columns.",
+            "No categorical feature columns available after excluding target, score and prediction columns.",
             rare_pct=rare_pct,
         )
 
@@ -861,9 +857,7 @@ def class_imbalance(
     metrics: dict[str, Any] = {
         "minority_class_share": round(minority_share, 6),
         "majority_class_share": round(majority_share, 6),
-        "imbalance_ratio": round(imbalance_ratio, 6)
-        if math.isfinite(imbalance_ratio)
-        else float("inf"),
+        "imbalance_ratio": round(imbalance_ratio, 6) if math.isfinite(imbalance_ratio) else float("inf"),
         "n_classes": int(counts.size),
         "n_observations": int(series.size),
         "n_missing_target": n_missing,
@@ -883,9 +877,7 @@ def class_imbalance(
         "Counts are exact; shares and the imbalance ratio are numerical.",
     ]
     if inference.is_ambiguous:
-        limitations.append(
-            "Target type was inferred, not stated: " + inference.detail
-        )
+        limitations.append("Target type was inferred, not stated: " + inference.detail)
 
     result = TestResult(
         test_id="eda.class_imbalance",

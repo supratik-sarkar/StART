@@ -41,19 +41,21 @@ class AIEngineeringReport:
         rows = []
         for r in self.results:
             desc = by_name.get(r.adapter, {})
-            rows.append({
-                "adapter": r.adapter,
-                "category": r.category,
-                "purpose": desc.get("purpose", ""),
-                "role": desc.get("role", ""),
-                "status": r.status,
-                "runtime_s": r.runtime_seconds,
-                "would_do": desc.get("would_do", ""),
-                "expected_outputs": desc.get("expected_outputs", []),
-                "install_guidance": desc.get("install_guidance", ""),
-                "artifacts": len(r.artifacts),
-                "evidence": len(r.evidence),
-            })
+            rows.append(
+                {
+                    "adapter": r.adapter,
+                    "category": r.category,
+                    "purpose": desc.get("purpose", ""),
+                    "role": desc.get("role", ""),
+                    "status": r.status,
+                    "runtime_s": r.runtime_seconds,
+                    "would_do": desc.get("would_do", ""),
+                    "expected_outputs": desc.get("expected_outputs", []),
+                    "install_guidance": desc.get("install_guidance", ""),
+                    "artifacts": len(r.artifacts),
+                    "evidence": len(r.evidence),
+                }
+            )
         return rows
 
     def summary_rows(self) -> list[dict[str, Any]]:
@@ -103,6 +105,9 @@ def run_ai_engineering_layer(
             on_adapter(result)
 
     return AIEngineeringReport(
-        results=results, artifacts=artifacts, findings=findings, evidence=evidence,
+        results=results,
+        artifacts=artifacts,
+        findings=findings,
+        evidence=evidence,
         descriptions=descriptions,
     )

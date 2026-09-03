@@ -105,18 +105,18 @@ def generate_institutional_pdf(
     footer_text = _escape_pdf_text(
         "StART v4.5 Certified Deterministic Attestation — Cryptographically Bound to Evidence Records"
     )
-    stream_lines.extend([
-        "/F1 8 Tf",
-        "0 -30 Td",
-        f"({footer_text}) Tj",
-        "ET",
-    ])
+    stream_lines.extend(
+        [
+            "/F1 8 Tf",
+            "0 -30 Td",
+            f"({footer_text}) Tj",
+            "ET",
+        ]
+    )
 
     stream_data = "\n".join(stream_lines).encode("latin-1", errors="replace")
     stream_obj_content = (
-        f"<< /Length {len(stream_data)} >>\nstream\n".encode("latin-1")
-        + stream_data
-        + b"\nendstream"
+        f"<< /Length {len(stream_data)} >>\nstream\n".encode("latin-1") + stream_data + b"\nendstream"
     )
 
     # 1: Catalog
@@ -153,8 +153,7 @@ def generate_institutional_pdf(
 
     # Trailer
     trailer = (
-        f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\n"
-        f"startxref\n{xref_start}\n%%EOF\n"
+        f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\nstartxref\n{xref_start}\n%%EOF\n"
     )
     buffer.write(trailer.encode("latin-1"))
 

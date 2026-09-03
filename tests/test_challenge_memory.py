@@ -42,8 +42,7 @@ def test_disagree_creates_challenge():
 def test_show_evidence_challenge_cites_source():
     df_store = EvidenceStore(outliers={"col_a": 12})
     s = ReviewSession(run_id="R")
-    ctx = AgentContext(agent="FeatureEngineeringAgent", recommendation="clip",
-                       reason="r", evidence=df_store)
+    ctx = AgentContext(agent="FeatureEngineeringAgent", recommendation="clip", reason="r", evidence=df_store)
     ask_agent("FeatureEngineeringAgent", "Show outlier evidence", ctx, s)
     assert s.challenges
     assert "data_statistics.outlier_summary" in s.challenges[0].evidence_used

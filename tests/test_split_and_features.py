@@ -40,9 +40,7 @@ def test_all_strategies_partition_completely(frame):
 
 
 def test_user_controlled_fractions(frame):
-    plan = SplitPlanner().plan(
-        frame, strategy="random", fractions=(0.5, 0.3, 0.2), seed=0
-    )
+    plan = SplitPlanner().plan(frame, strategy="random", fractions=(0.5, 0.3, 0.2), seed=0)
     n = len(frame)
     assert abs(len(plan.train) - 0.5 * n) <= 1
     assert abs(len(plan.test) - 0.3 * n) <= 1

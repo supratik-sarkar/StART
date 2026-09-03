@@ -35,8 +35,12 @@ from start.review.architecture import (
 )
 
 __all__ = [
-    "ApplicableTests", "applicable_tests", "ReviewPlanPreview", "build_plan_preview",
-    "FAMILY_LABELS", "SCOPE_FAMILIES",
+    "ApplicableTests",
+    "applicable_tests",
+    "ReviewPlanPreview",
+    "build_plan_preview",
+    "FAMILY_LABELS",
+    "SCOPE_FAMILIES",
 ]
 
 FAMILY_LABELS: dict[str, str] = {
@@ -58,7 +62,11 @@ SCOPE_FAMILIES: dict[ReviewDomain, tuple[str, ...]] = {
     ReviewDomain.MARKET: ("portfolio", "attribution", "traded_risk", "covariance"),
     ReviewDomain.TREASURY: ("traded_risk",),
     ReviewDomain.PREDICTIVE: (
-        "eda", "preprocessing", "feature_engineering", "supervised", "xai",
+        "eda",
+        "preprocessing",
+        "feature_engineering",
+        "supervised",
+        "xai",
     ),
 }
 
@@ -106,7 +114,8 @@ def applicable_tests(
     wanted = set(contexts)
 
     selected = [
-        spec for spec in list_tests()
+        spec
+        for spec in list_tests()
         if getattr(spec, "context_type", "tabular") in wanted
         and (families is None or spec.family in families)
     ]
@@ -115,8 +124,7 @@ def applicable_tests(
     by_context: dict[str, tuple[str, ...]] = {}
     for context in contexts:
         by_context[context] = tuple(
-            s.test_id for s in selected
-            if getattr(s, "context_type", "tabular") == context
+            s.test_id for s in selected if getattr(s, "context_type", "tabular") == context
         )
 
     return ApplicableTests(
@@ -292,19 +300,15 @@ class ReviewPlanPreview:
         out += [
             "",
             f"  Evidence Store:            {'Enabled' if self.evidence_enabled else 'Disabled'}",
-            f"  Ledger:                    "
-            f"{'Chained / replayable' if self.ledger_enabled else 'Disabled'}",
-            f"  Proof-Carrying Narrative:  "
-            f"{'Enabled' if self.narrative_enabled else 'Disabled'}",
+            f"  Ledger:                    {'Chained / replayable' if self.ledger_enabled else 'Disabled'}",
+            f"  Proof-Carrying Narrative:  {'Enabled' if self.narrative_enabled else 'Disabled'}",
             f"  Evidence Critic:           {'Enabled' if self.critic_enabled else 'Disabled'}",
-            f"  Attestation:               "
-            f"{'Enabled' if self.attestation_enabled else 'Disabled'}",
+            f"  Attestation:               {'Enabled' if self.attestation_enabled else 'Disabled'}",
         ]
         if not bundle.is_complete():
             out += [
                 "",
-                "  ! Missing required context(s): "
-                + ", ".join(bundle.missing_context_types()),
+                "  ! Missing required context(s): " + ", ".join(bundle.missing_context_types()),
                 "    These must be supplied before the review can run.",
             ]
         return out
@@ -332,8 +336,7 @@ class ReviewPlanPreview:
             "portfolio.adversarial.",
         )
         filtered_unplanned = [
-            t for t in unplanned_executed
-            if not any(t.startswith(p) for p in accepted_extra_prefixes)
+            t for t in unplanned_executed if not any(t.startswith(p) for p in accepted_extra_prefixes)
         ]
 
         artifacts = set(generated_artifact_ids or ())
@@ -348,8 +351,9 @@ class ReviewPlanPreview:
         }
 
 
-def build_plan_preview(bundle: ReviewContextBundle,
-                       families: tuple[str, ...] | None = None) -> ReviewPlanPreview:
+def build_plan_preview(
+    bundle: ReviewContextBundle, families: tuple[str, ...] | None = None
+) -> ReviewPlanPreview:
     """Assemble the preview. Every count is derived from the registry."""
     return ReviewPlanPreview(
         bundle=bundle,

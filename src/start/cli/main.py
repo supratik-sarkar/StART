@@ -555,8 +555,7 @@ def llm_check(
 
     if llm_provider not in PROVIDER_KEY_ENV:
         console.print(
-            f"[red]Unknown provider '{llm_provider}'. "
-            f"Known: {', '.join(sorted(PROVIDER_KEY_ENV))}[/red]"
+            f"[red]Unknown provider '{llm_provider}'. Known: {', '.join(sorted(PROVIDER_KEY_ENV))}[/red]"
         )
         raise typer.Exit(code=1)
 
@@ -579,9 +578,7 @@ def llm_check(
     status = ensure_provider_key(llm_provider, prompt_for_key=prompt_for_key)
     console.print(f"Key source: {status.source}")
     if not status.ok and llm_provider != "hf_local":
-        console.print(
-            f"[red]Missing {status.env_var}; set it or re-run with --prompt-for-key.[/red]"
-        )
+        console.print(f"[red]Missing {status.env_var}; set it or re-run with --prompt-for-key.[/red]")
         raise typer.Exit(code=1)
 
     result = run_llm_check(llm_provider)
@@ -597,7 +594,7 @@ review_app = typer.Typer(
     name="review",
     help="StART: Standardized Agentic Reusable Tests — consolidated review commands.",
     no_args_is_help=False,
-    context_settings={"allow_interspersed_args": True}
+    context_settings={"allow_interspersed_args": True},
 )
 app.add_typer(review_app, name="review")
 
@@ -613,6 +610,7 @@ app.add_typer(attest_app, name="attest")
 app.add_typer(keys_app, name="keys")
 app.add_typer(provider_app, name="provider")
 
+
 @review_app.callback(invoke_without_command=True)
 def review_callback(
     ctx: typer.Context,
@@ -623,16 +621,14 @@ def review_callback(
         False, "--non-interactive", help="Run with the given flags, no prompts."
     ),
     target: str = typer.Option(None, help="Target column. Omit to let discovery propose one."),
-    task: str = typer.Option(
-        None, "--task", help="Override task inference (e.g. binary_classification)."
-    ),
+    task: str = typer.Option(None, "--task", help="Override task inference (e.g. binary_classification)."),
     split_strategy: str = typer.Option(
         "stratified", help="random | stratified | time_based | group | custom."
     ),
-    architecture: str = typer.Option("mlp", help="Tabular family: mlp | residual_mlp | wide_deep | catboost | distributed_random_forest."),
-    activation: str = typer.Option(
-        "relu", help="relu | leaky_relu | gelu | tanh | selu | elu."
+    architecture: str = typer.Option(
+        "mlp", help="Tabular family: mlp | residual_mlp | wide_deep | catboost | distributed_random_forest."
     ),
+    activation: str = typer.Option("relu", help="relu | leaky_relu | gelu | tanh | selu | elu."),
     explain_method: str = typer.Option(
         "integrated_gradients", help="integrated_gradients | gradient_shap | permutation."
     ),
@@ -641,13 +637,16 @@ def review_callback(
         "deterministic", "--agent-mode", help="deterministic | llm (evidence-grounded)."
     ),
     llm_provider: str = typer.Option(
-        "none", "--llm-provider", "--provider", help="LLM provider (none | openai | anthropic | grok | gateway | enterprise_llm_gateway)."
+        "none",
+        "--llm-provider",
+        "--provider",
+        help="LLM provider (none | openai | anthropic | grok | gateway | enterprise_llm_gateway).",
     ),
-    model: str = typer.Option(
-        None, "--model", help="Model name for the chosen LLM provider."
-    ),
+    model: str = typer.Option(None, "--model", help="Model name for the chosen LLM provider."),
     answers: str = typer.Option(
-        None, "--answers", help="File with newline-delimited answers (test affordance only; refused in enterprise)."
+        None,
+        "--answers",
+        help="File with newline-delimited answers (test affordance only; refused in enterprise).",
     ),
     transcript: str = typer.Option(
         None, "--transcript", help="File to save the review interaction transcript."
@@ -656,19 +655,22 @@ def review_callback(
         False, "--run-dl/--no-run-dl", help="Train a tabular DL model (binary classification)."
     ),
     enterprise: bool = typer.Option(
-        True, "--enterprise/--standard",
+        True,
+        "--enterprise/--standard",
         help="Enterprise committee review (DEFAULT): evidence-first committee "
         "cards, dataset/FE transparency, ValidationAgent sensitivity review, "
         "MRM-grade signoff, adapter transparency, and dashboard.html/.json/.md. "
         "Use --standard for the legacy/basic review.",
     ),
     cost: str = typer.Option(
-        "balanced", "--cost",
+        "balanced",
+        "--cost",
         help="Which errors are costlier: balanced | false_negatives | false_positives. "
         "Routes the primary metric (e.g. false_negatives -> recall/PR-AUC).",
     ),
     accept_recommendations: bool = typer.Option(
-        False, "--accept-recommendations",
+        False,
+        "--accept-recommendations",
         help="Auto-accept agent recommendations (architecture, feature engineering).",
     ),
     show_progress: bool = typer.Option(
@@ -691,8 +693,11 @@ def review_callback(
         return
 
     import os
+
     if answers and os.environ.get("START_PROFILE") == "enterprise":
-        console.print("[red]--answers is a test-harness affordance and is refused under the enterprise profile.[/red]")
+        console.print(
+            "[red]--answers is a test-harness affordance and is refused under the enterprise profile.[/red]"
+        )
         raise typer.Exit(code=1)
 
     if llm_provider not in ("none", "") and agent_mode == "deterministic":
@@ -708,13 +713,15 @@ def review_callback(
         try:
             wizard_state = run_review_wizard(seed=seed)
             bundle = wizard_state["bundle"]
-            if ReviewDomain.PREDICTIVE in bundle.domains and (ReviewDomain.MARKET not in bundle.domains and ReviewDomain.TREASURY not in bundle.domains):
+            if ReviewDomain.PREDICTIVE in bundle.domains and (
+                ReviewDomain.MARKET not in bundle.domains and ReviewDomain.TREASURY not in bundle.domains
+            ):
                 # Pure Predictive
                 config_state = wizard_state["predictive_config"]
                 selection = config_state.get("dataset_selection")
                 data_path_sel = selection.source_path if selection else None
                 target = config_state.get("target_column")
-                run_dl = (config_state.get("workflow_mode") == "Deep Learning Suite")
+                run_dl = config_state.get("workflow_mode") == "Deep Learning Suite"
 
                 from start.interactive_review import (
                     ReviewConfig,
@@ -761,6 +768,7 @@ def review_callback(
                 if config_state.get("clarification"):
                     cfg.notes.append(f"User clarification: {config_state['clarification']}")
                     from start.interactive_review import _infer_cost_priority
+
                     inferred = _infer_cost_priority(config_state["clarification"])
                     if inferred:
                         cfg.costlier_errors = inferred
@@ -774,11 +782,12 @@ def review_callback(
                     selection = config_state.get("dataset_selection")
                     data_path_sel = selection.source_path if selection else None
                     target = config_state.get("target_column")
-                    run_dl = (config_state.get("workflow_mode") == "Deep Learning Suite")
+                    run_dl = config_state.get("workflow_mode") == "Deep Learning Suite"
                     from start.interactive_review import (
                         ReviewConfig,
                         run_interactive_review,
                     )
+
                     p_cfg = ReviewConfig(
                         data_path=data_path_sel,
                         target=target,
@@ -842,7 +851,9 @@ def review_propensity_demo(
     non_interactive: bool = typer.Option(
         False, "--non-interactive", help="Run with safe defaults, no prompts."
     ),
-    model: str = typer.Option("random_forest", help="random_forest | xgboost | lightgbm | catboost | distributed_random_forest."),
+    model: str = typer.Option(
+        "random_forest", help="random_forest | xgboost | lightgbm | catboost | distributed_random_forest."
+    ),
     tuning: str = typer.Option("none", help="none | grid | random | optuna."),
     cv: int = typer.Option(None, help="K for K-fold CV (3 or 5); omit for holdout."),
     cohort: str = typer.Option("test", help="Sensitivity cohort: test | oos | development."),
@@ -900,7 +911,9 @@ def review_agent_review_cmd(
     ledger: str = _AGENT_OPTS["ledger"],
 ) -> None:
     """Full dual-mode agent review over stored evidence."""
-    agent_review_cmd(config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger)
+    agent_review_cmd(
+        config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger
+    )
 
 
 @review_app.command("review-plan")
@@ -921,7 +934,9 @@ def review_review_plan_cmd(
     ledger: str = _AGENT_OPTS["ledger"],
 ) -> None:
     """Review plan for a stored run."""
-    review_plan_cmd(config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger)
+    review_plan_cmd(
+        config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger
+    )
 
 
 @review_app.command("suggest-tests")
@@ -942,7 +957,9 @@ def review_suggest_tests_cmd(
     ledger: str = _AGENT_OPTS["ledger"],
 ) -> None:
     """Suggested next validation tests for a stored run."""
-    suggest_tests_cmd(config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger)
+    suggest_tests_cmd(
+        config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger
+    )
 
 
 @review_app.command("challenge-findings")
@@ -963,7 +980,9 @@ def review_challenge_findings_cmd(
     ledger: str = _AGENT_OPTS["ledger"],
 ) -> None:
     """Adversarial challenge memo for a stored run."""
-    challenge_findings_cmd(config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger)
+    challenge_findings_cmd(
+        config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger
+    )
 
 
 @review_app.command("signoff")
@@ -984,15 +1003,18 @@ def review_signoff_cmd(
     ledger: str = _AGENT_OPTS["ledger"],
 ) -> None:
     """Governance assessment and sign-off recommendation for a stored run."""
-    signoff_cmd(config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger)
+    signoff_cmd(
+        config, prompt_for_key, allow_fallback, agent_mode, llm_provider, run_id, evidence_dir, ledger
+    )
 
 
 @app.command("verify-live-agents")
 def verify_live_agents(
-    provider: str = typer.Option("openai", help="LLM provider: openai | anthropic")
+    provider: str = typer.Option("openai", help="LLM provider: openai | anthropic"),
 ) -> None:
     """Execute live model discovery and Q&A integration tests to verify the release gate."""
     import os
+
     # Load env variables from .env or ~/.env if available
     for env_path in (".env", os.path.expanduser("~/.env")):
         if os.path.exists(env_path):
@@ -1014,7 +1036,7 @@ def verify_live_agents(
     from start.review_session import ReviewSession
 
     console.print(f"[bold]Starting Live Release-Gate Verification for {provider}...[/bold]")
-    
+
     # 1. Discover models
     discovery = RealProviderModelDiscovery()
     models = discovery.list_models(provider)
@@ -1024,19 +1046,16 @@ def verify_live_agents(
             f"Verify {provider.upper()}_API_KEY is correct.[/red]"
         )
         raise typer.Exit(code=1)
-        
+
     selected_model = models[0]
-    console.print(
-        f"  Live model discovery: PASSED (found {len(models)} models, "
-        f"selected '{selected_model}')"
-    )
+    console.print(f"  Live model discovery: PASSED (found {len(models)} models, selected '{selected_model}')")
 
     # 2. Resolve LLM provider
     llm = get_llm_provider(LLMConfig(provider=cast(Any, provider), model=selected_model))
     if llm.name == "none":
         console.print("[red]Error: Failed to instantiate live LLM provider (returned NoLLMProvider).[/red]")
         raise typer.Exit(code=1)
-        
+
     session = ReviewSession(run_id="SMOKE-TEST")
 
     # 3. Query ArchitectureReviewAgent
@@ -1058,10 +1077,10 @@ def verify_live_agents(
         task_type="multiclass_classification",
         model_name="lstm",
     )
-    
+
     console.print(f"\n[bold]Querying ArchitectureReviewAgent with '{selected_model}'...[/bold]")
     ex1 = ask_agent("ArchitectureReviewAgent", q1, ctx1, session, llm=llm, llm_connected=True)
-    
+
     ans1 = ex1.answer.strip()
     response_id1 = getattr(llm, "last_response_id", "")
     latency1 = getattr(llm, "last_latency_seconds", 0.0)
@@ -1140,4 +1159,3 @@ def verify_live_agents(
         f"\n[bold green]RELEASE GATE VERIFICATION PASSED for "
         f"{provider.upper()} ({selected_model})[/bold green]"
     )
-

@@ -69,6 +69,7 @@ class AgentTrace:
     def render_terminal(self) -> str:
         conf = f" (confidence {self.confidence:.0%})" if self.confidence is not None else ""
         from start.cli.view import AGENT_COLOR_REGISTRY
+
         color = AGENT_COLOR_REGISTRY.get(self.agent, "white")
         lines = [
             f"  +-- [{color}]{self.agent}[/{color}]{conf}",

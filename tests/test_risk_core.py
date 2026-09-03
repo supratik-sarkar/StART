@@ -122,9 +122,7 @@ def test_unknown_capability_override_is_rejected() -> None:
 @pytest.mark.parametrize("stripe_id", ["credit", "market", "financial_crime", "ai_genai"])
 def test_every_combination_produces_a_usable_plan(stripe_id: str, kind: str) -> None:
     """No stripe/object pairing may produce an empty or all-optional plan."""
-    plan = synthesise_plan(
-        stripe_id=stripe_id, obj=RiskObject(object_id="T", kind=kind, materiality="high")
-    )
+    plan = synthesise_plan(stripe_id=stripe_id, obj=RiskObject(object_id="T", kind=kind, materiality="high"))
     assert plan.planned, f"{stripe_id}/{kind} produced no planned dimensions"
     assert plan.required_dimension_ids(), f"{stripe_id}/{kind} produced nothing mandatory"
 
@@ -135,9 +133,7 @@ def test_no_dimension_is_silently_dropped() -> None:
         stripe_id="valuation", obj=RiskObject(object_id="P-1", kind="deterministic_calculator")
     )
     accounted = set(plan.all_dimension_ids()) | {e["dimension"] for e in plan.excluded}
-    assert accounted == set(dimension_ids()), (
-        f"unaccounted dimensions: {set(dimension_ids()) - accounted}"
-    )
+    assert accounted == set(dimension_ids()), f"unaccounted dimensions: {set(dimension_ids()) - accounted}"
     for excluded in plan.excluded:
         assert excluded["reason"], "an exclusion without a reason is just a gap"
 

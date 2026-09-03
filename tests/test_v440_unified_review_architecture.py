@@ -181,7 +181,9 @@ def test_multiline_governance_text_terminator_end():
 
     from start.review.multiline_input import read_multiline_text
 
-    simulated_input = io.StringIO("First line of governance context\nSecond line with 2. option lookalike\nEND\n")
+    simulated_input = io.StringIO(
+        "First line of governance context\nSecond line with 2. option lookalike\nEND\n"
+    )
     captured_output: list[str] = []
 
     result = read_multiline_text(
@@ -353,4 +355,3 @@ def test_statistical_criterion_vs_materiality_criterion_separation():
     assert claim.statistical_gamma_test == 0.05
     assert claim.materiality_criterion_source == "NONE"
     assert claim.threshold_provenance is None
-

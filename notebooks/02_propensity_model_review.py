@@ -8,7 +8,7 @@
 # MAGIC and the proof-carrying evidence pipeline. No core tests are defined here.
 
 # COMMAND ----------
-# MAGIC %pip install git+https://github.com/supratik-sarkar/StART.git
+# MAGIC %pip install git+https://github.com/start-project/start.git
 # (On Databricks, prefer a cluster library or `%pip install /Workspace/Repos/.../StART`.)
 
 # COMMAND ----------

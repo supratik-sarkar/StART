@@ -8,3 +8,10 @@ allowed_data_roots: []          # empty = all data roots permitted
 max_materiality_without_review: high
 require_citations: true
 thresholds: {}
+
+remediation_budgets:
+  overfitting_to_tuning: 3
+  sensitivity_to_tuning: 2
+  explainability_to_feature_engineering: 2
+  validation_to_execution: 2
+  checkpoint_self_loop: 10

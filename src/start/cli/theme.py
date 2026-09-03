@@ -55,18 +55,18 @@ AGENT_SHORT_CODES: dict[str, str] = {
 # Deterministic Palette (256-color safe)
 # --------------------------------------------------------------------------- #
 AGENT_PALETTE: dict[str, str] = {
-    "DSC": "color(33)",    # Blue
-    "TSK": "color(39)",    # Cyan-Blue
-    "FTR": "color(35)",    # Green
-    "ARC": "color(75)",    # Sky Blue
-    "HPO": "color(141)",   # Purple
-    "EXE": "color(178)",   # Gold / Orange
-    "XAI": "color(208)",   # Orange
-    "SNS": "color(172)",   # Dark Orange
-    "OVF": "color(197)",   # Coral / Pink
-    "VAL": "color(43)",    # Mint Green
-    "GOV": "color(214)",   # Amber
-    "CRT": "color(135)",   # Medium Purple
+    "DSC": "color(33)",  # Blue
+    "TSK": "color(39)",  # Cyan-Blue
+    "FTR": "color(35)",  # Green
+    "ARC": "color(75)",  # Sky Blue
+    "HPO": "color(141)",  # Purple
+    "EXE": "color(178)",  # Gold / Orange
+    "XAI": "color(208)",  # Orange
+    "SNS": "color(172)",  # Dark Orange
+    "OVF": "color(197)",  # Coral / Pink
+    "VAL": "color(43)",  # Mint Green
+    "GOV": "color(214)",  # Amber
+    "CRT": "color(135)",  # Medium Purple
 }
 
 # --------------------------------------------------------------------------- #

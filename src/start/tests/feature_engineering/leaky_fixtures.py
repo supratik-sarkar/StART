@@ -106,8 +106,7 @@ def leaky_scaler(
     """
     combined = pd.concat([train, test]) if test is not None else train
     fitted = run_scaling(combined, None, None, **kwargs)
-    return _wrap("leaky_scaler", fitted.fitted_state, train, test, oos,
-                 affected=fitted.affected_features)
+    return _wrap("leaky_scaler", fitted.fitted_state, train, test, oos, affected=fitted.affected_features)
 
 
 # --------------------------------------------------------------------------- #
@@ -127,8 +126,7 @@ def leaky_imputer(
     """
     combined = pd.concat([train, test]) if test is not None else train
     fitted = run_imputation(combined, None, None, **kwargs)
-    return _wrap("leaky_imputer", fitted.fitted_state, train, test, oos,
-                 affected=fitted.affected_features)
+    return _wrap("leaky_imputer", fitted.fitted_state, train, test, oos, affected=fitted.affected_features)
 
 
 # --------------------------------------------------------------------------- #
@@ -155,10 +153,7 @@ def leaky_target_encoder(
 
     y = pd.to_numeric(train[target_column], errors="coerce")
     prior = float(y.mean())
-    categorical = [
-        c for c in train.columns
-        if c != target_column and c not in set(numeric_columns(train))
-    ]
+    categorical = [c for c in train.columns if c != target_column and c not in set(numeric_columns(train))]
     train_out = train.copy()
     maps: dict[str, Any] = {}
     for column in categorical:
@@ -167,8 +162,14 @@ def leaky_target_encoder(
         train_out[column] = [mapping.get(str(v), prior) for v in train[column]]
 
     return _wrap(
-        "leaky_target_encoder", {"maps": maps, "prior": prior},
-        train, test, oos, FittingScope.TRAIN_FOLDS, train_out, tuple(categorical),
+        "leaky_target_encoder",
+        {"maps": maps, "prior": prior},
+        train,
+        test,
+        oos,
+        FittingScope.TRAIN_FOLDS,
+        train_out,
+        tuple(categorical),
     )
 
 
@@ -210,8 +211,16 @@ def leaky_aggregation(
             work[name] = pd.concat(pieces).reindex(work.index)
 
     work = work.drop(columns=["__ts"]).reindex(train.index)
-    return _wrap("leaky_aggregation", {"windows": list(windows)}, train, test, oos,
-                 FittingScope.STATELESS, work, tuple(columns))
+    return _wrap(
+        "leaky_aggregation",
+        {"windows": list(windows)},
+        train,
+        test,
+        oos,
+        FittingScope.STATELESS,
+        work,
+        tuple(columns),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -230,8 +239,7 @@ def leaky_pca(
     """
     combined = pd.concat([train, test]) if test is not None else train
     fitted = run_pca_transform(combined, None, None, **kwargs)
-    return _wrap("leaky_pca", fitted.fitted_state, train, test, oos,
-                 affected=fitted.affected_features)
+    return _wrap("leaky_pca", fitted.fitted_state, train, test, oos, affected=fitted.affected_features)
 
 
 # --------------------------------------------------------------------------- #
@@ -258,19 +266,18 @@ def leaky_selector(
     combined = pd.concat([train, test]) if test is not None else train
     features = numeric_columns(combined, (target_column,))
     y = pd.to_numeric(combined[target_column], errors="coerce")
-    scores = {
-        c: abs(float(pd.to_numeric(combined[c], errors="coerce").corr(y)))
-        for c in features
-    }
+    scores = {c: abs(float(pd.to_numeric(combined[c], errors="coerce").corr(y))) for c in features}
     scores = {c: (0.0 if not np.isfinite(v) else v) for c, v in scores.items()}
     keep = sorted(sorted(scores, key=lambda c: (-scores[c], c))[:top_k])
     dropped = sorted(set(features) - set(keep))
 
     return _wrap(
         "leaky_selector",
-        {"scores": {k: round(v, 10) for k, v in scores.items()},
-         "kept": keep, "dropped": dropped},
-        train, test, oos, FittingScope.TRAIN_ONLY,
+        {"scores": {k: round(v, 10) for k, v in scores.items()}, "kept": keep, "dropped": dropped},
+        train,
+        test,
+        oos,
+        FittingScope.TRAIN_ONLY,
         train.drop(columns=[c for c in dropped if c in train.columns]),
         tuple(dropped),
     )
@@ -278,16 +285,30 @@ def leaky_selector(
 
 #: (fixture, defect description, checks expected to fire)
 LEAKY_FIXTURES: tuple[tuple[Any, str, tuple[str, ...]], ...] = (
-    (leaky_scaler, "scaler fitted on train + test",
-     ("check_1_train_only_reproduction", "check_2_evaluation_influence")),
-    (leaky_imputer, "imputer fitted on train + test",
-     ("check_1_train_only_reproduction", "check_2_evaluation_influence")),
-    (leaky_target_encoder, "full-train target mapping reused on its own train rows",
-     ("check_3_out_of_fold_target_encoding",)),
-    (leaky_aggregation, "rolling window includes future observations",
-     ("check_4_future_influence",)),
-    (leaky_pca, "PCA fitted on train + test",
-     ("check_1_train_only_reproduction", "check_2_evaluation_influence")),
-    (leaky_selector, "selector consumes evaluation labels",
-     ("check_1_train_only_reproduction", "check_2_evaluation_influence")),
+    (
+        leaky_scaler,
+        "scaler fitted on train + test",
+        ("check_1_train_only_reproduction", "check_2_evaluation_influence"),
+    ),
+    (
+        leaky_imputer,
+        "imputer fitted on train + test",
+        ("check_1_train_only_reproduction", "check_2_evaluation_influence"),
+    ),
+    (
+        leaky_target_encoder,
+        "full-train target mapping reused on its own train rows",
+        ("check_3_out_of_fold_target_encoding",),
+    ),
+    (leaky_aggregation, "rolling window includes future observations", ("check_4_future_influence",)),
+    (
+        leaky_pca,
+        "PCA fitted on train + test",
+        ("check_1_train_only_reproduction", "check_2_evaluation_influence"),
+    ),
+    (
+        leaky_selector,
+        "selector consumes evaluation labels",
+        ("check_1_train_only_reproduction", "check_2_evaluation_influence"),
+    ),
 )

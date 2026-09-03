@@ -193,8 +193,7 @@ _FRAMEWORKS: tuple[ControlFramework, ...] = (
             ),
             Expectation(
                 id="bcbs239.adaptability",
-                text="Generate aggregated data to meet ad hoc requests, including under "
-                "stress.",
+                text="Generate aggregated data to meet ad hoc requests, including under stress.",
                 dimensions=("stress_scenario", "reproducibility"),
             ),
         ),
@@ -273,8 +272,7 @@ _FRAMEWORKS: tuple[ControlFramework, ...] = (
             ),
             Expectation(
                 id="nist.manage",
-                text="MANAGE: prioritise and act on risks, including monitoring and "
-                "response.",
+                text="MANAGE: prioritise and act on risks, including monitoring and response.",
                 dimensions=("monitoring", "output_consumption"),
             ),
         ),
@@ -287,8 +285,7 @@ _FRAMEWORKS: tuple[ControlFramework, ...] = (
         expectations=(
             Expectation(
                 id="iso42001.lifecycle",
-                text="Define and control the AI system lifecycle, including change and "
-                "impact assessment.",
+                text="Define and control the AI system lifecycle, including change and impact assessment.",
                 dimensions=("change_control", "documentation_completeness", "monitoring"),
             ),
             Expectation(
@@ -326,8 +323,7 @@ _FRAMEWORKS: tuple[ControlFramework, ...] = (
         expectations=(
             Expectation(
                 id="frtb.backtest",
-                text="Backtest risk measures against realised outcomes with defined "
-                "exception thresholds.",
+                text="Backtest risk measures against realised outcomes with defined exception thresholds.",
                 dimensions=("outcomes_analysis",),
                 requires_all=True,
             ),
@@ -377,8 +373,7 @@ _FRAMEWORKS: tuple[ControlFramework, ...] = (
             ),
             Expectation(
                 id="tprm.monitoring",
-                text="Monitor third-party performance and changes throughout the "
-                "relationship.",
+                text="Monitor third-party performance and changes throughout the relationship.",
                 dimensions=("monitoring", "change_control"),
             ),
         ),
@@ -490,9 +485,7 @@ def coverage_report(
                 "issuer": fw.issuer,
                 "expectations_total": len(fw.expectations),
                 "expectations_covered": covered_count,
-                "coverage_ratio": round(covered_count / len(fw.expectations), 4)
-                if fw.expectations
-                else 0.0,
+                "coverage_ratio": round(covered_count / len(fw.expectations), 4) if fw.expectations else 0.0,
                 "expectations": rows,
             }
         )
@@ -503,9 +496,7 @@ def coverage_report(
         "unmapped_frameworks": sorted(unmapped),
         "expectations_total": total_expectations,
         "expectations_covered": total_covered,
-        "overall_coverage_ratio": round(total_covered / total_expectations, 4)
-        if total_expectations
-        else 0.0,
+        "overall_coverage_ratio": round(total_covered / total_expectations, 4) if total_expectations else 0.0,
         "caveat": (
             "Coverage means a dimension was examined and produced evidence. It is not an "
             "assessment of whether that evidence was sufficient, and it is not a compliance "

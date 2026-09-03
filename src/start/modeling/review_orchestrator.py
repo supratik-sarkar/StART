@@ -125,7 +125,6 @@ class ReviewOrchestrator:
     ) -> ReviewOutcome:
         import uuid
 
-
         run_id = "RUN-MROS-" + uuid.uuid4().hex[:8]
         evidence: list[TestResult] = []
 
@@ -155,7 +154,9 @@ class ReviewOrchestrator:
         self._emit("task_inference", "running")
         task_agent = TaskInferenceAgent()
         inference = task_agent.infer(
-            df, chosen_target, override=task_override,
+            df,
+            chosen_target,
+            override=task_override,
             has_timestamp=bool(profile.timestamp_columns),
         )
         evidence.append(task_agent.to_evidence(inference))
@@ -166,8 +167,11 @@ class ReviewOrchestrator:
         single_target = chosen_target if isinstance(chosen_target, str) else chosen_target[0]
         planner = SplitPlanner()
         plan = planner.plan(
-            df, strategy=split_strategy, target_column=single_target,
-            fractions=fractions, seed=seed,
+            df,
+            strategy=split_strategy,
+            target_column=single_target,
+            fractions=fractions,
+            seed=seed,
         )
         evidence.append(planner.to_evidence(plan, single_target))
         self._emit("split_planning", "complete", f"{plan.strategy} {plan.sizes}")
@@ -188,11 +192,22 @@ class ReviewOrchestrator:
 
         # 8-12. execution + metrics + explainability + sensitivity + robustness
         cohort_metrics: dict[str, dict[str, float]] = {}
-        if modality == "tabular" and run_dl and inference.task_type in ("binary_classification", "multiclass_classification", "regression", "forecasting"):
+        if (
+            modality == "tabular"
+            and run_dl
+            and inference.task_type
+            in ("binary_classification", "multiclass_classification", "regression", "forecasting")
+        ):
             cohort_metrics = self._run_tabular_dl(
-                plan, single_target, evidence, seed, architecture=architecture,
-                task_type=inference.task_type, activation=activation,
-                custom_space=custom_space, class_weight=class_weight,
+                plan,
+                single_target,
+                evidence,
+                seed,
+                architecture=architecture,
+                task_type=inference.task_type,
+                activation=activation,
+                custom_space=custom_space,
+                class_weight=class_weight,
             )
         else:
             self._emit("model_execution", "skipped", "diagnostics-only review (no model trained)")
@@ -210,7 +225,9 @@ class ReviewOrchestrator:
         for s in ("review_planner", "test_suggestion", "model_risk_finding"):
             self._emit(s, "running")
         agent_review = run_agent_review(
-            records, mode=agent_mode, llm=llm,
+            records,
+            mode=agent_mode,
+            llm=llm,
             dataset_profile=profile.summary(),
             demo_meta={"task": inference.task_type, "modality": modality},
         )
@@ -220,7 +237,8 @@ class ReviewOrchestrator:
         self._emit("governance", "complete")
         self._emit("signoff", "complete", agent_review.signoff.split(".")[0])
         self._emit(
-            "evidence_critic", "complete",
+            "evidence_critic",
+            "complete",
             "citation gate: " + ("passed" if agent_review.critique_ok else "failed"),
         )
 
@@ -231,15 +249,24 @@ class ReviewOrchestrator:
         ai_stages = run_all_stages({"run_id": run_id})
         n_avail = sum(1 for s in ai_stages if s.available)
         self._emit(
-            "ai_engineering", "complete",
+            "ai_engineering",
+            "complete",
             f"{n_avail}/{len(ai_stages)} stages available; rest reported not installed",
         )
 
         # 22. report
         self._emit("final_report", "running")
         report_path = self._write_report(
-            run_id, inference, chosen_target, modality, recommended,
-            cohort_metrics, records, agent_review, ai_stages, output_root,
+            run_id,
+            inference,
+            chosen_target,
+            modality,
+            recommended,
+            cohort_metrics,
+            records,
+            agent_review,
+            ai_stages,
+            output_root,
         )
         self._emit("final_report", "complete", str(report_path) if report_path else "")
 
@@ -259,21 +286,31 @@ class ReviewOrchestrator:
 
     # -- helpers ----------------------------------------------------------- #
     def _run_tabular_dl(
-        self, plan, target, evidence, seed, architecture="mlp",
-        task_type="binary_classification", activation="relu",
-        custom_space=None, class_weight=None,
+        self,
+        plan,
+        target,
+        evidence,
+        seed,
+        architecture="mlp",
+        task_type="binary_classification",
+        activation="relu",
+        custom_space=None,
+        class_weight=None,
     ) -> dict[str, dict[str, float]]:
         from start.modeling.models import resolve_model
         from start.modeling.tabular_dl_metrics import dl_task_metrics
         from start.modeling.tuning_run import _model_family
 
-        self._emit("model_execution", "running", f"training tabular {architecture} with activation {activation}")
+        self._emit(
+            "model_execution", "running", f"training tabular {architecture} with activation {activation}"
+        )
         features = [c for c in plan.train.columns if c != target]
         features = [c for c in features if pd.api.types.is_numeric_dtype(plan.train[c])]
-        
+
         family = _model_family(architecture)
         if family == "sklearn":
             from sklearn.impute import SimpleImputer
+
             imputer = SimpleImputer(strategy="median")
             plan.train = plan.train.copy()
             plan.train[features] = imputer.fit_transform(plan.train[features])
@@ -285,6 +322,7 @@ class ReviewOrchestrator:
                 plan.oos[features] = imputer.transform(plan.oos[features])
         if family == "tabular_dl":
             from start.modeling.tabular_dl import TabularDLClassifier
+
             kwargs = {
                 "task": task_type,
                 "family": architecture,
@@ -307,6 +345,7 @@ class ReviewOrchestrator:
             clf = TabularDLClassifier(**kwargs)
         elif family == "sequence_dl":
             from start.modeling.sequence_dl import SequenceClassifier
+
             kwargs = {
                 "family": architecture,
                 "epochs": 8,
@@ -323,6 +362,7 @@ class ReviewOrchestrator:
             clf = SequenceClassifier(**kwargs)
         elif family == "vision_dl":
             from start.modeling.vision_dl import VisionCNNClassifier
+
             arch = "simple_cnn_small" if architecture == "cnn" else architecture
             kwargs = {
                 "architecture": arch,
@@ -352,7 +392,7 @@ class ReviewOrchestrator:
                     clf.set_params(**scalar_space)
                 except Exception:
                     pass
-            
+
         clf.fit(plan.train[features], plan.train[target])
         device_used = getattr(clf, "device_used", "cpu")
         self._emit("model_execution", "complete", f"device={device_used}")
@@ -369,10 +409,11 @@ class ReviewOrchestrator:
                     proba = clf.predict_proba(frame[features])
                     classes = getattr(clf, "classes_", None)
                     cohort_metrics[name] = dl_task_metrics(task_type, y_true, proba, classes=classes)
-                    
+
                     # Labeled confusion matrix computation and printing
                     if classes is not None:
                         from sklearn.metrics import confusion_matrix
+
                         preds = clf.predict(frame[features])
                         cm = confusion_matrix(y_true, preds, labels=classes)
                         print(f"\nConfusion Matrix for cohort '{name}':")
@@ -382,7 +423,7 @@ class ReviewOrchestrator:
                             row_str = " | ".join(f"{cm[idx, j]:>8}" for j in range(len(classes)))
                             print(f"{str(row_label):<11} | {row_str}")
                         print("")
-        
+
         m_key = "rmse" if task_type in ("regression", "forecasting") else "auc_roc"
         evidence.append(
             TestResult(
@@ -422,16 +463,23 @@ class ReviewOrchestrator:
         if output_root:
             from start.evidence.ledger import EvidenceLedger
 
-            ledger = EvidenceLedger(
-                Path(output_root) / "ledger.jsonl", Path(output_root) / "evidence_store"
-            )
+            ledger = EvidenceLedger(Path(output_root) / "ledger.jsonl", Path(output_root) / "evidence_store")
             for rec in records:
                 ledger.append(rec)
         return records
 
     def _write_report(
-        self, run_id, inference, target, modality, recommended,
-        cohort_metrics, evidence, agent_review, ai_stages, output_root,
+        self,
+        run_id,
+        inference,
+        target,
+        modality,
+        recommended,
+        cohort_metrics,
+        evidence,
+        agent_review,
+        ai_stages,
+        output_root,
     ):
         if not output_root:
             return None
@@ -442,8 +490,16 @@ class ReviewOrchestrator:
         path = out_dir / f"{run_id}.md"
         path.write_text(
             render_mros_report(
-                run_id, inference, target, modality, recommended,
-                cohort_metrics, evidence, agent_review, ai_stages, self.stage_events,
+                run_id,
+                inference,
+                target,
+                modality,
+                recommended,
+                cohort_metrics,
+                evidence,
+                agent_review,
+                ai_stages,
+                self.stage_events,
             )
         )
         return path

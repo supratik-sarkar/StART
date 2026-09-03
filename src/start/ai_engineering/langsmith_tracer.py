@@ -65,9 +65,7 @@ def _get_client() -> Any:
         from langsmith import Client
 
         project = (
-            os.environ.get("LANGSMITH_PROJECT")
-            or os.environ.get("LANGCHAIN_PROJECT")
-            or "start-model-review"
+            os.environ.get("LANGSMITH_PROJECT") or os.environ.get("LANGCHAIN_PROJECT") or "start-model-review"
         )
         os.environ["LANGCHAIN_PROJECT"] = project
         _CLIENT = Client()

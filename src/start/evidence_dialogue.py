@@ -29,9 +29,9 @@ INSUFFICIENT = "I do not have sufficient evidence to answer this question."
 @dataclass
 class EvidenceAnswer:
     answer: str
-    grounded: bool          # True if backed by retrieved evidence
+    grounded: bool  # True if backed by retrieved evidence
     evidence: list[dict[str, Any]]
-    refused: bool = False   # True if we declined for lack of evidence
+    refused: bool = False  # True if we declined for lack of evidence
 
 
 # Keyword -> retrieval intent. If a question matches one of these intents we
@@ -98,14 +98,17 @@ def retrieve(intent: str, store: EvidenceStore, question: str) -> list[EvidenceI
         return store.metrics_evidence()
     if intent == "tuning":
         return [
-            EvidenceItem("tuning", f"trial {t.get('trial')}: {t.get('params')} "
-                         f"-> {t.get('validation_metric')}", t, "tuning_run.trials")
+            EvidenceItem(
+                "tuning",
+                f"trial {t.get('trial')}: {t.get('params')} -> {t.get('validation_metric')}",
+                t,
+                "tuning_run.trials",
+            )
             for t in store.tuning_trials[:n]
         ]
     if intent == "leakage":
         return [
-            EvidenceItem("leakage", f"leakage candidate: {c}", c,
-                         "data_statistics.leakage_candidates")
+            EvidenceItem("leakage", f"leakage candidate: {c}", c, "data_statistics.leakage_candidates")
             for c in store.leakage_candidates
         ]
     return []
@@ -119,10 +122,7 @@ def evidence_critic(answer: str, evidence: list[EvidenceItem]) -> bool:
     if not evidence:
         return False
     # at least one evidence label fragment must appear in the answer
-    return any(
-        str(item.value) in answer or item.label.split(":")[0] in answer
-        for item in evidence
-    )
+    return any(str(item.value) in answer or item.label.split(":")[0] in answer for item in evidence)
 
 
 def answer_from_evidence(question: str, store: EvidenceStore) -> EvidenceAnswer | None:
@@ -141,9 +141,10 @@ def answer_from_evidence(question: str, store: EvidenceStore) -> EvidenceAnswer 
         # The reviewer asked for a diagnostic we do not have. Refuse explicitly;
         # never fabricate. Name the category so the refusal is informative.
         return EvidenceAnswer(
-            answer=f"{INSUFFICIENT} (No {intent} evidence is available for this "
-            "review.)",
-            grounded=False, evidence=[], refused=True,
+            answer=f"{INSUFFICIENT} (No {intent} evidence is available for this review.)",
+            grounded=False,
+            evidence=[],
+            refused=True,
         )
 
     lines = [f"Based on the {intent} evidence on record:"]
@@ -154,7 +155,7 @@ def answer_from_evidence(question: str, store: EvidenceStore) -> EvidenceAnswer 
     ok = evidence_critic(answer, items)
     if not ok:
         # critic failed -> do not emit a possibly-ungrounded answer
-        return EvidenceAnswer(answer=INSUFFICIENT, grounded=False,
-                              evidence=[i.to_dict() for i in items], refused=True)
-    return EvidenceAnswer(answer=answer, grounded=True,
-                          evidence=[i.to_dict() for i in items], refused=False)
+        return EvidenceAnswer(
+            answer=INSUFFICIENT, grounded=False, evidence=[i.to_dict() for i in items], refused=True
+        )
+    return EvidenceAnswer(answer=answer, grounded=True, evidence=[i.to_dict() for i in items], refused=False)

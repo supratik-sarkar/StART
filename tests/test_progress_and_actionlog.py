@@ -51,13 +51,24 @@ def test_phases_complete():
 def test_action_log_records_all_fields():
     log = ActionLog()
     a = log.record(
-        "DatasetDiscoveryAgent", "raw dataframe", "profiled schema",
-        recommendation="target=attrition", evidence_ids=["EV-1"],
-        user_decision="confirmed", output_artifact="profile.json",
+        "DatasetDiscoveryAgent",
+        "raw dataframe",
+        "profiled schema",
+        recommendation="target=attrition",
+        evidence_ids=["EV-1"],
+        user_decision="confirmed",
+        output_artifact="profile.json",
     )
     d = a.to_dict()
-    for key in ("agent", "input_reviewed", "action", "recommendation",
-                "evidence_ids", "user_decision", "output_artifact"):
+    for key in (
+        "agent",
+        "input_reviewed",
+        "action",
+        "recommendation",
+        "evidence_ids",
+        "user_decision",
+        "output_artifact",
+    ):
         assert key in d
     assert d["evidence_ids"] == ["EV-1"]
 
@@ -73,8 +84,14 @@ def test_action_log_ordering_and_agents():
 
 def test_action_log_markdown():
     log = ActionLog()
-    log.record("ArchitectureReviewAgent", "mlp choice", "validated",
-               recommendation="keep mlp", evidence_ids=["ARCH-01"], user_decision="accepted")
+    log.record(
+        "ArchitectureReviewAgent",
+        "mlp choice",
+        "validated",
+        recommendation="keep mlp",
+        evidence_ids=["ARCH-01"],
+        user_decision="accepted",
+    )
     md = render_action_log_markdown(log)
     assert "### Agentic action log" in md
     assert "ArchitectureReviewAgent" in md and "ARCH-01" in md

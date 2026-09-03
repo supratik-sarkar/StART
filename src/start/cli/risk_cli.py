@@ -191,9 +191,7 @@ def plan_command(
     if plan.substitutions:
         _echo("\n  Substituted — the obligation transfers rather than lapsing:")
         for sub in plan.substitutions:
-            _echo(
-                f"    {sub['dimension']:<34} → {', '.join(sub['burden_transferred_to'])}"
-            )
+            _echo(f"    {sub['dimension']:<34} → {', '.join(sub['burden_transferred_to'])}")
     if plan.excluded:
         _echo("\n  Excluded — recorded with a reason, never silently skipped:")
         for exc_row in plan.excluded:
@@ -209,9 +207,7 @@ def plan_command(
 @risk_app.command("coverage")
 def coverage_command(
     stripe_id: str = typer.Option(..., "--stripe", help="Risk stripe."),
-    examined: str = typer.Option(
-        "", "--examined", help="Comma-separated dimensions that produced evidence."
-    ),
+    examined: str = typer.Option("", "--examined", help="Comma-separated dimensions that produced evidence."),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Report control-framework coverage from the dimensions actually examined."""
@@ -245,11 +241,8 @@ def coverage_command(
             f"{framework['label']}"
         )
         for row in framework["expectations"]:
-            mark = typer.style("✓", fg=typer.colors.GREEN) if row["covered"] else typer.style(
-                "·", dim=True
-            )
-            _echo(f"    {mark} {row['expectation_id']:<28} missing: "
-                  f"{', '.join(row['missing']) or '—'}")
+            mark = typer.style("✓", fg=typer.colors.GREEN) if row["covered"] else typer.style("·", dim=True)
+            _echo(f"    {mark} {row['expectation_id']:<28} missing: {', '.join(row['missing']) or '—'}")
         _echo()
     if report["unmapped_frameworks"]:
         _echo(
@@ -344,9 +337,7 @@ def egress_command(
     _echo(f"  gateway configured  {manifest['gateway_configured']}")
     _echo(f"  registered gateways {', '.join(manifest['registered_gateways']) or '—'}")
     if policy.overrides:
-        typer.secho(
-            f"  OVERRIDES ACTIVE    {', '.join(policy.overrides)}", fg=typer.colors.YELLOW
-        )
+        typer.secho(f"  OVERRIDES ACTIVE    {', '.join(policy.overrides)}", fg=typer.colors.YELLOW)
     _echo(f"  manifest hash       {manifest['manifest_hash']}")
     _echo()
     _echo(typer.style(f"  {policy.rationale}", dim=True))
@@ -405,7 +396,8 @@ def trace_command(
     if not manifest_path or not manifest_path.exists():
         typer.secho(
             f"Could not resolve seal {seal_clean} to any manifest under {output_root}.",
-            fg=typer.colors.RED, err=True,
+            fg=typer.colors.RED,
+            err=True,
         )
         raise typer.Exit(code=1)
 
@@ -414,12 +406,14 @@ def trace_command(
         enterprise_run_id or manifest_data.get("enterprise_run_id") or manifest_data.get("review_id")
     )
     inner_run_id = (
-        inner_run_id or manifest_data.get("inner_run_id")
+        inner_run_id
+        or manifest_data.get("inner_run_id")
         or manifest_data.get("metadata", {}).get("inner_run_id", "")
     )
 
     # Load ledger records
     from start.evidence.ledger import EvidenceLedger
+
     ledger_path = output_root / "ledger.jsonl"
     store_root = output_root / "evidence_store"
     ledger = EvidenceLedger(ledger_path, store_root)
@@ -480,4 +474,3 @@ def trace_command(
             metrics_str = ", ".join(f"{k}={v}" for k, v in list(r.metrics.items())[:5])
             _echo(f"        metrics: {metrics_str}")
     _echo()
-

@@ -48,7 +48,12 @@ def test_no_non_human_adjudicator_in_source_tree() -> None:
     for py_file in src_dir.rglob("*.py"):
         content = py_file.read_text(encoding="utf-8")
         if '"adjudicator":' in content or "'adjudicator':" in content:
-            assert '"adjudicator": "human"' in content or "'adjudicator': 'human'" in content or "self.adjudicator" in content or "ADJUDICATOR_CONSTANT" in content
+            assert (
+                '"adjudicator": "human"' in content
+                or "'adjudicator': 'human'" in content
+                or "self.adjudicator" in content
+                or "ADJUDICATOR_CONSTANT" in content
+            )
 
 
 def test_architecture_contradiction_detection() -> None:
@@ -64,7 +69,12 @@ def test_architecture_contradiction_detection() -> None:
 def test_cascading_failure_detection() -> None:
     evidence = [
         {"evidence_id": "EV-LEAK-1", "test_id": "preprocessing.leakage", "status": "warn"},
-        {"evidence_id": "EV-MET-1", "test_id": "supervised.cohort_metrics", "status": "pass", "metrics": {"test_auc": 0.89}},
+        {
+            "evidence_id": "EV-MET-1",
+            "test_id": "supervised.cohort_metrics",
+            "status": "pass",
+            "metrics": {"test_auc": 0.89},
+        },
     ]
     cols = detect_collisions(evidence_records=evidence)
     assert len(cols) == 1
@@ -82,31 +92,41 @@ def test_interactive_adjudication_five_paths() -> None:
 
     # Path 1: Uphold A
     inputs_1 = iter(["1", "Overriding with Tabular MLP for credit data."])
-    records, ok = adjudicate_collisions_interactive(cols, reviewer="MRO_1", input_func=lambda _: next(inputs_1), output_func=lambda _: None)
+    records, ok = adjudicate_collisions_interactive(
+        cols, reviewer="MRO_1", input_func=lambda _: next(inputs_1), output_func=lambda _: None
+    )
     assert ok is True
     assert records[0].decision == AdjudicationDecision.UPHOLD_A
 
     # Path 2: Uphold B
     inputs_2 = iter(["2", "Strictly enforcing tabular validation requirements."])
-    records, ok = adjudicate_collisions_interactive(cols, reviewer="MRO_2", input_func=lambda _: next(inputs_2), output_func=lambda _: None)
+    records, ok = adjudicate_collisions_interactive(
+        cols, reviewer="MRO_2", input_func=lambda _: next(inputs_2), output_func=lambda _: None
+    )
     assert ok is True
     assert records[0].decision == AdjudicationDecision.UPHOLD_B
 
     # Path 3: Reconcile Partial
     inputs_3 = iter(["3", "Both valid in transition; documenting dual evaluation."])
-    records, ok = adjudicate_collisions_interactive(cols, reviewer="MRO_3", input_func=lambda _: next(inputs_3), output_func=lambda _: None)
+    records, ok = adjudicate_collisions_interactive(
+        cols, reviewer="MRO_3", input_func=lambda _: next(inputs_3), output_func=lambda _: None
+    )
     assert ok is True
     assert records[0].decision == AdjudicationDecision.RECONCILE_PARTIAL
 
     # Path 4: Defer (Blocks signoff)
     inputs_4 = iter(["4", "Escalating to Senior Risk Committee."])
-    records, ok = adjudicate_collisions_interactive(cols, reviewer="MRO_4", input_func=lambda _: next(inputs_4), output_func=lambda _: None)
+    records, ok = adjudicate_collisions_interactive(
+        cols, reviewer="MRO_4", input_func=lambda _: next(inputs_4), output_func=lambda _: None
+    )
     assert ok is False
     assert records[0].decision == AdjudicationDecision.DEFER
 
     # Path 5: Reject (Halts review)
     inputs_5 = iter(["5", "Flawed model premise; rejecting run."])
-    records, ok = adjudicate_collisions_interactive(cols, reviewer="MRO_5", input_func=lambda _: next(inputs_5), output_func=lambda _: None)
+    records, ok = adjudicate_collisions_interactive(
+        cols, reviewer="MRO_5", input_func=lambda _: next(inputs_5), output_func=lambda _: None
+    )
     assert ok is False
     assert records[0].decision == AdjudicationDecision.REJECT_RUN
 

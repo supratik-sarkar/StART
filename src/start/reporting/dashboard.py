@@ -160,10 +160,8 @@ def render_dashboard_md(model: DashboardModel) -> str:
         f"- Recommended model family: `{model.recommended_family}`",
         f"- Findings: **{ex['total_findings']}** ({ex['blocking_findings']} blocking) "
         f"— {ex['severity_breakdown']}",
-        f"- AI-engineering controls available: "
-        f"{ex['ai_engineering_available']}/{ex['ai_engineering_total']}",
-        f"- Evidence records: {ex['evidence_records']} | "
-        f"Evidence critique: **{ex['evidence_critique']}**",
+        f"- AI-engineering controls available: {ex['ai_engineering_available']}/{ex['ai_engineering_total']}",
+        f"- Evidence records: {ex['evidence_records']} | Evidence critique: **{ex['evidence_critique']}**",
         f"- Sign-off: {model.signoff}",
         "",
     ]
@@ -171,8 +169,10 @@ def render_dashboard_md(model: DashboardModel) -> str:
     if model.activation_report:
         ar = model.activation_report
         lines += [
-            "## LLM Activation", "",
-            "| Field | Value |", "| --- | --- |",
+            "## LLM Activation",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
             f"| Provider | {ar.get('provider')} |",
             f"| Model | {ar.get('model')} |",
             f"| Trust domain | {ar.get('trust_domain')} |",
@@ -206,6 +206,7 @@ def render_dashboard_md(model: DashboardModel) -> str:
             lines += ["", "## Review Journey", ""]
             if decisions:
                 from start.review_tables import decision_ledger_markdown
+
                 lines += [decision_ledger_markdown(decisions).rstrip()]
             if overrides:
                 lines += ["", "**User overrides**", ""]
@@ -217,15 +218,20 @@ def render_dashboard_md(model: DashboardModel) -> str:
             if convos:
                 lines += ["", "**Agent conversations**", ""]
                 for ex in convos:
-                    lines.append(f"- _{ex['agent']}_ (via {ex['backend']}): "
-                                 f"Q: {ex['question']} — A: {ex['answer']}")
+                    lines.append(
+                        f"- _{ex['agent']}_ (via {ex['backend']}): Q: {ex['question']} — A: {ex['answer']}"
+                    )
 
         # v2.3.0 #3/#12: reviewer challenge log
         challenges = rj.get("challenges", [])
         if challenges:
-            lines += ["", "### Reviewer Challenges", "",
-                      "| Status | Agent | Challenge | Evidence used |",
-                      "| --- | --- | --- | --- |"]
+            lines += [
+                "",
+                "### Reviewer Challenges",
+                "",
+                "| Status | Agent | Challenge | Evidence used |",
+                "| --- | --- | --- | --- |",
+            ]
             for c in challenges:
                 lines.append(
                     f"| {c.get('status')} | {c.get('agent')} | {c.get('text')} "
@@ -233,17 +239,23 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 )
             cs_sum = rj.get("challenge_summary", {})
             lines.append("")
-            lines.append(f"_Open: {cs_sum.get('open', 0)} · "
-                         f"Closed: {cs_sum.get('closed', 0)} · "
-                         f"Unresolved: {cs_sum.get('unresolved', 0)}_")
+            lines.append(
+                f"_Open: {cs_sum.get('open', 0)} · "
+                f"Closed: {cs_sum.get('closed', 0)} · "
+                f"Unresolved: {cs_sum.get('unresolved', 0)}_"
+            )
 
         # v2.3.0 #8/#12: ValidationAgent sensitivity review
         vr = rj.get("validation_review")
         if vr:
-            lines += ["", "### ValidationAgent Review", "",
-                      f"- Most sensitive feature: {vr.get('most_sensitive_feature')}",
-                      f"- Max |drift|: {vr.get('max_abs_drift')}",
-                      f"- Signoff impact: {vr.get('signoff_impact')}"]
+            lines += [
+                "",
+                "### ValidationAgent Review",
+                "",
+                f"- Most sensitive feature: {vr.get('most_sensitive_feature')}",
+                f"- Max |drift|: {vr.get('max_abs_drift')}",
+                f"- Signoff impact: {vr.get('signoff_impact')}",
+            ]
             if vr.get("business_interpretation"):
                 lines += ["", "**Business interpretation**", ""]
                 lines += [f"- {b}" for b in vr["business_interpretation"]]
@@ -251,20 +263,28 @@ def render_dashboard_md(model: DashboardModel) -> str:
         # v2.3.0 #11/#12: MRM-grade signoff
         ms = rj.get("mrm_signoff")
         if ms:
-            lines += ["", "### MRM Signoff Decision", "",
-                      f"**Verdict: {ms.get('verdict')}**", "", ms.get("rationale", ""),
-                      "", "| Factor | Status | Detail | Evidence |",
-                      "| --- | --- | --- | --- |"]
+            lines += [
+                "",
+                "### MRM Signoff Decision",
+                "",
+                f"**Verdict: {ms.get('verdict')}**",
+                "",
+                ms.get("rationale", ""),
+                "",
+                "| Factor | Status | Detail | Evidence |",
+                "| --- | --- | --- | --- |",
+            ]
             for f in ms.get("factors", []):
-                lines.append(
-                    f"| {f['factor']} | {f['status']} | {f['detail']} | {f['evidence']} |"
-                )
+                lines.append(f"| {f['factor']} | {f['status']} | {f['detail']} | {f['evidence']} |")
 
     if model.dataset_source:
         src = model.dataset_source
         lines += [
-            "", "## Dataset Source", "",
-            "| Field | Value |", "| --- | --- |",
+            "",
+            "## Dataset Source",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
             f"| Name | {src.get('name')} |",
             f"| Kind | {src.get('kind')} |",
             f"| Rows / Columns | {src.get('n_rows')} / {src.get('n_columns')} |",
@@ -288,8 +308,11 @@ def render_dashboard_md(model: DashboardModel) -> str:
     if model.data_statistics:
         ds = model.data_statistics
         lines += [
-            "", "## Initial Data Statistics", "",
-            "| Metric | Value |", "| --- | --- |",
+            "",
+            "## Initial Data Statistics",
+            "",
+            "| Metric | Value |",
+            "| --- | --- |",
             f"| Rows | {ds.get('n_rows')} |",
             f"| Columns | {ds.get('n_columns')} |",
             f"| Target type | {ds.get('target_type')} |",
@@ -300,14 +323,18 @@ def render_dashboard_md(model: DashboardModel) -> str:
             f"| Suggested split | {ds.get('suggested_split')} |",
         ]
         if ds.get("class_distribution"):
-            lines += ["", "**Class distribution:** " + ", ".join(
-                f"{k}={v:.1%}" for k, v in ds["class_distribution"].items()
-            )]
+            lines += [
+                "",
+                "**Class distribution:** "
+                + ", ".join(f"{k}={v:.1%}" for k, v in ds["class_distribution"].items()),
+            ]
 
     # v2.1.0 model execution: feature-engineering recommendations
     if model.fe_recommendations:
         lines += [
-            "", "## Feature-Engineering Recommendations", "",
+            "",
+            "## Feature-Engineering Recommendations",
+            "",
             "| Step | Recommendation | Reason | Evidence | Risk if ignored | Default |",
             "| --- | --- | --- | --- | --- | --- |",
         ]
@@ -321,10 +348,11 @@ def render_dashboard_md(model: DashboardModel) -> str:
     if model.architecture_review:
         ar = model.architecture_review
         lines += [
-            "", "## Architecture Review", "",
+            "",
+            "## Architecture Review",
+            "",
             f"- User selected: `{ar['user_choice']['family']} + {ar['user_choice']['activation']}`",
-            f"- Agent recommends: `{ar['recommendation']['family']} + "
-            f"{ar['recommendation']['activation']}`",
+            f"- Agent recommends: `{ar['recommendation']['family']} + {ar['recommendation']['activation']}`",
             f"- Reason: {ar['reason']}",
             f"- Evidence: {ar['evidence_id']}",
             f"- Risk if ignored: {ar['risk_if_ignored']}",
@@ -335,7 +363,9 @@ def render_dashboard_md(model: DashboardModel) -> str:
     if model.tuning_plan:
         tp = model.tuning_plan
         lines += [
-            "", "## Hyperparameter Tuning", "",
+            "",
+            "## Hyperparameter Tuning",
+            "",
             f"- Strategy: {tp['strategy']}",
             f"- Primary metric: {tp['primary_metric']}",
             f"- Trials: {tp['n_trials']} | Early stopping: {tp['early_stopping']}",
@@ -351,10 +381,13 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 for k in t.get("params", {}).keys():
                     if k not in param_keys:
                         param_keys.append(k)
-            lines += ["", "### Tuning trials (executed)", "",
-                      f"- Best metric: {tr.get('best_metric'):.4f} | "
-                      f"best params: {tr.get('best_params')}",
-                      ""]
+            lines += [
+                "",
+                "### Tuning trials (executed)",
+                "",
+                f"- Best metric: {tr.get('best_metric'):.4f} | best params: {tr.get('best_params')}",
+                "",
+            ]
             header_cols = ["Trial"] + param_keys + ["Validation metric", "Status"]
             lines.append("| " + " | ".join(header_cols) + " |")
             lines.append("| " + " | ".join(["---"] * len(header_cols)) + " |")
@@ -364,8 +397,9 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 for k in param_keys:
                     cells.append(str(p.get(k, "-")))
                 lines.append(
-                    f"| {t['trial']} | " + " | ".join(cells) +
-                    f" | {t['validation_metric']:.4f} | {t['status']} |"
+                    f"| {t['trial']} | "
+                    + " | ".join(cells)
+                    + f" | {t['validation_metric']:.4f} | {t['status']} |"
                 )
         else:
             lines += ["", f"_{tr.get('note', 'Tuning disabled.')}_"]
@@ -373,19 +407,22 @@ def render_dashboard_md(model: DashboardModel) -> str:
     # v2.3.1 #7: K-fold tuning summary + per-fold metrics (train-only).
     if model.kfold:
         kf = model.kfold
-        lines += ["", "## K-fold Tuning (train-only, stratified)", "",
-                  f"- Method: {kf.get('method')} ({kf.get('n_folds')}-fold)",
-                  f"- Primary metric: {kf.get('primary_metric')}",
-                  f"- Train rows used: {kf.get('train_rows')} "
-                  f"(test/OOS excluded from selection: {kf.get('excluded_rows')})",
-                  f"- Best params: {kf.get('best_params')}",
-                  f"- Best mean: {kf.get('best_mean_metric')} "
-                  f"(std {kf.get('best_std_metric')})",
-                  "", "| Fold | Metric | n_train | n_val |",
-                  "| --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## K-fold Tuning (train-only, stratified)",
+            "",
+            f"- Method: {kf.get('method')} ({kf.get('n_folds')}-fold)",
+            f"- Primary metric: {kf.get('primary_metric')}",
+            f"- Train rows used: {kf.get('train_rows')} "
+            f"(test/OOS excluded from selection: {kf.get('excluded_rows')})",
+            f"- Best params: {kf.get('best_params')}",
+            f"- Best mean: {kf.get('best_mean_metric')} (std {kf.get('best_std_metric')})",
+            "",
+            "| Fold | Metric | n_train | n_val |",
+            "| --- | --- | --- | --- |",
+        ]
         for f in kf.get("best_fold_results", []):
-            lines.append(f"| {f['fold']} | {f['metric']:.4f} | {f['n_train']} "
-                         f"| {f['n_val']} |")
+            lines.append(f"| {f['fold']} | {f['metric']:.4f} | {f['n_train']} | {f['n_val']} |")
 
     # v2.1.1 remediation: model execution — split table, metrics-by-split,
     # training diagnostics, explainability (Sections D/G/I/J/K)
@@ -393,9 +430,13 @@ def render_dashboard_md(model: DashboardModel) -> str:
         me = model.model_execution
         split = me.get("split_table") or []
         if split:
-            lines += ["", "## Train/Test/OOS Split", "",
-                      "| Split | Rows | Percent | Positive rate | Negative rate |",
-                      "| --- | --- | --- | --- | --- |"]
+            lines += [
+                "",
+                "## Train/Test/OOS Split",
+                "",
+                "| Split | Rows | Percent | Positive rate | Negative rate |",
+                "| --- | --- | --- | --- | --- |",
+            ]
             for r in split:
                 lines.append(
                     f"| {r['split']} | {r['rows']} | {r['percent']}% "
@@ -403,28 +444,43 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 )
         mbs = me.get("metrics_by_split") or {}
         if mbs:
-            keys = ["auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1",
-                    "specificity", "brier_score", "ece"]
-            lines += ["", "## Metrics by Split", "",
-                      "| Split | " + " | ".join(keys) + " |",
-                      "| --- " * (len(keys) + 1) + "|"]
+            keys = [
+                "auc_roc",
+                "pr_auc",
+                "accuracy",
+                "precision",
+                "recall",
+                "f1",
+                "specificity",
+                "brier_score",
+                "ece",
+            ]
+            lines += [
+                "",
+                "## Metrics by Split",
+                "",
+                "| Split | " + " | ".join(keys) + " |",
+                "| --- " * (len(keys) + 1) + "|",
+            ]
             for split_name, m in mbs.items():
                 cells = " | ".join(
-                    f"{m.get(k, float('nan')):.4f}" if isinstance(m.get(k), (int, float))
-                    else "—" for k in keys
+                    f"{m.get(k, float('nan')):.4f}" if isinstance(m.get(k), (int, float)) else "—"
+                    for k in keys
                 )
                 lines.append(f"| {split_name} | {cells} |")
             if me.get("generalization_gap") is not None:
                 lines += ["", f"Generalization gap (train - OOS): {me['generalization_gap']:.4f}"]
         gi = me.get("global_importance") or []
         if gi:
-            lines += ["", f"## Explainability — {me.get('explainability_method')}", "",
-                      "| Rank | Feature | Importance | Direction |",
-                      "| --- | --- | --- | --- |"]
+            lines += [
+                "",
+                f"## Explainability — {me.get('explainability_method')}",
+                "",
+                "| Rank | Feature | Importance | Direction |",
+                "| --- | --- | --- | --- |",
+            ]
             for r in gi:
-                lines.append(
-                    f"| {r['rank']} | {r['feature']} | {r['importance']} | {r['direction']} |"
-                )
+                lines.append(f"| {r['rank']} | {r['feature']} | {r['importance']} | {r['direction']} |")
 
     lines += ["", "## Validation Review", ""]
     if model.cohort_metrics:
@@ -442,9 +498,13 @@ def render_dashboard_md(model: DashboardModel) -> str:
 
     # v2.1.1 Sections L/M: AI-Engineering Control Surface (purpose/role/install)
     if model.control_surface:
-        lines += ["", "## AI-Engineering Control Surface", "",
-                  "| Adapter | Purpose | Role | Status | Outputs | Install guidance |",
-                  "| --- | --- | --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## AI-Engineering Control Surface",
+            "",
+            "| Adapter | Purpose | Role | Status | Outputs | Install guidance |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
         for r in model.control_surface:
             outputs = ", ".join(r.get("expected_outputs", [])) or "—"
             lines.append(
@@ -452,9 +512,13 @@ def render_dashboard_md(model: DashboardModel) -> str:
                 f"| {r.get('status')} | {outputs} | {r.get('install_guidance', '') or '—'} |"
             )
     else:
-        lines += ["", "## AI-Engineering Review", "",
-                  "| Adapter | Category | Status | Runtime (s) | Artifacts | Evidence |",
-                  "| --- | --- | --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## AI-Engineering Review",
+            "",
+            "| Adapter | Category | Status | Runtime (s) | Artifacts | Evidence |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
         for r in model.ai_engineering_rows:
             lines.append(
                 f"| {r.get('adapter')} | {r.get('category')} | {r.get('status')} "
@@ -465,7 +529,9 @@ def render_dashboard_md(model: DashboardModel) -> str:
     if model.sensitivity:
         sa = model.sensitivity
         lines += [
-            "", "## Sensitivity Analysis", "",
+            "",
+            "## Sensitivity Analysis",
+            "",
             f"- Metric: {sa.get('metric_name')}",
             f"- Baseline (0% shock): {sa.get('baseline')}",
             f"- Most sensitive feature: {sa.get('most_sensitive_feature')}",
@@ -474,8 +540,11 @@ def render_dashboard_md(model: DashboardModel) -> str:
         rows = sa.get("rows", [])
         if rows:
             base = sa.get("baseline", 0.0)
-            lines += ["", "| Feature | Shock % | Baseline | Shocked | Delta | Risk impact |",
-                      "| --- | --- | --- | --- | --- | --- |"]
+            lines += [
+                "",
+                "| Feature | Shock % | Baseline | Shocked | Delta | Risk impact |",
+                "| --- | --- | --- | --- | --- | --- |",
+            ]
             for r in rows[:35]:
                 lines.append(
                     f"| {r['feature']} | {int(r['shock'] * 100):+d}% | {base:.4f} "
@@ -486,7 +555,9 @@ def render_dashboard_md(model: DashboardModel) -> str:
     # v2.1.0 model execution: agentic action log
     if model.action_log:
         lines += [
-            "", "## Agentic Action Log", "",
+            "",
+            "## Agentic Action Log",
+            "",
             "| Agent | Input reviewed | Action | Recommendation | Evidence | User decision |",
             "| --- | --- | --- | --- | --- | --- |",
         ]
@@ -500,7 +571,9 @@ def render_dashboard_md(model: DashboardModel) -> str:
     # v2.1.1 Section K: agent reasoning traces (thinking visibility)
     if model.agent_traces:
         lines += [
-            "", "## Agent Reasoning Traces", "",
+            "",
+            "## Agent Reasoning Traces",
+            "",
             "| Agent | Inputs | Reasoning | Decision | Confidence | Alternative | Evidence |",
             "| --- | --- | --- | --- | --- | --- | --- |",
         ]
@@ -514,8 +587,10 @@ def render_dashboard_md(model: DashboardModel) -> str:
 
     lines += ["", "## Governance Findings", ""]
     if model.findings:
-        lines += ["| Severity | Materiality | Category | Title | Evidence | Recommendation |",
-                  "| --- | --- | --- | --- | --- | --- |"]
+        lines += [
+            "| Severity | Materiality | Category | Title | Evidence | Recommendation |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
         for f in model.findings:
             lines.append(
                 f"| {f['severity']} | {f['materiality']} | {f['risk_category']} "
@@ -524,26 +599,39 @@ def render_dashboard_md(model: DashboardModel) -> str:
     else:
         lines.append("_No findings raised._")
 
-    lines += ["", "## Evidence Ledger Summary", "",
-              f"Total records: {model.evidence_summary.get('total', len(model.evidence_rows))}", ""]
+    lines += [
+        "",
+        "## Evidence Ledger Summary",
+        "",
+        f"Total records: {model.evidence_summary.get('total', len(model.evidence_rows))}",
+        "",
+    ]
     if model.evidence_rows:
         lines += ["| Evidence ID | Test | Status |", "| --- | --- | --- |"]
         for e in model.evidence_rows[:50]:
             lines.append(f"| {e.get('evidence_id', '—')} | {e.get('test_name')} | {e.get('status')} |")
 
-    lines += ["", "## Final Signoff", "",
-              f"**Evidence critique:** {'PASSED' if model.critique_ok else 'FAILED'}",
-              "", model.signoff or "_pending_", ""]
+    lines += [
+        "",
+        "## Final Signoff",
+        "",
+        f"**Evidence critique:** {'PASSED' if model.critique_ok else 'FAILED'}",
+        "",
+        model.signoff or "_pending_",
+        "",
+    ]
 
     # v2.1.1 Section N/Q: artifact catalog
     if model.artifact_catalog:
-        lines += ["", "## Artifact Catalog", "",
-                  "| Artifact | Type | Category | Location |",
-                  "| --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## Artifact Catalog",
+            "",
+            "| Artifact | Type | Category | Location |",
+            "| --- | --- | --- | --- |",
+        ]
         for a in model.artifact_catalog:
-            lines.append(
-                f"| {a.get('name')} | {a.get('type')} | {a.get('category')} | {a.get('path')} |"
-            )
+            lines.append(f"| {a.get('name')} | {a.get('type')} | {a.get('category')} | {a.get('path')} |")
     return "\n".join(lines) + "\n"
 
 
@@ -587,9 +675,7 @@ def render_dashboard_html(model: DashboardModel) -> str:
 
     def table(headers: list[str], rows: list[list[Any]]) -> str:
         head = "".join(f"<th>{esc(h)}</th>" for h in headers)
-        body = "".join(
-            "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows
-        )
+        body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
         return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
 
     crit = "ok" if model.critique_ok else "bad"
@@ -615,40 +701,40 @@ def render_dashboard_html(model: DashboardModel) -> str:
     # v2.1.1 Section A: LLM activation
     if model.activation_report:
         ar = model.activation_report
-        status_cls = {"CONNECTED": "ok", "FAILED": "bad", "FALLBACK": "warn"}.get(
-            ar.get("status"), "warn"
-        )
+        status_cls = {"CONNECTED": "ok", "FAILED": "bad", "FALLBACK": "warn"}.get(ar.get("status"), "warn")
         arows = [
-            ["Provider", esc(ar.get("provider"))], ["Model", esc(ar.get("model"))],
-            ["Trust domain", esc(ar.get("trust_domain"))], ["Endpoint", esc(ar.get("endpoint"))],
+            ["Provider", esc(ar.get("provider"))],
+            ["Model", esc(ar.get("model"))],
+            ["Trust domain", esc(ar.get("trust_domain"))],
+            ["Endpoint", esc(ar.get("endpoint"))],
             ["Status", f"<span class='{status_cls}'>{esc(ar.get('status'))}</span>"],
         ]
         detail = f"<p>{esc(ar['detail'])}</p>" if ar.get("detail") else ""
         sections.append(
-            "<section><h2>LLM Activation</h2>" + table(["Field", "Value"], arows)
-            + detail + "</section>"
+            "<section><h2>LLM Activation</h2>" + table(["Field", "Value"], arows) + detail + "</section>"
         )
 
     model_html = f"<p>{esc(model.model_summary or model.recommended_family)}</p>"
     if model.cnn_config:
-        model_html += table(
-            ["Parameter", "Value"], [[esc(k), esc(v)] for k, v in model.cnn_config.items()]
-        )
+        model_html += table(["Parameter", "Value"], [[esc(k), esc(v)] for k, v in model.cnn_config.items()])
     sections.append(f"<section><h2>Model Review</h2>{model_html}</section>")
 
     # v2.1.0 model execution HTML sections
     if model.dataset_source:
         src = model.dataset_source
         srows = [
-            ["Name", esc(src.get("name"))], ["Kind", esc(src.get("kind"))],
+            ["Name", esc(src.get("name"))],
+            ["Kind", esc(src.get("kind"))],
             ["Rows / Columns", f"{esc(src.get('n_rows'))} / {esc(src.get('n_columns'))}"],
             ["Target", esc(src.get("target_column"))],
         ]
         if src.get("public_url"):
-            srows.append([
-                "Public source",
-                f"<a href='{esc(src['public_url'])}'>{esc(src['public_url'])}</a>",
-            ])
+            srows.append(
+                [
+                    "Public source",
+                    f"<a href='{esc(src['public_url'])}'>{esc(src['public_url'])}</a>",
+                ]
+            )
         if src.get("file_path"):
             srows.append(["File path", esc(src.get("file_path"))])
             srows.append(["Detected format", esc(src.get("detected_format"))])
@@ -662,8 +748,7 @@ def render_dashboard_html(model: DashboardModel) -> str:
         if src.get("task_suitability"):
             extra += f"<p><b>Task suitability:</b> {esc(src['task_suitability'])}</p>"
         sections.append(
-            "<section><h2>Dataset Source</h2>"
-            + table(["Field", "Value"], srows) + extra + "</section>"
+            "<section><h2>Dataset Source</h2>" + table(["Field", "Value"], srows) + extra + "</section>"
         )
     # #6: Review Journey embedded in the primary dashboard (committee transcript).
     if model.review_journey:
@@ -674,28 +759,42 @@ def render_dashboard_html(model: DashboardModel) -> str:
         if decisions or convos:
             parts_rj = ["<section><h2>Review Journey</h2>"]
             if decisions:
-                drows = [[esc(d["key"]), esc(d["recommended"]), esc(d["effective"]),
-                          esc(d["choice"])] for d in decisions]
-                parts_rj.append("<h3>Decisions</h3>" + table(
-                    ["Checkpoint", "Recommended", "User chose", "Outcome"], drows))
+                drows = [
+                    [esc(d["key"]), esc(d["recommended"]), esc(d["effective"]), esc(d["choice"])]
+                    for d in decisions
+                ]
+                parts_rj.append(
+                    "<h3>Decisions</h3>"
+                    + table(["Checkpoint", "Recommended", "User chose", "Outcome"], drows)
+                )
             if overrides:
-                parts_rj.append("<h3>User overrides</h3><ul>" + "".join(
-                    f"<li><b>{esc(d['key'])}</b>: chose <code>{esc(d['effective'])}</code> "
-                    f"over <code>{esc(d['recommended'])}</code> ({esc(d['choice'])})</li>"
-                    for d in overrides) + "</ul>")
+                parts_rj.append(
+                    "<h3>User overrides</h3><ul>"
+                    + "".join(
+                        f"<li><b>{esc(d['key'])}</b>: chose <code>{esc(d['effective'])}</code> "
+                        f"over <code>{esc(d['recommended'])}</code> ({esc(d['choice'])})</li>"
+                        for d in overrides
+                    )
+                    + "</ul>"
+                )
             if convos:
-                parts_rj.append("<h3>Agent conversations</h3>" + "".join(
-                    f"<div class='qa'><div>{esc(ex['agent'])} "
-                    f"<small>(via {esc(ex['backend'])})</small></div>"
-                    f"<div class='q'>Q: {esc(ex['question'])}</div>"
-                    f"<div>A: {esc(ex['answer'])}</div></div>"
-                    for ex in convos))
+                parts_rj.append(
+                    "<h3>Agent conversations</h3>"
+                    + "".join(
+                        f"<div class='qa'><div>{esc(ex['agent'])} "
+                        f"<small>(via {esc(ex['backend'])})</small></div>"
+                        f"<div class='q'>Q: {esc(ex['question'])}</div>"
+                        f"<div>A: {esc(ex['answer'])}</div></div>"
+                        for ex in convos
+                    )
+                )
             parts_rj.append("</section>")
             sections.append("".join(parts_rj))
     if model.data_statistics:
         ds = model.data_statistics
         srows = [
-            ["Rows", esc(ds.get("n_rows"))], ["Columns", esc(ds.get("n_columns"))],
+            ["Rows", esc(ds.get("n_rows"))],
+            ["Columns", esc(ds.get("n_columns"))],
             ["Target type", esc(ds.get("target_type"))],
             ["Numeric / Categorical", f"{esc(ds.get('n_numeric'))} / {esc(ds.get('n_categorical'))}"],
             ["Duplicate rows", esc(ds.get("n_duplicate_rows"))],
@@ -704,13 +803,17 @@ def render_dashboard_html(model: DashboardModel) -> str:
             ["Suggested split", esc(ds.get("suggested_split"))],
         ]
         sections.append(
-            "<section><h2>Initial Data Statistics</h2>"
-            + table(["Metric", "Value"], srows) + "</section>"
+            "<section><h2>Initial Data Statistics</h2>" + table(["Metric", "Value"], srows) + "</section>"
         )
     if model.fe_recommendations:
         frows = [
-            [esc(r["step"]), esc(r["recommendation"]), esc(r["evidence_id"]),
-             esc(r["risk_if_ignored"]), esc(r["default_action"])]
+            [
+                esc(r["step"]),
+                esc(r["recommendation"]),
+                esc(r["evidence_id"]),
+                esc(r["risk_if_ignored"]),
+                esc(r["default_action"]),
+            ]
             for r in model.fe_recommendations
         ]
         sections.append(
@@ -736,11 +839,18 @@ def render_dashboard_html(model: DashboardModel) -> str:
         tp = model.tuning_plan
         sections.append(
             "<section><h2>Hyperparameter Tuning</h2>"
-            + table(["Setting", "Value"], [
-                ["Strategy", esc(tp["strategy"])], ["Primary metric", esc(tp["primary_metric"])],
-                ["Trials", esc(tp["n_trials"])], ["Early stopping", esc(tp["early_stopping"])],
-                ["Validation", esc(tp["validation"])], ["Evidence", esc(tp["evidence_id"])],
-            ]) + "</section>"
+            + table(
+                ["Setting", "Value"],
+                [
+                    ["Strategy", esc(tp["strategy"])],
+                    ["Primary metric", esc(tp["primary_metric"])],
+                    ["Trials", esc(tp["n_trials"])],
+                    ["Early stopping", esc(tp["early_stopping"])],
+                    ["Validation", esc(tp["validation"])],
+                    ["Evidence", esc(tp["evidence_id"])],
+                ],
+            )
+            + "</section>"
         )
     # v2.1.1 remediation Section H: real tuning trials (executed)
     if model.tuning_run:
@@ -780,8 +890,13 @@ def render_dashboard_html(model: DashboardModel) -> str:
         split = me.get("split_table") or []
         if split:
             srows = [
-                [esc(r["split"]), esc(r["rows"]), f"{r['percent']}%",
-                 esc(r["positive_rate"]), esc(r["negative_rate"])]
+                [
+                    esc(r["split"]),
+                    esc(r["rows"]),
+                    f"{r['percent']}%",
+                    esc(r["positive_rate"]),
+                    esc(r["negative_rate"]),
+                ]
                 for r in split
             ]
             sections.append(
@@ -791,8 +906,17 @@ def render_dashboard_html(model: DashboardModel) -> str:
             )
         mbs = me.get("metrics_by_split") or {}
         if mbs:
-            keys = ["auc_roc", "pr_auc", "accuracy", "precision", "recall", "f1",
-                    "specificity", "brier_score", "ece"]
+            keys = [
+                "auc_roc",
+                "pr_auc",
+                "accuracy",
+                "precision",
+                "recall",
+                "f1",
+                "specificity",
+                "brier_score",
+                "ece",
+            ]
             mrows = []
             for split_name, m in mbs.items():
                 row = [esc(split_name)] + [
@@ -804,14 +928,12 @@ def render_dashboard_html(model: DashboardModel) -> str:
             if me.get("generalization_gap") is not None:
                 gap = f"<p>Generalization gap (train - OOS): {esc(me['generalization_gap'])}</p>"
             sections.append(
-                "<section><h2>Metrics by Split</h2>"
-                + table(["Split"] + keys, mrows) + gap + "</section>"
+                "<section><h2>Metrics by Split</h2>" + table(["Split"] + keys, mrows) + gap + "</section>"
             )
         gi = me.get("global_importance") or []
         if gi:
             grows = [
-                [esc(r["rank"]), esc(r["feature"]), esc(r["importance"]), esc(r["direction"])]
-                for r in gi
+                [esc(r["rank"]), esc(r["feature"]), esc(r["importance"]), esc(r["direction"])] for r in gi
             ]
             sections.append(
                 f"<section><h2>Explainability — {esc(me.get('explainability_method'))}</h2>"
@@ -821,8 +943,12 @@ def render_dashboard_html(model: DashboardModel) -> str:
 
     if model.cohort_metrics:
         rows = [
-            [esc(c), f"{m.get('auc_roc', float('nan')):.4f}",
-             f"{m.get('accuracy', float('nan')):.4f}", f"{m.get('f1', float('nan')):.4f}"]
+            [
+                esc(c),
+                f"{m.get('auc_roc', float('nan')):.4f}",
+                f"{m.get('accuracy', float('nan')):.4f}",
+                f"{m.get('f1', float('nan')):.4f}",
+            ]
             for c, m in model.cohort_metrics.items()
         ]
         val = table(["Cohort", "AUC-ROC", "Accuracy", "F1"], rows)
@@ -830,26 +956,31 @@ def render_dashboard_html(model: DashboardModel) -> str:
         val = "<p>No cohort metrics (diagnostics-only review).</p>"
     sections.append(f"<section><h2>Validation Review</h2>{val}</section>")
 
-    sections.append(
-        f"<section><h2>Explainability Review</h2>{_kv_html(model.explainability, esc)}</section>"
-    )
-    sections.append(
-        f"<section><h2>Robustness Review</h2>{_kv_html(model.robustness, esc)}</section>"
-    )
+    sections.append(f"<section><h2>Explainability Review</h2>{_kv_html(model.explainability, esc)}</section>")
+    sections.append(f"<section><h2>Robustness Review</h2>{_kv_html(model.robustness, esc)}</section>")
 
     ai_rows = [
-        [esc(r.get("adapter")), esc(r.get("category")),
-         f"<span class='status-{esc(r.get('status'))}'>{esc(r.get('status'))}</span>",
-         esc(r.get("runtime_s", 0)), esc(r.get("artifacts", 0)), esc(r.get("evidence", 0))]
+        [
+            esc(r.get("adapter")),
+            esc(r.get("category")),
+            f"<span class='status-{esc(r.get('status'))}'>{esc(r.get('status'))}</span>",
+            esc(r.get("runtime_s", 0)),
+            esc(r.get("artifacts", 0)),
+            esc(r.get("evidence", 0)),
+        ]
         for r in model.ai_engineering_rows
     ]
     if model.control_surface:
         cs_rows = [
-            [esc(r.get("adapter")), esc(r.get("purpose", "")), esc(r.get("role", "")),
-             f"<span class='{('ok' if r.get('status') in ('complete', 'available') else 'warn')}'>"
-             f"{esc(r.get('status'))}</span>",
-             esc(", ".join(r.get("expected_outputs", [])) or "—"),
-             esc(r.get("install_guidance", "") or "—")]
+            [
+                esc(r.get("adapter")),
+                esc(r.get("purpose", "")),
+                esc(r.get("role", "")),
+                f"<span class='{('ok' if r.get('status') in ('complete', 'available') else 'warn')}'>"
+                f"{esc(r.get('status'))}</span>",
+                esc(", ".join(r.get("expected_outputs", [])) or "—"),
+                esc(r.get("install_guidance", "") or "—"),
+            ]
             for r in model.control_surface
         ]
         sections.append(
@@ -875,22 +1006,26 @@ def render_dashboard_html(model: DashboardModel) -> str:
             f"<p>Metric: <b>{esc(sa.get('metric_name'))}</b> | baseline "
             f"{esc(sa.get('baseline'))} | most sensitive: "
             f"<b>{esc(sa.get('most_sensitive_feature'))}</b> | max |drift| "
-            f"{esc(sa.get('max_abs_drift'))}</p>"
-            + (table(["Feature"] + shock_cols, srows) if srows else "")
+            f"{esc(sa.get('max_abs_drift'))}</p>" + (table(["Feature"] + shock_cols, srows) if srows else "")
         )
         sections.append(f"<section><h2>Sensitivity Analysis</h2>{sens_html}</section>")
     if model.action_log:
         arows = [
-            [esc(a["agent"]), esc(a["input_reviewed"]), esc(a["action"]),
-             esc(a.get("recommendation") or "—"),
-             esc(", ".join(a.get("evidence_ids", [])) or "—"),
-             esc(a.get("user_decision") or "—")]
+            [
+                esc(a["agent"]),
+                esc(a["input_reviewed"]),
+                esc(a["action"]),
+                esc(a.get("recommendation") or "—"),
+                esc(", ".join(a.get("evidence_ids", [])) or "—"),
+                esc(a.get("user_decision") or "—"),
+            ]
             for a in model.action_log
         ]
         sections.append(
             "<section><h2>Agentic Action Log</h2>"
-            + table(["Agent", "Input reviewed", "Action", "Recommendation",
-                     "Evidence", "User decision"], arows)
+            + table(
+                ["Agent", "Input reviewed", "Action", "Recommendation", "Evidence", "User decision"], arows
+            )
             + "</section>"
         )
 
@@ -899,15 +1034,22 @@ def render_dashboard_html(model: DashboardModel) -> str:
         trows = []
         for t in model.agent_traces:
             conf = f"{t['confidence']:.0%}" if t.get("confidence") is not None else "—"
-            trows.append([
-                esc(t["agent"]), esc(t["inputs"]), esc(t.get("reasoning") or "—"),
-                esc(t["decision"]), conf, esc(t.get("alternative_considered") or "—"),
-                esc(", ".join(t.get("evidence_ids", [])) or "—"),
-            ])
+            trows.append(
+                [
+                    esc(t["agent"]),
+                    esc(t["inputs"]),
+                    esc(t.get("reasoning") or "—"),
+                    esc(t["decision"]),
+                    conf,
+                    esc(t.get("alternative_considered") or "—"),
+                    esc(", ".join(t.get("evidence_ids", [])) or "—"),
+                ]
+            )
         sections.append(
             "<section><h2>Agent Reasoning Traces</h2>"
-            + table(["Agent", "Inputs", "Reasoning", "Decision", "Confidence",
-                     "Alternative", "Evidence"], trows)
+            + table(
+                ["Agent", "Inputs", "Reasoning", "Decision", "Confidence", "Alternative", "Evidence"], trows
+            )
             + "</section>"
         )
 
@@ -915,9 +1057,14 @@ def render_dashboard_html(model: DashboardModel) -> str:
         fhtml = table(
             ["Severity", "Materiality", "Category", "Title", "Evidence", "Recommendation"],
             [
-                [f"<span class='sev-{esc(f['severity'])}'>{esc(f['severity'])}</span>",
-                 esc(f["materiality"]), esc(f["risk_category"]), esc(f["title"]),
-                 esc(", ".join(f["evidence_ids"]) or "—"), esc(f["recommendation"])]
+                [
+                    f"<span class='sev-{esc(f['severity'])}'>{esc(f['severity'])}</span>",
+                    esc(f["materiality"]),
+                    esc(f["risk_category"]),
+                    esc(f["title"]),
+                    esc(", ".join(f["evidence_ids"]) or "—"),
+                    esc(f["recommendation"]),
+                ]
                 for f in model.findings
             ],
         )
@@ -966,9 +1113,11 @@ def render_dashboard_html(model: DashboardModel) -> str:
 def _kv_html(d: dict[str, Any], esc) -> str:
     if not d:
         return "<p>n/a</p>"
-    return "<table><tbody>" + "".join(
-        f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in d.items()
-    ) + "</tbody></table>"
+    return (
+        "<table><tbody>"
+        + "".join(f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in d.items())
+        + "</tbody></table>"
+    )
 
 
 def write_dashboard(model: DashboardModel, output_root: str | Path, run_id: str) -> dict[str, str]:
@@ -982,15 +1131,18 @@ def write_dashboard(model: DashboardModel, output_root: str | Path, run_id: str)
     # Self-register the dashboard's own files so the Artifact Catalog is complete
     # (v2.1.1 Section N: no hidden outputs, including the dashboard itself).
     existing = {a.get("path") for a in model.artifact_catalog}
-    type_by_ext = {".json": "dashboard (JSON)", ".md": "report (Markdown)",
-                   ".html": "dashboard (HTML)"}
+    type_by_ext = {".json": "dashboard (JSON)", ".md": "report (Markdown)", ".html": "dashboard (HTML)"}
     for p in paths.values():
         if str(p) not in existing:
-            model.artifact_catalog.append({
-                "name": p.name, "path": str(p),
-                "type": type_by_ext.get(p.suffix.lower(), "file"),
-                "category": "report", "description": "",
-            })
+            model.artifact_catalog.append(
+                {
+                    "name": p.name,
+                    "path": str(p),
+                    "type": type_by_ext.get(p.suffix.lower(), "file"),
+                    "category": "report",
+                    "description": "",
+                }
+            )
     paths["json"].write_text(render_dashboard_json(model))
     paths["md"].write_text(render_dashboard_md(model))
     paths["html"].write_text(render_dashboard_html(model))

@@ -102,9 +102,7 @@ def prompt_review_config(
 
     # v2.3.0: the evidence-driven committee review is the default path. The
     # reviewer can opt down to the legacy/basic review explicitly.
-    cfg.enterprise_mode = _ask_yes_no(
-        "Use AI review committee workflow?", default_no=False, ask=ask
-    )
+    cfg.enterprise_mode = _ask_yes_no("Use AI review committee workflow?", default_no=False, ask=ask)
     if cfg.enterprise_mode:
         console.print(
             "[cyan]AI review committee selected (evidence-first cards, "
@@ -125,24 +123,22 @@ def prompt_review_config(
         cfg.target = raw or None
 
     cfg.split_strategy = _ask(
-        "Split strategy", cfg.split_strategy,
-        ["random", "stratified", "time_based", "group", "custom"], ask,
+        "Split strategy",
+        cfg.split_strategy,
+        ["random", "stratified", "time_based", "group", "custom"],
+        ask,
     )
     tabular = list_families("tabular")
-    cfg.architecture_family = _ask(
-        "Architecture family", cfg.architecture_family or "mlp", tabular, ask
-    )
+    cfg.architecture_family = _ask("Architecture family", cfg.architecture_family or "mlp", tabular, ask)
     cfg.activation = _ask("Activation", cfg.activation or "relu", list(ACTIVATIONS), ask)
-    cfg.robustness_suite = _ask(
-        "Robustness suite", cfg.robustness_suite, ["standard", "extended"], ask
-    )
+    cfg.robustness_suite = _ask("Robustness suite", cfg.robustness_suite, ["standard", "extended"], ask)
     # 0. AI Reviewer Agent Backend Selection (LLM Mode)
     console.print("\nSelect AI Reviewer Agent Backend (LLM Mode):")
     console.print("  [1] None (Deterministic Rule-Based / Local Engines) (default)")
     console.print("  [2] Enterprise LLM Gateway (Firm Environment)")
     console.print("  [3] Public LLM Providers (OpenAI, Anthropic, Gemini, DeepSeek, Groq, etc.)")
     backend_choice = ask("Select backend [default: 1]: ").strip() or "1"
-    
+
     if backend_choice == "2":
         cfg.agent_mode = "llm"
         cfg.llm_provider = "enterprise_llm_gateway"
@@ -151,19 +147,42 @@ def prompt_review_config(
         cfg.agent_mode = "llm"
         cfg.trust_domain = "public"
         cfg.llm_provider = _ask(
-            "Select Public LLM Provider", cfg.llm_provider or "openai",
-            ["openai", "anthropic", "gemini", "deepseek", "grok"], ask,
+            "Select Public LLM Provider",
+            cfg.llm_provider or "openai",
+            ["openai", "anthropic", "gemini", "deepseek", "grok"],
+            ask,
         )
         # v3.1.1: query provider Models API for available models
         _discovery = model_discovery
         if _discovery is None:
             from start.providers.model_discovery import RealProviderModelDiscovery
+
             _discovery = RealProviderModelDiscovery()
         _available_models = _discovery.list_models(cfg.llm_provider)
-        if not _available_models and cfg.llm_provider in ("openai", "anthropic", "deepseek", "gemini", "grok"):
+        if not _available_models and cfg.llm_provider in (
+            "openai",
+            "anthropic",
+            "deepseek",
+            "gemini",
+            "grok",
+        ):
             fallback = {
-                "openai": ["gpt-5-mini", "gpt-5", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o3-mini", "o1"],
-                "anthropic": ["claude-sonnet-4-6", "claude-3-7-sonnet-latest", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+                "openai": [
+                    "gpt-5-mini",
+                    "gpt-5",
+                    "gpt-4.1",
+                    "gpt-4.1-mini",
+                    "gpt-4o",
+                    "gpt-4o-mini",
+                    "o3-mini",
+                    "o1",
+                ],
+                "anthropic": [
+                    "claude-sonnet-4-6",
+                    "claude-3-7-sonnet-latest",
+                    "claude-3-5-sonnet-20241022",
+                    "claude-3-5-haiku-20241022",
+                ],
                 "gemini": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
                 "deepseek": ["deepseek-chat", "deepseek-reasoner"],
                 "grok": ["grok-2-latest", "grok-3-mini", "grok-3"],
@@ -201,9 +220,11 @@ def prompt_review_config(
 
     # Section C: ask whether to actually train (default Yes). Without this,
     # enterprise review silently runs diagnostics-only and skips execution.
-    run_dl_ans = ask(
-        "Run model training, metrics, explainability, sensitivity, and robustness? [Y/n]: "
-    ).strip().lower()
+    run_dl_ans = (
+        ask("Run model training, metrics, explainability, sensitivity, and robustness? [Y/n]: ")
+        .strip()
+        .lower()
+    )
     cfg.run_dl = run_dl_ans in ("", "y", "yes")
     if not cfg.run_dl:
         console.print(
@@ -218,16 +239,20 @@ def prompt_review_config(
     # Section H: tuning strategy + trials (only meaningful when training).
     if cfg.run_dl:
         cfg.tuning_strategy = _ask(
-            "Tuning strategy", cfg.tuning_strategy,
-            ["none", "bounded_random_search", "grid_search", "optuna_if_available"], ask,
+            "Tuning strategy",
+            cfg.tuning_strategy,
+            ["none", "bounded_random_search", "grid_search", "optuna_if_available"],
+            ask,
         )
         if cfg.tuning_strategy != "none":
             raw = ask("Number of trials [default 5]: ").strip()
             cfg.tuning_trials = int(raw) if raw.isdigit() and int(raw) > 0 else 5
 
         cfg.explain_method = _ask(
-            "Explainability", cfg.explain_method,
-            ["integrated_gradients", "gradient_shap", "permutation"], ask,
+            "Explainability",
+            cfg.explain_method,
+            ["integrated_gradients", "gradient_shap", "permutation"],
+            ask,
         )
 
     # LLM-mode-only prompts
@@ -242,6 +267,7 @@ def prompt_review_config(
             import sys
 
             from start.providers.keys import ensure_provider_key, key_required
+
             if key_required(cfg.llm_provider) and sys.stdin.isatty():
                 status = ensure_provider_key(cfg.llm_provider, prompt_for_key=True, interactive=True)
                 if not status.ok:
@@ -263,10 +289,7 @@ def prompt_review_config(
                 inferred = _infer_cost_priority(clar)
                 if inferred:
                     cfg.costlier_errors = inferred
-                    console.print(
-                        f"[cyan]Cost priority inferred from your note: "
-                        f"{inferred}.[/cyan]"
-                    )
+                    console.print(f"[cyan]Cost priority inferred from your note: {inferred}.[/cyan]")
 
     # v3.1.1: structured multiclass cost specification prompt
     # Prompt after target is known but before execution.
@@ -275,7 +298,9 @@ def prompt_review_config(
 
 
 def _prompt_cost_specification(
-    task_type: str, classes: list[str], ask: Any = input,
+    task_type: str,
+    classes: list[str],
+    ask: Any = input,
 ) -> dict[str, Any]:
     """Prompt user for structured multiclass cost specification.
 
@@ -285,6 +310,7 @@ def _prompt_cost_specification(
       {"type": "matrix", "matrix": {class_i: {class_j: cost, ...}, ...}}
     """
     import sys
+
     if ask is input and not sys.stdin.isatty():
         return {"type": "balanced"}
 
@@ -293,7 +319,7 @@ def _prompt_cost_specification(
     console.print("  [1] Balanced treatment (default)")
     console.print("  [2] One critical class + relative miss cost")
     console.print("  [3] Full class-to-class cost matrix")
-    choice = (ask("Select cost specification [default: 1]: ").strip() or "1")
+    choice = ask("Select cost specification [default: 1]: ").strip() or "1"
 
     if choice == "2":
         console.print(f"  Available classes: {classes}")
@@ -331,6 +357,7 @@ def _prompt_cost_specification(
 
 def _ask_split_proportions(ask: Any = input) -> tuple[float, float, float]:
     """Prompt for train/test/OOS proportions; validate they sum to ~1.0."""
+
     def _f(prompt: str, default: float) -> float:
         raw = ask(f"{prompt} [default {default:.2f}]: ").strip()
         try:
@@ -356,10 +383,24 @@ def _ask_split_proportions(ask: Any = input) -> tuple[float, float, float]:
 def _infer_cost_priority(text: str) -> str | None:
     """Section M: map free-text clarification to a cost priority."""
     t = text.lower()
-    fn_signals = ("false negative", "missed", "miss ", "recall", "catch all",
-                  "sensitivity", "attrition", "churn")
-    fp_signals = ("false positive", "unnecessary", "avoid flagging",
-                  "precision", "specificity", "false alarm")
+    fn_signals = (
+        "false negative",
+        "missed",
+        "miss ",
+        "recall",
+        "catch all",
+        "sensitivity",
+        "attrition",
+        "churn",
+    )
+    fp_signals = (
+        "false positive",
+        "unnecessary",
+        "avoid flagging",
+        "precision",
+        "specificity",
+        "false alarm",
+    )
     if any(s in t for s in fn_signals):
         return "false_negatives"
     if any(s in t for s in fp_signals):
@@ -416,7 +457,11 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
             "gemini": "gemini-2.0-flash",
             "grok": "grok-2-latest",
         }
-        resolved_model = cfg.llm_model or os.environ.get(f"START_{cfg.llm_provider.upper()}_MODEL") or DEFAULT_MODELS.get(cfg.llm_provider, "")
+        resolved_model = (
+            cfg.llm_model
+            or os.environ.get(f"START_{cfg.llm_provider.upper()}_MODEL")
+            or DEFAULT_MODELS.get(cfg.llm_provider, "")
+        )
         if cfg.llm_provider in ("gateway", "enterprise_llm_gateway") and not resolved_model:
             resolved_model = os.environ.get("START_GATEWAY_MODEL", "")
             if not resolved_model:
@@ -447,8 +492,7 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
         df = load_any_tabular(cfg.data_path)
         # v2.3.1 #2: dataset transparency for a user-supplied file.
         console.print(
-            f"[bold]Dataset:[/bold] {cfg.data_path} "
-            f"(user-supplied) — {len(df)} rows x {df.shape[1]} columns"
+            f"[bold]Dataset:[/bold] {cfg.data_path} (user-supplied) — {len(df)} rows x {df.shape[1]} columns"
         )
     else:
         preset_key = getattr(cfg, "preset_key", None)
@@ -456,14 +500,8 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
 
         df = load_preset_dataset(preset_key, seed=cfg.seed)
         if not cfg.target:
-            target_map = {
-                "A": "is_fraud",
-                "B": "target_value",
-                "C": "adjusted_price",
-                "D": "decision_label"
-            }
+            target_map = {"A": "is_fraud", "B": "target_value", "C": "adjusted_price", "D": "decision_label"}
             cfg.target = target_map.get(preset_key, "is_fraud")
-
 
         preset_details = {
             "A": {
@@ -485,14 +523,16 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
                 "name": "Synthetic ML Decision Support Model Data",
                 "source": "Synthetic Multi-class Decision Profile",
                 "url": "synthetic (locally generated)",
-            }
+            },
         }
-        details = preset_details.get(preset_key, {
-            "name": "Synthetic AML / Transaction Monitoring (Default)",
-            "source": "Synthetic Transaction Generator",
-            "url": "synthetic (locally generated)",
-        })
-
+        details = preset_details.get(
+            preset_key,
+            {
+                "name": "Synthetic AML / Transaction Monitoring (Default)",
+                "source": "Synthetic Transaction Generator",
+                "url": "synthetic (locally generated)",
+            },
+        )
 
         console.print(
             f"[bold]Demo dataset:[/bold] {details['name']}\n"
@@ -520,6 +560,7 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
                 )
             else:
                 from rich.prompt import Confirm
+
                 console.print(
                     f"\n[bold yellow]Target Cardinality Mismatch:[/bold yellow] Target '{cfg.target}' "
                     f"has {nunique} unique values, which requires multiclass classification, "
@@ -535,35 +576,27 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
 
     # v2.3.1 #2: target transparency — what was selected, by whom, and the
     # candidate columns discovery would consider.
-    _binary_candidates = [
-        c for c in df.columns
-        if c != cfg.target and df[c].dropna().nunique() == 2
-    ][:8]
+    _binary_candidates = [c for c in df.columns if c != cfg.target and df[c].dropna().nunique() == 2][:8]
     if _target_supplied_by_user:
-        console.print(
-            f"[bold]Target:[/bold] {cfg.target} (supplied by user)"
-        )
+        console.print(f"[bold]Target:[/bold] {cfg.target} (supplied by user)")
     else:
-        console.print(
-            f"[bold]Target:[/bold] {cfg.target} (inferred by discovery)"
-        )
+        console.print(f"[bold]Target:[/bold] {cfg.target} (inferred by discovery)")
     if _binary_candidates:
-        console.print(
-            "  candidate target columns: " + ", ".join(_binary_candidates)
-        )
+        console.print("  candidate target columns: " + ", ".join(_binary_candidates))
     console.print("")
 
     # v3.1.1: prompt for structured cost specification if multiclass
     if cfg.target in df.columns:
         _nunique = df[cfg.target].dropna().nunique()
         _resolved_task = cfg.task_override or (
-            "multiclass_classification" if _nunique > 2
-            else "binary_classification"
+            "multiclass_classification" if _nunique > 2 else "binary_classification"
         )
         if _resolved_task == "multiclass_classification" and not cfg.non_interactive:
             _classes = sorted(df[cfg.target].dropna().unique().tolist(), key=str)
             cfg.cost_specification = _prompt_cost_specification(
-                _resolved_task, [str(c) for c in _classes], ask=input,
+                _resolved_task,
+                [str(c) for c in _classes],
+                ask=input,
             )
 
     if cfg.enterprise_mode:
@@ -575,11 +608,16 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
         f"re-run with --enterprise.\n"
     )
     from start.progress import progress_bar
-    with progress_bar(len(STAGES), "Model Review Execution", enabled=not cfg.non_interactive, console=console) as adv:
+
+    with progress_bar(
+        len(STAGES), "Model Review Execution", enabled=not cfg.non_interactive, console=console
+    ) as adv:
+
         def on_stage_with_progress(event):
             _render_stage(event)
             if event.status in ("complete", "skipped"):
                 adv(1)
+
         orch = ReviewOrchestrator(on_stage=on_stage_with_progress)
         outcome = orch.run(
             df,
@@ -616,9 +654,7 @@ def _render_layer(lr: Any) -> None:
 
 
 def _render_adapter(result: Any) -> None:
-    color = {"complete": "green", "not_installed": "yellow", "error": "red"}.get(
-        result.status, "white"
-    )
+    color = {"complete": "green", "not_installed": "yellow", "error": "red"}.get(result.status, "white")
     console.print(
         f"    [{color}]{result.status.upper():13s}[/{color}] {result.adapter:16s} "
         f"{result.runtime_seconds:.3f}s  artifacts={len(result.artifacts)} "
@@ -628,6 +664,7 @@ def _render_adapter(result: Any) -> None:
 
 def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     from start.agents.discovery import TaskInferenceAgent
+
     try:
         ti = TaskInferenceAgent().infer(df, cfg.target, override=cfg.task_override)
         task_type = ti.task_type
@@ -670,9 +707,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     console.print("")
 
     # Committee Roster Panel
-    console.print(
-        f"\n[bold]Running AI REVIEW COMMITTEE workflow[/bold] (agent mode: {cfg.agent_mode})\n"
-    )
+    console.print(f"\n[bold]Running AI REVIEW COMMITTEE workflow[/bold] (agent mode: {cfg.agent_mode})\n")
     console.print(render_agent_roster_panel())
     console.print("")
     # Section A / v2.3.1 #3,#5: visible LLM activation as its own boxed panel.
@@ -699,11 +734,10 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         # is the actual adapter count, so the percentage shown is real.
         _probe_dir = _tmp.mkdtemp()
         _n_adapters = len(run_ai_engineering_layer({}, output_root=_tmp.mkdtemp()).descriptions)
-        with progress_bar(_n_adapters, "AI-engineering adapter sweep",
-                          enabled=not cfg.non_interactive, console=console) as _adv:
-            _probe = run_ai_engineering_layer(
-                {}, output_root=_probe_dir, on_adapter=lambda _r: _adv(1)
-            )
+        with progress_bar(
+            _n_adapters, "AI-engineering adapter sweep", enabled=not cfg.non_interactive, console=console
+        ) as _adv:
+            _probe = run_ai_engineering_layer({}, output_root=_probe_dir, on_adapter=lambda _r: _adv(1))
         console.print(adapter_inventory_table(_probe.control_surface()))
         console.print("")
     except Exception:
@@ -748,9 +782,9 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         )
 
         _cand_targets = [cfg.target] if cfg.target else _evidence.candidate_targets
-        console.print(dataset_discovery_table(
-            _evidence, _cand_targets,
-            (cfg.train_prop, cfg.test_prop, cfg.oos_prop)))
+        console.print(
+            dataset_discovery_table(_evidence, _cand_targets, (cfg.train_prop, cfg.test_prop, cfg.oos_prop))
+        )
         console.print("")
         # v2.3.0 #6: FeatureEngineeringAgent evidence tables (real diagnostics).
         _otab, _has_out = outlier_evidence_table(_evidence, 10)
@@ -763,8 +797,11 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             console.print("")
 
         ar = ArchitectureReviewAgent().review(
-            user_family=arch_choice, user_activation=cfg.activation or "relu",
-            modality="tabular", n_samples=len(df), n_features=df.shape[1] - 1,
+            user_family=arch_choice,
+            user_activation=cfg.activation or "relu",
+            modality="tabular",
+            n_samples=len(df),
+            n_features=df.shape[1] - 1,
             task_type=task_type,
         )
         # Item 2: let the user interrogate the agent live at this checkpoint.
@@ -772,11 +809,16 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         _arch_ctx = AgentContext(
             agent="ArchitectureReviewAgent",
             recommendation=ar.recommendation["family"],
-            reason=ar.reason, risk_if_ignored=ar.risk_if_ignored,
-            alternatives=[{"family": ar.recommendation["family"]},
-                          {"family": arch_choice}, {"family": "xgboost"}],
+            reason=ar.reason,
+            risk_if_ignored=ar.risk_if_ignored,
+            alternatives=[
+                {"family": ar.recommendation["family"]},
+                {"family": arch_choice},
+                {"family": "xgboost"},
+            ],
             dataset_summary=f"{len(df)} rows x {df.shape[1]} cols",
-            checkpoint="architecture", evidence=_evidence,
+            checkpoint="architecture",
+            evidence=_evidence,
             business_context=cfg.objective or "",
             reviewer_clarification="\n".join(cfg.notes) or "",
             task_type=task_type,
@@ -784,45 +826,60 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         )
 
         def _ask_arch(question: str) -> str:
-            return ask_agent("ArchitectureReviewAgent", question, _arch_ctx,
-                             session, llm=llm, llm_connected=_llm_connected).answer
+            return ask_agent(
+                "ArchitectureReviewAgent", question, _arch_ctx, session, llm=llm, llm_connected=_llm_connected
+            ).answer
 
         # v2.3.0 #1/#4: present the evidence-first committee card BEFORE the
         # decision — Evidence -> Recommendation -> Alternatives -> Risks.
         from start.committee_card import CommitteeCard, render_card_rich
 
         _arch_card = CommitteeCard(
-            agent="ArchitectureReviewAgent", purpose="Model selection",
+            agent="ArchitectureReviewAgent",
+            purpose="Model selection",
             evidence=[
                 f"dataset size {len(df)} rows",
                 f"{df.shape[1] - 1} candidate features",
                 f"{task_type.replace('_', ' ')} task",
             ],
-            recommendation=f"{ar.recommendation['family']} "
-            f"({ar.recommendation.get('activation', 'relu')})",
-            alternatives=[f"{ar.recommendation['family']} (recommended)",
-                           arch_choice, "xgboost"],
+            recommendation=f"{ar.recommendation['family']} ({ar.recommendation.get('activation', 'relu')})",
+            alternatives=[f"{ar.recommendation['family']} (recommended)", arch_choice, "xgboost"],
             risks=[ar.risk_if_ignored] if ar.risk_if_ignored else [],
             artifacts_used=["data_statistics"],
         )
         console.print(render_card_rich(_arch_card))
 
         arch_dec = resolve_checkpoint(
-            "architecture", arch_choice, ar.recommendation["family"], ar.reason,
-            evidence_id=ar.evidence_id, explanation=ar.reason,
-            interactive=interactive, auto_accept=cfg.accept_recommendations,
-            ask=input, emit=lambda m: console.print(m), on_ask=_ask_arch,
-            llm=llm, session=session, ctx=_arch_ctx,
+            "architecture",
+            arch_choice,
+            ar.recommendation["family"],
+            ar.reason,
+            evidence_id=ar.evidence_id,
+            explanation=ar.reason,
+            interactive=interactive,
+            auto_accept=cfg.accept_recommendations,
+            ask=input,
+            emit=lambda m: console.print(m),
+            on_ask=_ask_arch,
+            llm=llm,
+            session=session,
+            ctx=_arch_ctx,
         )
         arch_choice = arch_dec.effective_value
         checkpoint_decisions.append(arch_dec.to_dict())
         # Item 3: persist the decision so downstream agents/dashboard see it.
-        session.record_decision(Decision(
-            key="architecture", prompt="Model family?",
-            recommended=ar.recommendation["family"], user_value=cfg.architecture_family or "mlp",
-            effective=arch_choice, choice=arch_dec.choice, rationale=ar.reason,
-            evidence_ids=[ar.evidence_id],
-        ))
+        session.record_decision(
+            Decision(
+                key="architecture",
+                prompt="Model family?",
+                recommended=ar.recommendation["family"],
+                user_value=cfg.architecture_family or "mlp",
+                effective=arch_choice,
+                choice=arch_dec.choice,
+                rationale=ar.reason,
+                evidence_ids=[ar.evidence_id],
+            )
+        )
 
         # #1/#2: feature-engineering and metric checkpoints — each with Ask
         # Agent, recorded to the session so they drive downstream execution
@@ -839,11 +896,18 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                 _stats = compute_data_statistics(df, cfg.target)
                 _fe = recommend_feature_engineering(_stats, cost_specification=cfg.cost_specification)
                 run_feature_engineering_checkpoints(
-                    _fe, session, interactive=interactive,
+                    _fe,
+                    session,
+                    interactive=interactive,
                     auto_accept=cfg.accept_recommendations,
-                    df=df, target=cfg.target, already_weighted=bool(cfg.class_weight),
-                    llm=llm, llm_connected=_llm_connected, ask=input,
-                    emit=lambda m: console.print(m), evidence=_evidence,
+                    df=df,
+                    target=cfg.target,
+                    already_weighted=bool(cfg.class_weight),
+                    llm=llm,
+                    llm_connected=_llm_connected,
+                    ask=input,
+                    emit=lambda m: console.print(m),
+                    evidence=_evidence,
                     business_context=cfg.objective or "",
                     reviewer_clarification="\n".join(cfg.notes) or "",
                     task_type=task_type,
@@ -856,10 +920,17 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
             _mc = select_primary_metric(task_type, costlier_errors=cost_choice)
             cost_choice = run_metric_checkpoint(
-                cost_choice, cost_choice, _mc.get("reason", ""), session,
-                interactive=interactive, auto_accept=cfg.accept_recommendations,
-                llm=llm, llm_connected=_llm_connected, ask=input,
-                emit=lambda m: console.print(m), evidence=_evidence,
+                cost_choice,
+                cost_choice,
+                _mc.get("reason", ""),
+                session,
+                interactive=interactive,
+                auto_accept=cfg.accept_recommendations,
+                llm=llm,
+                llm_connected=_llm_connected,
+                ask=input,
+                emit=lambda m: console.print(m),
+                evidence=_evidence,
                 business_context=cfg.objective or "",
                 reviewer_clarification="\n".join(cfg.notes) or "",
                 task_type=task_type,
@@ -868,35 +939,43 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     else:
         from start.review_session import Decision
 
-        session.record_decision(Decision(
-            key="architecture",
-            prompt="Model architecture family",
-            recommended=arch_choice,
-            user_value=arch_choice,
-            effective=arch_choice,
-            choice="auto_accept",
-            rationale=f"Batch execution using configured family {arch_choice}",
-            agent_rationale=f"Configured family {arch_choice}",
-        ))
-        session.record_decision(Decision(
-            key="metric_priority",
-            prompt="Cost priority / primary metric",
-            recommended=cost_choice or "balanced",
-            user_value=cost_choice or "balanced",
-            effective=cost_choice or "balanced",
-            choice="auto_accept",
-            rationale="Batch execution with standard balanced cost weighting",
-            agent_rationale="Default balanced error cost",
-        ))
+        session.record_decision(
+            Decision(
+                key="architecture",
+                prompt="Model architecture family",
+                recommended=arch_choice,
+                user_value=arch_choice,
+                effective=arch_choice,
+                choice="auto_accept",
+                rationale=f"Batch execution using configured family {arch_choice}",
+                agent_rationale=f"Configured family {arch_choice}",
+            )
+        )
+        session.record_decision(
+            Decision(
+                key="metric_priority",
+                prompt="Cost priority / primary metric",
+                recommended=cost_choice or "balanced",
+                user_value=cost_choice or "balanced",
+                effective=cost_choice or "balanced",
+                choice="auto_accept",
+                rationale="Batch execution with standard balanced cost weighting",
+                agent_rationale="Default balanced error cost",
+            )
+        )
 
     from start.agent_roster import announce_adapter_activity
     from start.progress import progress_bar
-    with progress_bar(len(STAGES), "AI Review Committee Execution", enabled=not cfg.non_interactive, console=console) as adv:
+
+    with progress_bar(
+        len(STAGES), "AI Review Committee Execution", enabled=not cfg.non_interactive, console=console
+    ) as adv:
+
         def on_stage_with_progress(event):
             _render_stage(event)
             if event.status in ("complete", "skipped"):
                 adv(1)
-        
+
         orch = EnterpriseReviewOrchestrator(
             on_stage=on_stage_with_progress,
             on_layer=_render_layer,
@@ -949,7 +1028,8 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     from start.evidence_store import EvidenceStore as _EvStore
 
     _final_store = _EvStore.from_artifacts(
-        model_exec=outcome.model_execution, sensitivity=outcome.sensitivity,
+        model_exec=outcome.model_execution,
+        sensitivity=outcome.sensitivity,
         tuning_run=outcome.tuning_run,
     )
 
@@ -977,9 +1057,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                 console.print("")
 
             if outcome.sensitivity and getattr(outcome.sensitivity, "sensitivities", None):
-                drift_dict = {
-                    s.feature: getattr(s, "drift", 0.0) for s in outcome.sensitivity.sensitivities
-                }
+                drift_dict = {s.feature: getattr(s, "drift", 0.0) for s in outcome.sensitivity.sensitivities}
                 if drift_dict:
                     console.print(render_drift_sparkline(drift_dict))
                     console.print("")
@@ -989,7 +1067,9 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             from start.reporting.figures import generate_all_report_figures
 
             if y_true is not None and scores is not None:
-                cm = me.metrics_by_split.get("oos", {}).get("confusion_matrix") or me.metrics_by_split.get("test", {}).get("confusion_matrix")
+                cm = me.metrics_by_split.get("oos", {}).get("confusion_matrix") or me.metrics_by_split.get(
+                    "test", {}
+                ).get("confusion_matrix")
                 fig_drift = (
                     {s.feature: getattr(s, "drift", 0.0) for s in outcome.sensitivity.sensitivities}
                     if outcome.sensitivity and getattr(outcome.sensitivity, "sensitivities", None)
@@ -1047,7 +1127,11 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     if outcome.tuning_run:
         from start.review_tables import tuning_table
 
-        val_name = "K-fold cross-validation" if outcome.tuning_run.validation == "k_fold" else "single-split validation"
+        val_name = (
+            "K-fold cross-validation"
+            if outcome.tuning_run.validation == "k_fold"
+            else "single-split validation"
+        )
         console.print(f"\n[bold]Hyperparameter tuning ({val_name})[/bold]")
         console.print(tuning_table(outcome.tuning_run.to_dict().get("trials", [])))
     # v2.3.1 #7: real stratified K-fold tuning (train-only) per-fold table.
@@ -1064,9 +1148,15 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         from start.validation_review import run_validation_checkpoint
 
         _validation_summary = run_validation_checkpoint(
-            outcome.sensitivity, session, _final_store, console,
-            interactive=interactive, auto_accept=cfg.accept_recommendations,
-            llm=llm, llm_connected=(activation.status == "CONNECTED"), ask=input,
+            outcome.sensitivity,
+            session,
+            _final_store,
+            console,
+            interactive=interactive,
+            auto_accept=cfg.accept_recommendations,
+            llm=llm,
+            llm_connected=(activation.status == "CONNECTED"),
+            ask=input,
         )
         session.validation_review = _validation_summary
     # Section N: artifact discovery (everything generated, discoverable)
@@ -1118,8 +1208,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     session.run_id = outcome.run_id
     inner_run_id = getattr(outcome, "inner_run_id", "")
     transcript_paths = write_transcript(
-        session, cfg.output_root, outcome.run_id, sensitivity=outcome.sensitivity,
-        kfold=outcome.kfold_tuning, inner_run_id=inner_run_id,
+        session,
+        cfg.output_root,
+        outcome.run_id,
+        sensitivity=outcome.sensitivity,
+        kfold=outcome.kfold_tuning,
+        inner_run_id=inner_run_id,
     )
 
     # Cross-Agent Collisions & Human Adjudication
@@ -1149,6 +1243,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         )
         if not can_proceed:
             import typer
+
             if cfg.non_interactive:
                 raise typer.Exit(code=1)
             console.print("[bold red]Review blocked by human adjudication outcome.[/bold red]")
@@ -1157,12 +1252,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     adjudications_payload = session.to_canonical_dict()
     if adjudications:
         adjudications_payload["collisions"] = [
-            a.as_evidence_record() if hasattr(a, "as_evidence_record") else dict(a)
-            for a in adjudications
+            a.as_evidence_record() if hasattr(a, "as_evidence_record") else dict(a) for a in adjudications
         ]
 
     # Attestations leaf payload (A5)
     from start.attestation.invariance import attest_narrative_invariance
+
     attestations_list = []
     agent_rev = getattr(outcome.base_outcome, "agent_review", None)
     if agent_rev and getattr(agent_rev, "signoff", None):
@@ -1200,7 +1295,9 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         critic_verdict="PASSED" if outcome.critique_ok else "FAILED",
     )
     if not valid_seal:
-        console.print("\n[bold red]SEAL WITHHELD — this review cannot be cryptographically sealed.[/bold red]")
+        console.print(
+            "\n[bold red]SEAL WITHHELD — this review cannot be cryptographically sealed.[/bold red]"
+        )
         for c in check_results:
             mark = "[bold green]✓[/bold green]" if c.passed else "[bold red]✗[/bold red]"
             console.print(f"  {mark} {c.label}")
@@ -1209,13 +1306,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             "it verifies forever and attests to nothing.[/dim]\n"
         )
         import typer
+
         raise typer.Exit(code=1)
 
     # Cryptographic Review Seal (start-seal/2 with 8 leaves)
     evidence_head_hash = (
-        outcome.base_outcome.evidence[-1].evidence_id
-        if outcome.base_outcome.evidence
-        else ("0" * 32)
+        outcome.base_outcome.evidence[-1].evidence_id if outcome.base_outcome.evidence else ("0" * 32)
     )
     seal = build_seal(
         review_id=outcome.run_id,

@@ -74,9 +74,7 @@ PUBLIC_SAAS_PROVIDERS: frozenset[str] = frozenset(
 
 #: Providers that reach an operator-supplied endpoint whose address, auth and
 #: ownership are configured at runtime and never appear in this repository.
-PRIVATE_GATEWAY_PROVIDERS: frozenset[str] = frozenset(
-    {"gateway", "enterprise_llm_gateway"}
-)
+PRIVATE_GATEWAY_PROVIDERS: frozenset[str] = frozenset({"gateway", "enterprise_llm_gateway"})
 
 #: Providers that perform no network egress whatsoever.
 LOCAL_PROVIDERS: frozenset[str] = frozenset({"none", "hf_local", "replay"})
@@ -281,10 +279,7 @@ def assert_provider_allowed(
             "a 'start.llm_gateways' entry point."
         )
     else:
-        detail = (
-            f"Provider '{provider}' is not permitted under the "
-            f"'{policy.profile.value}' runtime profile."
-        )
+        detail = f"Provider '{provider}' is not permitted under the '{policy.profile.value}' runtime profile."
 
     raise ProfileViolation(f"{detail}\n\nActive policy: {policy.rationale}")
 
@@ -310,9 +305,11 @@ def assert_sink_allowed(
 
     # In enterprise or airgapped profiles, third-party SaaS telemetry egress is forbidden
     # unless START_ALLOW_TELEMETRY_EGRESS is explicitly enabled.
-    allowed_override = effective_env.get(
-        ENV_ALLOW_TELEMETRY_EGRESS, ""
-    ).strip().lower() in {"1", "true", "yes"}
+    allowed_override = effective_env.get(ENV_ALLOW_TELEMETRY_EGRESS, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     if allowed_override:
         return
 

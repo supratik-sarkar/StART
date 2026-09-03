@@ -18,7 +18,7 @@ class StepCheckpointer:
             "workflow_id": workflow_id,
             "last_completed_stage": stage_name,
             "timestamp": time.time(),
-            "payload": payload
+            "payload": payload,
         }
         target_path = self._get_path(workflow_id)
         temp_path = target_path.with_suffix(".tmp")

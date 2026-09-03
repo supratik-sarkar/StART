@@ -285,10 +285,28 @@ _COUNTABLE_QUANT_PREFIX = re.compile(
 #: Note: Deliberately excluding "no" because phrases like "no evidence of drift"
 #: are not quantitative assertions.
 _WORD_NUMBERS: dict[str, float] = {
-    "zero": 0.0, "none": 0.0, "one": 1.0, "two": 2.0, "three": 3.0, "four": 4.0,
-    "five": 5.0, "six": 6.0, "seven": 7.0, "eight": 8.0, "nine": 9.0, "ten": 10.0,
-    "eleven": 11.0, "twelve": 12.0, "thirteen": 13.0, "fourteen": 14.0, "fifteen": 15.0,
-    "sixteen": 16.0, "seventeen": 17.0, "eighteen": 18.0, "nineteen": 19.0, "twenty": 20.0,
+    "zero": 0.0,
+    "none": 0.0,
+    "one": 1.0,
+    "two": 2.0,
+    "three": 3.0,
+    "four": 4.0,
+    "five": 5.0,
+    "six": 6.0,
+    "seven": 7.0,
+    "eight": 8.0,
+    "nine": 9.0,
+    "ten": 10.0,
+    "eleven": 11.0,
+    "twelve": 12.0,
+    "thirteen": 13.0,
+    "fourteen": 14.0,
+    "fifteen": 15.0,
+    "sixteen": 16.0,
+    "seventeen": 17.0,
+    "eighteen": 18.0,
+    "nineteen": 19.0,
+    "twenty": 20.0,
 }
 
 _WORD_NUMBERS_PATTERN = re.compile(
@@ -452,24 +470,20 @@ def _find_claim_citations(narrative: str, start: int, end: int) -> tuple[str, ..
     if not cit_spans:
         ib = _item_bounds(narrative, start)
         if ib is not None:
-            cited = tuple(EVIDENCE_ID_PATTERN.findall(narrative[ib[0]:ib[1]]))
+            cited = tuple(EVIDENCE_ID_PATTERN.findall(narrative[ib[0] : ib[1]]))
             if cited:
                 return cited
         bb = _block_bounds(narrative, start)
         if bb is not None:
-            cited = tuple(EVIDENCE_ID_PATTERN.findall(narrative[bb[0]:bb[1]]))
+            cited = tuple(EVIDENCE_ID_PATTERN.findall(narrative[bb[0] : bb[1]]))
             if cited:
                 return cited
         return ()
 
     # Mask out parenthetical, bracketed, and quoted contents so internal punctuation
     # like (a; b), [EV-1; EV-2], or "a; b" is not treated as a clause boundary
-    masked_sentence = re.sub(
-        r"[\(\[][^()\[\]]*[\)\]]", lambda m: " " * len(m.group(0)), sentence_text
-    )
-    masked_sentence = re.sub(
-        r"[“\"][^“”\"]*[”\"]", lambda m: " " * len(m.group(0)), masked_sentence
-    )
+    masked_sentence = re.sub(r"[\(\[][^()\[\]]*[\)\]]", lambda m: " " * len(m.group(0)), sentence_text)
+    masked_sentence = re.sub(r"[“\"][^“”\"]*[”\"]", lambda m: " " * len(m.group(0)), masked_sentence)
 
     # First, look for citations that follow the claim
     following = [c for c in cit_spans if c[1] >= rel_end]
@@ -496,7 +510,7 @@ def _find_claim_citations(narrative: str, start: int, end: int) -> tuple[str, ..
     preceding = [c for c in cit_spans if c[2] <= rel_start]
     if preceding:
         last_cit = preceding[-1]
-        between = masked_sentence[last_cit[2]:rel_start]
+        between = masked_sentence[last_cit[2] : rel_start]
         has_conj = bool(
             re.search(r"\b(?:and|while|whereas|but|versus|vs\.?|against)\b", between, re.IGNORECASE)
         )
@@ -535,9 +549,7 @@ def _find_claim_citations(narrative: str, start: int, end: int) -> tuple[str, ..
                 )
                 only_semicolon = all(";" in sp.group(0) for sp in splits)
                 should_inherit = (
-                    is_qualifier
-                    if only_semicolon
-                    else (has_colon or is_subordinate_conj or is_qualifier)
+                    is_qualifier if only_semicolon else (has_colon or is_subordinate_conj or is_qualifier)
                 )
                 if should_inherit:
                     return tuple(ev for ev, _, _ in cit_spans)
@@ -605,8 +617,12 @@ def _determine_claim_local_semantics(
         if any(
             k in low_span
             for k in (
-                "tail probability", "alpha_var", "tail mass",
-                "expected probability", "expectation", "tail",
+                "tail probability",
+                "alpha_var",
+                "tail mass",
+                "expected probability",
+                "expectation",
+                "tail",
             )
         ):
             if not any(k in low_span for k in ("significance", "gamma")):
@@ -615,8 +631,12 @@ def _determine_claim_local_semantics(
     if any(
         k in low_span
         for k in (
-            "significance", "gamma", "nominal size", "hypothesis test",
-            "hypothesis tests", "test level",
+            "significance",
+            "gamma",
+            "nominal size",
+            "hypothesis test",
+            "hypothesis tests",
+            "test level",
         )
     ):
         return local_label, local_span, SemanticRole.TEST_SIGNIFICANCE
@@ -661,12 +681,7 @@ def normalize_markdown_numeric_markup(text: str) -> str:
     # to standard e-notation (4.19e-5)
     text = _SCIENTIFIC_TIMES_TEN_RE.sub(r"\g<num>e\g<exp>", text)
     # Normalize unicode hyphens and minus signs to standard ASCII hyphen
-    text = (
-        text.replace("\u2011", "-")
-        .replace("\u2212", "-")
-        .replace("\ufe63", "-")
-        .replace("\uff0d", "-")
-    )
+    text = text.replace("\u2011", "-").replace("\u2212", "-").replace("\ufe63", "-").replace("\uff0d", "-")
     # Convert en-dash/em-dash used as negative sign into minus sign (not when preceded by digit, %, ], or ))
     text = re.sub(r"(?<![\d%\]\)])[–—](?=\d)", "-", text)
     # Fix numbers split by markdown bold/italic tags e.g. **1**,**000** -> 1,000
@@ -739,8 +754,7 @@ def extract_claims(narrative: str, *, min_abs_value: float = 0.0) -> list[Claim]
         # (e.g. "sample contains 2023 observations").
         if not unit and match.group("frac") is None and 1900 <= value <= 2100 and len(raw_int) == 4:
             is_quant_count = bool(
-                _COUNTABLE_QUANT_NOUNS.search(following)
-                or _COUNTABLE_QUANT_PREFIX.search(preceding)
+                _COUNTABLE_QUANT_NOUNS.search(following) or _COUNTABLE_QUANT_PREFIX.search(preceding)
             )
             if not is_quant_count:
                 continue
@@ -938,18 +952,13 @@ def _normalize_evidence(evidence: Any) -> list[_ScopedRecord]:
                 ev_id = dumped.get("evidence_id")
                 test_id = dumped.get("test_id")
                 fields = flatten_evidence_values(dumped)
-                records.append(
-                    _ScopedRecord(evidence_id=ev_id, test_id=test_id, fields=fields)
-                )
+                records.append(_ScopedRecord(evidence_id=ev_id, test_id=test_id, fields=fields))
             else:
                 fields = flatten_evidence_values(item)
-                records.append(
-                    _ScopedRecord(evidence_id=None, test_id=None, fields=fields)
-                )
+                records.append(_ScopedRecord(evidence_id=None, test_id=None, fields=fields))
     elif isinstance(evidence, dict):
         is_nested = any(
-            isinstance(v, (dict, list, tuple)) or hasattr(v, "model_dump")
-            for v in evidence.values()
+            isinstance(v, (dict, list, tuple)) or hasattr(v, "model_dump") for v in evidence.values()
         )
         if is_nested:
             for k, v in evidence.items():
@@ -964,10 +973,7 @@ def _normalize_evidence(evidence: Any) -> list[_ScopedRecord]:
                 test_id = (
                     str(k)
                     if not str(k).startswith("EV-")
-                    else (
-                        getattr(v, "test_id", None)
-                        or (v.get("test_id") if isinstance(v, dict) else None)
-                    )
+                    else (getattr(v, "test_id", None) or (v.get("test_id") if isinstance(v, dict) else None))
                 )
                 dumped = (
                     v.model_dump(mode="json")
@@ -975,9 +981,7 @@ def _normalize_evidence(evidence: Any) -> list[_ScopedRecord]:
                     else (dict(v) if isinstance(v, dict) else v)
                 )
                 fields = flatten_evidence_values(dumped)
-                records.append(
-                    _ScopedRecord(evidence_id=ev_id, test_id=test_id, fields=fields)
-                )
+                records.append(_ScopedRecord(evidence_id=ev_id, test_id=test_id, fields=fields))
         else:
             groups: dict[str, dict[str, float]] = {}
             for path, val in evidence.items():
@@ -989,26 +993,14 @@ def _normalize_evidence(evidence: Any) -> list[_ScopedRecord]:
             if groups:
                 for prefix, gfields in groups.items():
                     ev_id = prefix if prefix.startswith("EV-") else None
-                    test_id = (
-                        prefix
-                        if not prefix.startswith("EV-") and not prefix.startswith("[")
-                        else None
-                    )
-                    records.append(
-                        _ScopedRecord(
-                            evidence_id=ev_id, test_id=test_id, fields=gfields
-                        )
-                    )
+                    test_id = prefix if not prefix.startswith("EV-") and not prefix.startswith("[") else None
+                    records.append(_ScopedRecord(evidence_id=ev_id, test_id=test_id, fields=gfields))
             else:
                 records.append(
                     _ScopedRecord(
                         evidence_id=None,
                         test_id=None,
-                        fields={
-                            k: float(v)
-                            for k, v in evidence.items()
-                            if isinstance(v, (int, float))
-                        },
+                        fields={k: float(v) for k, v in evidence.items() if isinstance(v, (int, float))},
                     )
                 )
     else:
@@ -1047,12 +1039,37 @@ def _score_path_context(path: str, context: str) -> int:
 
 
 _PERCENT_PROBABILITY_KEYWORDS = (
-    "p_value", "alpha", "gamma", "rate", "prob", "probability",
-    "size", "power", "ratio", "share", "weight", "allocation",
-    "fraction", "percent", "level", "coverage", "consistency_ratio",
-    "confidence", "return", "loss", "yield", "drawdown", "shock",
-    "volatility", "var", "es", "shortfall", "variance", "deviation",
-    "gap", "discrepancy",
+    "p_value",
+    "alpha",
+    "gamma",
+    "rate",
+    "prob",
+    "probability",
+    "size",
+    "power",
+    "ratio",
+    "share",
+    "weight",
+    "allocation",
+    "fraction",
+    "percent",
+    "level",
+    "coverage",
+    "consistency_ratio",
+    "confidence",
+    "return",
+    "loss",
+    "yield",
+    "drawdown",
+    "shock",
+    "volatility",
+    "var",
+    "es",
+    "shortfall",
+    "variance",
+    "deviation",
+    "gap",
+    "discrepancy",
 )
 
 
@@ -1092,11 +1109,7 @@ def _is_semantically_incompatible(
                 if any(k in low_path for k in ("confidence", "alpha_var")):
                     return True
 
-        role = (
-            claim.semantic_role
-            if claim.semantic_role != SemanticRole.GENERIC_NUMERIC
-            else None
-        )
+        role = claim.semantic_role if claim.semantic_role != SemanticRole.GENERIC_NUMERIC else None
         if role is None:
             eff_ctx = claim.local_span or claim.context or context
             if eff_ctx:
@@ -1146,16 +1159,14 @@ def _is_semantically_incompatible(
     low_ctx = context.lower()
 
     is_significance_ctx = any(
-        k in low_ctx
-        for k in ("significance", "gamma", "hypothesis test", "test level", "rejection level")
+        k in low_ctx for k in ("significance", "gamma", "hypothesis test", "test level", "rejection level")
     )
     if is_significance_ctx:
         if any(p in low_path for p in ("confidence", "alpha_var", "expected_probability")):
             return True
 
     is_confidence_ctx = (
-        any(k in low_ctx for k in ("confidence", "var level", "quantile level"))
-        and not is_significance_ctx
+        any(k in low_ctx for k in ("confidence", "var level", "quantile level")) and not is_significance_ctx
     )
     if is_confidence_ctx:
         if any(p in low_path for p in ("gamma_test", "statistical_gamma_test", "alpha_var")):
@@ -1186,14 +1197,7 @@ def _match_candidates_in_fields(
 
     displayed_d: int | None = None
     if claim is not None and claim.surface:
-        cleaned = (
-            claim.surface.strip()
-            .rstrip("%")
-            .rstrip("bps")
-            .rstrip("x")
-            .replace(",", "")
-            .strip()
-        )
+        cleaned = claim.surface.strip().rstrip("%").rstrip("bps").rstrip("x").replace(",", "").strip()
         if "." in cleaned:
             displayed_d = len(cleaned.split(".", 1)[1])
         else:
@@ -1241,17 +1245,12 @@ def _match_candidates_in_fields(
                     )
                 else:
                     scale = max(abs(candidate), abs(ev_value))
-                    is_match = (
-                        (diff <= tolerance if scale < 1.0 else diff / scale <= tolerance)
-                        or (abs(round(ev_value) - candidate) < 1e-6 and diff <= 0.5 + 1e-9)
+                    is_match = (diff <= tolerance if scale < 1.0 else diff / scale <= tolerance) or (
+                        abs(round(ev_value) - candidate) < 1e-6 and diff <= 0.5 + 1e-9
                     )
             else:
                 scale = max(abs(candidate), abs(ev_value))
-                is_match = (
-                    (diff <= tolerance)
-                    if scale < 1.0
-                    else (diff / scale <= tolerance)
-                )
+                is_match = (diff <= tolerance) if scale < 1.0 else (diff / scale <= tolerance)
 
             if is_match:
                 score = _score_path_context(path, context)
@@ -1361,8 +1360,7 @@ def bind_claims(
         ):
             # Check if any record has explicit frequency="daily"
             has_explicit_daily = any(
-                "frequency" in r.fields and r.fields.get("frequency") == "daily"
-                for r in records
+                "frequency" in r.fields and r.fields.get("frequency") == "daily" for r in records
             )
             if not has_explicit_daily:
                 is_unsupported_frequency = True
@@ -1470,8 +1468,7 @@ def bind_claims(
                     top_score = top[3]
                     top_diff = top[4]
                     top_candidates = [
-                        m for m in candidates_matches
-                        if m[3] == top_score and abs(m[4] - top_diff) <= 1e-12
+                        m for m in candidates_matches if m[3] == top_score and abs(m[4] - top_diff) <= 1e-12
                     ]
                     same_metric = all(
                         (
@@ -1492,15 +1489,8 @@ def bind_claims(
                         candidate_metric = matched_path
                     elif all(
                         m[0] is top[0]
-                        or (
-                            m[0].evidence_id
-                            and m[0].evidence_id == top[0].evidence_id
-                        )
-                        or (
-                            m[0].test_id
-                            and m[0].test_id == top[0].test_id
-                            and abs(m[2] - top[2]) <= 1e-12
-                        )
+                        or (m[0].evidence_id and m[0].evidence_id == top[0].evidence_id)
+                        or (m[0].test_id and m[0].test_id == top[0].test_id and abs(m[2] - top[2]) <= 1e-12)
                         for m in candidates_matches
                     ):
                         rec, matched_path, matched_value, _, _ = top

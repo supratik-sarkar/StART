@@ -38,7 +38,10 @@ class OPAAdapter(BaseAdapter):
             run_id, "policy_report.json", policy_summary, "OPA policy evaluation report"
         )
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail="OPA available; policy evaluation completed with no violations.",
             summary={"violations": 0, "capabilities": list(self.capabilities)},
             artifacts=[art],
@@ -66,9 +69,13 @@ class MCPServerAdapter(BaseAdapter):
             self.write_json_artifact(run_id, "mcp_health_report.json", health, "MCP health report"),
         ]
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail="MCP SDK available; server discovery completed (no servers configured).",
-            summary={"servers": 0}, artifacts=arts,
+            summary={"servers": 0},
+            artifacts=arts,
             evidence=[self._evidence("pass", "MCP server discovery completed.", {"servers": 0})],
         )
 
@@ -89,7 +96,10 @@ class MCPSDKAdapter(BaseAdapter):
         mod = importlib.import_module("mcp")
         version = getattr(mod, "__version__", "unknown")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail=f"MCP SDK available (version {version}).",
             summary={"version": version, "capabilities": list(self.capabilities)},
             evidence=[self._evidence("pass", f"MCP SDK validated (v{version}).")],
@@ -108,7 +118,10 @@ class MCPInspectorAdapter(BaseAdapter):
 
     def _run(self, context: dict[str, Any]) -> ExecutionResult:
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail="MCP Inspector CLI available on PATH.",
             summary={"capabilities": list(self.capabilities)},
             evidence=[self._evidence("pass", "MCP Inspector available.")],
@@ -136,9 +149,13 @@ class LangfuseAdapter(BaseAdapter):
         }
         art = self.write_json_artifact(run_id, "langfuse_trace.json", trace, "Langfuse local trace")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail="Langfuse available; trace captured locally.",
-            summary={"spans": 1}, artifacts=[art],
+            summary={"spans": 1},
+            artifacts=[art],
             evidence=[self._evidence("pass", "Langfuse trace captured.")],
         )
 
@@ -185,13 +202,15 @@ class OpenTelemetryAdapter(BaseAdapter):
                 for s in spans
             ],
         }
-        art = self.write_json_artifact(
-            run_id, "telemetry.json", telemetry, "OpenTelemetry spans (real)"
-        )
+        art = self.write_json_artifact(run_id, "telemetry.json", telemetry, "OpenTelemetry spans (real)")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail=f"OpenTelemetry executed; emitted {len(spans)} real span(s).",
-            summary={"span_count": len(spans)}, artifacts=[art],
+            summary={"span_count": len(spans)},
+            artifacts=[art],
             evidence=[
                 self._evidence(
                     "pass", f"OpenTelemetry emitted {len(spans)} span(s).", {"span_count": len(spans)}
@@ -217,9 +236,13 @@ class GarakAdapter(BaseAdapter):
         report = {"probes_run": 0, "vulnerabilities": [], "note": "configure a target model to run probes"}
         art = self.write_json_artifact(run_id, "redteam_report.json", report, "Garak red-team report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail="Garak available; red-team harness ready (no target model configured).",
-            summary={"probes": 0}, artifacts=[art],
+            summary={"probes": 0},
+            artifacts=[art],
             evidence=[self._evidence("pass", "Garak red-team harness validated.")],
         )
 
@@ -240,8 +263,13 @@ class PromptfooAdapter(BaseAdapter):
         report = {"evals_run": 0, "note": "configure prompts and providers to run evals"}
         art = self.write_json_artifact(run_id, "promptfoo_report.json", report, "Promptfoo report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
-            detail="Promptfoo CLI available.", summary={"evals": 0}, artifacts=[art],
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
+            detail="Promptfoo CLI available.",
+            summary={"evals": 0},
+            artifacts=[art],
             evidence=[self._evidence("pass", "Promptfoo available.")],
         )
 
@@ -273,9 +301,14 @@ class MoonshotAdapter(BaseAdapter):
         report = {"checks_run": 0, "compliance_score": None, "note": "configure a cookbook to score"}
         art = self.write_json_artifact(run_id, "compliance_report.json", report, "Moonshot compliance report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
-            detail="Moonshot available; compliance harness ready.", summary={"checks": 0},
-            artifacts=[art], evidence=[self._evidence("pass", "Moonshot compliance harness validated.")],
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
+            detail="Moonshot available; compliance harness ready.",
+            summary={"checks": 0},
+            artifacts=[art],
+            evidence=[self._evidence("pass", "Moonshot compliance harness validated.")],
         )
 
 
@@ -295,9 +328,14 @@ class NeMoGuardrailsAdapter(BaseAdapter):
         report = {"rails_configured": 0, "violations": [], "note": "configure rails to enforce"}
         art = self.write_json_artifact(run_id, "guardrail_report.json", report, "NeMo guardrail report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
-            detail="NeMo Guardrails available; rails harness ready.", summary={"rails": 0},
-            artifacts=[art], evidence=[self._evidence("pass", "NeMo Guardrails validated.")],
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
+            detail="NeMo Guardrails available; rails harness ready.",
+            summary={"rails": 0},
+            artifacts=[art],
+            evidence=[self._evidence("pass", "NeMo Guardrails validated.")],
         )
 
 
@@ -322,9 +360,13 @@ class DeepEvalAdapter(BaseAdapter):
         }
         art = self.write_json_artifact(run_id, "deepeval_report.json", report, "DeepEval report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
             detail="DeepEval available; metric harness ready.",
-            summary={"metrics": list(self.capabilities)}, artifacts=[art],
+            summary={"metrics": list(self.capabilities)},
+            artifacts=[art],
             evidence=[self._evidence("pass", "DeepEval metric harness validated.")],
         )
 
@@ -373,8 +415,7 @@ class LangSmithAdapter(BaseAdapter):
 
         # Check API key presence
         has_key = bool(
-            os.environ.get("LANGSMITH_API_KEY", "").strip()
-            or os.environ.get("LANGCHAIN_API_KEY", "").strip()
+            os.environ.get("LANGSMITH_API_KEY", "").strip() or os.environ.get("LANGCHAIN_API_KEY", "").strip()
         )
         if not has_key:
             base["egress_status"] = "available_not_configured"
@@ -452,9 +493,14 @@ class PhoenixAdapter(BaseAdapter):
         report = {"spans": 0, "note": "launch a Phoenix session to collect spans/evals"}
         art = self.write_json_artifact(run_id, "phoenix_report.json", report, "Phoenix report")
         return ExecutionResult(
-            adapter=self.name, category=self.category, status="complete", available=True,
-            detail="Phoenix available; observability harness ready.", summary={"spans": 0},
-            artifacts=[art], evidence=[self._evidence("pass", "Phoenix harness validated.")],
+            adapter=self.name,
+            category=self.category,
+            status="complete",
+            available=True,
+            detail="Phoenix available; observability harness ready.",
+            summary={"spans": 0},
+            artifacts=[art],
+            evidence=[self._evidence("pass", "Phoenix harness validated.")],
         )
 
 

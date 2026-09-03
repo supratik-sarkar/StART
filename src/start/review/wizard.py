@@ -97,9 +97,10 @@ def run_review_wizard(
                 console.print(f"      [dim]{desc}[/dim]")
         while True:
             try:
-                raw_d = ask(
-                    "Enter selections separated by commas (e.g. 2,3 or 1,2,3) [default: 2,3]: "
-                ).strip() or "2,3"
+                raw_d = (
+                    ask("Enter selections separated by commas (e.g. 2,3 or 1,2,3) [default: 2,3]: ").strip()
+                    or "2,3"
+                )
                 domains = parse_domain_selection(raw_d, mode=ReviewMode.CROSS_DOMAIN)
                 break
             except ValueError as e:
@@ -126,9 +127,7 @@ def run_review_wizard(
             ask=ask,
         )
         technology = (
-            PredictiveTechnology.DEEP_LEARNING
-            if tech_choice == "2"
-            else PredictiveTechnology.TRADITIONAL_ML
+            PredictiveTechnology.DEEP_LEARNING if tech_choice == "2" else PredictiveTechnology.TRADITIONAL_ML
         )
 
     # 4. AI Reviewer Agent Backend
@@ -215,18 +214,14 @@ def run_review_wizard(
                         "live calls will fail unless configured.[/yellow]"
                     )
             else:
-                console.print(
-                    "  [yellow]Proceeding without API key in non-interactive environment.[/yellow]"
-                )
+                console.print("  [yellow]Proceeding without API key in non-interactive environment.[/yellow]")
 
         # 4b. Model Discovery & Effective Default Resolution
         from start.core.config import load_config
         from start.providers.model_discovery import RealProviderModelDiscovery
 
         conf = load_config()
-        configured_model = os.environ.get("START_LLM__MODEL") or (
-            conf.llm.model if conf.llm.model else None
-        )
+        configured_model = os.environ.get("START_LLM__MODEL") or (conf.llm.model if conf.llm.model else None)
         canonical_defaults = {
             "openai": "gpt-5-mini",
             "anthropic": "claude-sonnet-4-6",
@@ -283,11 +278,13 @@ def run_review_wizard(
             for idx, m_id in enumerate(primary_models, 1):
                 desc = "configured default" if idx == 1 else ""
                 model_opts.append((str(idx), m_id, desc))
-            model_opts.append((
-                str(len(primary_models) + 1),
-                "Show all compatible models...",
-                f"View all {len(available_models)} models",
-            ))
+            model_opts.append(
+                (
+                    str(len(primary_models) + 1),
+                    "Show all compatible models...",
+                    f"View all {len(available_models)} models",
+                )
+            )
 
             m_choice = _ask_choice(f"Select {prov_display} Model:", model_opts, default="1", ask=ask)
             if m_choice == str(len(primary_models) + 1) or m_choice.lower() in ("all", "show all"):
@@ -352,9 +349,7 @@ def run_review_wizard(
 
     from start.review.architecture import LLMReviewConfig
 
-    backend_mode = "public" if backend_choice == "3" else (
-        "enterprise" if backend_choice == "2" else "none"
-    )
+    backend_mode = "public" if backend_choice == "3" else ("enterprise" if backend_choice == "2" else "none")
     llm_config = LLMReviewConfig(
         backend_mode=backend_mode,
         provider=llm_provider,
@@ -477,9 +472,7 @@ def run_review_wizard(
             try:
                 idx = int(model_c) - 1
                 model_name = (
-                    TRADITIONAL_ML_MODELS[idx]
-                    if 0 <= idx < len(TRADITIONAL_ML_MODELS)
-                    else "Random Forest"
+                    TRADITIONAL_ML_MODELS[idx] if 0 <= idx < len(TRADITIONAL_ML_MODELS) else "Random Forest"
                 )
             except ValueError:
                 model_name = "Random Forest"
@@ -612,9 +605,7 @@ def run_review_wizard(
                 n_a = market_ctx.returns.shape[1] if market_ctx.returns is not None else 0
                 n_p = market_ctx.returns.shape[0] if market_ctx.returns is not None else 0
                 n_f = market_ctx.factor_returns.shape[1] if market_ctx.factor_returns is not None else 0
-                console.print(
-                    f"  ✓ MarketContext: {n_a} assets x {n_p} periods, {n_f} factors (fp={fp}...)"
-                )
+                console.print(f"  ✓ MarketContext: {n_a} assets x {n_p} periods, {n_f} factors (fp={fp}...)")
             if (
                 ReviewDomain.TREASURY in domains
                 and short_rate_ctx is not None

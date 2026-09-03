@@ -95,7 +95,7 @@ async def test_sse_reconnection_with_last_event_id() -> None:
         GLOBAL_QUEUE.append_event(
             run_id,
             {
-                "event_id": f"EVT-00{i+1}",
+                "event_id": f"EVT-00{i + 1}",
                 "timestamp": 1725370000.0 + i,
                 "event_type": "tool_execution",
                 "source_agent": "Specialist",
@@ -108,9 +108,7 @@ async def test_sse_reconnection_with_last_event_id() -> None:
 
     # Client reconnects with Last-Event-ID: EVT-SEQ-2
     reconnected_envelopes = []
-    async for item in sse_event_generator(
-        run_id, session_id, last_event_id="EVT-SEQ-2", poll_interval=0.01
-    ):
+    async for item in sse_event_generator(run_id, session_id, last_event_id="EVT-SEQ-2", poll_interval=0.01):
         if item["event"] != "complete":
             reconnected_envelopes.append(json.loads(item["data"]))
 

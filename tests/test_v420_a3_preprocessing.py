@@ -1,4 +1,5 @@
 """A3 — preprocessing diagnostic siblings."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -23,8 +24,14 @@ from start.tests.preprocessing import (
 
 
 def _ctx(train, test=None, target=None, ts=None, entity=None, extra=None):
-    return TestContext(train=train, test=test, target_column=target,
-                       timestamp_column=ts, entity_id_column=entity, extra=extra or {})
+    return TestContext(
+        train=train,
+        test=test,
+        target_column=target,
+        timestamp_column=ts,
+        entity_id_column=entity,
+        extra=extra or {},
+    )
 
 
 # ------------------------------------------------- target reconstruction --
@@ -98,10 +105,8 @@ def test_high_correlation_passes_when_weak():
 
 # -------------------------------------------------------------- temporal --
 def _temporal(train_end, test_start, n=100):
-    tr = pd.DataFrame({"a": np.arange(n, dtype=float),
-                       "t": pd.date_range("2024-01-01", periods=n, freq="D")})
-    te = pd.DataFrame({"a": np.arange(n, dtype=float),
-                       "t": pd.date_range(test_start, periods=n, freq="D")})
+    tr = pd.DataFrame({"a": np.arange(n, dtype=float), "t": pd.date_range("2024-01-01", periods=n, freq="D")})
+    te = pd.DataFrame({"a": np.arange(n, dtype=float), "t": pd.date_range(test_start, periods=n, freq="D")})
     return tr, te
 
 
@@ -191,8 +196,7 @@ def test_row_overlap_honours_hash_columns():
 def test_predictivity_binary_uses_auc():
     rng = np.random.default_rng(6)
     y = rng.integers(0, 2, 400)
-    df = pd.DataFrame({"sep": y + rng.normal(scale=0.01, size=400),
-                       "noise": rng.normal(size=400), "y": y})
+    df = pd.DataFrame({"sep": y + rng.normal(scale=0.01, size=400), "noise": rng.normal(size=400), "y": y})
     r = leakage_suspicious_predictivity(_ctx(df, target="y"))
     assert r.status == Status.WARN
     assert r.metrics["metric_used"] == "single_feature_auc"
@@ -289,8 +293,7 @@ def test_target_analysis_records_dispatch_params():
 def test_feature_target_binary_uses_auc_and_iv():
     rng = np.random.default_rng(10)
     y = rng.integers(0, 2, 500)
-    df = pd.DataFrame({"a": y + rng.normal(scale=0.5, size=500),
-                       "b": rng.normal(size=500), "y": y})
+    df = pd.DataFrame({"a": y + rng.normal(scale=0.5, size=500), "b": rng.normal(size=500), "y": y})
     r = feature_target_relationship(_ctx(df, target="y"))
     assert "auc.a" in r.metrics
     assert "auc" in r.metrics["statistics_used"]
@@ -318,8 +321,7 @@ def test_feature_target_records_exclusions():
 def test_redundancy_detects_near_duplicates():
     rng = np.random.default_rng(13)
     a = rng.normal(size=400)
-    df = pd.DataFrame({"a": a, "a_copy": a + rng.normal(scale=0.01, size=400),
-                       "c": rng.normal(size=400)})
+    df = pd.DataFrame({"a": a, "a_copy": a + rng.normal(scale=0.01, size=400), "c": rng.normal(size=400)})
     r = redundancy(_ctx(df))
     assert r.status == Status.WARN
     assert r.metrics["n_redundant_pairs"] == 1
@@ -335,18 +337,26 @@ def test_redundancy_is_diagnostic_only():
 
 
 def test_redundancy_passes_when_independent():
-    assert redundancy(_ctx(pd.DataFrame(
-        np.random.default_rng(15).normal(size=(400, 3)), columns=list("abc")
-    ))).status == Status.PASS
+    assert (
+        redundancy(
+            _ctx(pd.DataFrame(np.random.default_rng(15).normal(size=(400, 3)), columns=list("abc")))
+        ).status
+        == Status.PASS
+    )
 
 
 # -------------------------------------------------- dimensionality diagnostic --
 def test_dimensionality_reports_components():
     rng = np.random.default_rng(16)
     base = rng.normal(size=(400, 2))
-    df = pd.DataFrame({"a": base[:, 0], "b": base[:, 1],
-                       "c": base[:, 0] + 0.01 * rng.normal(size=400),
-                       "d": base[:, 1] + 0.01 * rng.normal(size=400)})
+    df = pd.DataFrame(
+        {
+            "a": base[:, 0],
+            "b": base[:, 1],
+            "c": base[:, 0] + 0.01 * rng.normal(size=400),
+            "d": base[:, 1] + 0.01 * rng.normal(size=400),
+        }
+    )
     r = dimensionality_diagnostic(_ctx(df))
     assert r.metrics["n_components_for_target"] <= 3
     assert r.metrics["effective_rank"] < 4
@@ -361,8 +371,7 @@ def test_dimensionality_produces_no_transformed_data():
 
 
 def test_dimensionality_flags_p_greater_than_n():
-    df = pd.DataFrame(np.random.default_rng(18).normal(size=(5, 12)),
-                      columns=[f"f{i}" for i in range(12)])
+    df = pd.DataFrame(np.random.default_rng(18).normal(size=(5, 12)), columns=[f"f{i}" for i in range(12)])
     r = dimensionality_diagnostic(_ctx(df))
     assert r.metrics["p_greater_than_n"] is True
     assert any("p > n" in x for x in r.limitations)
@@ -375,8 +384,7 @@ def test_dimensionality_skips_on_insufficient_features():
 
 def test_dimensionality_handles_constant_columns():
     rng = np.random.default_rng(19)
-    df = pd.DataFrame({"a": rng.normal(size=200), "b": rng.normal(size=200),
-                       "const": 5.0})
+    df = pd.DataFrame({"a": rng.normal(size=200), "b": rng.normal(size=200), "const": 5.0})
     r = dimensionality_diagnostic(_ctx(df))
     assert r.metrics["n_features"] == 2
 

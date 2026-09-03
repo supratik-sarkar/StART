@@ -113,9 +113,7 @@ def test_schema_valid_response():
                 "finding_id": "F-01",
                 "finding_type": "OBSERVED_EVIDENCE",
                 "conclusion": "VaR backtesting shows zero exception transitions.",
-                "evidence_refs": [
-                    {"evidence_id": "EV-16bbbafd361d", "metric_path": "metrics.n11"}
-                ],
+                "evidence_refs": [{"evidence_id": "EV-16bbbafd361d", "metric_path": "metrics.n11"}],
                 "criterion_status": "APPLICABLE",
                 "unresolved_reason": None,
             }
@@ -319,9 +317,7 @@ def test_evidence_identity_unknown_ev(sample_review_context):
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Invalid EV cited.",
-                evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-UNKNOWN9999", metric_path="metrics.n11"),
-                ),
+                evidence_refs=(EvidenceMetricRef(evidence_id="EV-UNKNOWN9999", metric_path="metrics.n11"),),
             ),
         ),
         overall_assessment="Overall assessment.",
@@ -340,9 +336,7 @@ def test_evidence_identity_truncated_ev(sample_review_context):
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Truncated EV cited.",
-                evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-16bb", metric_path="metrics.n11"),
-                ),
+                evidence_refs=(EvidenceMetricRef(evidence_id="EV-16bb", metric_path="metrics.n11"),),
             ),
         ),
         overall_assessment="Overall assessment.",
@@ -361,7 +355,9 @@ def test_evidence_identity_wrong_path(sample_review_context):
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Nonexistent metric cited.",
                 evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-16bbbafd361d", metric_path="metrics.nonexistent_metric"),
+                    EvidenceMetricRef(
+                        evidence_id="EV-16bbbafd361d", metric_path="metrics.nonexistent_metric"
+                    ),
                 ),
             ),
         ),
@@ -381,9 +377,7 @@ def test_evidence_identity_noncanonical_alias_path_rejected(sample_review_contex
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Bare metric path cited.",
-                evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-16bbbafd361d", metric_path="n11"),
-                ),
+                evidence_refs=(EvidenceMetricRef(evidence_id="EV-16bbbafd361d", metric_path="n11"),),
             ),
         ),
         overall_assessment="Overall assessment.",
@@ -613,7 +607,9 @@ def test_hydration_integer_count_metric(sample_review_context):
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Scenario count verified.",
-                evidence_refs=(EvidenceMetricRef(evidence_id="EV-9f798835848e", metric_path="metrics.n_scenarios"),),
+                evidence_refs=(
+                    EvidenceMetricRef(evidence_id="EV-9f798835848e", metric_path="metrics.n_scenarios"),
+                ),
             ),
         ),
         overall_assessment="Clean.",
@@ -635,7 +631,9 @@ def test_hydration_percentage_rendered_metric(sample_review_context):
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Periodic volatility verified.",
                 evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-9f798835848e", metric_path="metrics.periodic_volatility"),
+                    EvidenceMetricRef(
+                        evidence_id="EV-9f798835848e", metric_path="metrics.periodic_volatility"
+                    ),
                 ),
             ),
         ),
@@ -664,7 +662,9 @@ def test_hydration_boolean_non_numeric_metric():
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Stationarity confirmed.",
-                evidence_refs=(EvidenceMetricRef(evidence_id="EV-BOOL1", metric_path="metrics.is_stationary"),),
+                evidence_refs=(
+                    EvidenceMetricRef(evidence_id="EV-BOOL1", metric_path="metrics.is_stationary"),
+                ),
             ),
         ),
         overall_assessment="Clean.",
@@ -685,7 +685,9 @@ def test_hydration_no_arithmetic(sample_review_context):
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Exact raw metric value.",
                 evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-16bbbafd361d", metric_path="metrics.annualised_volatility"),
+                    EvidenceMetricRef(
+                        evidence_id="EV-16bbbafd361d", metric_path="metrics.annualised_volatility"
+                    ),
                 ),
             ),
         ),
@@ -717,7 +719,9 @@ def test_no_arithmetic_hydrator_performs_no_derived_calculation(sample_review_co
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Raw count.",
-                evidence_refs=(EvidenceMetricRef(evidence_id="EV-16bbbafd361d", metric_path="metrics.n_exceptions"),),
+                evidence_refs=(
+                    EvidenceMetricRef(evidence_id="EV-16bbbafd361d", metric_path="metrics.n_exceptions"),
+                ),
             ),
         ),
         overall_assessment="Clean.",
@@ -742,7 +746,9 @@ def test_no_arithmetic_engine_emitted_derived_metric_referenceable():
                 finding_id="F-01",
                 finding_type=FindingType.OBSERVED_EVIDENCE,
                 conclusion="Engine derived metric cited.",
-                evidence_refs=(EvidenceMetricRef(evidence_id="EV-ENG1", metric_path="metrics.variance_shortfall"),),
+                evidence_refs=(
+                    EvidenceMetricRef(evidence_id="EV-ENG1", metric_path="metrics.variance_shortfall"),
+                ),
             ),
         ),
         overall_assessment="Clean.",
@@ -757,30 +763,36 @@ def test_no_arithmetic_engine_emitted_derived_metric_referenceable():
 # =========================================================================== #
 def test_provider_valid_structured_response(monkeypatch):
     """32. Mocked provider returning valid JSON produces VERIFIED state."""
+
     class ValidStructuredProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
-            return json.dumps({
-                "findings": [
-                    {
-                        "finding_id": "F-01",
-                        "finding_type": "OBSERVED_EVIDENCE",
-                        "conclusion": "Portfolio risk is well-characterized.",
-                        "evidence_refs": [
-                            {"evidence_id": "EV-PORT1234", "metric_path": "metrics.annualised_volatility"}
-                        ],
-                    }
-                ],
-                "overall_assessment": "The portfolio meets risk limits.",
-            })
+            return json.dumps(
+                {
+                    "findings": [
+                        {
+                            "finding_id": "F-01",
+                            "finding_type": "OBSERVED_EVIDENCE",
+                            "conclusion": "Portfolio risk is well-characterized.",
+                            "evidence_refs": [
+                                {"evidence_id": "EV-PORT1234", "metric_path": "metrics.annualised_volatility"}
+                            ],
+                        }
+                    ],
+                    "overall_assessment": "The portfolio meets risk limits.",
+                }
+            )
 
     monkeypatch.setattr("start.providers.llm.get_llm_provider", lambda cfg: ValidStructuredProvider())
 
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-PORT1234", "portfolio.risk_statistics", {"annualised_volatility": 0.0937})
@@ -795,9 +807,11 @@ def test_provider_valid_structured_response(monkeypatch):
 
 def test_provider_refusal(monkeypatch):
     """33. Provider returning refusal text triggers deterministic fallback."""
+
     class RefusalProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "I cannot fulfill this request."
 
@@ -806,7 +820,9 @@ def test_provider_refusal(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-PORT1234", "portfolio.risk_statistics", {"annualised_volatility": 0.0937})
@@ -819,9 +835,11 @@ def test_provider_refusal(monkeypatch):
 
 def test_provider_incomplete_response(monkeypatch):
     """34. Provider returning truncated JSON triggers deterministic fallback."""
+
     class TruncatedProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return '{"findings": [{"finding_id": "F-01"'
 
@@ -830,7 +848,9 @@ def test_provider_incomplete_response(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-PORT1234", "portfolio.risk_statistics", {"annualised_volatility": 0.0937})
@@ -843,9 +863,11 @@ def test_provider_incomplete_response(monkeypatch):
 
 def test_provider_malformed_structured_output(monkeypatch):
     """35. Provider returning markdown prose without valid JSON triggers fallback."""
+
     class ProseProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "Here is my evaluation: the volatility is 0.0937 [EV-PORT1234]."
 
@@ -854,7 +876,9 @@ def test_provider_malformed_structured_output(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-PORT1234", "portfolio.risk_statistics", {"annualised_volatility": 0.0937})
@@ -872,29 +896,34 @@ def test_provider_exactly_one_invocation(monkeypatch):
     class TrackingProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             nonlocal calls
             calls += 1
-            return json.dumps({
-                "findings": [
-                    {
-                        "finding_id": "F-01",
-                        "finding_type": "OBSERVED_EVIDENCE",
-                        "conclusion": "Valid observation.",
-                        "evidence_refs": [
-                            {"evidence_id": "EV-PORT1234", "metric_path": "metrics.annualised_volatility"}
-                        ],
-                    }
-                ],
-                "overall_assessment": "Valid assessment.",
-            })
+            return json.dumps(
+                {
+                    "findings": [
+                        {
+                            "finding_id": "F-01",
+                            "finding_type": "OBSERVED_EVIDENCE",
+                            "conclusion": "Valid observation.",
+                            "evidence_refs": [
+                                {"evidence_id": "EV-PORT1234", "metric_path": "metrics.annualised_volatility"}
+                            ],
+                        }
+                    ],
+                    "overall_assessment": "Valid assessment.",
+                }
+            )
 
     monkeypatch.setattr("start.providers.llm.get_llm_provider", lambda cfg: TrackingProvider())
 
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-PORT1234", "portfolio.risk_statistics", {"annualised_volatility": 0.0937})
@@ -906,9 +935,11 @@ def test_provider_exactly_one_invocation(monkeypatch):
 
 def test_provider_no_structured_to_legacy_fallback(monkeypatch):
     """37. Failure in structured mode never silently falls back to legacy free-form claim parser."""
+
     class InvalidJsonProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "Free-form prose claiming 0.0937 [EV-PORT1234]."
 
@@ -917,7 +948,9 @@ def test_provider_no_structured_to_legacy_fallback(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-PORT1234", "portfolio.risk_statistics", {"annualised_volatility": 0.0937})
@@ -935,8 +968,10 @@ def _mock_structured_llm(monkeypatch, response_dict: dict[str, Any]):
     class MockLLM:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return json.dumps(response_dict)
+
     monkeypatch.setattr("start.providers.llm.get_llm_provider", lambda cfg: MockLLM())
 
 
@@ -959,7 +994,9 @@ def test_review_integration_factor_question(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-FAC1", "attribution.factor_return_estimation", {"r_squared": 0.88})
@@ -988,7 +1025,9 @@ def test_review_integration_var_question(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-VAR1", "traded_risk.var_exceptions", {"n11": 0})
@@ -1017,7 +1056,9 @@ def test_review_integration_var_challenge_with_ev_diag(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-VAR1", "traded_risk.var_exceptions", {"n_exceptions": 4})
@@ -1037,7 +1078,9 @@ def test_review_integration_covariance_question_challenge(monkeypatch):
                     "finding_id": "F-01",
                     "finding_type": "OBSERVED_EVIDENCE",
                     "conclusion": "Covariance shrinkage intensity is optimal.",
-                    "evidence_refs": [{"evidence_id": "EV-COV1", "metric_path": "metrics.shrinkage_intensity"}],
+                    "evidence_refs": [
+                        {"evidence_id": "EV-COV1", "metric_path": "metrics.shrinkage_intensity"}
+                    ],
                 }
             ],
             "overall_assessment": "Covariance matrix is well-conditioned.",
@@ -1046,7 +1089,9 @@ def test_review_integration_covariance_question_challenge(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-COV1", "covariance.ledoit_wolf_shrinkage", {"shrinkage_intensity": 0.15})
@@ -1075,7 +1120,9 @@ def test_review_integration_scenario_question_challenge(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-SCEN1", "scenario.linear_return", {"stress_loss": -50000.0})
@@ -1107,7 +1154,9 @@ def test_review_integration_committee_multi_domain(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.CROSS_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec1 = _make_dummy_record("EV-1", "portfolio.risk_statistics", {"periodic_volatility": 0.001679})
@@ -1137,7 +1186,9 @@ def test_review_integration_governance_signoff(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-GOV1", "portfolio.risk_statistics", {"total_tests": 79})
@@ -1169,7 +1220,9 @@ def test_acceptance_machine_readable_census_emitted(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
         grounding_mode=ReviewGroundingMode.STRUCTURED,
     )
     rec = _make_dummy_record("EV-M1", "portfolio.risk_statistics", {"vol": 0.05})
@@ -1315,7 +1368,9 @@ def test_frozen_replay_committee_synthesis_multi_domain():
                 finding_type=FindingType.CROSS_ANALYTICAL_DEPENDENCY,
                 conclusion="Periodic volatility is consistent with historical tail scenario counts.",
                 evidence_refs=(
-                    EvidenceMetricRef(evidence_id="EV-47bb29605d5d", metric_path="metrics.periodic_volatility"),
+                    EvidenceMetricRef(
+                        evidence_id="EV-47bb29605d5d", metric_path="metrics.periodic_volatility"
+                    ),
                     EvidenceMetricRef(evidence_id="EV-4ff86b3e8e9c", metric_path="metrics.n_scenarios"),
                 ),
             ),

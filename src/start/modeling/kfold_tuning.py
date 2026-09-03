@@ -41,8 +41,7 @@ class FoldResult:
     n_val: int
 
     def to_dict(self) -> dict[str, Any]:
-        return {"fold": self.fold, "metric": self.metric,
-                "n_train": self.n_train, "n_val": self.n_val}
+        return {"fold": self.fold, "metric": self.metric, "n_train": self.n_train, "n_val": self.n_val}
 
 
 @dataclass
@@ -55,9 +54,14 @@ class KFoldTrial:
     status: str = "ok"  # best | ok
 
     def to_dict(self) -> dict[str, Any]:
-        return {"trial": self.trial, "params": self.params,
-                "mean_metric": self.mean_metric, "std_metric": self.std_metric,
-                "fold_metrics": self.fold_metrics, "status": self.status}
+        return {
+            "trial": self.trial,
+            "params": self.params,
+            "mean_metric": self.mean_metric,
+            "std_metric": self.std_metric,
+            "fold_metrics": self.fold_metrics,
+            "status": self.status,
+        }
 
 
 @dataclass
@@ -150,6 +154,7 @@ def _metric_fn(primary_metric: str, is_multiclass: bool, classes_order: Any):
     def specificity(y, p):
         if is_multiclass:
             from sklearn.metrics import confusion_matrix
+
             yhat = classes_order[np.argmax(p, axis=1)]
             cm = confusion_matrix(y, yhat, labels=classes_order)
             specs = []
@@ -168,9 +173,13 @@ def _metric_fn(primary_metric: str, is_multiclass: bool, classes_order: Any):
             return float(tn / (tn + fp)) if (tn + fp) else 0.0
 
     return {
-        "auc_roc": auc, "pr_auc": prauc, "recall": rec,
-        "precision": prec, "specificity": specificity,
-        "f1": f1, "macro_f1": f1,
+        "auc_roc": auc,
+        "pr_auc": prauc,
+        "recall": rec,
+        "precision": prec,
+        "specificity": specificity,
+        "f1": f1,
+        "macro_f1": f1,
     }.get(primary_metric, auc)
 
 
@@ -184,8 +193,7 @@ def _make_estimator(C: float, class_weight: Any, seed: int):
         FunctionTransformer(_replace_inf_with_nan),
         SimpleImputer(strategy="median"),
         StandardScaler(),
-        LogisticRegression(C=C, class_weight=class_weight, max_iter=1000,
-                           random_state=seed),
+        LogisticRegression(C=C, class_weight=class_weight, max_iter=1000, random_state=seed),
     )
 
 
@@ -211,11 +219,13 @@ def run_kfold_tuning(
     if target not in train_df or train_df[target].nunique() < 2:
         return None
 
-    is_multiclass = (task_type == "multiclass_classification")
+    is_multiclass = task_type == "multiclass_classification"
 
-    metric_name = (primary_metric if primary_metric in
-                   ("auc_roc", "pr_auc", "recall", "precision", "specificity", "f1", "macro_f1")
-                   else "auc_roc")
+    metric_name = (
+        primary_metric
+        if primary_metric in ("auc_roc", "pr_auc", "recall", "precision", "specificity", "f1", "macro_f1")
+        else "auc_roc"
+    )
 
     X = train_df[features].to_numpy(dtype=float)
     y = train_df[target].to_numpy()
@@ -228,12 +238,14 @@ def run_kfold_tuning(
 
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
 
-    candidates = [{"C": c, "class_weight": cw} for c in _C_GRID
-                  for cw in _CLASS_WEIGHT_GRID]
+    candidates = [{"C": c, "class_weight": cw} for c in _C_GRID for cw in _CLASS_WEIGHT_GRID]
 
     run = KFoldTuningRun(
-        method="stratified_kfold", primary_metric=metric_name, n_folds=folds,
-        train_rows=len(train_df), excluded_rows=excluded_rows,
+        method="stratified_kfold",
+        primary_metric=metric_name,
+        n_folds=folds,
+        train_rows=len(train_df),
+        excluded_rows=excluded_rows,
     )
     best_mean, best_params, best_folds = -1.0, {}, []
     for ti, params in enumerate(candidates, start=1):
@@ -252,14 +264,18 @@ def run_kfold_tuning(
 
             m = round(float(score(y[va_idx], proba)), 6)
             fold_scores.append(m)
-            fold_results.append(FoldResult(fold=fi, metric=m,
-                                           n_train=len(tr_idx), n_val=len(va_idx)))
+            fold_results.append(FoldResult(fold=fi, metric=m, n_train=len(tr_idx), n_val=len(va_idx)))
         mean_m = round(float(np.mean(fold_scores)), 6)
         std_m = round(float(np.std(fold_scores)), 6)
-        run.trials.append(KFoldTrial(
-            trial=ti, params=dict(params), mean_metric=mean_m,
-            std_metric=std_m, fold_metrics=fold_scores,
-        ))
+        run.trials.append(
+            KFoldTrial(
+                trial=ti,
+                params=dict(params),
+                mean_metric=mean_m,
+                std_metric=std_m,
+                fold_metrics=fold_scores,
+            )
+        )
         if mean_m > best_mean:
             best_mean, best_params, best_folds = mean_m, dict(params), fold_results
 
@@ -267,28 +283,40 @@ def run_kfold_tuning(
         t.status = "best" if t.params == best_params else "ok"
     run.best_params = best_params
     run.best_mean_metric = best_mean
-    run.best_std_metric = next(
-        (t.std_metric for t in run.trials if t.status == "best"), 0.0)
+    run.best_std_metric = next((t.std_metric for t in run.trials if t.status == "best"), 0.0)
     run.best_fold_results = best_folds
 
     # --- artifacts ---
     out_dir = Path(output_root) / "tuning" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     fold_csv = out_dir / "fold_metrics.csv"
-    pd.DataFrame([
-        {"trial": t.trial, "C": t.params["C"],
-         "class_weight": str(t.params["class_weight"]), "fold": i + 1,
-         "metric": fm}
-        for t in run.trials for i, fm in enumerate(t.fold_metrics)
-    ]).to_csv(fold_csv, index=False)
+    pd.DataFrame(
+        [
+            {
+                "trial": t.trial,
+                "C": t.params["C"],
+                "class_weight": str(t.params["class_weight"]),
+                "fold": i + 1,
+                "metric": fm,
+            }
+            for t in run.trials
+            for i, fm in enumerate(t.fold_metrics)
+        ]
+    ).to_csv(fold_csv, index=False)
     trials_csv = out_dir / "tuning_trials.csv"
-    pd.DataFrame([
-        {"trial": t.trial, "C": t.params["C"],
-         "class_weight": str(t.params["class_weight"]),
-         "mean_metric": t.mean_metric, "std_metric": t.std_metric,
-         "status": t.status}
-        for t in run.trials
-    ]).to_csv(trials_csv, index=False)
+    pd.DataFrame(
+        [
+            {
+                "trial": t.trial,
+                "C": t.params["C"],
+                "class_weight": str(t.params["class_weight"]),
+                "mean_metric": t.mean_metric,
+                "std_metric": t.std_metric,
+                "status": t.status,
+            }
+            for t in run.trials
+        ]
+    ).to_csv(trials_csv, index=False)
     summary_json = out_dir / "tuning_summary.json"
     summary_json.write_text(json.dumps(run.to_dict(), indent=2, default=str))
     run.artifacts = [str(fold_csv), str(trials_csv), str(summary_json)]
@@ -307,17 +335,14 @@ def render_kfold_markdown(run: KFoldTuningRun) -> str:
         "",
         f"- Method: {run.method} ({run.n_folds}-fold, stratified)",
         f"- Primary metric: {run.primary_metric}",
-        f"- Train rows used: {run.train_rows} "
-        f"(test/OOS rows excluded from selection: {run.excluded_rows})",
+        f"- Train rows used: {run.train_rows} (test/OOS rows excluded from selection: {run.excluded_rows})",
         f"- Best params: {run.best_params}",
-        f"- Best mean {run.primary_metric}: {run.best_mean_metric:.4f} "
-        f"(std {run.best_std_metric:.4f})",
+        f"- Best mean {run.primary_metric}: {run.best_mean_metric:.4f} (std {run.best_std_metric:.4f})",
         "",
         "| Fold | Metric (best params) | n_train | n_val |",
         "| --- | --- | --- | --- |",
     ]
     for f in run.best_fold_results:
         lines.append(f"| {f.fold} | {f.metric:.4f} | {f.n_train} | {f.n_val} |")
-    lines += ["", f"**Mean:** {run.best_mean_metric:.4f}  |  "
-              f"**Std:** {run.best_std_metric:.4f}"]
+    lines += ["", f"**Mean:** {run.best_mean_metric:.4f}  |  **Std:** {run.best_std_metric:.4f}"]
     return "\n".join(lines) + "\n"

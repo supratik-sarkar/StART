@@ -6,6 +6,7 @@ from start.telemetry.bus import TelemetryBus
 
 class FairnessAgent(BaseAgent):
     """v2.4.0 Specialist Agent inspecting slice predictive metrics to remediate structural demographic bias."""
+
     def __init__(self, telemetry_bus: TelemetryBus):
         super().__init__(name="Fairness Agent", telemetry_bus=telemetry_bus)
 
@@ -22,15 +23,18 @@ class FairnessAgent(BaseAgent):
         # Validate against the standard industry 80% rule boundary
         if disparate_impact_ratio < fairness_threshold:
             reasoning = f"Disparate impact metric ratio ({disparate_impact_ratio:.3f}) drops below required regulatory threshold of {fairness_threshold}."
-            alternatives = ["Strategy A: Reject Model Run Promotion", "Strategy B: Apply Post-Hoc Classification Cutoff Calibration"]
+            alternatives = [
+                "Strategy A: Reject Model Run Promotion",
+                "Strategy B: Apply Post-Hoc Classification Cutoff Calibration",
+            ]
             confidence = 0.96
             action_directive = {
                 "strategy": "calibrate_decision_boundaries",
                 "parameters": {
                     "protected_attribute": context.get("protected_attribute", "demographic_slice"),
                     "target_metric": "equalized_odds",
-                    "shift_threshold_delta": 0.05
-                }
+                    "shift_threshold_delta": 0.05,
+                },
             }
         else:
             reasoning = "Demographic parity and statistical fairness constraints check clean across reference tracking attributes."
@@ -44,7 +48,7 @@ class FairnessAgent(BaseAgent):
             alternatives_considered=alternatives,
             evidence_citations=[context.get("evidence_id", "EV-FAIR-GENERIC")],
             action_directive=action_directive,
-            metrics=metrics
+            metrics=metrics,
         )
 
         return {"status": "evaluated", "action_directive": action_directive}

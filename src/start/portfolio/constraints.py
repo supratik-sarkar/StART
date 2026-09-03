@@ -281,9 +281,7 @@ def verify_portfolio_constraints(
         eff_factor_spec.validate_asset_coverage(assets)
         for f_name in eff_factor_spec.factor_names:
             # Check exposure = sum_i X_ik * w_i
-            loadings_k = np.array([
-                float(eff_factor_spec.loadings[a][f_name]) for a in assets
-            ], dtype=float)
+            loadings_k = np.array([float(eff_factor_spec.loadings[a][f_name]) for a in assets], dtype=float)
             exp_val = float(loadings_k @ w_vec)
             f_lb = eff_factor_spec.lower_bounds.get(f_name)
             f_ub = eff_factor_spec.upper_bounds.get(f_name)
@@ -299,7 +297,10 @@ def verify_portfolio_constraints(
                 ConstraintViolation(
                     constraint=f"factor_exposure.{f_name}",
                     observed_value=round(exp_val, 8),
-                    required_bound=(f_lb if f_lb is not None else -math.inf, f_ub if f_ub is not None else math.inf),
+                    required_bound=(
+                        f_lb if f_lb is not None else -math.inf,
+                        f_ub if f_ub is not None else math.inf,
+                    ),
                     violation=round(err, 8),
                     tolerance=tolerance,
                     provenance=f"factor_constraint_policy.{f_name}",
@@ -326,7 +327,10 @@ def verify_portfolio_constraints(
                 ConstraintViolation(
                     constraint=f"group_exposure.{eff_group_spec.group_name}.{g_label}",
                     observed_value=round(g_weight, 8),
-                    required_bound=(g_lb if g_lb is not None else -math.inf, g_ub if g_ub is not None else math.inf),
+                    required_bound=(
+                        g_lb if g_lb is not None else -math.inf,
+                        g_ub if g_ub is not None else math.inf,
+                    ),
                     violation=round(err, 8),
                     tolerance=tolerance,
                     provenance=f"group_constraint_policy.{eff_group_spec.group_name}.{g_label}",
@@ -365,21 +369,31 @@ def build_slsqp_constraints(
 
     # 1. Budget equality
     budget_val = constraints.budget if constraints is not None else 1.0
-    cons.append({
-        "type": "eq",
-        "fun": lambda w, b=budget_val: float(np.sum(w)) - b,
-    })
+    cons.append(
+        {
+            "type": "eq",
+            "fun": lambda w, b=budget_val: float(np.sum(w)) - b,
+        }
+    )
 
     # 2. Tracking Error
-    eff_te = max_tracking_error if max_tracking_error is not None else (constraints.max_tracking_error if constraints is not None else None)
+    eff_te = (
+        max_tracking_error
+        if max_tracking_error is not None
+        else (constraints.max_tracking_error if constraints is not None else None)
+    )
     if eff_te is not None and benchmark_weights is not None and covariance is not None:
         te_cap_sq = float(eff_te) ** 2
         bw_vec = np.asarray(benchmark_weights, dtype=float)
         sigma = np.asarray(covariance, dtype=float)
-        cons.append({
-            "type": "ineq",
-            "fun": lambda w, cap_sq=te_cap_sq, bw=bw_vec, cov=sigma: cap_sq - float((w - bw) @ cov @ (w - bw)),
-        })
+        cons.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, cap_sq=te_cap_sq, bw=bw_vec, cov=sigma: (
+                    cap_sq - float((w - bw) @ cov @ (w - bw))
+                ),
+            }
+        )
 
     if constraints is None:
         return cons
@@ -387,48 +401,56 @@ def build_slsqp_constraints(
     # 3. Max Concentration (Herfindahl)
     if constraints.max_concentration is not None:
         h_cap = float(constraints.max_concentration)
-        cons.append({
-            "type": "ineq",
-            "fun": lambda w, cap=h_cap: cap - float(np.sum(w**2)),
-        })
+        cons.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, cap=h_cap: cap - float(np.sum(w**2)),
+            }
+        )
 
     # 4. Gross Leverage
     if constraints.max_leverage is not None:
         lev_cap = float(constraints.max_leverage)
-        cons.append({
-            "type": "ineq",
-            "fun": lambda w, cap=lev_cap: cap - float(np.sum(np.abs(w))),
-        })
+        cons.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, cap=lev_cap: cap - float(np.sum(np.abs(w))),
+            }
+        )
 
     # 5. Max Turnover
     if constraints.max_turnover is not None and prior_weights is not None:
         to_cap = float(constraints.max_turnover)
         pw_vec = np.asarray(prior_weights, dtype=float)
-        cons.append({
-            "type": "ineq",
-            "fun": lambda w, cap=to_cap, pw=pw_vec: cap - 0.5 * float(np.sum(np.abs(w - pw))),
-        })
+        cons.append(
+            {
+                "type": "ineq",
+                "fun": lambda w, cap=to_cap, pw=pw_vec: cap - 0.5 * float(np.sum(np.abs(w - pw))),
+            }
+        )
 
     # 6. Factor Constraints
     factor_spec = constraints.factor_constraints
     if factor_spec is not None and isinstance(factor_spec, FactorConstraintSpec):
         factor_spec.validate_asset_coverage(assets)
         for f_name in factor_spec.factor_names:
-            loadings_k = np.array([
-                float(factor_spec.loadings[a][f_name]) for a in assets
-            ], dtype=float)
+            loadings_k = np.array([float(factor_spec.loadings[a][f_name]) for a in assets], dtype=float)
             if f_name in factor_spec.upper_bounds:
                 ub = float(factor_spec.upper_bounds[f_name])
-                cons.append({
-                    "type": "ineq",
-                    "fun": lambda w, lk=loadings_k, b=ub: b - float(lk @ w),
-                })
+                cons.append(
+                    {
+                        "type": "ineq",
+                        "fun": lambda w, lk=loadings_k, b=ub: b - float(lk @ w),
+                    }
+                )
             if f_name in factor_spec.lower_bounds:
                 lb = float(factor_spec.lower_bounds[f_name])
-                cons.append({
-                    "type": "ineq",
-                    "fun": lambda w, lk=loadings_k, b=lb: float(lk @ w) - b,
-                })
+                cons.append(
+                    {
+                        "type": "ineq",
+                        "fun": lambda w, lk=loadings_k, b=lb: float(lk @ w) - b,
+                    }
+                )
 
     # 7. Group Constraints
     group_spec = constraints.group_constraints
@@ -439,15 +461,19 @@ def build_slsqp_constraints(
                 continue
             if g_label in group_spec.upper_bounds:
                 ub = float(group_spec.upper_bounds[g_label])
-                cons.append({
-                    "type": "ineq",
-                    "fun": lambda w, ix=idxs, b=ub: b - float(np.sum(w[ix])),
-                })
+                cons.append(
+                    {
+                        "type": "ineq",
+                        "fun": lambda w, ix=idxs, b=ub: b - float(np.sum(w[ix])),
+                    }
+                )
             if g_label in group_spec.lower_bounds:
                 lb = float(group_spec.lower_bounds[g_label])
-                cons.append({
-                    "type": "ineq",
-                    "fun": lambda w, ix=idxs, b=lb: float(np.sum(w[ix])) - b,
-                })
+                cons.append(
+                    {
+                        "type": "ineq",
+                        "fun": lambda w, ix=idxs, b=lb: float(np.sum(w[ix])) - b,
+                    }
+                )
 
     return cons

@@ -5,6 +5,7 @@ The census test exists because a narrative summary once reported
 duplicates. Those cannot both be right. A count that is asserted rather than transcribed
 cannot drift silently, and a missing registration cannot hide behind arithmetic.
 """
+
 from __future__ import annotations
 
 from collections import Counter
@@ -32,47 +33,71 @@ from start.risk.plan import synthesise_plan
 #: The 52 surfaces that existed at Gate-A closeout. Gate B ADDS to this; it must never
 #: remove from it, which is what test_no_gate_a_id_was_lost enforces.
 GATE_A_FAMILY_COUNTS = {
-    "genai": 1, "preprocessing": 21, "supervised": 5,
-    "xai": 4, "eda": 6, "feature_engineering": 15,
+    "genai": 1,
+    "preprocessing": 21,
+    "supervised": 5,
+    "xai": 4,
+    "eda": 6,
+    "feature_engineering": 15,
 }
 GATE_A_TOTAL = 52
 
 #: Gate-B families as they land. The census is updated slice by slice rather than
 #: deleted: a locked count is the thing that stops a missing registration hiding behind
 #: arithmetic, so it is kept and moved deliberately.
-GATE_B_FAMILY_COUNTS = {"portfolio": 10, "attribution": 6,
-                        "traded_risk": 8, "covariance": 3}
+GATE_B_FAMILY_COUNTS = {"portfolio": 10, "attribution": 6, "traded_risk": 8, "covariance": 3}
 
 EXPECTED_FAMILY_COUNTS = {**GATE_A_FAMILY_COUNTS, **GATE_B_FAMILY_COUNTS}
 EXPECTED_TOTAL = sum(EXPECTED_FAMILY_COUNTS.values())
 
 EDA_IDS = {
-    "eda.descriptive_statistics", "eda.correlation", "eda.multicollinearity",
-    "eda.numeric_distribution", "eda.categorical_distribution", "eda.class_imbalance",
+    "eda.descriptive_statistics",
+    "eda.correlation",
+    "eda.multicollinearity",
+    "eda.numeric_distribution",
+    "eda.categorical_distribution",
+    "eda.class_imbalance",
 }
 A3_IDS = {
-    "preprocessing.leakage_target_reconstruction", "preprocessing.leakage_high_correlation",
-    "preprocessing.leakage_temporal", "preprocessing.leakage_entity_overlap",
-    "preprocessing.leakage_row_overlap", "preprocessing.leakage_suspicious_predictivity",
-    "preprocessing.leakage_name_heuristic", "preprocessing.target_analysis",
-    "preprocessing.feature_target_relationship", "preprocessing.redundancy",
-    "preprocessing.dimensionality_diagnostic", "preprocessing.categorical_drift",
+    "preprocessing.leakage_target_reconstruction",
+    "preprocessing.leakage_high_correlation",
+    "preprocessing.leakage_temporal",
+    "preprocessing.leakage_entity_overlap",
+    "preprocessing.leakage_row_overlap",
+    "preprocessing.leakage_suspicious_predictivity",
+    "preprocessing.leakage_name_heuristic",
+    "preprocessing.target_analysis",
+    "preprocessing.feature_target_relationship",
+    "preprocessing.redundancy",
+    "preprocessing.dimensionality_diagnostic",
+    "preprocessing.categorical_drift",
 }
 LEGACY_PREPROCESSING_IDS = {
-    "preprocessing.constant_features", "preprocessing.duplicates",
-    "preprocessing.feature_drift", "preprocessing.feature_ranges",
-    "preprocessing.high_cardinality", "preprocessing.missingness",
-    "preprocessing.outliers", "preprocessing.split_diagnostics",
+    "preprocessing.constant_features",
+    "preprocessing.duplicates",
+    "preprocessing.feature_drift",
+    "preprocessing.feature_ranges",
+    "preprocessing.high_cardinality",
+    "preprocessing.missingness",
+    "preprocessing.outliers",
+    "preprocessing.split_diagnostics",
     "preprocessing.target_leakage",
 }
 A4_IDS = {
-    "feature_engineering.plan", "feature_engineering.imputation",
-    "feature_engineering.scaling", "feature_engineering.numeric_transform",
-    "feature_engineering.winsorization", "feature_engineering.categorical_encoding",
-    "feature_engineering.rare_category_grouping", "feature_engineering.woe_iv",
-    "feature_engineering.monotonic_binning", "feature_engineering.interactions",
-    "feature_engineering.temporal_features", "feature_engineering.aggregation_features",
-    "feature_engineering.pca_transform", "feature_engineering.selection",
+    "feature_engineering.plan",
+    "feature_engineering.imputation",
+    "feature_engineering.scaling",
+    "feature_engineering.numeric_transform",
+    "feature_engineering.winsorization",
+    "feature_engineering.categorical_encoding",
+    "feature_engineering.rare_category_grouping",
+    "feature_engineering.woe_iv",
+    "feature_engineering.monotonic_binning",
+    "feature_engineering.interactions",
+    "feature_engineering.temporal_features",
+    "feature_engineering.aggregation_features",
+    "feature_engineering.pca_transform",
+    "feature_engineering.selection",
     "feature_engineering.fitting_scope_audit",
 }
 
@@ -137,6 +162,7 @@ def test_no_legacy_test_lacks_risk_metadata():
 def test_every_mapping_uses_live_taxonomy_ids_only():
     """No invented taxonomy values."""
     from start.risk import dimension_ids, object_kind_ids, stripe_ids
+
     stripes, dimensions, objects = set(stripe_ids()), set(dimension_ids()), set(object_kind_ids())
     for test_id, (_ctx, s, d, o, _why) in LEGACY_METADATA.items():
         assert set(s) <= stripes, (test_id, s)
@@ -230,8 +256,7 @@ def test_all_gate_b_tests_use_a_market_family_context():
 
 def test_exactly_two_short_rate_surfaces_exist():
     short_rate = {s.test_id for s in list_tests() if s.context_type == "short_rate"}
-    assert short_rate == {"traded_risk.cev_elasticity",
-                          "traded_risk.stanton_nonparametric"}
+    assert short_rate == {"traded_risk.cev_elasticity", "traded_risk.stanton_nonparametric"}
 
 
 def test_gate_b_families_are_complete():
@@ -349,11 +374,23 @@ def _supervised_ctx(n=400):
 
 def _preprocessing_ctx(n=300):
     rng = np.random.default_rng(8)
-    train = pd.DataFrame({"a": rng.normal(size=n), "b": rng.normal(size=n),
-                          "c": list("AB") * (n // 2), "y": rng.integers(0, 2, n)})
+    train = pd.DataFrame(
+        {
+            "a": rng.normal(size=n),
+            "b": rng.normal(size=n),
+            "c": list("AB") * (n // 2),
+            "y": rng.integers(0, 2, n),
+        }
+    )
     train.loc[:9, "a"] = np.nan
-    test = pd.DataFrame({"a": rng.normal(size=120), "b": rng.normal(size=120),
-                         "c": list("AB") * 60, "y": rng.integers(0, 2, 120)})
+    test = pd.DataFrame(
+        {
+            "a": rng.normal(size=120),
+            "b": rng.normal(size=120),
+            "c": list("AB") * 60,
+            "y": rng.integers(0, 2, 120),
+        }
+    )
     return TestContext(train=train, test=test, target_column="y")
 
 
@@ -425,8 +462,9 @@ def test_genai_analytical_output_is_unchanged_by_f1():
 
     list_tests()
     spec = _REGISTRY["genai.citation_coverage"]
-    ctx = TestContext(train=pd.DataFrame({"a": [1.0]}),
-                      extra={"generated_text": "AUC was 0.85 [EV-1]. Recall was 0.6."})
+    ctx = TestContext(
+        train=pd.DataFrame({"a": [1.0]}), extra={"generated_text": "AUC was 0.85 [EV-1]. Recall was 0.6."}
+    )
     after = _analytical(spec.fn(ctx))
     stripped = replace(spec, risk_stripes=(), risk_dimensions=(), object_kinds=())
     before = _analytical(stripped.fn(ctx))
@@ -437,8 +475,12 @@ def test_xai_metadata_does_not_alter_registration_identity():
     from start.registry import _REGISTRY
 
     list_tests()
-    for test_id in ("xai.global_importance", "xai.feature_sensitivity",
-                    "xai.importance_stability", "xai.integrated_gradients"):
+    for test_id in (
+        "xai.global_importance",
+        "xai.feature_sensitivity",
+        "xai.importance_stability",
+        "xai.integrated_gradients",
+    ):
         spec = _REGISTRY[test_id]
         assert spec.test_id == test_id
         assert spec.family == "xai"

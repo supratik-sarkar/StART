@@ -221,7 +221,11 @@ def outlier_options(
 
     for column in numeric_columns:
         series = frame[column]
-        values = series.to_numpy(dtype=float, copy=False) if hasattr(series, "to_numpy") else np.asarray(series, dtype=float)
+        values = (
+            series.to_numpy(dtype=float, copy=False)
+            if hasattr(series, "to_numpy")
+            else np.asarray(series, dtype=float)
+        )
         values = values[~np.isnan(values)]
         if values.size == 0:
             continue
@@ -236,7 +240,11 @@ def outlier_options(
         per_column = {}
         for column in numeric_columns:
             series = frame[column]
-            values = series.to_numpy(dtype=float, copy=False) if hasattr(series, "to_numpy") else np.asarray(series, dtype=float)
+            values = (
+                series.to_numpy(dtype=float, copy=False)
+                if hasattr(series, "to_numpy")
+                else np.asarray(series, dtype=float)
+            )
             values = values[~np.isnan(values)]
             if values.size:
                 per_column[column] = int(_iqr_mask(values, iqr_multiplier).sum())
@@ -448,7 +456,11 @@ def scaling_options(frame: Any, numeric_columns: list[str]) -> MethodMenu:
     ranges = {}
     for column in numeric_columns:
         series = frame[column]
-        values = series.to_numpy(dtype=float, copy=False) if hasattr(series, "to_numpy") else np.asarray(series, dtype=float)
+        values = (
+            series.to_numpy(dtype=float, copy=False)
+            if hasattr(series, "to_numpy")
+            else np.asarray(series, dtype=float)
+        )
         values = values[~np.isnan(values)]
         if values.size:
             ranges[column] = float(np.nanmax(values) - np.nanmin(values))
@@ -514,7 +526,9 @@ def imbalance_options(y: Any, *, already_weighted: bool = False) -> MethodMenu:
             total=total,
             recommended=not already_weighted,
             detail="ALREADY ENABLED at configuration — selecting another method here "
-            "applies a second correction" if already_weighted else "",
+            "applies a second correction"
+            if already_weighted
+            else "",
         ),
         MethodOption(
             key="oversample",
@@ -637,18 +651,29 @@ def threshold_options(
         )
 
     specs = [
-        ("fixed_050", "fixed 0.50", 0.5,
-         "the default; rarely defensible at low prevalence", False),
-        ("f1_optimal", "F1-optimal", float(best_f1),
-         "balances precision and recall equally", False),
-        ("f2_optimal", "F2-optimal", float(best_f2),
-         "weights recall 2x — appropriate when misses cost more than false alarms", True),
-        ("cost_optimal", f"cost-optimal ({cost_false_negative:g}:{cost_false_positive:g})",
-         float(best_cost),
-         "minimises expected cost under the stated matrix; citable where the "
-         "dataset publishes one", False),
-        ("alert_budget", f"alert budget {alert_budget:.0%}", budget_threshold,
-         f"caps alerts at roughly {target_alerts:,} cases, matching review capacity", False),
+        ("fixed_050", "fixed 0.50", 0.5, "the default; rarely defensible at low prevalence", False),
+        ("f1_optimal", "F1-optimal", float(best_f1), "balances precision and recall equally", False),
+        (
+            "f2_optimal",
+            "F2-optimal",
+            float(best_f2),
+            "weights recall 2x — appropriate when misses cost more than false alarms",
+            True,
+        ),
+        (
+            "cost_optimal",
+            f"cost-optimal ({cost_false_negative:g}:{cost_false_positive:g})",
+            float(best_cost),
+            "minimises expected cost under the stated matrix; citable where the dataset publishes one",
+            False,
+        ),
+        (
+            "alert_budget",
+            f"alert budget {alert_budget:.0%}",
+            budget_threshold,
+            f"caps alerts at roughly {target_alerts:,} cases, matching review capacity",
+            False,
+        ),
     ]
 
     options = []

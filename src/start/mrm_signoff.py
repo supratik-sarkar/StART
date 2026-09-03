@@ -25,13 +25,12 @@ NOT_READY = "NOT READY"
 @dataclass
 class SignoffFactor:
     name: str
-    status: str          # ok | concern | blocker | unknown
+    status: str  # ok | concern | blocker | unknown
     detail: str
-    evidence: str = ""   # provenance / value behind the judgment
+    evidence: str = ""  # provenance / value behind the judgment
 
     def to_dict(self) -> dict[str, Any]:
-        return {"factor": self.name, "status": self.status,
-                "detail": self.detail, "evidence": self.evidence}
+        return {"factor": self.name, "status": self.status, "detail": self.detail, "evidence": self.evidence}
 
 
 @dataclass
@@ -49,20 +48,20 @@ class SignoffDecision:
 
 
 # thresholds (public, model-agnostic defaults)
-_MIN_PRIMARY = 0.65          # below this primary metric -> blocker
-_WEAK_PRIMARY = 0.75         # below this -> concern
-_MAX_GEN_GAP = 0.10          # train-OOS gap above this -> concern
-_MAX_ECE = 0.10              # calibration error above this -> concern
-_MAX_SENS_DRIFT = 0.15       # sensitivity drift above this -> concern (feature dependence)
-_HIGH_SENS_DRIFT = 0.30      # above this -> blocker
+_MIN_PRIMARY = 0.65  # below this primary metric -> blocker
+_WEAK_PRIMARY = 0.75  # below this -> concern
+_MAX_GEN_GAP = 0.10  # train-OOS gap above this -> concern
+_MAX_ECE = 0.10  # calibration error above this -> concern
+_MAX_SENS_DRIFT = 0.15  # sensitivity drift above this -> concern (feature dependence)
+_HIGH_SENS_DRIFT = 0.30  # above this -> blocker
 
 
 def evaluate_signoff(
-    store: Any,                       # EvidenceStore
-    session: Any = None,              # ReviewSession
+    store: Any,  # EvidenceStore
+    session: Any = None,  # ReviewSession
     *,
     primary_metric: str = "auc_roc",
-    max_ece: float | None = None,     # configurable calibration threshold (#9)
+    max_ece: float | None = None,  # configurable calibration threshold (#9)
 ) -> SignoffDecision:
     factors: list[SignoffFactor] = []
     concerns = 0
@@ -78,38 +77,69 @@ def evaluate_signoff(
             r2_val = oos.get("r2")
             if r2_val is not None:
                 if r2_val < 0.1:
-                    factors.append(SignoffFactor("Performance", "blocker",
-                        f"OOS r2={r2_val:.4f} is below minimum 0.1 (poor regression fit)",
-                        "cohort_metrics.oos.r2"))
+                    factors.append(
+                        SignoffFactor(
+                            "Performance",
+                            "blocker",
+                            f"OOS r2={r2_val:.4f} is below minimum 0.1 (poor regression fit)",
+                            "cohort_metrics.oos.r2",
+                        )
+                    )
                     blockers += 1
                 elif r2_val < 0.4:
-                    factors.append(SignoffFactor("Performance", "concern",
-                        f"OOS r2={r2_val:.4f} is weak (<0.4)",
-                        "cohort_metrics.oos.r2"))
+                    factors.append(
+                        SignoffFactor(
+                            "Performance",
+                            "concern",
+                            f"OOS r2={r2_val:.4f} is weak (<0.4)",
+                            "cohort_metrics.oos.r2",
+                        )
+                    )
                     concerns += 1
                 else:
-                    factors.append(SignoffFactor("Performance", "ok",
-                        f"OOS {primary_metric}={val:.4f} (r2={r2_val:.4f})", "cohort_metrics.oos"))
+                    factors.append(
+                        SignoffFactor(
+                            "Performance",
+                            "ok",
+                            f"OOS {primary_metric}={val:.4f} (r2={r2_val:.4f})",
+                            "cohort_metrics.oos",
+                        )
+                    )
             else:
-                factors.append(SignoffFactor("Performance", "ok",
-                    f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"))
+                factors.append(
+                    SignoffFactor(
+                        "Performance", "ok", f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"
+                    )
+                )
         else:
             if val < _MIN_PRIMARY:
-                factors.append(SignoffFactor("Performance", "blocker",
-                    f"OOS {primary_metric}={val:.4f} below minimum {_MIN_PRIMARY}",
-                    "cohort_metrics.oos"))
+                factors.append(
+                    SignoffFactor(
+                        "Performance",
+                        "blocker",
+                        f"OOS {primary_metric}={val:.4f} below minimum {_MIN_PRIMARY}",
+                        "cohort_metrics.oos",
+                    )
+                )
                 blockers += 1
             elif val < _WEAK_PRIMARY:
-                factors.append(SignoffFactor("Performance", "concern",
-                    f"OOS {primary_metric}={val:.4f} is weak (<{_WEAK_PRIMARY})",
-                    "cohort_metrics.oos"))
+                factors.append(
+                    SignoffFactor(
+                        "Performance",
+                        "concern",
+                        f"OOS {primary_metric}={val:.4f} is weak (<{_WEAK_PRIMARY})",
+                        "cohort_metrics.oos",
+                    )
+                )
                 concerns += 1
             else:
-                factors.append(SignoffFactor("Performance", "ok",
-                    f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"))
+                factors.append(
+                    SignoffFactor(
+                        "Performance", "ok", f"OOS {primary_metric}={val:.4f}", "cohort_metrics.oos"
+                    )
+                )
     else:
-        factors.append(SignoffFactor("Performance", "blocker",
-            "No OOS metric available.", ""))
+        factors.append(SignoffFactor("Performance", "blocker", "No OOS metric available.", ""))
         blockers += 1
 
     # --- generalization gap (train vs OOS) ---
@@ -123,52 +153,86 @@ def evaluate_signoff(
                 gap = cm["train"][metric_for_gap] - hold[metric_for_gap]
             else:
                 gap = hold[metric_for_gap] - cm["train"][metric_for_gap]
-            
-            is_scale_dependent = (metric_for_gap != "r2" and lower_is_better)
+
+            is_scale_dependent = metric_for_gap != "r2" and lower_is_better
             if not is_scale_dependent and gap > _MAX_GEN_GAP:
-                factors.append(SignoffFactor("Generalization", "concern",
-                    f"train-OOS {metric_for_gap} gap {gap:+.4f} exceeds {_MAX_GEN_GAP}",
-                    "cohort_metrics"))
+                factors.append(
+                    SignoffFactor(
+                        "Generalization",
+                        "concern",
+                        f"train-OOS {metric_for_gap} gap {gap:+.4f} exceeds {_MAX_GEN_GAP}",
+                        "cohort_metrics",
+                    )
+                )
                 concerns += 1
             else:
-                factors.append(SignoffFactor("Generalization", "ok",
-                    f"train-OOS {metric_for_gap} gap {gap:+.4f}", "cohort_metrics"))
+                factors.append(
+                    SignoffFactor(
+                        "Generalization", "ok", f"train-OOS {metric_for_gap} gap {gap:+.4f}", "cohort_metrics"
+                    )
+                )
 
     # --- calibration (ECE) — threshold is configurable, not a universal law ---
     if oos and "ece" in oos:
         ece = oos["ece"]
         if ece > ece_threshold:
-            factors.append(SignoffFactor("Calibration", "concern",
-                f"OOS ECE={ece:.4f} exceeds the configured threshold "
-                f"{ece_threshold:.3f} (adjustable per model/risk appetite)",
-                "cohort_metrics.oos.ece"))
+            factors.append(
+                SignoffFactor(
+                    "Calibration",
+                    "concern",
+                    f"OOS ECE={ece:.4f} exceeds the configured threshold "
+                    f"{ece_threshold:.3f} (adjustable per model/risk appetite)",
+                    "cohort_metrics.oos.ece",
+                )
+            )
             concerns += 1
         else:
-            factors.append(SignoffFactor("Calibration", "ok",
-                f"OOS ECE={ece:.4f} within the configured threshold "
-                f"{ece_threshold:.3f}", "cohort_metrics.oos.ece"))
+            factors.append(
+                SignoffFactor(
+                    "Calibration",
+                    "ok",
+                    f"OOS ECE={ece:.4f} within the configured threshold {ece_threshold:.3f}",
+                    "cohort_metrics.oos.ece",
+                )
+            )
 
     # --- sensitivity / feature dependence ---
     if store.max_abs_drift is not None:
         drift = store.max_abs_drift
         feat = store.most_sensitive_feature or "a feature"
         if drift > _HIGH_SENS_DRIFT:
-            factors.append(SignoffFactor("Feature dependence", "blocker",
-                f"excessive sensitivity: {feat} drives drift {drift:.4f} "
-                f"(>{_HIGH_SENS_DRIFT})", "sensitivity_analysis"))
+            factors.append(
+                SignoffFactor(
+                    "Feature dependence",
+                    "blocker",
+                    f"excessive sensitivity: {feat} drives drift {drift:.4f} (>{_HIGH_SENS_DRIFT})",
+                    "sensitivity_analysis",
+                )
+            )
             blockers += 1
         elif drift > _MAX_SENS_DRIFT:
-            factors.append(SignoffFactor("Feature dependence", "concern",
-                f"{feat} drives drift {drift:.4f} (>{_MAX_SENS_DRIFT})",
-                "sensitivity_analysis"))
+            factors.append(
+                SignoffFactor(
+                    "Feature dependence",
+                    "concern",
+                    f"{feat} drives drift {drift:.4f} (>{_MAX_SENS_DRIFT})",
+                    "sensitivity_analysis",
+                )
+            )
             concerns += 1
         else:
-            factors.append(SignoffFactor("Feature dependence", "ok",
-                f"max drift {drift:.4f} (most sensitive: {feat})",
-                "sensitivity_analysis"))
+            factors.append(
+                SignoffFactor(
+                    "Feature dependence",
+                    "ok",
+                    f"max drift {drift:.4f} (most sensitive: {feat})",
+                    "sensitivity_analysis",
+                )
+            )
     else:
-        factors.append(SignoffFactor("Feature dependence", "unknown",
-            "No sensitivity analysis available.", ""))
+        factors.append(
+            SignoffFactor("Feature dependence", "unknown", "No sensitivity analysis available.", "")
+        )
 
     # --- benchmark against baselines ---
     if getattr(store, "benchmark", None):
@@ -176,9 +240,7 @@ def evaluate_signoff(
         b_status = b.get("status", "ok")
         b_verdict = b.get("verdict", "")
         factors.append(
-            SignoffFactor(
-                "Trivial-baseline benchmark", b_status, b_verdict, "benchmark.decision_stump"
-            )
+            SignoffFactor("Trivial-baseline benchmark", b_status, b_verdict, "benchmark.decision_stump")
         )
         if b_status == "blocker":
             blockers += 1
@@ -203,9 +265,7 @@ def evaluate_signoff(
         elif status == "concern":
             concerns += 1
 
-        conceded_keys = {
-            v.agent for v in verdicts if v.disposition is ChallengeDisposition.CONCEDED
-        }
+        conceded_keys = {v.agent for v in verdicts if v.disposition is ChallengeDisposition.CONCEDED}
         checkpoint_agent_map = {
             "architecture": "ArchitectureReviewAgent",
             "metric_priority": "HyperparameterTuningAgent",
@@ -275,21 +335,31 @@ def render_signoff_rich(decision: SignoffDecision) -> Any:
         "informational": "cyan",
     }
     for f in decision.factors:
-        table.add_row(f.name, f"[{style.get(f.status, 'white')}]{f.status}[/]",
-                      f.detail, f.evidence)
+        table.add_row(f.name, f"[{style.get(f.status, 'white')}]{f.status}[/]", f.detail, f.evidence)
 
-    vstyle = {"READY": "green", "READY WITH CONDITIONS": "yellow",
-              "NOT READY": "red"}.get(decision.verdict, "white")
-    panel = Panel(f"[bold {vstyle}]{decision.verdict}[/]\n{decision.rationale}",
-                  title="[bold]GovernanceSignoffAgent — MRM decision[/bold]",
-                  border_style=vstyle, title_align="left")
+    vstyle = {"READY": "green", "READY WITH CONDITIONS": "yellow", "NOT READY": "red"}.get(
+        decision.verdict, "white"
+    )
+    panel = Panel(
+        f"[bold {vstyle}]{decision.verdict}[/]\n{decision.rationale}",
+        title="[bold]GovernanceSignoffAgent — MRM decision[/bold]",
+        border_style=vstyle,
+        title_align="left",
+    )
     return table, panel
 
 
 def render_signoff_markdown(decision: SignoffDecision) -> str:
-    lines = ["### GovernanceSignoffAgent — MRM decision", "",
-             f"**Verdict: {decision.verdict}**", "", decision.rationale, "",
-             "| Factor | Status | Detail | Evidence |", "| --- | --- | --- | --- |"]
+    lines = [
+        "### GovernanceSignoffAgent — MRM decision",
+        "",
+        f"**Verdict: {decision.verdict}**",
+        "",
+        decision.rationale,
+        "",
+        "| Factor | Status | Detail | Evidence |",
+        "| --- | --- | --- | --- |",
+    ]
     for f in decision.factors:
         lines.append(f"| {f.name} | {f.status} | {f.detail} | {f.evidence} |")
     return "\n".join(lines) + "\n"

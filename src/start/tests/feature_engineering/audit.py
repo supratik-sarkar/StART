@@ -78,8 +78,13 @@ class AuditFinding:
     evidence: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"step": self.step, "check": self.check, "passed": self.passed,
-                "detail": self.detail, **self.evidence}
+        return {
+            "step": self.step,
+            "check": self.check,
+            "passed": self.passed,
+            "detail": self.detail,
+            **self.evidence,
+        }
 
 
 @dataclass
@@ -216,16 +221,21 @@ def audit_executor(
         baseline = executor(train, test, oos, **kwargs)
     except Exception as exc:
         audit.findings.append(
-            AuditFinding(step or "unknown", "check_0_execution", False,
-                         f"executor raised {type(exc).__name__}: {exc}")
+            AuditFinding(
+                step or "unknown", "check_0_execution", False, f"executor raised {type(exc).__name__}: {exc}"
+            )
         )
         return audit
 
     name = step or baseline.step
     if baseline.fitting_scope == FittingScope.STATELESS and not baseline.fitted_state:
         audit.findings.append(
-            AuditFinding(name, "check_1_train_only_reproduction", True,
-                         "stateless transformation: no fitted state to isolate")
+            AuditFinding(
+                name,
+                "check_1_train_only_reproduction",
+                True,
+                "stateless transformation: no fitted state to isolate",
+            )
         )
     else:
         # ---- Check 1 -----------------------------------------------------
@@ -234,17 +244,26 @@ def audit_executor(
             agree, difference = _states_agree(baseline.fitted_state, train_only.fitted_state)
             audit.findings.append(
                 AuditFinding(
-                    name, "check_1_train_only_reproduction", agree,
-                    "fitted state reproduces from train alone" if agree
+                    name,
+                    "check_1_train_only_reproduction",
+                    agree,
+                    "fitted state reproduces from train alone"
+                    if agree
                     else f"state differs when fitted on train alone — {difference}",
-                    {"state_hash_pipeline": baseline.state_hash(),
-                     "state_hash_train_only": train_only.state_hash()},
+                    {
+                        "state_hash_pipeline": baseline.state_hash(),
+                        "state_hash_train_only": train_only.state_hash(),
+                    },
                 )
             )
         except Exception as exc:
             audit.findings.append(
-                AuditFinding(name, "check_1_train_only_reproduction", False,
-                             f"train-only refit raised {type(exc).__name__}: {exc}")
+                AuditFinding(
+                    name,
+                    "check_1_train_only_reproduction",
+                    False,
+                    f"train-only refit raised {type(exc).__name__}: {exc}",
+                )
             )
 
         # ---- Check 2 — the one row-shuffling cannot make -----------------
@@ -254,20 +273,29 @@ def audit_executor(
                 agree, difference = _states_agree(baseline.fitted_state, perturbed.fitted_state)
                 audit.findings.append(
                     AuditFinding(
-                        name, "check_2_evaluation_influence", agree,
-                        "train-side state is invariant to evaluation values" if agree
+                        name,
+                        "check_2_evaluation_influence",
+                        agree,
+                        "train-side state is invariant to evaluation values"
+                        if agree
                         else (
                             "train-side state CHANGED when evaluation values were "
                             f"perturbed — the fit saw evaluation data ({difference})"
                         ),
-                        {"state_hash_baseline": baseline.state_hash(),
-                         "state_hash_perturbed_eval": perturbed.state_hash()},
+                        {
+                            "state_hash_baseline": baseline.state_hash(),
+                            "state_hash_perturbed_eval": perturbed.state_hash(),
+                        },
                     )
                 )
             except Exception as exc:
                 audit.findings.append(
-                    AuditFinding(name, "check_2_evaluation_influence", False,
-                                 f"perturbed refit raised {type(exc).__name__}: {exc}")
+                    AuditFinding(
+                        name,
+                        "check_2_evaluation_influence",
+                        False,
+                        f"perturbed refit raised {type(exc).__name__}: {exc}",
+                    )
                 )
 
     # ---- Check 3 — target-derived training representation ---------------
@@ -276,11 +304,14 @@ def audit_executor(
             flipped = train.copy()
             y = pd.to_numeric(flipped[target_column], errors="coerce")
             row = 0
-            flipped.loc[flipped.index[row], target_column] = (
-                0 if float(y.iloc[row]) != 0 else 1
+            flipped.loc[flipped.index[row], target_column] = 0 if float(y.iloc[row]) != 0 else 1
+            after = executor(
+                flipped,
+                test,
+                oos,
+                target_column=target_column,
+                **{k: v for k, v in kwargs.items() if k != "target_column"},
             )
-            after = executor(flipped, test, oos, target_column=target_column,
-                             **{k: v for k, v in kwargs.items() if k != "target_column"})
 
             changed_columns: list[str] = []
             for column in baseline.affected_features:
@@ -298,18 +329,24 @@ def audit_executor(
             passed = not changed_columns
             audit.findings.append(
                 AuditFinding(
-                    name, "check_3_out_of_fold_target_encoding", passed,
+                    name,
+                    "check_3_out_of_fold_target_encoding",
+                    passed,
                     "a row's own encoded value does not depend on its own target"
-                    if passed else
-                    "a row's encoded value CHANGED when its own target was flipped — "
+                    if passed
+                    else "a row's encoded value CHANGED when its own target was flipped — "
                     f"the encoding is not out-of-fold ({', '.join(changed_columns[:5])})",
                     {"row_inspected": row, "columns_changed": ", ".join(changed_columns[:5])},
                 )
             )
         except Exception as exc:
             audit.findings.append(
-                AuditFinding(name, "check_3_out_of_fold_target_encoding", False,
-                             f"target-flip refit raised {type(exc).__name__}: {exc}")
+                AuditFinding(
+                    name,
+                    "check_3_out_of_fold_target_encoding",
+                    False,
+                    f"target-flip refit raised {type(exc).__name__}: {exc}",
+                )
             )
 
     # ---- Check 4 — future influence -------------------------------------
@@ -322,51 +359,57 @@ def audit_executor(
 
             future_changed = train.copy()
             numeric = [
-                c for c in future_changed.select_dtypes(include=[np.number]).columns
-                if c != target_column
+                c for c in future_changed.select_dtypes(include=[np.number]).columns if c != target_column
             ]
             for column in numeric:
-                future_changed.iloc[
-                    late, future_changed.columns.get_loc(column)
-                ] = future_changed.iloc[late][column].astype(float) * 500.0 + 999.0
+                future_changed.iloc[late, future_changed.columns.get_loc(column)] = (
+                    future_changed.iloc[late][column].astype(float) * 500.0 + 999.0
+                )
 
             after = executor(future_changed, test, oos, **kwargs)
-            generated = [
-                c for c in baseline.transformed_train.columns
-                if c not in train.columns
-            ]
+            generated = [c for c in baseline.transformed_train.columns if c not in train.columns]
             changed_columns: list[str] = []
             for column in generated:
                 if column not in after.transformed_train.columns:
                     continue
-                a = pd.to_numeric(
-                    baseline.transformed_train[column].iloc[early], errors="coerce"
-                ).to_numpy(dtype=float)
-                b = pd.to_numeric(
-                    after.transformed_train[column].iloc[early], errors="coerce"
-                ).to_numpy(dtype=float)
+                a = pd.to_numeric(baseline.transformed_train[column].iloc[early], errors="coerce").to_numpy(
+                    dtype=float
+                )
+                b = pd.to_numeric(after.transformed_train[column].iloc[early], errors="coerce").to_numpy(
+                    dtype=float
+                )
                 both_nan = np.isnan(a) & np.isnan(b)
-                if not np.allclose(np.where(both_nan, 0.0, a), np.where(both_nan, 0.0, b),
-                                   rtol=1e-9, atol=1e-9, equal_nan=True):
+                if not np.allclose(
+                    np.where(both_nan, 0.0, a),
+                    np.where(both_nan, 0.0, b),
+                    rtol=1e-9,
+                    atol=1e-9,
+                    equal_nan=True,
+                ):
                     changed_columns.append(column)
 
             passed = not changed_columns
             audit.findings.append(
                 AuditFinding(
-                    name, "check_4_future_influence", passed,
+                    name,
+                    "check_4_future_influence",
+                    passed,
                     "historical feature values are invariant to future observations"
-                    if passed else
-                    "historical feature values CHANGED when future observations were "
+                    if passed
+                    else "historical feature values CHANGED when future observations were "
                     f"perturbed — the transformation is not causal "
                     f"({', '.join(changed_columns[:5])})",
-                    {"n_early_rows": int(len(early)),
-                     "columns_changed": ", ".join(changed_columns[:5])},
+                    {"n_early_rows": int(len(early)), "columns_changed": ", ".join(changed_columns[:5])},
                 )
             )
         except Exception as exc:
             audit.findings.append(
-                AuditFinding(name, "check_4_future_influence", False,
-                             f"future-perturbation refit raised {type(exc).__name__}: {exc}")
+                AuditFinding(
+                    name,
+                    "check_4_future_influence",
+                    False,
+                    f"future-perturbation refit raised {type(exc).__name__}: {exc}",
+                )
             )
 
     return audit

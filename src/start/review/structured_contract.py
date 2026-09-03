@@ -153,9 +153,7 @@ class StructuredReviewerResponse(BaseModel):
 
     @field_validator("findings")
     @classmethod
-    def validate_unique_finding_ids(
-        cls, v: tuple[ReviewerFinding, ...]
-    ) -> tuple[ReviewerFinding, ...]:
+    def validate_unique_finding_ids(cls, v: tuple[ReviewerFinding, ...]) -> tuple[ReviewerFinding, ...]:
         ids = [f.finding_id for f in v]
         if len(ids) != len(set(ids)):
             raise ValueError(f"Duplicate finding_id values detected in findings: {ids}")
@@ -252,8 +250,7 @@ def _format_deterministic_display(val: Any, metric_path: str) -> tuple[str, str]
         return f"{val:,}", "count"
     if isinstance(val, float):
         low = metric_path.lower()
-        pct_keys = ("rate", "share", "volatility", "variance_shortfall",
-                    "fraction", "ratio_pct")
+        pct_keys = ("rate", "share", "volatility", "variance_shortfall", "fraction", "ratio_pct")
         if any(k in low for k in pct_keys):
             if abs(val) <= 1.0 and not any(k in low for k in ("count", "df", "degree", "dof")):
                 return f"{val * 100.0:.4f}%", "percentage"
@@ -366,9 +363,7 @@ def validate_and_hydrate_structured_response(
 
             # Rule 2: Canonical metric path resolution
             valid_prefix = (
-                path.startswith("metrics.")
-                or path.startswith("params.")
-                or path.startswith("thresholds.")
+                path.startswith("metrics.") or path.startswith("params.") or path.startswith("thresholds.")
             )
             if not valid_prefix:
                 invalid_details.append(
@@ -388,17 +383,17 @@ def validate_and_hydrate_structured_response(
             found = False
 
             if path.startswith("metrics."):
-                k = path[len("metrics."):]
+                k = path[len("metrics.") :]
                 if rec.metrics and k in rec.metrics:
                     val = rec.metrics[k]
                     found = True
             elif path.startswith("params."):
-                k = path[len("params."):]
+                k = path[len("params.") :]
                 if rec.params and k in rec.params:
                     val = rec.params[k]
                     found = True
             elif path.startswith("thresholds."):
-                k = path[len("thresholds."):]
+                k = path[len("thresholds.") :]
                 for t in rec.thresholds:
                     if getattr(t, "metric", None) == k:
                         val = t.warn if t.warn is not None else t.fail
@@ -553,15 +548,11 @@ class ReviewerObservation(BaseModel):
 
     model_config = ConfigDict(protected_namespaces=())
 
-    evidence_id: str = Field(
-        ..., description="Exact bracketed EvidenceRecord ID, e.g. EV-123456789abc"
-    )
+    evidence_id: str = Field(..., description="Exact bracketed EvidenceRecord ID, e.g. EV-123456789abc")
     metric_path: str = Field(
         ..., description="Canonical metric field path, e.g. 'annualised_volatility' or 'n_exceptions'"
     )
-    interpretation: str = Field(
-        default="", description="Objective technical finding based on this evidence"
-    )
+    interpretation: str = Field(default="", description="Objective technical finding based on this evidence")
     value: float | None = Field(default=None, description="Deterministically hydrated numeric value")
     unit: str = Field(
         default="", description="Deterministically hydrated unit (% | bps | ratio | count | ...)"
@@ -579,9 +570,7 @@ class ReviewerAssessment(BaseModel):
     observations: list[ReviewerObservation] = Field(
         default_factory=list, description="Groundable evidence observations"
     )
-    concerns: list[str] = Field(
-        default_factory=list, description="Identified model risk concerns"
-    )
+    concerns: list[str] = Field(default_factory=list, description="Identified model risk concerns")
     missing_criteria: list[str] = Field(
         default_factory=list, description="Unmet criteria or missing evidence"
     )
@@ -688,8 +677,8 @@ def format_assessment_markdown(assessment: ReviewerAssessment) -> str:
     if assessment.observations:
         lines.append("#### Grounded Observations")
         for obs in assessment.observations:
-            val_str = f" `{obs.display}`" if obs.display else (
-                f" `{obs.value}`" if obs.value is not None else ""
+            val_str = (
+                f" `{obs.display}`" if obs.display else (f" `{obs.value}`" if obs.value is not None else "")
             )
             clean_id = obs.evidence_id.strip("[]()")
             lines.append(f"- **[{clean_id}]** (`{obs.metric_path}`{val_str}): {obs.interpretation}")
@@ -720,4 +709,3 @@ def format_assessment_markdown(assessment: ReviewerAssessment) -> str:
         lines.append("")
 
     return "\n".join(lines).strip()
-

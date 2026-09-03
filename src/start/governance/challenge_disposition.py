@@ -176,6 +176,7 @@ def classify_challenge(challenge: Any) -> ChallengeVerdict:
     (``conceded`` / ``changes_disposition`` / status ``conceded``). It is never
     inferred from the wording of the response — see the module docstring.
     """
+
     def get(name: str, default: Any = None) -> Any:
         if isinstance(challenge, dict):
             return challenge.get(name, default)
@@ -183,11 +184,7 @@ def classify_challenge(challenge: Any) -> ChallengeVerdict:
 
     status = str(get("status", "open") or "open").lower()
     response = str(get("response", "") or "")
-    conceded_flag = bool(
-        get("conceded", False)
-        or get("changes_disposition", False)
-        or status == "conceded"
-    )
+    conceded_flag = bool(get("conceded", False) or get("changes_disposition", False) or status == "conceded")
 
     if conceded_flag:
         disposition = ChallengeDisposition.CONCEDED
@@ -218,6 +215,7 @@ def classify_override(decision: Any, conceded_keys: set[str] | None = None) -> O
     An override at such a checkpoint implements the agent's own reasoning and is
     informational, not a concern.
     """
+
     def get(name: str, default: Any = None) -> Any:
         if isinstance(decision, dict):
             return decision.get(name, default)
@@ -287,8 +285,7 @@ def challenge_factor(verdicts: list[ChallengeVerdict]) -> tuple[str, str, str]:
     if outstanding:
         return (
             "blocker",
-            f"{len(outstanding)} reviewer challenge(s) raised and unresolved "
-            f"({len(resolved)} resolved)",
+            f"{len(outstanding)} reviewer challenge(s) raised and unresolved ({len(resolved)} resolved)",
             "review_session",
         )
 

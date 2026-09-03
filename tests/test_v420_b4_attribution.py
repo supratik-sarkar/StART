@@ -3,6 +3,7 @@
 Every algebraic expectation here is computed from explicit small arrays in the test
 itself. No expected value is produced by calling the function under test.
 """
+
 from __future__ import annotations
 
 import math
@@ -40,8 +41,11 @@ def _ctx(returns, exposures, weights=None, benchmark=None, factor_returns=None, 
     if weights is None:
         weights = pd.Series(1.0 / returns.shape[1], index=returns.columns)
     return MarketContext(
-        returns=returns, factor_exposures=exposures, factor_returns=factor_returns,
-        portfolio=PortfolioSpec(weights=weights, benchmark_weights=benchmark), **kw
+        returns=returns,
+        factor_exposures=exposures,
+        factor_returns=factor_returns,
+        portfolio=PortfolioSpec(weights=weights, benchmark_weights=benchmark),
+        **kw,
     )
 
 
@@ -52,8 +56,7 @@ def _exact_world(n_periods=40, seed=0):
     assets = [f"A{i}" for i in range(6)]
     factors = ["F1", "F2", "F3"]
     X = pd.DataFrame(rng.normal(size=(6, 3)), index=assets, columns=factors)
-    f = pd.DataFrame(rng.normal(0, 0.01, (n_periods, 3)), index=_idx(n_periods),
-                     columns=factors)
+    f = pd.DataFrame(rng.normal(0, 0.01, (n_periods, 3)), index=_idx(n_periods), columns=factors)
     returns = pd.DataFrame(f.to_numpy() @ X.to_numpy().T, index=f.index, columns=assets)
     return returns, X, f
 
@@ -66,8 +69,15 @@ def test_reconciliation_tolerances_are_frozen():
 
 
 def test_risk_change_contract_records_all_four_components():
-    for key in ("exposure_component", "covariance_component", "specific_component",
-                "interaction_component", "identity", "interaction_share", "ordering"):
+    for key in (
+        "exposure_component",
+        "covariance_component",
+        "specific_component",
+        "interaction_component",
+        "identity",
+        "interaction_share",
+        "ordering",
+    ):
         assert key in RISK_CHANGE_CONTRACT
     assert "simultaneous" in RISK_CHANGE_CONTRACT["ordering"]
 
@@ -158,9 +168,13 @@ def test_weighting_changes_the_estimate_on_an_overdetermined_noisy_system():
     r = X.to_numpy() @ np.array([0.01, 0.02]) + rng.normal(0, 0.005, 8)
     returns = pd.DataFrame([r], index=_idx(1), columns=assets)
     plain = estimate_factor_returns(_ctx(returns, X)).factor_returns.iloc[0].to_numpy()
-    weighted = estimate_factor_returns(
-        _ctx(returns, X), observation_weights=pd.Series(np.arange(1.0, 9.0), index=assets)
-    ).factor_returns.iloc[0].to_numpy()
+    weighted = (
+        estimate_factor_returns(
+            _ctx(returns, X), observation_weights=pd.Series(np.arange(1.0, 9.0), index=assets)
+        )
+        .factor_returns.iloc[0]
+        .to_numpy()
+    )
     assert not np.allclose(plain, weighted, atol=1e-9)
 
 
@@ -369,8 +383,7 @@ def test_risk_attribution_components_reconcile():
     result = risk_attribution(_ctx(returns, X, factor_returns=f))
     assert result.status == Status.RECORDED
     assert abs(result.metrics["factor_component_reconciliation_error"]) < 1e-15
-    assert abs(result.metrics["factor_component_sum"]
-               - result.metrics["factor_variance"]) < 1e-14
+    assert abs(result.metrics["factor_component_sum"] - result.metrics["factor_variance"]) < 1e-14
 
 
 def test_risk_attribution_uses_factor_not_asset_covariance():
@@ -381,7 +394,8 @@ def test_risk_attribution_uses_factor_not_asset_covariance():
     ctx.covariance = asset_cov
     result = risk_attribution(ctx)
     assert result.metrics["factor_covariance_source"] in {
-        "supplied_factor_returns", "estimated_factor_returns"
+        "supplied_factor_returns",
+        "estimated_factor_returns",
     }
     assert result.metrics["factor_covariance_dimension"] == 3
 
@@ -413,8 +427,7 @@ def test_factor_statistics_known_answer():
     values = np.array([0.01, 0.03, -0.01, 0.02, 0.00])
     assets, factors = ["A", "B", "C"], ["F1"]
     X = pd.DataFrame([[1.0], [2.0], [3.0]], index=assets, columns=factors)
-    returns = pd.DataFrame(np.outer(values, X["F1"].to_numpy()),
-                           index=_idx(5), columns=assets)
+    returns = pd.DataFrame(np.outer(values, X["F1"].to_numpy()), index=_idx(5), columns=assets)
     result = cross_sectional_factor_model(_ctx(returns, X))
     expected_mean = float(values.mean())
     expected_sd = float(values.std(ddof=1))
@@ -441,14 +454,15 @@ def test_the_statistics_are_never_claimed_to_be_fama_macbeth():
     """
     returns, X, _ = _exact_world(30)
     result = cross_sectional_factor_model(_ctx(returns, X))
-    blob = " ".join([result.interpretation, *result.limitations,
-                     str(result.metrics.get("stderr_convention", ""))]).lower()
+    blob = " ".join(
+        [result.interpretation, *result.limitations, str(result.metrics.get("stderr_convention", ""))]
+    ).lower()
 
     # The disclaimer must be present...
     assert "not fama-macbeth" in blob
     # ...and every mention of the name must sit inside a negation.
     for start in [i for i in range(len(blob)) if blob.startswith("fama-macbeth", i)]:
-        assert "not " in blob[max(0, start - 8):start]
+        assert "not " in blob[max(0, start - 8) : start]
     # No risk-premium or causal claim.
     assert "risk premium is estimated" in blob or "no risk premium" in blob
     assert "causal effect" in blob
@@ -465,8 +479,7 @@ def test_no_hac_correction_is_claimed():
 def test_serial_dependence_limitation_is_stated():
     returns, X, _ = _exact_world(30)
     result = cross_sectional_factor_model(_ctx(returns, X))
-    assert any("autocorrelated" in x or "serially independent" in x
-               for x in result.limitations)
+    assert any("autocorrelated" in x or "serially independent" in x for x in result.limitations)
 
 
 def test_numerically_constant_factor_return_gives_no_tstat():
@@ -475,8 +488,7 @@ def test_numerically_constant_factor_return_gives_no_tstat():
     assets, factors = ["A", "B", "C"], ["F1"]
     X = pd.DataFrame([[1.0], [2.0], [3.0]], index=assets, columns=factors)
     constant = np.full(20, 0.01)
-    returns = pd.DataFrame(np.outer(constant, X["F1"].to_numpy()),
-                           index=_idx(20), columns=assets)
+    returns = pd.DataFrame(np.outer(constant, X["F1"].to_numpy()), index=_idx(20), columns=assets)
     result = cross_sectional_factor_model(_ctx(returns, X))
     assert result.metrics["degenerate.F1"] is True
     assert result.metrics["tstat.F1"] is None
@@ -489,8 +501,7 @@ def test_genuinely_low_volatility_factor_remains_usable():
     assets, factors = ["A", "B", "C"], ["F1"]
     X = pd.DataFrame([[1.0], [2.0], [3.0]], index=assets, columns=factors)
     values = 0.01 + rng.normal(0, 1e-6, 40)
-    returns = pd.DataFrame(np.outer(values, X["F1"].to_numpy()),
-                           index=_idx(40), columns=assets)
+    returns = pd.DataFrame(np.outer(values, X["F1"].to_numpy()), index=_idx(40), columns=assets)
     result = cross_sectional_factor_model(_ctx(returns, X))
     assert result.metrics["degenerate.F1"] is False
     assert result.metrics["tstat.F1"] is not None
@@ -499,11 +510,12 @@ def test_genuinely_low_volatility_factor_remains_usable():
 
 # ============================================== RISK CHANGE ==
 def _state(x, F, S, label=""):
-    factors = [f"F{i+1}" for i in range(len(x))]
+    factors = [f"F{i + 1}" for i in range(len(x))]
     return AttributionState(
         exposure=pd.Series(x, index=factors, dtype=float),
         factor_covariance=pd.DataFrame(F, index=factors, columns=factors, dtype=float),
-        specific_variance=float(S), label=label,
+        specific_variance=float(S),
+        label=label,
     )
 
 
@@ -552,17 +564,28 @@ def test_interaction_share_is_bounded_and_uses_absolute_components():
     # Signed total is exactly zero while the interaction is large: dividing by dV
     # would be a division by zero, which is precisely the case this definition exists
     # to survive.
-    components = {"exposure_component": 10.0, "factor_covariance_component": -11.0,
-                  "specific_risk_component": 0.0, "interaction_component": 1.0}
-    assert abs(sum(components.values())) < 1e-12          # signed total IS zero
+    components = {
+        "exposure_component": 10.0,
+        "factor_covariance_component": -11.0,
+        "specific_risk_component": 0.0,
+        "interaction_component": 1.0,
+    }
+    assert abs(sum(components.values())) < 1e-12  # signed total IS zero
     share = interaction_share(components)
     assert 0.0 <= share <= 1.0
-    assert abs(share - 1.0 / 22.0) < 1e-12                # |1| / (10+11+0+1)
+    assert abs(share - 1.0 / 22.0) < 1e-12  # |1| / (10+11+0+1)
 
 
 def test_interaction_share_is_zero_for_no_change():
-    components = {k: 0.0 for k in ("exposure_component", "factor_covariance_component",
-                                   "specific_risk_component", "interaction_component")}
+    components = {
+        k: 0.0
+        for k in (
+            "exposure_component",
+            "factor_covariance_component",
+            "specific_risk_component",
+            "interaction_component",
+        )
+    }
     assert interaction_share(components) == 0.0
 
 
@@ -618,14 +641,11 @@ def test_every_state_field_change_moves_the_comparison_hash(field):
     ctx = _ctx(returns, X, factor_returns=f)
     base = _three_factor_state()
     if field == "exposure":
-        other = AttributionState(base.exposure + 0.001, base.factor_covariance,
-                                 base.specific_variance)
+        other = AttributionState(base.exposure + 0.001, base.factor_covariance, base.specific_variance)
     elif field == "covariance":
-        other = AttributionState(base.exposure, base.factor_covariance * 1.5,
-                                 base.specific_variance)
+        other = AttributionState(base.exposure, base.factor_covariance * 1.5, base.specific_variance)
     else:
-        other = AttributionState(base.exposure, base.factor_covariance,
-                                 base.specific_variance * 2)
+        other = AttributionState(base.exposure, base.factor_covariance, base.specific_variance * 2)
     a = risk_change_decomposition(ctx, comparison_state=base)
     b = risk_change_decomposition(ctx, comparison_state=other)
     assert a.params["comparison_state_hash"] != b.params["comparison_state_hash"]
@@ -641,16 +661,16 @@ def test_missing_comparison_state_skips_with_the_architectural_reason():
 def test_mismatched_comparison_factors_error():
     returns, X, f = _exact_world(20)
     two_factor = _state([1.0, 2.0], [[4.0, 1.0], [1.0, 9.0]], 5.0)
-    result = risk_change_decomposition(_ctx(returns, X, factor_returns=f),
-                                       comparison_state=two_factor)
+    result = risk_change_decomposition(_ctx(returns, X, factor_returns=f), comparison_state=two_factor)
     assert result.status == Status.ERROR
     assert "do not match" in result.interpretation
 
 
 def test_risk_change_reconciles_end_to_end():
     returns, X, f = _exact_world(40)
-    result = risk_change_decomposition(_ctx(returns, X, factor_returns=f),
-                                       comparison_state=_three_factor_state())
+    result = risk_change_decomposition(
+        _ctx(returns, X, factor_returns=f), comparison_state=_three_factor_state()
+    )
     assert result.status in {Status.RECORDED, Status.WARN}
     assert abs(result.metrics["reconciliation_error"]) < 1e-10
     assert abs(result.metrics["component_sum"] - result.metrics["observed_delta"]) < 1e-10
@@ -667,13 +687,14 @@ def test_high_interaction_reconciles_but_warns():
     components = decompose_risk_change(before, after)
     v0 = float(x0 @ F0 @ x0)
     v1 = float((x0 + dx) @ (F0 + dF) @ (x0 + dx))
-    assert abs(sum(components.values()) - (v1 - v0)) < 1e-9   # reconciles exactly
+    assert abs(sum(components.values()) - (v1 - v0)) < 1e-9  # reconciles exactly
     assert interaction_share(components) > INTERACTION_SHARE_WARN
 
 
 def test_evidence_contains_no_matrices():
     returns, X, f = _exact_world(30)
-    result = risk_change_decomposition(_ctx(returns, X, factor_returns=f),
-                                       comparison_state=_three_factor_state())
+    result = risk_change_decomposition(
+        _ctx(returns, X, factor_returns=f), comparison_state=_three_factor_state()
+    )
     for value in result.metrics.values():
         assert not isinstance(value, (pd.DataFrame, pd.Series, np.ndarray))

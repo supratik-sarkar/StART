@@ -163,7 +163,9 @@ def test_grounding_semantic_identity_separation() -> None:
     }
 
     # Claim asserting test significance must bind to gamma_test, NOT alpha_var
-    sig_claim = Claim(value=5.0, surface="5%", unit="%", position=0, context="Hypothesis test significance level is 5%")
+    sig_claim = Claim(
+        value=5.0, surface="5%", unit="%", position=0, context="Hypothesis test significance level is 5%"
+    )
     matched_sig = _match_candidates_in_fields(
         candidates={0.05, 5.0},
         fields=fields,
@@ -349,4 +351,3 @@ def test_date_timestamp_tokenization_defect_fixed() -> None:
 
     c6 = extract_claims("Run timestamp 2023-10-31T15:30:00Z.")
     assert len(c6) == 0
-

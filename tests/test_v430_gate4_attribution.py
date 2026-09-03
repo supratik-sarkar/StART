@@ -184,7 +184,11 @@ def test_carino_multi_period_linking_two_period_fixture():
     assert math.isclose(carino_res.total_benchmark_return_geometric, rb_geom, abs_tol=1e-12)
 
     # Linked effects sum exactly to geometric active return
-    sum_linked = carino_res.total_linked_allocation + carino_res.total_linked_selection + carino_res.total_linked_interaction
+    sum_linked = (
+        carino_res.total_linked_allocation
+        + carino_res.total_linked_selection
+        + carino_res.total_linked_interaction
+    )
     assert math.isclose(sum_linked, carino_res.total_active_return_geometric, abs_tol=1e-14)
 
 
@@ -254,7 +258,9 @@ def test_attribution_evidence_adapters_and_artifacts(attribution_universe):
     assert ev_ca.test_id == "attribution.multi_period_linking"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        art_fra = render_factor_return_attribution_artifact(fra, evidence_ids=(ev_fra.evidence_id,), output_dir=tmpdir)
+        art_fra = render_factor_return_attribution_artifact(
+            fra, evidence_ids=(ev_fra.evidence_id,), output_dir=tmpdir
+        )
         art_ba = render_brinson_attribution_artifact(ba, evidence_ids=(ev_ba.evidence_id,), output_dir=tmpdir)
         art_ca = render_carino_linking_artifact(ca, evidence_ids=(ev_ca.evidence_id,), output_dir=tmpdir)
 

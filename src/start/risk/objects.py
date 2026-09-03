@@ -185,8 +185,7 @@ _KINDS: tuple[RiskObjectKind, ...] = (
     RiskObjectKind(
         id="scorecard",
         label="Scorecard",
-        description="Points-based or weight-of-evidence scoring, typically with published "
-        "reason codes.",
+        description="Points-based or weight-of-evidence scoring, typically with published reason codes.",
         capabilities=CapabilityProfile(
             is_fitted=True,
             has_outcome_labels=True,
@@ -327,8 +326,7 @@ def object_kind(kind_id: str) -> RiskObjectKind:
         return OBJECT_KINDS[kind_id]
     except KeyError:
         raise KeyError(
-            f"Unknown risk object kind {kind_id!r}. Known kinds: "
-            f"{', '.join(sorted(OBJECT_KINDS))}"
+            f"Unknown risk object kind {kind_id!r}. Known kinds: {', '.join(sorted(OBJECT_KINDS))}"
         ) from None
 
 

@@ -15,19 +15,37 @@ from start.reporting.artifacts import (
 # -- AgentTrace -------------------------------------------------------------- #
 def test_agent_trace_has_thinking_fields():
     t = AgentTrace(
-        agent="ArchitectureReviewAgent", inputs="569 rows", decision="recommend MLP",
-        reasoning="small tabular", evidence_ids=["ARCH-01"], confidence=0.8,
-        alternative_considered="Wide&Deep", action_taken="surfaced choice",
+        agent="ArchitectureReviewAgent",
+        inputs="569 rows",
+        decision="recommend MLP",
+        reasoning="small tabular",
+        evidence_ids=["ARCH-01"],
+        confidence=0.8,
+        alternative_considered="Wide&Deep",
+        action_taken="surfaced choice",
     )
     d = t.to_dict()
-    for key in ("agent", "inputs", "evidence_ids", "reasoning", "decision",
-                "confidence", "alternative_considered", "action_taken"):
+    for key in (
+        "agent",
+        "inputs",
+        "evidence_ids",
+        "reasoning",
+        "decision",
+        "confidence",
+        "alternative_considered",
+        "action_taken",
+    ):
         assert key in d
 
 
 def test_agent_trace_terminal_render():
-    t = AgentTrace(agent="TaskInferenceAgent", inputs="2 classes", decision="binary",
-                   reasoning="target has 2 unique values", confidence=0.95)
+    t = AgentTrace(
+        agent="TaskInferenceAgent",
+        inputs="2 classes",
+        decision="binary",
+        reasoning="target has 2 unique values",
+        confidence=0.95,
+    )
     out = t.render_terminal()
     assert "TaskInferenceAgent" in out
     assert "95%" in out
@@ -44,16 +62,29 @@ def test_trace_log_records_and_lists():
 
 
 def test_traceable_agents_cover_core_set():
-    for agent in ("DatasetDiscoveryAgent", "TaskInferenceAgent", "ArchitectureReviewAgent",
-                  "HyperparameterTuningAgent", "Governance", "Signoff", "EvidenceCritic"):
+    for agent in (
+        "DatasetDiscoveryAgent",
+        "TaskInferenceAgent",
+        "ArchitectureReviewAgent",
+        "HyperparameterTuningAgent",
+        "Governance",
+        "Signoff",
+        "EvidenceCritic",
+    ):
         assert agent in TRACEABLE_AGENTS
 
 
 def test_trace_log_markdown():
     log = TraceLog()
-    log.record("FeatureEngineeringAgent", inputs="stats", decision="scale + encode",
-               reasoning="numeric + categorical present", evidence_ids=["FE-01"],
-               confidence=0.7, alternative_considered="leave raw")
+    log.record(
+        "FeatureEngineeringAgent",
+        inputs="stats",
+        decision="scale + encode",
+        reasoning="numeric + categorical present",
+        evidence_ids=["FE-01"],
+        confidence=0.7,
+        alternative_considered="leave raw",
+    )
     md = render_trace_log_markdown(log)
     assert "### Agent reasoning traces" in md
     assert "FeatureEngineeringAgent" in md and "FE-01" in md

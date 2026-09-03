@@ -55,8 +55,14 @@ def test_public_unavailable_degrades_within_public_domain(monkeypatch):
     # Clear every public-provider key so this is hermetic regardless of the
     # ambient environment (item 5).
     monkeypatch.setenv("START_PROFILE", "public_demo")
-    for var in ("OPENAI_API_KEY", "OPENAI_KEY", "AZURE_OPENAI_API_KEY",
-                "ANTHROPIC_API_KEY", "GROK_API_KEY", "XAI_API_KEY"):
+    for var in (
+        "OPENAI_API_KEY",
+        "OPENAI_KEY",
+        "AZURE_OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GROK_API_KEY",
+        "XAI_API_KEY",
+    ):
         monkeypatch.delenv(var, raising=False)
     prov = get_llm_provider(LLMConfig(provider="openai"), expected_domain="public")
     assert isinstance(prov, NoLLMProvider)

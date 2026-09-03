@@ -38,14 +38,31 @@ def test_each_recommendation_has_required_fields(stats):
         assert r.recommendation and r.reason and r.evidence_id
         assert r.risk_if_ignored and r.default_action
         d = r.to_dict()
-        assert set(["step", "recommendation", "reason", "evidence_id",
-                    "risk_if_ignored", "default_action", "user_override"]) <= set(d)
+        assert set(
+            [
+                "step",
+                "recommendation",
+                "reason",
+                "evidence_id",
+                "risk_if_ignored",
+                "default_action",
+                "user_override",
+            ]
+        ) <= set(d)
 
 
 def test_covers_expected_steps(stats):
     steps = {r.step for r in recommend_feature_engineering(stats).applicable()}
-    for expected in ("imputation", "encoding", "scaling", "outliers", "imbalance",
-                     "low_variance", "leakage_exclusion", "high_cardinality"):
+    for expected in (
+        "imputation",
+        "encoding",
+        "scaling",
+        "outliers",
+        "imbalance",
+        "low_variance",
+        "leakage_exclusion",
+        "high_cardinality",
+    ):
         assert expected in steps, f"missing recommendation: {expected}"
 
 

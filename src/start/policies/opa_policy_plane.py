@@ -112,8 +112,14 @@ class OPAPolicyPlane:
             art_id = input_data.get("artifact_id", "ART")
             art_type = input_data.get("artifact_type", "data")
             if not contains_raw:
-                return True, f"Artifact '{art_id}' ({art_type}) contains only sanitized metrics and is approved for export."
-            return False, f"Artifact '{art_id}' contains unsanitized raw datasets and is blocked by data leak prevention policy."
+                return (
+                    True,
+                    f"Artifact '{art_id}' ({art_type}) contains only sanitized metrics and is approved for export.",
+                )
+            return (
+                False,
+                f"Artifact '{art_id}' contains unsanitized raw datasets and is blocked by data leak prevention policy.",
+            )
 
         elif package_name == "start.governance.attestation_rules":
             ungrounded = input_data.get("n_ungrounded_claims", 0)

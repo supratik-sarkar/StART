@@ -49,6 +49,7 @@ from start.portfolio.scenario import (
 # 1. SHOCK NORMALIZATION & COMPATIBILITY
 # =========================================================================== #
 
+
 def test_heterogeneous_shock_normalization_conventions():
     """Verify exact raw-value and computational normalization rules across all units."""
     # 1. BASIS_POINTS (+100 bps -> +0.0100)
@@ -94,7 +95,9 @@ def test_heterogeneous_shock_normalization_conventions():
 def test_repricing_method_shock_space_compatibility():
     """Verify that repricing methods strictly reject incompatible shock spaces."""
     # LINEAR_RETURN accepts ASSET_RETURN, rejects YIELD / RATE
-    is_ok, msg = validate_repricing_shock_compatibility(RepricingMethod.LINEAR_RETURN, ShockSpace.ASSET_RETURN)
+    is_ok, msg = validate_repricing_shock_compatibility(
+        RepricingMethod.LINEAR_RETURN, ShockSpace.ASSET_RETURN
+    )
     assert is_ok is True
 
     is_ok, msg = validate_repricing_shock_compatibility(RepricingMethod.LINEAR_RETURN, ShockSpace.YIELD)
@@ -102,10 +105,14 @@ def test_repricing_method_shock_space_compatibility():
     assert "Incompatible" in msg
 
     # FACTOR_LINEAR accepts FACTOR_RETURN, rejects ASSET_RETURN
-    is_ok, msg = validate_repricing_shock_compatibility(RepricingMethod.FACTOR_LINEAR, ShockSpace.FACTOR_RETURN)
+    is_ok, msg = validate_repricing_shock_compatibility(
+        RepricingMethod.FACTOR_LINEAR, ShockSpace.FACTOR_RETURN
+    )
     assert is_ok is True
 
-    is_ok, msg = validate_repricing_shock_compatibility(RepricingMethod.FACTOR_LINEAR, ShockSpace.ASSET_RETURN)
+    is_ok, msg = validate_repricing_shock_compatibility(
+        RepricingMethod.FACTOR_LINEAR, ShockSpace.ASSET_RETURN
+    )
     assert is_ok is False
 
     # DELTA & DELTA_GAMMA support sensitivity-aligned spaces
@@ -115,7 +122,9 @@ def test_repricing_method_shock_space_compatibility():
     assert is_ok is True
 
     # FULL_REVALUATION_ADAPTER is deferred in Gate 6
-    is_ok, msg = validate_repricing_shock_compatibility(RepricingMethod.FULL_REVALUATION_ADAPTER, ShockSpace.PRICE)
+    is_ok, msg = validate_repricing_shock_compatibility(
+        RepricingMethod.FULL_REVALUATION_ADAPTER, ShockSpace.PRICE
+    )
     assert is_ok is False
     assert "unavailable" in msg.lower() or "deferred" in msg.lower()
 
@@ -123,6 +132,7 @@ def test_repricing_method_shock_space_compatibility():
 # =========================================================================== #
 # 2. LINEAR ASSET REPRICING & RECONCILIATION
 # =========================================================================== #
+
 
 def test_asset_return_scenario_known_answer():
     """Verify asset-return repricing on a 3-asset analytical known answer."""
@@ -140,7 +150,9 @@ def test_asset_return_scenario_known_answer():
         repricing_method=RepricingMethod.LINEAR_RETURN,
     )
 
-    res = apply_asset_return_scenario(weights=weights, scenario_spec_or_shocks=spec, portfolio_value=1_000_000.0)
+    res = apply_asset_return_scenario(
+        weights=weights, scenario_spec_or_shocks=spec, portfolio_value=1_000_000.0
+    )
 
     # Expected return: 0.50*(-0.10) + 0.30*(-0.05) + 0.20*(+0.10) = -0.050 - 0.015 + 0.020 = -0.045
     assert math.isclose(res.scenario_return, -0.045, rel_tol=1e-9)
@@ -159,21 +171,26 @@ def test_asset_return_scenario_known_answer():
 # 3. FACTOR REPRICING & SPECIFIC RISK
 # =========================================================================== #
 
+
 def test_factor_scenario_known_answer():
     """Verify factor repricing and specific risk separation on known analytical fixtures."""
     weights = {"A1": 0.60, "A2": 0.40}
     exposures = pd.DataFrame(
         [
             [1.2, 0.5],  # A1
-            [0.8, -0.5], # A2
+            [0.8, -0.5],  # A2
         ],
         index=["A1", "A2"],
         columns=["F1", "F2"],
     )
     # Portfolio exposure: b_p = [0.6*1.2 + 0.4*0.8, 0.6*0.5 + 0.4*(-0.5)] = [0.72 + 0.32, 0.30 - 0.20] = [1.04, 0.10]
     shocks = (
-        create_scenario_shock("F1", raw_value=-0.05, shock_unit=ShockUnit.RETURN_DECIMAL, shock_space=ShockSpace.FACTOR_RETURN),
-        create_scenario_shock("F2", raw_value=+0.10, shock_unit=ShockUnit.RETURN_DECIMAL, shock_space=ShockSpace.FACTOR_RETURN),
+        create_scenario_shock(
+            "F1", raw_value=-0.05, shock_unit=ShockUnit.RETURN_DECIMAL, shock_space=ShockSpace.FACTOR_RETURN
+        ),
+        create_scenario_shock(
+            "F2", raw_value=+0.10, shock_unit=ShockUnit.RETURN_DECIMAL, shock_space=ShockSpace.FACTOR_RETURN
+        ),
     )
     spec = ScenarioSpec(
         scenario_id="SCEN-TEST-FACTOR",
@@ -210,6 +227,7 @@ def test_factor_scenario_known_answer():
 # 4. DELTA VS DELTA-GAMMA NONLINEAR REPRICING & HESSIAN SYMMETRY
 # =========================================================================== #
 
+
 def test_delta_gamma_repricing_and_symmetry():
     """Verify Delta vs Delta-Gamma second-order approximation and Hessian symmetry checks."""
     sens = {
@@ -232,28 +250,38 @@ def test_delta_gamma_repricing_and_symmetry():
     # Delta term: 100*0.10 + (-200)*(-0.05) = 10.0 + 10.0 = 20.0
     # Gamma term: 0.5 * (-50 * 0.10^2) + 0.5 * (150 * (-0.05)^2) = 0.5*(-0.50) + 0.5*(0.375) = -0.25 + 0.1875 = -0.0625
     # Total P&L: 20.0 - 0.0625 = 19.9375
-    res_dg = apply_delta_gamma_scenario(sensitivities=sens, scenario_spec_or_shocks=spec, method=RepricingMethod.DELTA_GAMMA)
+    res_dg = apply_delta_gamma_scenario(
+        sensitivities=sens, scenario_spec_or_shocks=spec, method=RepricingMethod.DELTA_GAMMA
+    )
     assert math.isclose(res_dg.scenario_return, 19.9375, rel_tol=1e-9)
 
     # Delta-only baseline
-    res_d = apply_delta_gamma_scenario(sensitivities=sens, scenario_spec_or_shocks=spec, method=RepricingMethod.DELTA)
+    res_d = apply_delta_gamma_scenario(
+        sensitivities=sens, scenario_spec_or_shocks=spec, method=RepricingMethod.DELTA
+    )
     assert math.isclose(res_d.scenario_return, 20.0, rel_tol=1e-9)
 
     # 2. Full Symmetric Hessian Matrix with cross-gamma
-    gamma_mat = np.array([
-        [-50.0, 20.0],
-        [20.0, 150.0],
-    ])
+    gamma_mat = np.array(
+        [
+            [-50.0, 20.0],
+            [20.0, 150.0],
+        ]
+    )
     # Cross-gamma term: 0.5 * 2 * (0.10 * -0.05 * 20.0) = -0.10
     # Total with cross-gamma: 19.9375 - 0.10 = 19.8375
-    res_full = apply_delta_gamma_scenario(sensitivities=sens, scenario_spec_or_shocks=spec, gamma_matrix=gamma_mat)
+    res_full = apply_delta_gamma_scenario(
+        sensitivities=sens, scenario_spec_or_shocks=spec, gamma_matrix=gamma_mat
+    )
     assert math.isclose(res_full.scenario_return, 19.8375, rel_tol=1e-9)
 
     # 3. Asymmetric Gamma Matrix must fail closed
-    asym_gamma = np.array([
-        [-50.0, 25.0],
-        [15.0, 150.0],
-    ])
+    asym_gamma = np.array(
+        [
+            [-50.0, 25.0],
+            [15.0, 150.0],
+        ]
+    )
     with pytest.raises(ValueError, match="must be symmetric"):
         apply_delta_gamma_scenario(sensitivities=sens, scenario_spec_or_shocks=spec, gamma_matrix=asym_gamma)
 
@@ -261,6 +289,7 @@ def test_delta_gamma_repricing_and_symmetry():
 # =========================================================================== #
 # 5. BENCHMARK & ACTIVE STRESS DECOMPOSITION
 # =========================================================================== #
+
 
 def test_benchmark_active_stress_exact_identity():
     """Verify exact active return identity: R_port - R_bmk == R_active."""
@@ -279,12 +308,16 @@ def test_benchmark_active_stress_exact_identity():
         repricing_method=RepricingMethod.LINEAR_RETURN,
     )
 
-    act_res = apply_benchmark_active_scenario(weights=weights, benchmark_weights=bmk_weights, scenario_spec_or_shocks=spec)
+    act_res = apply_benchmark_active_scenario(
+        weights=weights, benchmark_weights=bmk_weights, scenario_spec_or_shocks=spec
+    )
 
     # Portfolio return: 0.40*(-0.08) + 0.35*(0.04) + 0.25*(-0.02) = -0.032 + 0.014 - 0.005 = -0.023
     assert math.isclose(act_res.portfolio_return, -0.023, rel_tol=1e-9)
     # Active return reconciliation
-    assert math.isclose(act_res.portfolio_return - act_res.benchmark_return, act_res.active_return, abs_tol=1e-12)
+    assert math.isclose(
+        act_res.portfolio_return - act_res.benchmark_return, act_res.active_return, abs_tol=1e-12
+    )
     assert math.isclose(act_res.reconciliation_error, 0.0, abs_tol=1e-12)
 
 
@@ -292,20 +325,25 @@ def test_benchmark_active_stress_exact_identity():
 # 6. GROUP PARTITION & OVERLAP CONTRACTS
 # =========================================================================== #
 
+
 def test_group_partition_and_overlap():
     """Verify group stress decomposition under EXHAUSTIVE_PARTITION vs OVERLAPPING_ANALYTICAL."""
     asset_contribs = {"A1": -0.030, "A2": -0.015, "A3": +0.010}
 
     # 1. Disjoint Groups
     disjoint_mapping = {"A1": "TECH", "A2": "TECH", "A3": "ENERGY"}
-    grp_res = apply_group_scenario_decomposition(asset_contribs, disjoint_mapping, partition_contract=PartitionContract.EXHAUSTIVE_PARTITION)
+    grp_res = apply_group_scenario_decomposition(
+        asset_contribs, disjoint_mapping, partition_contract=PartitionContract.EXHAUSTIVE_PARTITION
+    )
     assert math.isclose(grp_res["TECH"], -0.045, rel_tol=1e-9)
     assert math.isclose(grp_res["ENERGY"], +0.010, rel_tol=1e-9)
     assert math.isclose(sum(grp_res.values()), sum(asset_contribs.values()), abs_tol=1e-12)
 
     # 2. Overlapping Groups
     overlap_mapping = {"A1": ["TECH", "ESG"], "A2": ["TECH"], "A3": ["ENERGY", "ESG"]}
-    grp_overlap = apply_group_scenario_decomposition(asset_contribs, overlap_mapping, partition_contract=PartitionContract.OVERLAPPING_ANALYTICAL)
+    grp_overlap = apply_group_scenario_decomposition(
+        asset_contribs, overlap_mapping, partition_contract=PartitionContract.OVERLAPPING_ANALYTICAL
+    )
     assert math.isclose(grp_overlap["TECH"], -0.045, rel_tol=1e-9)
     assert math.isclose(grp_overlap["ENERGY"], +0.010, rel_tol=1e-9)
     assert math.isclose(grp_overlap["ESG"], -0.020, rel_tol=1e-9)
@@ -317,11 +355,60 @@ def test_group_partition_and_overlap():
 # 7. MULTI-SCENARIO SET COMPARATIVE LOSS RANKING
 # =========================================================================== #
 
+
 def test_multi_scenario_set_ranking():
     """Verify multi-scenario loss ranking (worst scenario is maximum canonical loss)."""
-    r1 = ScenarioResult("SCEN-1", "SYNTHETIC", "LINEAR_RETURN", -0.05, 0.05, None, None, None, {}, {}, None, {}, "EXHAUSTIVE_PARTITION", 0.0, True)
-    r2 = ScenarioResult("SCEN-2", "SYNTHETIC", "FACTOR_LINEAR", -0.12, 0.12, None, None, None, {}, {}, None, {}, "EXHAUSTIVE_PARTITION", 0.0, True)
-    r3 = ScenarioResult("SCEN-3", "SYNTHETIC", "DELTA_GAMMA", +0.02, -0.02, None, None, None, {}, {}, None, {}, "EXHAUSTIVE_PARTITION", 0.0, True)
+    r1 = ScenarioResult(
+        "SCEN-1",
+        "SYNTHETIC",
+        "LINEAR_RETURN",
+        -0.05,
+        0.05,
+        None,
+        None,
+        None,
+        {},
+        {},
+        None,
+        {},
+        "EXHAUSTIVE_PARTITION",
+        0.0,
+        True,
+    )
+    r2 = ScenarioResult(
+        "SCEN-2",
+        "SYNTHETIC",
+        "FACTOR_LINEAR",
+        -0.12,
+        0.12,
+        None,
+        None,
+        None,
+        {},
+        {},
+        None,
+        {},
+        "EXHAUSTIVE_PARTITION",
+        0.0,
+        True,
+    )
+    r3 = ScenarioResult(
+        "SCEN-3",
+        "SYNTHETIC",
+        "DELTA_GAMMA",
+        +0.02,
+        -0.02,
+        None,
+        None,
+        None,
+        {},
+        {},
+        None,
+        {},
+        "EXHAUSTIVE_PARTITION",
+        0.0,
+        True,
+    )
 
     set_res = compare_scenario_set([r1, r2, r3], ranking_metric="scenario_loss")
 
@@ -337,6 +424,7 @@ def test_multi_scenario_set_ranking():
 # 8. HISTORICAL REPLAY PROVENANCE & PROXY MAPPING
 # =========================================================================== #
 
+
 def test_historical_replay_provenance_and_proxy():
     """Verify historical replay enforces source reference, observation dates, and explicit proxy mappings."""
     weights = {"AAPL": 0.60, "NEW_IPO": 0.40}
@@ -348,7 +436,9 @@ def test_historical_replay_provenance_and_proxy():
 
     # 2. Unmapped asset without proxy must fail closed
     with pytest.raises(ValueError, match="no valid proxy"):
-        replay_historical_scenario(hist_shocks, weights, source_reference="CRISIS_DATA_V1", observation_date="2020-03-16")
+        replay_historical_scenario(
+            hist_shocks, weights, source_reference="CRISIS_DATA_V1", observation_date="2020-03-16"
+        )
 
     # 3. Explicit proxy mapping succeeds with provenanced scenario type
     res_proxy = replay_historical_scenario(

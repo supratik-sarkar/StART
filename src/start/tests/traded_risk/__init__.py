@@ -51,13 +51,26 @@ from start.data.synthetic_market import barrier_crossing_probability
 from start.registry import register_test
 
 __all__ = [
-    "cev_elasticity", "stanton_nonparametric", "var_exceptions", "var_kupiec_pof",
-    "var_christoffersen_independence", "var_christoffersen_conditional",
-    "var_traffic_light", "brownian_bridge_barrier",
-    "ExceptionSequence", "exception_sequence", "kupiec_lr", "christoffersen_independence_lr",
-    "estimate_cev", "stanton_first_order",
-    "CEV_BOOTSTRAP_DRAWS", "CEV_BOOTSTRAP_SEED", "CEV_CI_LEVEL",
-    "TRAFFIC_LIGHT_BANDS", "TRAFFIC_LIGHT_N", "TRAFFIC_LIGHT_CONFIDENCE",
+    "cev_elasticity",
+    "stanton_nonparametric",
+    "var_exceptions",
+    "var_kupiec_pof",
+    "var_christoffersen_independence",
+    "var_christoffersen_conditional",
+    "var_traffic_light",
+    "brownian_bridge_barrier",
+    "ExceptionSequence",
+    "exception_sequence",
+    "kupiec_lr",
+    "christoffersen_independence_lr",
+    "estimate_cev",
+    "stanton_first_order",
+    "CEV_BOOTSTRAP_DRAWS",
+    "CEV_BOOTSTRAP_SEED",
+    "CEV_CI_LEVEL",
+    "TRAFFIC_LIGHT_BANDS",
+    "TRAFFIC_LIGHT_N",
+    "TRAFFIC_LIGHT_CONFIDENCE",
     "SILVERMAN_FACTOR",
 ]
 
@@ -75,7 +88,9 @@ CEV_CI_LEVEL = 0.95
 TRAFFIC_LIGHT_N = 250
 TRAFFIC_LIGHT_CONFIDENCE = 0.99
 TRAFFIC_LIGHT_BANDS: tuple[tuple[int, int, str], ...] = (
-    (0, 4, "green"), (5, 9, "yellow"), (10, 10**9, "red"),
+    (0, 4, "green"),
+    (5, 9, "yellow"),
+    (10, 10**9, "red"),
 )
 
 #: Silverman's rule-of-thumb multiplier.
@@ -87,14 +102,22 @@ _OBJECTS = ("deterministic_calculator", "statistical_model")
 
 
 def _skip(test_id: str, name: str, reason: str, **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.SKIPPED,
-                      params=params, interpretation=reason)
+    return TestResult(
+        test_id=test_id, test_name=name, status=Status.SKIPPED, params=params, interpretation=reason
+    )
 
 
-def _error(test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None,
-           **params: Any) -> TestResult:
-    return TestResult(test_id=test_id, test_name=name, status=Status.ERROR,
-                      params=params, metrics=metrics or {}, interpretation=reason)
+def _error(
+    test_id: str, name: str, reason: str, metrics: dict[str, Any] | None = None, **params: Any
+) -> TestResult:
+    return TestResult(
+        test_id=test_id,
+        test_name=name,
+        status=Status.ERROR,
+        params=params,
+        metrics=metrics or {},
+        interpretation=reason,
+    )
 
 
 _NON_REJECTION_CAVEAT = (
@@ -172,13 +195,17 @@ def estimate_cev(rates: pd.Series, dt: float) -> CevEstimate:
         gamma_hat=float(slope / 2.0),
         log_sigma2_hat=float(intercept),
         sigma_hat=float(math.sqrt(math.exp(intercept))) if intercept < 700 else float("inf"),
-        n_total=n_total, n_used=int(keep.sum()),
-        n_nonpositive_dropped=n_nonpositive, n_zero_increment_dropped=n_zero, dt=dt,
+        n_total=n_total,
+        n_used=int(keep.sum()),
+        n_nonpositive_dropped=n_nonpositive,
+        n_zero_increment_dropped=n_zero,
+        dt=dt,
     )
 
 
-def _bootstrap_cev(rates: pd.Series, dt: float, draws: int, seed: int,
-                   level: float) -> tuple[float | None, float | None, int]:
+def _bootstrap_cev(
+    rates: pd.Series, dt: float, draws: int, seed: int, level: float
+) -> tuple[float | None, float | None, int]:
     """Seeded pair bootstrap over usable increments.
 
     The resampling unit is the ``(r_{t-1}, Δr_t)`` pair, which keeps each observation's
@@ -223,8 +250,10 @@ def _bootstrap_cev(rates: pd.Series, dt: float, draws: int, seed: int,
     name="CEV volatility elasticity",
     requires=("rates",),
     default_params={
-        "stated_gamma": None, "bootstrap_draws": CEV_BOOTSTRAP_DRAWS,
-        "bootstrap_seed": CEV_BOOTSTRAP_SEED, "ci_level": CEV_CI_LEVEL,
+        "stated_gamma": None,
+        "bootstrap_draws": CEV_BOOTSTRAP_DRAWS,
+        "bootstrap_seed": CEV_BOOTSTRAP_SEED,
+        "ci_level": CEV_CI_LEVEL,
     },
     context_type="short_rate",
     risk_stripes=_SHORT_RATE_STRIPES,
@@ -245,18 +274,22 @@ def cev_elasticity(
     """
     problems = ctx.validate_context()
     if problems:
-        return _skip("traded_risk.cev_elasticity", "CEV volatility elasticity",
-                     "; ".join(problems), stated_gamma=stated_gamma)
+        return _skip(
+            "traded_risk.cev_elasticity",
+            "CEV volatility elasticity",
+            "; ".join(problems),
+            stated_gamma=stated_gamma,
+        )
 
     rates = ctx.decimal_rates()
     try:
         estimate = estimate_cev(rates, ctx.dt)
     except ValueError as exc:
-        return _skip("traded_risk.cev_elasticity", "CEV volatility elasticity", str(exc),
-                     stated_gamma=stated_gamma)
+        return _skip(
+            "traded_risk.cev_elasticity", "CEV volatility elasticity", str(exc), stated_gamma=stated_gamma
+        )
 
-    low, high, n_valid = _bootstrap_cev(rates, ctx.dt, bootstrap_draws,
-                                        bootstrap_seed, ci_level)
+    low, high, n_valid = _bootstrap_cev(rates, ctx.dt, bootstrap_draws, bootstrap_seed, ci_level)
     estimate.ci_low, estimate.ci_high, estimate.n_bootstrap_valid = low, high, n_valid
 
     metrics: dict[str, Any] = {
@@ -296,15 +329,23 @@ def cev_elasticity(
         test_id="traded_risk.cev_elasticity",
         test_name="CEV volatility elasticity",
         status=status,
-        params={"stated_gamma": stated_gamma, "bootstrap_draws": bootstrap_draws,
-                "bootstrap_seed": bootstrap_seed, "ci_level": ci_level},
+        params={
+            "stated_gamma": stated_gamma,
+            "bootstrap_draws": bootstrap_draws,
+            "bootstrap_seed": bootstrap_seed,
+            "ci_level": ci_level,
+        },
         metrics=metrics,
         interpretation=(
             f"Estimated elasticity gamma = {estimate.gamma_hat:.4f} from "
             f"{estimate.n_used:,} usable increment(s)"
-            + (f", {ci_level:.0%} bootstrap interval [{low:.4f}, {high:.4f}]"
-               if low is not None else ", bootstrap interval unavailable")
-            + "." + note
+            + (
+                f", {ci_level:.0%} bootstrap interval [{low:.4f}, {high:.4f}]"
+                if low is not None
+                else ", bootstrap interval unavailable"
+            )
+            + "."
+            + note
         ),
         limitations=[
             "APPROXIMATE FINITE-SAMPLE ESTIMATOR under the stated diffusion and "
@@ -327,9 +368,7 @@ def cev_elasticity(
 # =========================================================================== #
 # Stanton — first order only
 # =========================================================================== #
-def stanton_first_order(
-    rates: pd.Series, dt: float, grid: np.ndarray, bandwidth: float
-) -> pd.DataFrame:
+def stanton_first_order(rates: pd.Series, dt: float, grid: np.ndarray, bandwidth: float) -> pd.DataFrame:
     """First-order Nadaraya-Watson drift and diffusion estimates.
 
     Exact expressions, with ``w_i(r) = K((r_i - r)/h)`` a Gaussian kernel::
@@ -352,7 +391,7 @@ def stanton_first_order(
     rows: list[dict[str, float]] = []
     for point in grid:
         z = (previous - point) / bandwidth
-        w = np.exp(-0.5 * z * z)          # Gaussian kernel, constant factor cancels
+        w = np.exp(-0.5 * z * z)  # Gaussian kernel, constant factor cancels
         total = float(w.sum())
         # Both denominators must be guarded, not just the weight sum. With a very
         # narrow bandwidth every weight underflows: sum(w) can still be a tiny
@@ -362,13 +401,13 @@ def stanton_first_order(
         sum_squares = float((w * w).sum())
         ess = float((total**2) / sum_squares) if (total > 0 and sum_squares > 0) else 0.0
         if total <= 0 or sum_squares <= 0 or not math.isfinite(total):
-            rows.append({"r": float(point), "mu": float("nan"), "sigma2": float("nan"),
-                         "ess": 0.0, "weight_sum": 0.0})
+            rows.append(
+                {"r": float(point), "mu": float("nan"), "sigma2": float("nan"), "ess": 0.0, "weight_sum": 0.0}
+            )
             continue
         mu = float((w @ increments) / (total * dt))
         sigma2 = float((w @ (increments**2)) / (total * dt))
-        rows.append({"r": float(point), "mu": mu, "sigma2": sigma2,
-                     "ess": ess, "weight_sum": total})
+        rows.append({"r": float(point), "mu": mu, "sigma2": sigma2, "ess": ess, "weight_sum": total})
     return pd.DataFrame(rows)
 
 
@@ -392,21 +431,28 @@ def stanton_nonparametric(
     """First-order nonparametric drift and diffusion. Determinism: numerical."""
     problems = ctx.validate_context()
     if problems:
-        return _skip("traded_risk.stanton_nonparametric",
-                     "Stanton nonparametric drift and diffusion", "; ".join(problems))
+        return _skip(
+            "traded_risk.stanton_nonparametric",
+            "Stanton nonparametric drift and diffusion",
+            "; ".join(problems),
+        )
 
     rates = ctx.decimal_rates()
     values = rates.to_numpy(dtype=float)
     if values.size < 3:
-        return _skip("traded_risk.stanton_nonparametric",
-                     "Stanton nonparametric drift and diffusion",
-                     "at least three observations are required")
+        return _skip(
+            "traded_risk.stanton_nonparametric",
+            "Stanton nonparametric drift and diffusion",
+            "at least three observations are required",
+        )
 
     if bandwidth is not None:
         if not (math.isfinite(bandwidth) and bandwidth > 0):
-            return _error("traded_risk.stanton_nonparametric",
-                          "Stanton nonparametric drift and diffusion",
-                          f"bandwidth must be finite and strictly positive; got {bandwidth!r}")
+            return _error(
+                "traded_risk.stanton_nonparametric",
+                "Stanton nonparametric drift and diffusion",
+                f"bandwidth must be finite and strictly positive; got {bandwidth!r}",
+            )
         h = float(bandwidth)
         bandwidth_rule = "supplied"
     else:
@@ -414,10 +460,11 @@ def stanton_nonparametric(
         h = SILVERMAN_FACTOR * sd * (values[:-1].size ** (-1.0 / 5.0))
         bandwidth_rule = "silverman"
         if not (math.isfinite(h) and h > 0):
-            return _error("traded_risk.stanton_nonparametric",
-                          "Stanton nonparametric drift and diffusion",
-                          "Silverman bandwidth is not positive; the rate series is "
-                          "numerically constant")
+            return _error(
+                "traded_risk.stanton_nonparametric",
+                "Stanton nonparametric drift and diffusion",
+                "Silverman bandwidth is not positive; the rate series is numerically constant",
+            )
 
     lo, hi = float(np.percentile(values, 5)), float(np.percentile(values, 95))
     grid = np.linspace(lo, hi, int(n_grid))
@@ -442,9 +489,7 @@ def stanton_nonparametric(
         "min_ess_observed": round(float(estimates["ess"].min()), 6),
         "max_ess_observed": round(float(estimates["ess"].max()), 6),
         "median_ess": round(float(estimates["ess"].median()), 6),
-        "grid_hash": hashlib.sha256(
-            ",".join(f"{g:.12e}" for g in grid).encode()
-        ).hexdigest()[:32],
+        "grid_hash": hashlib.sha256(",".join(f"{g:.12e}" for g in grid).encode()).hexdigest()[:32],
     }
     if len(usable):
         metrics["mu_min"] = round(float(usable["mu"].min()), 12)
@@ -463,8 +508,11 @@ def stanton_nonparametric(
         interpretation=(
             f"First-order kernel estimates on {n_grid} grid point(s) with bandwidth "
             f"{h:.6g} ({bandwidth_rule})"
-            + (f"; {len(thin)} point(s) below the effective-sample-size threshold of "
-               f"{min_ess:g}." if len(thin) else "; support adequate at every point.")
+            + (
+                f"; {len(thin)} point(s) below the effective-sample-size threshold of {min_ess:g}."
+                if len(thin)
+                else "; support adequate at every point."
+            )
         ),
         limitations=[
             "FIRST-ORDER ESTIMATOR ONLY. There is no order parameter and no "
@@ -478,8 +526,7 @@ def stanton_nonparametric(
             "Effective sample size is reported per grid point. Estimates at thin-support "
             "points are not suppressed but are flagged, because a smooth-looking curve "
             "extrapolated from negligible local support is the failure mode here.",
-            "Boundary grid points have one-sided support and are biased toward the "
-            "interior.",
+            "Boundary grid points have one-sided support and are biased toward the interior.",
             "Determinism: numerical.",
         ],
     )
@@ -492,8 +539,8 @@ def stanton_nonparametric(
 class ExceptionSequence:
     """One exception series, shared by every VaR backtest."""
 
-    indicators: pd.Series          # 0/1, timestamp-indexed
-    pnl_source: str                # actual | hypothetical
+    indicators: pd.Series  # 0/1, timestamp-indexed
+    pnl_source: str  # actual | hypothetical
     confidence: float
     n_pnl: int
     n_var: int
@@ -536,7 +583,9 @@ class ExceptionSequence:
             "expected_probability": round(self.expected_probability, 10),
             "alpha_var": round(self.expected_probability, 10),
             "expected_exceptions": round(self.expected_probability * self.n, 6),
-            "n_pnl": self.n_pnl, "n_var": self.n_var, "n_aligned": self.n_aligned,
+            "n_pnl": self.n_pnl,
+            "n_var": self.n_var,
+            "n_aligned": self.n_aligned,
             "n_dropped_alignment": self.n_dropped_alignment,
             "exception_convention": "I_t = 1 iff PnL_t < -VaR_t, VaR a positive loss magnitude",
             "exception_indicator_hash": hashlib.sha256(
@@ -579,8 +628,12 @@ def exception_sequence(ctx: Any, pnl_source: str = "actual") -> ExceptionSequenc
 
     indicators = (aligned_pnl < -aligned_var).astype(int)
     return ExceptionSequence(
-        indicators=indicators, pnl_source=pnl_source, confidence=float(ctx.var_confidence),
-        n_pnl=int(pnl.size), n_var=int(ctx.var_series.size), n_aligned=int(indicators.size),
+        indicators=indicators,
+        pnl_source=pnl_source,
+        confidence=float(ctx.var_confidence),
+        n_pnl=int(pnl.size),
+        n_var=int(ctx.var_series.size),
+        n_aligned=int(indicators.size),
         n_dropped_alignment=int(max(len(pnl), len(ctx.var_series)) - indicators.size),
     )
 
@@ -610,8 +663,7 @@ def var_exceptions(ctx: Any, pnl_source: str = "actual") -> TestResult:
     """The exception sequence itself. Determinism: exact counts."""
     sequence, reason = _sequence_or_reason(ctx, pnl_source)
     if sequence is None:
-        return _skip("traded_risk.var_exceptions", "VaR exception sequence", reason,
-                     pnl_source=pnl_source)
+        return _skip("traded_risk.var_exceptions", "VaR exception sequence", reason, pnl_source=pnl_source)
 
     metrics = sequence.base_metrics()
     dates = sequence.indicators[sequence.indicators == 1].index
@@ -620,8 +672,11 @@ def var_exceptions(ctx: Any, pnl_source: str = "actual") -> TestResult:
     metrics["exception_dates_sample"] = ", ".join(str(d) for d in dates[:10])
 
     return TestResult(
-        test_id="traded_risk.var_exceptions", test_name="VaR exception sequence",
-        status=Status.RECORDED, params={"pnl_source": pnl_source}, metrics=metrics,
+        test_id="traded_risk.var_exceptions",
+        test_name="VaR exception sequence",
+        status=Status.RECORDED,
+        params={"pnl_source": pnl_source},
+        metrics=metrics,
         interpretation=(
             f"{sequence.n_exceptions} exception(s) in {sequence.n:,} aligned "
             f"observation(s) against {sequence.expected_probability * sequence.n:.1f} "
@@ -668,11 +723,15 @@ def var_kupiec_pof(ctx: Any, pnl_source: str = "actual", alpha: float = 0.05) ->
     """Kupiec (1995) unconditional coverage. Determinism: numerical."""
     sequence, reason = _sequence_or_reason(ctx, pnl_source)
     if sequence is None:
-        return _skip("traded_risk.var_kupiec_pof", "Kupiec proportion-of-failures test",
-                     reason, pnl_source=pnl_source)
+        return _skip(
+            "traded_risk.var_kupiec_pof", "Kupiec proportion-of-failures test", reason, pnl_source=pnl_source
+        )
     if sequence.n < 2:
-        return _skip("traded_risk.var_kupiec_pof", "Kupiec proportion-of-failures test",
-                     f"{sequence.n} aligned observation(s); at least 2 required")
+        return _skip(
+            "traded_risk.var_kupiec_pof",
+            "Kupiec proportion-of-failures test",
+            f"{sequence.n} aligned observation(s); at least 2 required",
+        )
 
     n, x, p = sequence.n, sequence.n_exceptions, sequence.expected_probability
     lr = kupiec_lr(n, x, p)
@@ -681,8 +740,10 @@ def var_kupiec_pof(ctx: Any, pnl_source: str = "actual", alpha: float = 0.05) ->
 
     metrics = {
         **sequence.base_metrics(),
-        "lr_uc": round(lr, 10), "p_value": round(p_value, 10),
-        "degrees_of_freedom": 1, "alpha": alpha,
+        "lr_uc": round(lr, 10),
+        "p_value": round(p_value, 10),
+        "degrees_of_freedom": 1,
+        "alpha": alpha,
         "gamma_test": alpha,
         "statistical_gamma_test": alpha,
         "statistical_criterion_source": "STATISTICAL_TEST_SPECIFICATION",
@@ -696,7 +757,8 @@ def var_kupiec_pof(ctx: Any, pnl_source: str = "actual", alpha: float = 0.05) ->
         test_id="traded_risk.var_kupiec_pof",
         test_name="Kupiec proportion-of-failures test",
         status=Status.FAIL if rejected else Status.RECORDED,
-        params={"pnl_source": pnl_source, "alpha": alpha, "gamma_test": alpha}, metrics=metrics,
+        params={"pnl_source": pnl_source, "alpha": alpha, "gamma_test": alpha},
+        metrics=metrics,
         interpretation=(
             f"At the {alpha:.0%} level, the null of correct unconditional coverage was "
             f"{'REJECTED' if rejected else 'not rejected'} "
@@ -727,8 +789,12 @@ def christoffersen_independence_lr(n00: int, n01: int, n10: int, n11: int) -> fl
     pi1 = n11 / n1 if n1 > 0 else 0.0
 
     ll_null = special.xlogy(n01 + n11, pi) + special.xlog1py(n00 + n10, -pi)
-    ll_alt = (special.xlogy(n01, pi0) + special.xlog1py(n00, -pi0)
-              + special.xlogy(n11, pi1) + special.xlog1py(n10, -pi1))
+    ll_alt = (
+        special.xlogy(n01, pi0)
+        + special.xlog1py(n00, -pi0)
+        + special.xlogy(n11, pi1)
+        + special.xlog1py(n10, -pi1)
+    )
     return float(-2.0 * (ll_null - ll_alt))
 
 
@@ -743,18 +809,22 @@ def christoffersen_independence_lr(n00: int, n01: int, n10: int, n11: int) -> fl
     risk_dimensions=("accuracy_calibration", "stability"),
     object_kinds=_OBJECTS,
 )
-def var_christoffersen_independence(
-    ctx: Any, pnl_source: str = "actual", alpha: float = 0.05
-) -> TestResult:
+def var_christoffersen_independence(ctx: Any, pnl_source: str = "actual", alpha: float = 0.05) -> TestResult:
     """Christoffersen (1998) independence. Determinism: numerical."""
     sequence, reason = _sequence_or_reason(ctx, pnl_source)
     if sequence is None:
-        return _skip("traded_risk.var_christoffersen_independence",
-                     "Christoffersen independence test", reason, pnl_source=pnl_source)
+        return _skip(
+            "traded_risk.var_christoffersen_independence",
+            "Christoffersen independence test",
+            reason,
+            pnl_source=pnl_source,
+        )
     if sequence.n < 3:
-        return _skip("traded_risk.var_christoffersen_independence",
-                     "Christoffersen independence test",
-                     f"{sequence.n} aligned observation(s); at least 3 required")
+        return _skip(
+            "traded_risk.var_christoffersen_independence",
+            "Christoffersen independence test",
+            f"{sequence.n} aligned observation(s); at least 3 required",
+        )
 
     n00, n01, n10, n11 = sequence.transition_counts()
     lr = christoffersen_independence_lr(n00, n01, n10, n11)
@@ -764,13 +834,18 @@ def var_christoffersen_independence(
     n0, n1 = n00 + n01, n10 + n11
     metrics = {
         **sequence.base_metrics(),
-        "n00": n00, "n01": n01, "n10": n10, "n11": n11,
+        "n00": n00,
+        "n01": n01,
+        "n10": n10,
+        "n11": n11,
         "n_transitions": int(n0 + n1),
         "pi": round((n01 + n11) / (n0 + n1), 10) if (n0 + n1) else None,
         "pi_0": round(n01 / n0, 10) if n0 else None,
         "pi_1": round(n11 / n1, 10) if n1 else None,
-        "lr_ind": round(lr, 10), "p_value": round(p_value, 10),
-        "degrees_of_freedom": 1, "alpha": alpha,
+        "lr_ind": round(lr, 10),
+        "p_value": round(p_value, 10),
+        "degrees_of_freedom": 1,
+        "alpha": alpha,
         "gamma_test": alpha,
         "statistical_gamma_test": alpha,
         "statistical_criterion_source": "STATISTICAL_TEST_SPECIFICATION",
@@ -782,7 +857,8 @@ def var_christoffersen_independence(
         test_id="traded_risk.var_christoffersen_independence",
         test_name="Christoffersen independence test",
         status=Status.FAIL if rejected else Status.RECORDED,
-        params={"pnl_source": pnl_source, "alpha": alpha, "gamma_test": alpha}, metrics=metrics,
+        params={"pnl_source": pnl_source, "alpha": alpha, "gamma_test": alpha},
+        metrics=metrics,
         interpretation=(
             f"At the {alpha:.0%} level, the null of serially independent exceptions was "
             f"{'REJECTED' if rejected else 'not rejected'} "
@@ -792,12 +868,10 @@ def var_christoffersen_independence(
         ),
         limitations=[
             _NON_REJECTION_CAVEAT,
-            "Tests first-order Markov dependence only. Clustering at longer lags is "
-            "not detected.",
+            "Tests first-order Markov dependence only. Clustering at longer lags is not detected.",
             "Independence alone says nothing about whether the exception RATE is "
             "correct; see the Kupiec and conditional-coverage tests.",
-            "Zero transition cells are handled with limit-safe arithmetic and never "
-            "produce NaN.",
+            "Zero transition cells are handled with limit-safe arithmetic and never produce NaN.",
         ],
     )
 
@@ -813,9 +887,7 @@ def var_christoffersen_independence(
     risk_dimensions=("accuracy_calibration", "stability"),
     object_kinds=_OBJECTS,
 )
-def var_christoffersen_conditional(
-    ctx: Any, pnl_source: str = "actual", alpha: float = 0.05
-) -> TestResult:
+def var_christoffersen_conditional(ctx: Any, pnl_source: str = "actual", alpha: float = 0.05) -> TestResult:
     """Joint coverage and independence. ``LR_cc = LR_uc + LR_ind`` by construction.
 
     Both components are recomputed from the **same** canonical exception sequence, so
@@ -823,13 +895,18 @@ def var_christoffersen_conditional(
     """
     sequence, reason = _sequence_or_reason(ctx, pnl_source)
     if sequence is None:
-        return _skip("traded_risk.var_christoffersen_conditional",
-                     "Christoffersen conditional coverage test", reason,
-                     pnl_source=pnl_source)
+        return _skip(
+            "traded_risk.var_christoffersen_conditional",
+            "Christoffersen conditional coverage test",
+            reason,
+            pnl_source=pnl_source,
+        )
     if sequence.n < 3:
-        return _skip("traded_risk.var_christoffersen_conditional",
-                     "Christoffersen conditional coverage test",
-                     f"{sequence.n} aligned observation(s); at least 3 required")
+        return _skip(
+            "traded_risk.var_christoffersen_conditional",
+            "Christoffersen conditional coverage test",
+            f"{sequence.n} aligned observation(s); at least 3 required",
+        )
 
     lr_uc = kupiec_lr(sequence.n, sequence.n_exceptions, sequence.expected_probability)
     n00, n01, n10, n11 = sequence.transition_counts()
@@ -840,21 +917,29 @@ def var_christoffersen_conditional(
 
     metrics = {
         **sequence.base_metrics(),
-        "lr_uc": round(lr_uc, 10), "lr_ind": round(lr_ind, 10),
+        "lr_uc": round(lr_uc, 10),
+        "lr_ind": round(lr_ind, 10),
         "lr_cc": round(lr_cc, 10),
         "identity_residual": round(lr_cc - (lr_uc + lr_ind), 15),
-        "p_value": round(p_value, 10), "degrees_of_freedom": 2, "alpha": alpha,
+        "p_value": round(p_value, 10),
+        "degrees_of_freedom": 2,
+        "alpha": alpha,
         "gamma_test": alpha,
         "statistical_gamma_test": alpha,
         "statistical_criterion_source": "STATISTICAL_TEST_SPECIFICATION",
-        "n00": n00, "n01": n01, "n10": n10, "n11": n11, "rejected": rejected,
+        "n00": n00,
+        "n01": n01,
+        "n10": n10,
+        "n11": n11,
+        "rejected": rejected,
     }
 
     return TestResult(
         test_id="traded_risk.var_christoffersen_conditional",
         test_name="Christoffersen conditional coverage test",
         status=Status.FAIL if rejected else Status.RECORDED,
-        params={"pnl_source": pnl_source, "alpha": alpha, "gamma_test": alpha}, metrics=metrics,
+        params={"pnl_source": pnl_source, "alpha": alpha, "gamma_test": alpha},
+        metrics=metrics,
         interpretation=(
             f"At the {alpha:.0%} level, the joint null of correct coverage AND "
             f"independence was {'REJECTED' if rejected else 'not rejected'} "
@@ -883,9 +968,7 @@ def var_christoffersen_conditional(
     risk_dimensions=("accuracy_calibration", "monitoring"),
     object_kinds=_OBJECTS,
 )
-def var_traffic_light(
-    ctx: Any, pnl_source: str = "actual", strict_applicability: bool = True
-) -> TestResult:
+def var_traffic_light(ctx: Any, pnl_source: str = "actual", strict_applicability: bool = True) -> TestResult:
     """The historical/classical traffic-light rule. Determinism: exact classification.
 
     The 0-4 / 5-9 / 10+ bands are calibrated to **250 observations at 99%**. Applying
@@ -895,17 +978,18 @@ def var_traffic_light(
     """
     sequence, reason = _sequence_or_reason(ctx, pnl_source)
     if sequence is None:
-        return _skip("traded_risk.var_traffic_light",
-                     "Traffic-light exception classification", reason,
-                     pnl_source=pnl_source)
+        return _skip(
+            "traded_risk.var_traffic_light",
+            "Traffic-light exception classification",
+            reason,
+            pnl_source=pnl_source,
+        )
 
-    applicable = (
-        sequence.n == TRAFFIC_LIGHT_N
-        and abs(sequence.confidence - TRAFFIC_LIGHT_CONFIDENCE) < 1e-12
-    )
+    applicable = sequence.n == TRAFFIC_LIGHT_N and abs(sequence.confidence - TRAFFIC_LIGHT_CONFIDENCE) < 1e-12
     if strict_applicability and not applicable:
         return _skip(
-            "traded_risk.var_traffic_light", "Traffic-light exception classification",
+            "traded_risk.var_traffic_light",
+            "Traffic-light exception classification",
             f"not applicable: the historical bands are calibrated to "
             f"{TRAFFIC_LIGHT_N} observations at {TRAFFIC_LIGHT_CONFIDENCE:.0%}, but this "
             f"sample has {sequence.n} observation(s) at {sequence.confidence:.0%}. The "
@@ -924,7 +1008,8 @@ def var_traffic_light(
 
     metrics = {
         **sequence.base_metrics(),
-        "zone": zone, "applicable": applicable,
+        "zone": zone,
+        "applicable": applicable,
         "band_n_observations": TRAFFIC_LIGHT_N,
         "band_confidence": TRAFFIC_LIGHT_CONFIDENCE,
         "cumulative_probability": round(cumulative, 10),
@@ -935,8 +1020,8 @@ def var_traffic_light(
     return TestResult(
         test_id="traded_risk.var_traffic_light",
         test_name="Traffic-light exception classification",
-        status=status, params={"pnl_source": pnl_source,
-                               "strict_applicability": strict_applicability},
+        status=status,
+        params={"pnl_source": pnl_source, "strict_applicability": strict_applicability},
         metrics=metrics,
         interpretation=(
             f"{x} exception(s) in {sequence.n} observation(s) places the model in the "
@@ -986,37 +1071,50 @@ def brownian_bridge_barrier(
     This is **barrier/excursion risk monitoring**, not missing-data interpolation.
     """
     if direction not in {"up", "down"}:
-        return _error("traded_risk.brownian_bridge_barrier",
-                      "Brownian bridge barrier monitoring",
-                      f"direction={direction!r} must be 'up' or 'down'")
+        return _error(
+            "traded_risk.brownian_bridge_barrier",
+            "Brownian bridge barrier monitoring",
+            f"direction={direction!r} must be 'up' or 'down'",
+        )
     if barrier is None:
-        return _skip("traded_risk.brownian_bridge_barrier",
-                     "Brownian bridge barrier monitoring",
-                     "no barrier level supplied; a barrier is never inferred from the data",
-                     direction=direction)
+        return _skip(
+            "traded_risk.brownian_bridge_barrier",
+            "Brownian bridge barrier monitoring",
+            "no barrier level supplied; a barrier is never inferred from the data",
+            direction=direction,
+        )
 
     prices = ctx.prices
     if prices is None:
-        return _skip("traded_risk.brownian_bridge_barrier",
-                     "Brownian bridge barrier monitoring",
-                     "a price series is required; returns alone cannot locate a barrier",
-                     barrier=barrier, direction=direction)
+        return _skip(
+            "traded_risk.brownian_bridge_barrier",
+            "Brownian bridge barrier monitoring",
+            "a price series is required; returns alone cannot locate a barrier",
+            barrier=barrier,
+            direction=direction,
+        )
 
     column = asset if asset is not None else list(prices.columns)[0]
     if column not in prices.columns:
-        return _error("traded_risk.brownian_bridge_barrier",
-                      "Brownian bridge barrier monitoring",
-                      f"asset {column!r} is not present in the price frame")
+        return _error(
+            "traded_risk.brownian_bridge_barrier",
+            "Brownian bridge barrier monitoring",
+            f"asset {column!r} is not present in the price frame",
+        )
 
     series = prices[column].dropna().astype(float)
     if series.size < 2:
-        return _skip("traded_risk.brownian_bridge_barrier",
-                     "Brownian bridge barrier monitoring",
-                     "at least two price observations are required")
+        return _skip(
+            "traded_risk.brownian_bridge_barrier",
+            "Brownian bridge barrier monitoring",
+            "at least two price observations are required",
+        )
     if (series <= 0).any():
-        return _error("traded_risk.brownian_bridge_barrier",
-                      "Brownian bridge barrier monitoring",
-                      "non-positive prices: the log-price bridge is undefined")
+        return _error(
+            "traded_risk.brownian_bridge_barrier",
+            "Brownian bridge barrier monitoring",
+            "non-positive prices: the log-price bridge is undefined",
+        )
 
     dt = 1.0 / float(ctx.periods_per_year)
     if sigma is None:
@@ -1025,9 +1123,11 @@ def brownian_bridge_barrier(
         sigma_rule = "estimated from realised log returns"
     else:
         if not (math.isfinite(sigma) and sigma > 0):
-            return _error("traded_risk.brownian_bridge_barrier",
-                          "Brownian bridge barrier monitoring",
-                          f"sigma must be finite and positive; got {sigma!r}")
+            return _error(
+                "traded_risk.brownian_bridge_barrier",
+                "Brownian bridge barrier monitoring",
+                f"sigma must be finite and positive; got {sigma!r}",
+            )
         sigma_used, sigma_rule = float(sigma), "supplied"
 
     values = series.to_numpy()
@@ -1040,17 +1140,24 @@ def brownian_bridge_barrier(
         discrete = (starts <= barrier) | (ends <= barrier)
     n_discrete = int(discrete.sum())
 
-    probabilities = np.array([
-        barrier_crossing_probability(float(a), float(b), float(barrier),
-                                     sigma_used, dt, direction=direction)
-        for a, b in zip(starts, ends, strict=True)
-    ])
+    probabilities = np.array(
+        [
+            barrier_crossing_probability(
+                float(a), float(b), float(barrier), sigma_used, dt, direction=direction
+            )
+            for a, b in zip(starts, ends, strict=True)
+        ]
+    )
     expected_continuous = float(probabilities.sum())
     under_detection = expected_continuous - n_discrete
 
     metrics: dict[str, Any] = {
-        "asset": str(column), "barrier": float(barrier), "direction": direction,
-        "sigma": round(sigma_used, 12), "sigma_rule": sigma_rule, "dt": dt,
+        "asset": str(column),
+        "barrier": float(barrier),
+        "direction": direction,
+        "sigma": round(sigma_used, 12),
+        "sigma_rule": sigma_rule,
+        "dt": dt,
         "periods_per_year": float(ctx.periods_per_year),
         "n_intervals": n_intervals,
         "n_discrete_crossings": n_discrete,
@@ -1058,9 +1165,7 @@ def brownian_bridge_barrier(
         "expected_continuous_crossings": round(expected_continuous, 10),
         "expected_continuous_rate": round(expected_continuous / n_intervals, 10),
         "under_detection_count": round(under_detection, 10),
-        "under_detection_ratio": (
-            round(expected_continuous / n_discrete, 10) if n_discrete else None
-        ),
+        "under_detection_ratio": (round(expected_continuous / n_discrete, 10) if n_discrete else None),
         "max_interval_probability": round(float(probabilities.max()), 10),
         "space": "log_price",
     }
@@ -1069,8 +1174,7 @@ def brownian_bridge_barrier(
         test_id="traded_risk.brownian_bridge_barrier",
         test_name="Brownian bridge barrier monitoring",
         status=Status.WARN if under_detection > 0.5 else Status.RECORDED,
-        params={"barrier": barrier, "direction": direction, "sigma": sigma,
-                "asset": asset},
+        params={"barrier": barrier, "direction": direction, "sigma": sigma, "asset": asset},
         metrics=metrics,
         interpretation=(
             f"Discrete monitoring detected {n_discrete} crossing(s) of {barrier:g} over "

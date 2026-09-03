@@ -21,7 +21,7 @@ from typing import Any
 class CommitteeCard:
     agent: str
     purpose: str
-    evidence: list[str] = field(default_factory=list)         # evidence lines
+    evidence: list[str] = field(default_factory=list)  # evidence lines
     recommendation: str = ""
     alternatives: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
@@ -66,8 +66,7 @@ def render_card_rich(card: CommitteeCard) -> Any:
     grid.add_row("Evidence", ev)
     grid.add_row("Recommendation", card.recommendation or "—")
     if card.alternatives:
-        grid.add_row("Alternatives",
-                     "\n".join(f"{i}. {a}" for i, a in enumerate(card.alternatives, 1)))
+        grid.add_row("Alternatives", "\n".join(f"{i}. {a}" for i, a in enumerate(card.alternatives, 1)))
     if card.risks:
         grid.add_row("Risks", "\n".join(f"• {r}" for r in card.risks))
     if card.artifacts_used:
@@ -77,8 +76,7 @@ def render_card_rich(card: CommitteeCard) -> Any:
     if card.decision:
         grid.add_row("Decision", card.decision)
 
-    return Panel(grid, title=f"[bold]{card.agent}[/bold]", border_style="cyan",
-                 title_align="left")
+    return Panel(grid, title=f"[bold]{card.agent}[/bold]", border_style="cyan", title_align="left")
 
 
 def render_card_markdown(card: CommitteeCard) -> str:

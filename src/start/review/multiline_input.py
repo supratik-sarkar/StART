@@ -39,7 +39,9 @@ from collections.abc import Callable
 from typing import TextIO
 
 __all__ = [
-    "read_multiline_text", "MULTILINE_TERMINATOR", "ReviewCancelled",
+    "read_multiline_text",
+    "MULTILINE_TERMINATOR",
+    "ReviewCancelled",
     "format_multiline_prompt",
 ]
 
@@ -52,12 +54,12 @@ class ReviewCancelled(RuntimeError):
     """The reviewer cancelled. Not an error condition — an ordinary outcome."""
 
 
-def format_multiline_prompt(label: str, *, terminator: str = MULTILINE_TERMINATOR,
-                            required: bool = False) -> str:
+def format_multiline_prompt(
+    label: str, *, terminator: str = MULTILINE_TERMINATOR, required: bool = False
+) -> str:
     lines = [
         f"Enter {label}",
-        f"  Paste one or more lines below. When finished, enter a line containing "
-        f"only: {terminator}",
+        f"  Paste one or more lines below. When finished, enter a line containing only: {terminator}",
     ]
     if not required:
         lines.append(f"  Optional — enter {terminator} on its own to skip.")

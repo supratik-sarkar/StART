@@ -106,6 +106,12 @@ def test_markdown_render(messy_frame):
 
 def test_to_dict_complete(messy_frame):
     d = compute_data_statistics(messy_frame, "y").to_dict()
-    for key in ("n_rows", "target_type", "leakage_candidates", "suggested_split",
-                "high_cardinality_columns", "outlier_summary"):
+    for key in (
+        "n_rows",
+        "target_type",
+        "leakage_candidates",
+        "suggested_split",
+        "high_cardinality_columns",
+        "outlier_summary",
+    ):
         assert key in d

@@ -71,8 +71,10 @@ def make_evidence_record(
 # 1. Universal Response Extraction & Empty-Response Fail-Closed
 # ==============================================================================
 
+
 def test_extract_response_text_openai_responses_api():
     """Verify universal extraction from OpenAI Responses API output_text items."""
+
     @dataclass
     class MockOutputText:
         text: str
@@ -102,6 +104,7 @@ def test_extract_response_text_openai_responses_api():
 
 def test_extract_response_text_anthropic_and_chat_completion():
     """Verify universal extraction from Anthropic blocks and classic chat completion choices."""
+
     # Anthropic block
     @dataclass
     class MockContentBlock:
@@ -116,11 +119,7 @@ def test_extract_response_text_anthropic_and_chat_completion():
     assert extract_response_text(resp_anthropic) == "Anthropic review text"
 
     # Chat completion dict
-    resp_dict = {
-        "choices": [
-            {"message": {"content": "Dict chat completion text"}}
-        ]
-    }
+    resp_dict = {"choices": [{"message": {"content": "Dict chat completion text"}}]}
     assert extract_response_text(resp_dict) == "Dict chat completion text"
 
     # Plain string
@@ -136,6 +135,7 @@ def test_empty_response_fail_closed():
 # ==============================================================================
 # 2. Rich Domain Terminal Tables
 # ==============================================================================
+
 
 def test_rich_domain_tables_render_cleanly():
     """Verify all domain checkpoint tables render rows and columns cleanly."""
@@ -165,7 +165,11 @@ def test_rich_domain_tables_render_cleanly():
             test_id="covariance.ledoit_wolf_shrinkage",
             evidence_id="EV-COV-001",
             status=Status.PASS,
-            metrics={"shrinkage_intensity": 0.0086, "condition_number_unshrunk": 450.0, "condition_number_shrunk": 42.0},
+            metrics={
+                "shrinkage_intensity": 0.0086,
+                "condition_number_unshrunk": 450.0,
+                "condition_number_shrunk": 42.0,
+            },
             interpretation="Ledoit-Wolf shrinkage achieved 10.7x condition improvement.",
         ),
         make_evidence_record(
@@ -186,7 +190,10 @@ def test_rich_domain_tables_render_cleanly():
             test_id="validation.stanton_bias",
             evidence_id="EV-STANTON-001",
             status=Status.FAIL,
-            metrics={"observed.max_wrong_sign_rate_nonzero_drift": 0.475, "observed.bias_improvement_ratio": 0.305052},
+            metrics={
+                "observed.max_wrong_sign_rate_nonzero_drift": 0.475,
+                "observed.bias_improvement_ratio": 0.305052,
+            },
             interpretation="Stanton wrong-sign rate 0.475 failed requirement <= 0.10.",
         ),
         make_evidence_record(
@@ -230,6 +237,7 @@ def test_rich_domain_tables_render_cleanly():
 # 3. Deterministic Artifact Generation & Catalog
 # ==============================================================================
 
+
 def test_deterministic_artifact_generation_and_catalog():
     """Verify generate_review_artifacts produces valid typed artifacts and catalog table."""
     world = generate_market_world(n_assets=6, n_periods=60, seed=42)
@@ -246,7 +254,9 @@ def test_deterministic_artifact_generation_and_catalog():
 
     records = [
         make_evidence_record(test_id="portfolio.risk_statistics", evidence_id="EV-P-1", status=Status.PASS),
-        make_evidence_record(test_id="covariance.ledoit_wolf_shrinkage", evidence_id="EV-C-1", status=Status.PASS),
+        make_evidence_record(
+            test_id="covariance.ledoit_wolf_shrinkage", evidence_id="EV-C-1", status=Status.PASS
+        ),
         make_evidence_record(test_id="traded_risk.var_kupiec_pof", evidence_id="EV-V-1", status=Status.PASS),
         make_evidence_record(test_id="scenario.linear_return", evidence_id="EV-S-1", status=Status.RECORDED),
     ]
@@ -271,6 +281,7 @@ def test_deterministic_artifact_generation_and_catalog():
 # 4. Q / C / A / O / V Non-Terminal Control Flow State Machine
 # ==============================================================================
 
+
 def test_q_c_v_non_terminal_loop_and_a_o_advance():
     """Verify that V, Q, and C do NOT advance the checkpoint, while A and O advance."""
     records = [
@@ -285,13 +296,13 @@ def test_q_c_v_non_terminal_loop_and_a_o_advance():
     bundle = ReviewContextBundle(domains=(ReviewDomain.MARKET,))
 
     scripted_inputs = [
-        "V",                       # Checkpoint 1: View artifacts
-        "Q",                       # Checkpoint 1: Question
-        "What is the volatility?", # Question text
-        "C",                       # Checkpoint 1: Challenge
-        "Test challenge note",     # Challenge note
-        "A",                       # Checkpoint 1: Accept -> advance
-    ] + ["A"] * 30                 # Accept all remaining checkpoints
+        "V",  # Checkpoint 1: View artifacts
+        "Q",  # Checkpoint 1: Question
+        "What is the volatility?",  # Question text
+        "C",  # Checkpoint 1: Challenge
+        "Test challenge note",  # Challenge note
+        "A",  # Checkpoint 1: Accept -> advance
+    ] + ["A"] * 30  # Accept all remaining checkpoints
 
     input_iter = iter(scripted_inputs)
 
@@ -309,9 +320,7 @@ def test_q_c_v_non_terminal_loop_and_a_o_advance():
     decisions = run_domain_checkpoints(
         bundle,
         records,
-        artifacts_by_checkpoint={
-            "Portfolio Risk & Volatility Assumptions": [MockArtifact()]
-        },
+        artifacts_by_checkpoint={"Portfolio Risk & Volatility Assumptions": [MockArtifact()]},
         interactive=True,
         ask=mock_ask,
     )
@@ -328,11 +337,14 @@ def test_q_c_v_non_terminal_loop_and_a_o_advance():
 # 5. Barrier Conditionality
 # ==============================================================================
 
+
 def test_barrier_omitted_when_skipped_or_absent():
     """Verify Barrier checkpoint is omitted when barrier evidence is SKIPPED or absent."""
     records_without_barrier = [
         make_evidence_record(test_id="portfolio.risk_statistics", evidence_id="EV-1", status=Status.PASS),
-        make_evidence_record(test_id="traded_risk.brownian_bridge_barrier", evidence_id="EV-2", status=Status.SKIPPED),
+        make_evidence_record(
+            test_id="traded_risk.brownian_bridge_barrier", evidence_id="EV-2", status=Status.SKIPPED
+        ),
     ]
     bundle = ReviewContextBundle(domains=(ReviewDomain.MARKET,))
 
@@ -350,7 +362,9 @@ def test_barrier_present_when_applicable():
     """Verify Barrier checkpoint is included when barrier evidence has PASS/RECORDED status."""
     records_with_barrier = [
         make_evidence_record(test_id="portfolio.risk_statistics", evidence_id="EV-1", status=Status.PASS),
-        make_evidence_record(test_id="traded_risk.brownian_bridge_barrier", evidence_id="EV-2", status=Status.PASS),
+        make_evidence_record(
+            test_id="traded_risk.brownian_bridge_barrier", evidence_id="EV-2", status=Status.PASS
+        ),
     ]
     bundle = ReviewContextBundle(domains=(ReviewDomain.MARKET,))
 
@@ -367,6 +381,7 @@ def test_barrier_present_when_applicable():
 # ==============================================================================
 # 6. Scenario Analysis Pattern-B Evidence Integration
 # ==============================================================================
+
 
 def test_scenario_pattern_b_evidence_generated():
     """Verify execute_market_treasury_tests generates linear return, factor linear, and reverse stress."""
@@ -395,16 +410,49 @@ def test_scenario_pattern_b_evidence_generated():
 # 7. Accurate Numerical Wording & Attested Narrative Grounding
 # ==============================================================================
 
+
 def test_semantically_accurate_wording_and_narrative():
     """Verify wording does not imply 0.066 < 0.05 and narrative matches grounded text."""
     records = [
-        make_evidence_record(test_id="portfolio.risk_statistics", evidence_id="EV-1", status=Status.PASS, metrics={"annualised_volatility": 0.0937}),
-        make_evidence_record(test_id="attribution.return_attribution", evidence_id="EV-2", status=Status.PASS, metrics={"max_abs_reconciliation_error": 0.0}),
-        make_evidence_record(test_id="traded_risk.var_exceptions", evidence_id="EV-3", status=Status.PASS, metrics={"n_exceptions": 4.0}),
-        make_evidence_record(test_id="traded_risk.var_kupiec_pof", evidence_id="EV-4", status=Status.PASS, metrics={"p_value": 0.6414}),
-        make_evidence_record(test_id="covariance.ledoit_wolf_shrinkage", evidence_id="EV-5", status=Status.PASS, metrics={"shrinkage_intensity": 0.0086}),
-        make_evidence_record(test_id="validation.var_size_power", evidence_id="EV-6", status=Status.PASS, metrics={"observed.size_correct_forecast": 0.0660}),
-        make_evidence_record(test_id="validation.regem_structural", evidence_id="EV-7", status=Status.PASS, metrics={}),
+        make_evidence_record(
+            test_id="portfolio.risk_statistics",
+            evidence_id="EV-1",
+            status=Status.PASS,
+            metrics={"annualised_volatility": 0.0937},
+        ),
+        make_evidence_record(
+            test_id="attribution.return_attribution",
+            evidence_id="EV-2",
+            status=Status.PASS,
+            metrics={"max_abs_reconciliation_error": 0.0},
+        ),
+        make_evidence_record(
+            test_id="traded_risk.var_exceptions",
+            evidence_id="EV-3",
+            status=Status.PASS,
+            metrics={"n_exceptions": 4.0},
+        ),
+        make_evidence_record(
+            test_id="traded_risk.var_kupiec_pof",
+            evidence_id="EV-4",
+            status=Status.PASS,
+            metrics={"p_value": 0.6414},
+        ),
+        make_evidence_record(
+            test_id="covariance.ledoit_wolf_shrinkage",
+            evidence_id="EV-5",
+            status=Status.PASS,
+            metrics={"shrinkage_intensity": 0.0086},
+        ),
+        make_evidence_record(
+            test_id="validation.var_size_power",
+            evidence_id="EV-6",
+            status=Status.PASS,
+            metrics={"observed.size_correct_forecast": 0.0660},
+        ),
+        make_evidence_record(
+            test_id="validation.regem_structural", evidence_id="EV-7", status=Status.PASS, metrics={}
+        ),
     ]
 
     narrative = build_market_narrative(records, (ReviewDomain.MARKET,))
@@ -416,6 +464,7 @@ def test_semantically_accurate_wording_and_narrative():
 # ==============================================================================
 # 8. Full End-to-End Market Review UX Flow
 # ==============================================================================
+
 
 def test_end_to_end_market_review_execution():
     """Verify run_market_treasury_review runs end-to-end with artifacts, narrative, and governance."""

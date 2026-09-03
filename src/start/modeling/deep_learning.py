@@ -154,9 +154,7 @@ class TorchMLPClassifier:
     def _build_net(self, n_features: int):
         from start.modeling.dl_models import build_network
 
-        return build_network(
-            self.architecture, n_features, self.hidden_dims, self.dropout, self.activation
-        )
+        return build_network(self.architecture, n_features, self.hidden_dims, self.dropout, self.activation)
 
     def _standardize(self, X: np.ndarray, fit: bool) -> np.ndarray:
         if fit:
@@ -211,9 +209,7 @@ class TorchMLPClassifier:
             torch.tensor(y_arr[tr_idx]),
         )
         generator = torch.Generator().manual_seed(self.random_state)
-        loader = DataLoader(
-            train_ds, batch_size=self.batch_size, shuffle=True, generator=generator
-        )
+        loader = DataLoader(train_ds, batch_size=self.batch_size, shuffle=True, generator=generator)
         if has_val:
             xv = torch.tensor(X_arr[val_idx], dtype=torch.float32).to(device)
             yv = torch.tensor(y_arr[val_idx]).to(device)
@@ -302,24 +298,18 @@ def build_classifier(architecture: str | None = None, **kwargs: Any) -> Any:
     from start.modeling.architecture_registry import resolve_architecture
 
     if not torch_available():
-        raise ImportError(
-            "Deep learning support requires the torch extra: pip install -e \".[torch]\""
-        )
+        raise ImportError('Deep learning support requires the torch extra: pip install -e ".[torch]"')
 
     family_kw = kwargs.pop("family", None)
     activation_kw = kwargs.pop("activation", None)
-    resolved = resolve_architecture(
-        architecture, activation=activation_kw, family=family_kw
-    )
+    resolved = resolve_architecture(architecture, activation=activation_kw, family=family_kw)
 
     if not resolved.spec.implemented or resolved.modality == "vision":
         raise NotImplementedError(
             f"'{resolved.family}' is not implemented for the tabular classifier factory."
         )
 
-    return TorchMLPClassifier(
-        architecture=resolved.family, activation=resolved.activation, **kwargs
-    )
+    return TorchMLPClassifier(architecture=resolved.family, activation=resolved.activation, **kwargs)
 
 
 def integrated_gradients_importance(
@@ -339,8 +329,7 @@ def integrated_gradients_importance(
         return (
             "unavailable",
             [],
-            "Captum/torch not installed (pip install -e \".[torch]\"); "
-            "use permutation importance instead.",
+            'Captum/torch not installed (pip install -e ".[torch]"); use permutation importance instead.',
         )
     if not isinstance(model, TorchMLPClassifier) or model._net is None:
         return ("unavailable", [], "Integrated Gradients requires a fitted TorchMLPClassifier.")

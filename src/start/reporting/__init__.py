@@ -49,8 +49,7 @@ def render_markdown(result: RunResult) -> str:
         lines.append(f"Evidence critique status: {'PASSED' if ar.critique_ok else 'FAILED'}")
         if ar.rejected_sections:
             lines.append(
-                "Rejected LLM sections (deterministic fallback shown): "
-                + ", ".join(ar.rejected_sections)
+                "Rejected LLM sections (deterministic fallback shown): " + ", ".join(ar.rejected_sections)
             )
         for note in ar.notes:
             lines.append(f"> {note}")

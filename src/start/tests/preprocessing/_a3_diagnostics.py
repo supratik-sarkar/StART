@@ -79,7 +79,12 @@ __all__ = [
 #: "postcode" for "post" and "labelled_region" for "label", which is exactly the noise
 #: that gets a WARN-only check switched off.
 LEAKAGE_NAME_PATTERNS: tuple[str, ...] = (
-    "target", "label", "outcome", "future", "actual", "post",
+    "target",
+    "label",
+    "outcome",
+    "future",
+    "actual",
+    "post",
 )
 
 _STRIPES = ("model", "credit")
@@ -107,8 +112,11 @@ def _a3_outputs(ctx: TestContext) -> tuple[str | None, ...]:
 
 def _a3_skip(test_id: str, name: str, reason: str, **params: Any) -> TestResult:
     return TestResult(
-        test_id=test_id, test_name=name, status=Status.SKIPPED,
-        params=params, interpretation=reason,
+        test_id=test_id,
+        test_name=name,
+        status=Status.SKIPPED,
+        params=params,
+        interpretation=reason,
     )
 
 
@@ -154,7 +162,7 @@ def _invertible_monotone(x: np.ndarray, y: np.ndarray, tol: float) -> bool:
     mapping = grouped.mean().sort_index()
     if mapping.size < 4:
         return False
-    if mapping.nunique() != mapping.size:      # not injective
+    if mapping.nunique() != mapping.size:  # not injective
         return False
 
     diffs = np.diff(mapping.to_numpy(dtype=float))
@@ -186,14 +194,17 @@ def leakage_target_reconstruction(ctx: TestContext, tol: float = 1e-9) -> TestRe
     target = ctx.target_column
     if not target or target not in df.columns:
         return _a3_skip(
-            "preprocessing.leakage_target_reconstruction", "Leakage: target reconstruction",
-            "No target column configured.", tol=tol,
+            "preprocessing.leakage_target_reconstruction",
+            "Leakage: target reconstruction",
+            "No target column configured.",
+            tol=tol,
         )
 
     y_raw = pd.to_numeric(df[target], errors="coerce")
     if y_raw.isna().all():
         return _a3_skip(
-            "preprocessing.leakage_target_reconstruction", "Leakage: target reconstruction",
+            "preprocessing.leakage_target_reconstruction",
+            "Leakage: target reconstruction",
             "Target is not numeric; reconstruction detection requires a numeric target.",
             tol=tol,
         )
@@ -294,14 +305,17 @@ def leakage_high_correlation(ctx: TestContext, warn_corr: float = 0.95) -> TestR
     target = ctx.target_column
     if not target or target not in df.columns:
         return _a3_skip(
-            "preprocessing.leakage_high_correlation", "Leakage: high target correlation",
-            "No target column configured.", warn_corr=warn_corr,
+            "preprocessing.leakage_high_correlation",
+            "Leakage: high target correlation",
+            "No target column configured.",
+            warn_corr=warn_corr,
         )
 
     y = pd.to_numeric(df[target], errors="coerce")
     if y.isna().all() or y.nunique() <= 1:
         return _a3_skip(
-            "preprocessing.leakage_high_correlation", "Leakage: high target correlation",
+            "preprocessing.leakage_high_correlation",
+            "Leakage: high target correlation",
             "Target is non-numeric or constant; correlation is undefined.",
             warn_corr=warn_corr,
         )
@@ -317,8 +331,10 @@ def leakage_high_correlation(ctx: TestContext, warn_corr: float = 0.95) -> TestR
 
     if not correlations:
         return _a3_skip(
-            "preprocessing.leakage_high_correlation", "Leakage: high target correlation",
-            "No non-constant numeric features available.", warn_corr=warn_corr,
+            "preprocessing.leakage_high_correlation",
+            "Leakage: high target correlation",
+            "No non-constant numeric features available.",
+            warn_corr=warn_corr,
         )
 
     flagged = {c: v for c, v in correlations.items() if abs(v) >= warn_corr}
@@ -345,7 +361,7 @@ def leakage_high_correlation(ctx: TestContext, warn_corr: float = 0.95) -> TestR
             f"target; strongest is '{worst}' at {correlations[worst]:.4f}."
             if flagged
             else f"No feature correlates at or above {warn_corr:g}; strongest is "
-                 f"'{worst}' at {correlations[worst]:.4f}."
+            f"'{worst}' at {correlations[worst]:.4f}."
         ),
         limitations=[
             "WARN only by design. High correlation is not leakage — legitimately strong "
@@ -382,20 +398,23 @@ def leakage_temporal(ctx: TestContext) -> TestResult:
     column = ctx.timestamp_column
     if not column:
         return _a3_skip(
-            "preprocessing.leakage_temporal", "Leakage: temporal ordering",
+            "preprocessing.leakage_temporal",
+            "Leakage: temporal ordering",
             "No timestamp_column configured. A timestamp column is not inferred — "
             "guessing which column is time would make any finding a statement about "
             "the guess rather than the data.",
         )
     if ctx.test is None:
         return _a3_skip(
-            "preprocessing.leakage_temporal", "Leakage: temporal ordering",
+            "preprocessing.leakage_temporal",
+            "Leakage: temporal ordering",
             "No test cohort available; chronology cannot be compared.",
         )
     for name, frame in (("train", ctx.train), ("test", ctx.test)):
         if column not in frame.columns:
             return _a3_skip(
-                "preprocessing.leakage_temporal", "Leakage: temporal ordering",
+                "preprocessing.leakage_temporal",
+                "Leakage: temporal ordering",
                 f"timestamp_column {column!r} is not present in the {name} cohort.",
             )
 
@@ -403,9 +422,9 @@ def leakage_temporal(ctx: TestContext) -> TestResult:
     test_ts = pd.to_datetime(ctx.test[column], errors="coerce").dropna()
     if train_ts.empty or test_ts.empty:
         return _a3_skip(
-            "preprocessing.leakage_temporal", "Leakage: temporal ordering",
-            f"timestamp_column {column!r} contains no parseable timestamps in one or "
-            "both cohorts.",
+            "preprocessing.leakage_temporal",
+            "Leakage: temporal ordering",
+            f"timestamp_column {column!r} contains no parseable timestamps in one or both cohorts.",
         )
 
     train_max, test_min = train_ts.max(), test_ts.min()
@@ -435,7 +454,7 @@ def leakage_temporal(ctx: TestContext) -> TestResult:
             f"period begins ({test_min}); the cohorts overlap by {overlap_days:.1f} days."
             if n_after
             else f"Training data ends at {train_max} and evaluation begins at "
-                 f"{test_min}; chronology is respected."
+            f"{test_min}; chronology is respected."
         ),
         limitations=[
             "Detects cohort-level chronology violations only. Leakage from a feature "
@@ -474,18 +493,21 @@ def leakage_entity_overlap(ctx: TestContext) -> TestResult:
     column = ctx.entity_id_column
     if not column:
         return _a3_skip(
-            "preprocessing.leakage_entity_overlap", "Leakage: entity overlap",
+            "preprocessing.leakage_entity_overlap",
+            "Leakage: entity overlap",
             "No entity_id_column configured.",
         )
     if ctx.test is None:
         return _a3_skip(
-            "preprocessing.leakage_entity_overlap", "Leakage: entity overlap",
+            "preprocessing.leakage_entity_overlap",
+            "Leakage: entity overlap",
             "No test cohort available.",
         )
     for name, frame in (("train", ctx.train), ("test", ctx.test)):
         if column not in frame.columns:
             return _a3_skip(
-                "preprocessing.leakage_entity_overlap", "Leakage: entity overlap",
+                "preprocessing.leakage_entity_overlap",
+                "Leakage: entity overlap",
                 f"entity_id_column {column!r} is not present in the {name} cohort.",
             )
 
@@ -521,8 +543,7 @@ def leakage_entity_overlap(ctx: TestContext) -> TestResult:
             "design. It is a violation when entity-disjoint evaluation is intended; "
             "repeated observations of the same entity are normal in longitudinal "
             "problems and are not leakage there.",
-            "Entity aliasing — the same real entity under two different identifiers — "
-            "is not detected.",
+            "Entity aliasing — the same real entity under two different identifiers — is not detected.",
         ],
     )
 
@@ -541,9 +562,7 @@ def leakage_entity_overlap(ctx: TestContext) -> TestResult:
     risk_dimensions=("use_boundary", "data_quality_lineage"),
     object_kinds=_OBJECTS,
 )
-def leakage_row_overlap(
-    ctx: TestContext, hash_columns: tuple[str, ...] | None = None
-) -> TestResult:
+def leakage_row_overlap(ctx: TestContext, hash_columns: tuple[str, ...] | None = None) -> TestResult:
     """Exact duplicate records crossing the train/test boundary.
 
     Hashing is over the *string rendering* of the values, not Python object identity.
@@ -552,8 +571,10 @@ def leakage_row_overlap(
     """
     if ctx.test is None:
         return _a3_skip(
-            "preprocessing.leakage_row_overlap", "Leakage: row overlap",
-            "No test cohort available.", hash_columns=hash_columns,
+            "preprocessing.leakage_row_overlap",
+            "Leakage: row overlap",
+            "No test cohort available.",
+            hash_columns=hash_columns,
         )
 
     shared_columns = [c for c in ctx.train.columns if c in ctx.test.columns]
@@ -561,7 +582,8 @@ def leakage_row_overlap(
         missing = [c for c in hash_columns if c not in shared_columns]
         if missing:
             return _a3_skip(
-                "preprocessing.leakage_row_overlap", "Leakage: row overlap",
+                "preprocessing.leakage_row_overlap",
+                "Leakage: row overlap",
                 f"hash_columns not present in both cohorts: {', '.join(missing)}.",
                 hash_columns=list(hash_columns),
             )
@@ -573,7 +595,8 @@ def leakage_row_overlap(
 
     if not columns:
         return _a3_skip(
-            "preprocessing.leakage_row_overlap", "Leakage: row overlap",
+            "preprocessing.leakage_row_overlap",
+            "Leakage: row overlap",
             "No comparable columns shared between cohorts.",
             hash_columns=list(hash_columns) if hash_columns else None,
         )
@@ -608,8 +631,7 @@ def leakage_row_overlap(
             else "No exact feature row appears in both cohorts."
         ),
         limitations=[
-            "Exact matches only. Near-duplicates differing in a single float are not "
-            "detected.",
+            "Exact matches only. Near-duplicates differing in a single float are not detected.",
             "Comparison is over the string rendering of values, which is deterministic "
             "across processes — Python object hashing is not, and would make this "
             "check intermittently non-reproducible.",
@@ -686,8 +708,10 @@ def leakage_suspicious_predictivity(
                         continue
                     value = float(
                         roc_auc_score(
-                            pair["y"], pair[["x"]].to_numpy().repeat(pair["y"].nunique(), axis=1),
-                            multi_class="ovr", average="macro",
+                            pair["y"],
+                            pair[["x"]].to_numpy().repeat(pair["y"].nunique(), axis=1),
+                            multi_class="ovr",
+                            average="macro",
                         )
                     )
         except Exception:
@@ -734,7 +758,7 @@ def leakage_suspicious_predictivity(
             f"{threshold:g}; highest is '{worst}' at {scores[worst]:.4f}."
             if flagged
             else f"No single feature reaches {metric_name} {threshold:g}; highest is "
-                 f"'{worst}' at {scores[worst]:.4f}."
+            f"'{worst}' at {scores[worst]:.4f}."
         ),
         limitations=[
             "WARN only. High single-feature predictivity is NOT proof of leakage — "
@@ -762,9 +786,7 @@ def leakage_suspicious_predictivity(
     risk_dimensions=("documentation_completeness", "use_boundary"),
     object_kinds=_OBJECTS,
 )
-def leakage_name_heuristic(
-    ctx: TestContext, patterns: tuple[str, ...] = LEAKAGE_NAME_PATTERNS
-) -> TestResult:
+def leakage_name_heuristic(ctx: TestContext, patterns: tuple[str, ...] = LEAKAGE_NAME_PATTERNS) -> TestResult:
     """Feature names containing outcome-like terms. An observation about names only.
 
     Matching is on token boundaries after splitting on underscores, hyphens, spaces and
@@ -831,9 +853,7 @@ def leakage_name_heuristic(
     risk_dimensions=("conceptual_soundness", "data_quality_lineage"),
     object_kinds=_OBJECTS,
 )
-def target_analysis(
-    ctx: TestContext, min_positive: int = 30, rare_class_pct: float = 1.0
-) -> TestResult:
+def target_analysis(ctx: TestContext, min_positive: int = 30, rare_class_pct: float = 1.0) -> TestResult:
     """Profile of the target, dispatched by its type.
 
     A continuous target gets moments and percentiles, not a "positive rate". Forcing
@@ -870,9 +890,7 @@ def target_analysis(
         entropy = float(-(shares * np.log(shares)).sum()) if len(shares) > 1 else 0.0
         metrics["n_classes"] = int(counts.size)
         metrics["entropy"] = round(entropy, 6)
-        metrics["normalised_entropy"] = (
-            round(entropy / math.log(counts.size), 6) if counts.size > 1 else 0.0
-        )
+        metrics["normalised_entropy"] = round(entropy / math.log(counts.size), 6) if counts.size > 1 else 0.0
         metrics["n_rare_classes"] = int((shares * 100 < rare_class_pct).sum())
         for level, count in counts.items():
             metrics[f"class.{level}.count"] = int(count)
@@ -899,15 +917,15 @@ def target_analysis(
                 f"observations; normalised entropy {metrics['normalised_entropy']:.3f}."
             )
             limitations.append(
-                "'Positive rate' is not reported for a multiclass target — the binary "
-                "notion does not apply."
+                "'Positive rate' is not reported for a multiclass target — the binary notion does not apply."
             )
     else:
         values = pd.to_numeric(series, errors="coerce").to_numpy(dtype=float)
         values = values[np.isfinite(values)]
         if values.size == 0:
             return _a3_skip(
-                "preprocessing.target_analysis", "Target analysis",
+                "preprocessing.target_analysis",
+                "Target analysis",
                 "Continuous target contains no finite values.",
                 **inference.as_params(),
             )
@@ -919,9 +937,7 @@ def target_analysis(
             metrics[f"p{pct}"] = round(float(np.percentile(values, pct)), 6)
         if values.size > 2 and float(np.std(values)) > 0:
             metrics["skew"] = round(float(stats.skew(values, bias=False)), 6)
-            metrics["excess_kurtosis"] = round(
-                float(stats.kurtosis(values, fisher=True, bias=False)), 6
-            )
+            metrics["excess_kurtosis"] = round(float(stats.kurtosis(values, fisher=True, bias=False)), 6)
         else:
             metrics["skew"] = 0.0
             metrics["excess_kurtosis"] = 0.0
@@ -987,9 +1003,7 @@ def _information_value(x: pd.Series, y: pd.Series, bins: int = 10) -> float:
     risk_dimensions=("conceptual_soundness",),
     object_kinds=_OBJECTS,
 )
-def feature_target_relationship(
-    ctx: TestContext, method: str = "auto", top_n: int = 20
-) -> TestResult:
+def feature_target_relationship(ctx: TestContext, method: str = "auto", top_n: int = 20) -> TestResult:
     """Association between each feature and the target, using valid statistics only.
 
     ``method="auto"`` selects by target type. Nothing is computed that does not apply:
@@ -1010,16 +1024,21 @@ def feature_target_relationship(
     excluded = _a3_categorical(df, exclude=_a3_outputs(ctx))
     if not numeric:
         return _a3_skip(
-            "preprocessing.feature_target_relationship", "Feature-target relationship",
-            "No numeric feature columns available.", method=method, **inference.as_params(),
+            "preprocessing.feature_target_relationship",
+            "Feature-target relationship",
+            "No numeric feature columns available.",
+            method=method,
+            **inference.as_params(),
         )
 
     frame = df[numeric + [ctx.target_column]].dropna()
     if len(frame) < 10:
         return _a3_skip(
-            "preprocessing.feature_target_relationship", "Feature-target relationship",
+            "preprocessing.feature_target_relationship",
+            "Feature-target relationship",
             f"Only {len(frame)} complete row(s); at least 10 required.",
-            method=method, **inference.as_params(),
+            method=method,
+            **inference.as_params(),
         )
 
     X = frame[numeric].to_numpy(dtype=float)
@@ -1098,8 +1117,7 @@ def feature_target_relationship(
             "multiclass label. Scores are not comparable across target types.",
             "Univariate association only; a feature useful only in combination with "
             "another will score low here.",
-            "Mutual information is estimated and depends on the seed; it is 'seeded', "
-            "not exact.",
+            "Mutual information is estimated and depends on the seed; it is 'seeded', not exact.",
             "Non-numeric features are excluded and listed.",
         ],
     )
@@ -1132,7 +1150,8 @@ def redundancy(ctx: TestContext, corr_threshold: float = 0.95) -> TestResult:
     usable = [c for c in numeric if pd.to_numeric(df[c], errors="coerce").nunique() > 1]
     if len(usable) < 2:
         return _a3_skip(
-            "preprocessing.redundancy", "Feature redundancy",
+            "preprocessing.redundancy",
+            "Feature redundancy",
             f"At least two non-constant numeric features are required; {len(usable)} available.",
             corr_threshold=corr_threshold,
         )
@@ -1227,13 +1246,15 @@ def dimensionality_diagnostic(
 
     if len(usable) < 2:
         return _a3_skip(
-            "preprocessing.dimensionality_diagnostic", "Dimensionality diagnostic",
+            "preprocessing.dimensionality_diagnostic",
+            "Dimensionality diagnostic",
             f"At least two non-constant numeric features are required; {len(usable)} available.",
             variance_target=variance_target,
         )
     if len(frame) < 3:
         return _a3_skip(
-            "preprocessing.dimensionality_diagnostic", "Dimensionality diagnostic",
+            "preprocessing.dimensionality_diagnostic",
+            "Dimensionality diagnostic",
             f"Only {len(frame)} complete row(s); at least 3 required.",
             variance_target=variance_target,
         )
@@ -1304,9 +1325,7 @@ def dimensionality_diagnostic(
         test_name="Dimensionality diagnostic",
         params={"variance_target": variance_target, "ratio_warn": ratio_warn},
         metrics=metrics,
-        thresholds=[
-            ThresholdSpec(metric="components_to_features_ratio", warn=ratio_warn, fail=None)
-        ],
+        thresholds=[ThresholdSpec(metric="components_to_features_ratio", warn=ratio_warn, fail=None)],
         interpretation=(
             f"{n_needed} of {len(usable)} component(s) capture {variance_target:.0%} of "
             f"variance (ratio {ratio:.2f}); effective rank {effective_rank:.2f}."
@@ -1330,9 +1349,7 @@ def dimensionality_diagnostic(
     risk_dimensions=("stability",),
     object_kinds=_OBJECTS,
 )
-def categorical_drift(
-    ctx: TestContext, alpha: float = 0.05, min_expected: float = 5.0
-) -> TestResult:
+def categorical_drift(ctx: TestContext, alpha: float = 0.05, min_expected: float = 5.0) -> TestResult:
     """Level-distribution shift between cohorts, plus new and vanished levels.
 
     New levels in evaluation are reported separately from the chi-square result and
@@ -1342,18 +1359,20 @@ def categorical_drift(
     """
     if ctx.test is None:
         return _a3_skip(
-            "preprocessing.categorical_drift", "Categorical drift",
-            "No test cohort available.", alpha=alpha,
+            "preprocessing.categorical_drift",
+            "Categorical drift",
+            "No test cohort available.",
+            alpha=alpha,
         )
 
     train, test = ctx.train, ctx.test
-    columns = [
-        c for c in _a3_categorical(train, exclude=_a3_outputs(ctx)) if c in test.columns
-    ]
+    columns = [c for c in _a3_categorical(train, exclude=_a3_outputs(ctx)) if c in test.columns]
     if not columns:
         return _a3_skip(
-            "preprocessing.categorical_drift", "Categorical drift",
-            "No categorical feature columns shared between cohorts.", alpha=alpha,
+            "preprocessing.categorical_drift",
+            "Categorical drift",
+            "No categorical feature columns shared between cohorts.",
+            alpha=alpha,
         )
 
     metrics: dict[str, Any] = {"n_columns_examined": len(columns)}
@@ -1383,10 +1402,12 @@ def categorical_drift(
             metrics[f"{column}.test_used"] = "none"
             continue
 
-        observed = np.array([
-            [float(train_counts.get(level, 0)) for level in levels],
-            [float(test_counts.get(level, 0)) for level in levels],
-        ])
+        observed = np.array(
+            [
+                [float(train_counts.get(level, 0)) for level in levels],
+                [float(test_counts.get(level, 0)) for level in levels],
+            ]
+        )
         # A chi-square with tiny expected counts is not valid. Reporting a p-value
         # anyway would be a number with no inferential meaning attached to it.
         row_totals = observed.sum(axis=1, keepdims=True)

@@ -163,13 +163,15 @@ def hrp_weights_and_tree(
             alpha = 1.0 - v_left / (v_left + v_right)
             weights[left] *= alpha
             weights[right] *= 1.0 - alpha
-            tree_dict["splits"].append({
-                "left": left,
-                "right": right,
-                "v_left": round(v_left, 10),
-                "v_right": round(v_right, 10),
-                "alpha": round(alpha, 8),
-            })
+            tree_dict["splits"].append(
+                {
+                    "left": left,
+                    "right": right,
+                    "v_left": round(v_left, 10),
+                    "v_right": round(v_right, 10),
+                    "alpha": round(alpha, 8),
+                }
+            )
 
     final_weights = weights.reindex(asset_names)
 
@@ -310,9 +312,7 @@ def bootstrap_cluster_stability(
         boot_cov = boot_data.cov().to_numpy(dtype=float)
 
         try:
-            _, tree_res = hrp_weights_and_tree(
-                boot_cov, linkage_method=linkage_method, assets=list(assets)
-            )
+            _, tree_res = hrp_weights_and_tree(boot_cov, linkage_method=linkage_method, assets=list(assets))
             if tree_res.cophenetic_correlation is not None:
                 coph_values.append(tree_res.cophenetic_correlation)
 

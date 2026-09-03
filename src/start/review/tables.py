@@ -106,7 +106,10 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
         n_ast = int(_safe_float(m.get("n_assets", 50.0), 50.0))
         table.add_row(
             "Historical Baseline (1/N)",
-            _fmt(_safe_float(m.get("mean_periodic_return", 0.0)) * _safe_float(m.get("periods_per_year", 252.0), 252.0)),
+            _fmt(
+                _safe_float(m.get("mean_periodic_return", 0.0))
+                * _safe_float(m.get("periods_per_year", 252.0), 252.0)
+            ),
             "—",
             "—",
             _fmt(1.0 / max(1, n_ast)),
@@ -147,7 +150,9 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
             _fmt(m.get("volatility_annualised")),
             _fmt(m.get("sharpe_annualised")),
             _fmt(m.get("herfindahl")),
-            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}" if m.get("effective_n_positions") is not None else "—",
+            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}"
+            if m.get("effective_n_positions") is not None
+            else "—",
             _fmt(m.get("one_way_turnover")),
             _fmt(m.get("max_weight")),
             viol,
@@ -162,10 +167,14 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
         table.add_row(
             f"HRP ({m.get('linkage_method', 'single')})",
             "—",
-            _fmt(math.sqrt(_safe_float(m.get("portfolio_variance_periodic", 0.0)) * 252.0)) if m.get("portfolio_variance_periodic") is not None else "—",
+            _fmt(math.sqrt(_safe_float(m.get("portfolio_variance_periodic", 0.0)) * 252.0))
+            if m.get("portfolio_variance_periodic") is not None
+            else "—",
             "—",
             _fmt(m.get("herfindahl")),
-            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}" if m.get("effective_n_positions") is not None else "—",
+            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}"
+            if m.get("effective_n_positions") is not None
+            else "—",
             "—",
             _fmt(m.get("max_weight")),
             "[green]0[/green]",
@@ -183,7 +192,9 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
             _fmt(m.get("portfolio_volatility_annualised")),
             "—",
             _fmt(m.get("herfindahl")),
-            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}" if m.get("effective_n_positions") is not None else "—",
+            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}"
+            if m.get("effective_n_positions") is not None
+            else "—",
             "—",
             _fmt(m.get("max_weight")),
             "[green]0[/green]",
@@ -201,7 +212,9 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
             _fmt(m.get("portfolio_volatility_annualised")),
             f"DR={_fmt(m.get('diversification_ratio'))}",
             _fmt(m.get("herfindahl")),
-            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}" if m.get("effective_n_positions") is not None else "—",
+            f"{_safe_float(m.get('effective_n_positions', 0.0)):.1f}"
+            if m.get("effective_n_positions") is not None
+            else "—",
             "—",
             _fmt(m.get("max_weight")),
             "[green]0[/green]",
@@ -222,7 +235,9 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
             "—",
             _fmt(m.get("turnover_vs_prior")),
             "—",
-            "[green]0[/green]" if _safe_float(m.get("max_constraint_violation", 0.0)) < 1e-5 else f"[red]{_safe_float(m.get('max_constraint_violation')):.4f}[/red]",
+            "[green]0[/green]"
+            if _safe_float(m.get("max_constraint_violation", 0.0)) < 1e-5
+            else f"[red]{_safe_float(m.get('max_constraint_violation')):.4f}[/red]",
             _status_badge(r.status),
             r.evidence_id,
         )
@@ -240,7 +255,9 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
             f"Tail={m.get('tail_scenario_count', '—')}",
             _fmt(m.get("turnover")),
             _fmt(m.get("max_weight")),
-            "[green]0[/green]" if _safe_float(m.get("max_constraint_violation", 0.0)) < 1e-5 else f"[red]{_safe_float(m.get('max_constraint_violation')):.4f}[/red]",
+            "[green]0[/green]"
+            if _safe_float(m.get("max_constraint_violation", 0.0)) < 1e-5
+            else f"[red]{_safe_float(m.get('max_constraint_violation')):.4f}[/red]",
             _status_badge(r.status),
             r.evidence_id,
         )
@@ -270,13 +287,15 @@ def build_hrp_showcase_table(records: list[EvidenceRecord]) -> Table:
             "Linkage Method",
             str(m.get("linkage_method", "single")).upper(),
             "Deterministic agglomerative hierarchical tree clustering",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         table.add_row(
             "Distance Convention",
             "d_ij = sqrt(0.5 * (1 - rho_ij))",
             "Angular correlation distance metric in [0, 1]",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         q_order = str(m.get("quasi_diagonal_order", ""))
         q_disp = q_order[:45] + "..." if len(q_order) > 45 else q_order
@@ -284,38 +303,44 @@ def build_hrp_showcase_table(records: list[EvidenceRecord]) -> Table:
             "Quasi-Diagonal Leaf Order",
             q_disp,
             f"Seriation leaf sort over {m.get('n_assets', 50)} assets",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         table.add_row(
             "Effective N Positions",
             f"{_safe_float(m.get('effective_n_positions', 0.0)):.2f}",
             "Diversification breadth measure 1 / sum(w_i^2)",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         table.add_row(
             "Max Single-Asset Weight",
             _fmt(m.get("max_weight")),
             "Maximum allocation across individual asset leaves",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         table.add_row(
             "Herfindahl Index (HHI)",
             _fmt(m.get("herfindahl")),
             "Concentration measure sum(w_i^2)",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         table.add_row(
             "Portfolio Variance (Periodic)",
             _fmt(m.get("portfolio_variance_periodic"), 10),
             "w' Sigma w under HRP recursive bisection allocation",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
         if "cophenetic_correlation" in m:
             table.add_row(
                 "Cophenetic Correlation",
                 _fmt(m.get("cophenetic_correlation")),
                 "Dendrogram distance preservation fidelity",
-                _status_badge(r.status), r.evidence_id,
+                _status_badge(r.status),
+                r.evidence_id,
             )
 
     return table
@@ -342,30 +367,36 @@ def build_optimization_sensitivity_table(records: list[EvidenceRecord]) -> Table
         r = rec_map["portfolio.constrained_optimization"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Constraint Feasibility Audit",
+            r.test_id,
+            "Constraint Feasibility Audit",
             f"is_valid={m.get('is_valid', True)}",
             f"max_viol={_fmt(m.get('max_violation', 0.0), 6)}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "portfolio.covariance_conditioning" in rec_map:
         r = rec_map["portfolio.covariance_conditioning"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Covariance Eigenspectrum & Condition",
+            r.test_id,
+            "Covariance Eigenspectrum & Condition",
             f"kappa={_fmt(m.get('condition_number'))}",
             f"full_rank={m.get('full_rank', True)} | is_psd={m.get('is_psd', True)}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "covariance.ledoit_wolf_shrinkage" in rec_map:
         r = rec_map["covariance.ledoit_wolf_shrinkage"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Ledoit-Wolf Shrinkage Sensitivity",
+            r.test_id,
+            "Ledoit-Wolf Shrinkage Sensitivity",
             f"delta_kappa={_fmt(_safe_float(m.get('condition_number_before', 0.0)) - _safe_float(m.get('condition_number_after', 0.0)))}",
             f"shrinkage_intensity={_fmt(m.get('shrinkage_intensity'))}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     return table
@@ -392,70 +423,84 @@ def build_attribution_table(records: list[EvidenceRecord]) -> Table:
         r = rec_map["attribution.factor_return_estimation"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Factor Return Estimation",
+            r.test_id,
+            "Factor Return Estimation",
             f"{m.get('n_factors', '—')} factors estimated",
             f"{m.get('n_periods_estimated', '—')} / {m.get('n_periods_total', '—')} periods",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.cross_sectional_factor_model" in rec_map:
         r = rec_map["attribution.cross_sectional_factor_model"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Cross-Sectional Regression",
+            r.test_id,
+            "Cross-Sectional Regression",
             f"{m.get('n_assets', '—')} assets x {m.get('n_factors', '—')} factors",
             f"skipped_rank={m.get('n_periods_skipped_rank', 0)}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.exposure_analysis" in rec_map:
         r = rec_map["attribution.exposure_analysis"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Portfolio Factor Exposure",
+            r.test_id,
+            "Portfolio Factor Exposure",
             f"gross_exp={_fmt(m.get('gross_exposure', 1.0))}",
             f"time_varying={m.get('exposures_time_varying', False)}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.return_attribution" in rec_map:
         r = rec_map["attribution.return_attribution"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Return Decomposition",
+            r.test_id,
+            "Return Decomposition",
             "allocation / selection reconciliation",
             f"{m.get('n_periods_estimated', '—')} periods decomposed",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.risk_attribution" in rec_map:
         r = rec_map["attribution.risk_attribution"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Risk (Tracking Error) Attribution",
+            r.test_id,
+            "Risk (Tracking Error) Attribution",
             "systematic vs specific risk",
             f"{m.get('n_factors', '—')} factor risk drivers",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.brinson" in rec_map:
         r = rec_map["attribution.brinson"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Brinson Allocation & Selection",
+            r.test_id,
+            "Brinson Allocation & Selection",
             f"alloc={_fmt(m.get('allocation_effect'))} | select={_fmt(m.get('selection_effect'))}",
             "sector / group breakdown",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.carino_linking" in rec_map:
         r = rec_map["attribution.carino_linking"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Carino Multi-Period Linking",
+            r.test_id,
+            "Carino Multi-Period Linking",
             f"linking_factor={_fmt(m.get('linking_factor', 1.0))}",
             "logarithmic geometric linking",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "attribution.risk_change_decomposition" in rec_map:
@@ -466,10 +511,12 @@ def build_attribution_table(records: list[EvidenceRecord]) -> Table:
         d_tot = m.get("delta_total")
         detail_str = f"d_sys={_fmt(d_sys)} | d_spec={_fmt(d_spec)}" if d_sys is not None else "decomposition"
         table.add_row(
-            r.test_id, "Risk Change Decomposition",
+            r.test_id,
+            "Risk Change Decomposition",
             f"delta_total={_fmt(d_tot)}" if d_tot is not None else "variance changes",
             detail_str,
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     return table
@@ -491,8 +538,7 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
     table.add_column("Evidence ID", style="dim", no_wrap=True)
 
     rec_map = {
-        r.test_id: r
-        for r in (records.evidence_records if hasattr(records, "evidence_records") else records)
+        r.test_id: r for r in (records.evidence_records if hasattr(records, "evidence_records") else records)
     }
 
     if "traded_risk.var_exceptions" in rec_map:
@@ -501,10 +547,12 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
         exp_rate_str = f"rate={_fmt(m.get('exception_rate', 0.0), 3)}"
         exp_prob_str = f"(exp={_fmt(m.get('expected_probability', 0.01), 3)})"
         table.add_row(
-            r.test_id, "VaR Exceptions Count",
+            r.test_id,
+            "VaR Exceptions Count",
             f"{m.get('n_exceptions', '—')} / {m.get('n_observations', '—')}",
             f"{exp_rate_str} {exp_prob_str}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.var_kupiec_pof" in rec_map:
@@ -528,16 +576,16 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
             dec = "N/A"
 
         p_str = (
-            f"p={_fmt(p_val, 4)} ({dec} at {gamma_disp})"
-            if p_val is not None
-            else f"({dec} at {gamma_disp})"
+            f"p={_fmt(p_val, 4)} ({dec} at {gamma_disp})" if p_val is not None else f"({dec} at {gamma_disp})"
         )
         stat_str = f"LR={_fmt(stat, 3)}" if stat is not None else "LR=N/A"
         table.add_row(
-            r.test_id, "Kupiec Proportion of Failures (POF)",
+            r.test_id,
+            "Kupiec Proportion of Failures (POF)",
             stat_str,
             p_str,
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.var_christoffersen_independence" in rec_map:
@@ -561,16 +609,16 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
             dec = "N/A"
 
         p_str = (
-            f"p={_fmt(p_val, 4)} ({dec} at {gamma_disp})"
-            if p_val is not None
-            else f"({dec} at {gamma_disp})"
+            f"p={_fmt(p_val, 4)} ({dec} at {gamma_disp})" if p_val is not None else f"({dec} at {gamma_disp})"
         )
         stat_str = f"LR_ind={_fmt(stat, 3)}" if stat is not None else "LR_ind=N/A"
         table.add_row(
-            r.test_id, "Christoffersen Independence Test",
+            r.test_id,
+            "Christoffersen Independence Test",
             stat_str,
             p_str,
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.var_christoffersen_conditional" in rec_map:
@@ -594,16 +642,16 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
             dec = "N/A"
 
         p_str = (
-            f"p={_fmt(p_val, 4)} ({dec} at {gamma_disp})"
-            if p_val is not None
-            else f"({dec} at {gamma_disp})"
+            f"p={_fmt(p_val, 4)} ({dec} at {gamma_disp})" if p_val is not None else f"({dec} at {gamma_disp})"
         )
         stat_str = f"LR_cc={_fmt(stat, 3)}" if stat is not None else "LR_cc=N/A"
         table.add_row(
-            r.test_id, "Joint Conditional Coverage",
+            r.test_id,
+            "Joint Conditional Coverage",
             stat_str,
             p_str,
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.var_traffic_light" in rec_map:
@@ -612,54 +660,63 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
         zone = str(m.get("zone", "GREEN")).upper()
         color = "green" if zone == "GREEN" else ("yellow" if zone == "YELLOW" else "red")
         table.add_row(
-            r.test_id, "Basel Traffic Light Status",
+            r.test_id,
+            "Basel Traffic Light Status",
             f"[{color}]{zone}[/{color}]",
             f"exceptions={m.get('n_exceptions', '—')} (multiplier={m.get('multiplier', '3.0')})",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.var_historical_simulation" in rec_map:
         r = rec_map["traded_risk.var_historical_simulation"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Historical Simulation VaR",
+            r.test_id,
+            "Historical Simulation VaR",
             f"VaR_99={_fmt(m.get('var_99', m.get('var')))}",
             f"VaR_95={_fmt(m.get('var_95'))}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.var_parametric_gaussian" in rec_map:
         r = rec_map["traded_risk.var_parametric_gaussian"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Parametric Gaussian VaR",
+            r.test_id,
+            "Parametric Gaussian VaR",
             f"VaR_99={_fmt(m.get('var_99', m.get('var')))}",
             f"VaR_95={_fmt(m.get('var_95'))}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.cvar_expected_shortfall" in rec_map or "traded_risk.expected_shortfall" in rec_map:
-        r_cvar = (
-            rec_map.get("traded_risk.cvar_expected_shortfall")
-            or rec_map.get("traded_risk.expected_shortfall")
+        r_cvar = rec_map.get("traded_risk.cvar_expected_shortfall") or rec_map.get(
+            "traded_risk.expected_shortfall"
         )
         if r_cvar is not None:
             m = r_cvar.metrics
             table.add_row(
-                r_cvar.test_id, "Expected Shortfall (CVaR)",
+                r_cvar.test_id,
+                "Expected Shortfall (CVaR)",
                 f"ES_99={_fmt(m.get('es_99', m.get('expected_shortfall')))}",
                 f"ES_95={_fmt(m.get('es_95'))}",
-                _status_badge(r_cvar.status), r_cvar.evidence_id,
+                _status_badge(r_cvar.status),
+                r_cvar.evidence_id,
             )
 
     if "traded_risk.tail_severity" in rec_map:
         r = rec_map["traded_risk.tail_severity"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Tail Severity Diagnostics",
+            r.test_id,
+            "Tail Severity Diagnostics",
             f"mean_exceed={_fmt(m.get('mean_absolute_exceedance'))}",
             f"max_norm={_fmt(m.get('max_normalized_exceedance'))}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "validation.var_size_power" in rec_map:
@@ -684,10 +741,12 @@ def build_var_tail_table(records: list[EvidenceRecord]) -> Table:
         crit_disp = f"{band_disp} | {gamma_disp} | Validation={val_status}"
 
         table.add_row(
-            r.test_id, "VaR Validation Size & Power",
+            r.test_id,
+            "VaR Validation Size & Power",
             val_stat,
             crit_disp,
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     return table
@@ -716,10 +775,12 @@ def build_covariance_table(records: list[EvidenceRecord]) -> Table:
         obs_used = m.get("n_observations_used", m.get("n_observations", "—"))
         miss_pol = m.get("missing_policy", "drop")
         table.add_row(
-            r.test_id, "Sample Covariance",
+            r.test_id,
+            "Sample Covariance",
             f"N={m.get('n_assets', '—')} assets",
             f"T={obs_used} obs | missing={miss_pol}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "covariance.ledoit_wolf_shrinkage" in rec_map:
@@ -728,10 +789,12 @@ def build_covariance_table(records: list[EvidenceRecord]) -> Table:
         cond_b = _fmt(m.get("condition_number_before"), 1)
         cond_a = _fmt(m.get("condition_number_after"), 1)
         table.add_row(
-            r.test_id, "Ledoit-Wolf Shrinkage",
+            r.test_id,
+            "Ledoit-Wolf Shrinkage",
             f"intensity delta*={_fmt(m.get('shrinkage_intensity'))}",
             f"cond_before={cond_b} -> after={cond_a}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "covariance.regularized_em" in rec_map:
@@ -743,30 +806,36 @@ def build_covariance_table(records: list[EvidenceRecord]) -> Table:
         else:
             miss_str = "missing_frac=N/A"
         table.add_row(
-            r.test_id, "Regularized EM Imputation",
+            r.test_id,
+            "Regularized EM Imputation",
             miss_str,
             f"T={m.get('n_observations', '—')} | N={m.get('n_assets', '—')}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "covariance.condition_number" in rec_map:
         r = rec_map["covariance.condition_number"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Matrix Condition Number",
+            r.test_id,
+            "Matrix Condition Number",
             f"kappa={_fmt(m.get('condition_number'), 1)}",
             f"min_eig={_fmt(m.get('min_eigenvalue'), 6)}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "covariance.nearest_psd" in rec_map:
         r = rec_map["covariance.nearest_psd"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Higham Nearest PSD Repair",
+            r.test_id,
+            "Higham Nearest PSD Repair",
             f"distance={_fmt(m.get('frobenius_distance'), 6)}",
             f"repaired={m.get('repair_applied', False)}",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "validation.regem_structural" in rec_map:
@@ -775,10 +844,12 @@ def build_covariance_table(records: list[EvidenceRecord]) -> Table:
         pr = m.get("pass_rate")
         pass_str = f"pass_rate={_fmt(float(pr) * 100, 1)}%" if pr is not None else "pass_rate=N/A"
         table.add_row(
-            r.test_id, "RegEM Structural Validation",
+            r.test_id,
+            "RegEM Structural Validation",
             pass_str,
             "Nominal threshold: 90% | Result: PASS",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     return table
@@ -811,9 +882,7 @@ def build_scenario_table(records: list[EvidenceRecord]) -> Table:
         ret_val = f"{_fmt(float(p_ret) * 100, 2)}%" if p_ret is not None else "N/A"
         p_loss = m.get("portfolio_loss", m.get("scenario_loss"))
         loss_val = f"{_fmt(float(p_loss) * 100, 2)}%" if p_loss is not None else "N/A"
-        table.add_row(
-            r.test_id, name, shock_type, ret_val, loss_val, _status_badge(r.status), r.evidence_id
-        )
+        table.add_row(r.test_id, name, shock_type, ret_val, loss_val, _status_badge(r.status), r.evidence_id)
 
     if not scen_records:
         table.add_row("—", "No scenario evidence records", "—", "—", "—", "[dim]N/A[/dim]", "—")
@@ -842,10 +911,12 @@ def build_treasury_table(records: list[EvidenceRecord]) -> Table:
         r = rec_map["traded_risk.cev_elasticity"]
         m = r.metrics
         table.add_row(
-            r.test_id, "CEV Elasticity Estimation",
+            r.test_id,
+            "CEV Elasticity Estimation",
             f"gamma_hat={_fmt(m.get('gamma_hat'), 4)}",
             f"sigma_hat={_fmt(m.get('sigma_hat'), 4)} (T={m.get('n_used', '—')})",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "validation.cev_consistency" in rec_map:
@@ -855,20 +926,24 @@ def build_treasury_table(records: list[EvidenceRecord]) -> Table:
         cov_str = _fmt(cov_val, 3)
         req_cov = str(m.get("required.coverage_gamma_0_0", "[0.90, 0.98]"))
         table.add_row(
-            r.test_id, "CEV Finite-Sample Consistency",
+            r.test_id,
+            "CEV Finite-Sample Consistency",
             f"coverage={cov_str}",
             f"Required: {req_cov} | Result: FAIL (Under-coverage)",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "traded_risk.stanton_nonparametric" in rec_map:
         r = rec_map["traded_risk.stanton_nonparametric"]
         m = r.metrics
         table.add_row(
-            r.test_id, "Stanton Kernel Drift & Diffusion",
+            r.test_id,
+            "Stanton Kernel Drift & Diffusion",
             f"order={m.get('estimator_order', 1)} | kernel={m.get('kernel', 'gaussian')}",
             f"bandwidth={_fmt(m.get('bandwidth'), 4)} ({m.get('n_grid_points', '—')} grid pts)",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     if "validation.stanton_bias" in rec_map:
@@ -878,10 +953,12 @@ def build_treasury_table(records: list[EvidenceRecord]) -> Table:
         ws_str = _fmt(ws_val, 3)
         req_ws = str(m.get("required.max_wrong_sign_rate", "<= 0.10"))
         table.add_row(
-            r.test_id, "Stanton Drift Bias / Wrong-Sign Diagnostic",
+            r.test_id,
+            "Stanton Drift Bias / Wrong-Sign Diagnostic",
             f"wrong_sign_rate={ws_str}",
             f"Required: {req_ws} | Result: FAIL (Excessive Wrong-Sign Drift)",
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     return table
@@ -903,16 +980,19 @@ def build_barrier_table(records: list[EvidenceRecord]) -> Table:
     table.add_column("Evidence ID", style="dim", no_wrap=True)
 
     barrier_records = [
-        r for r in records
+        r
+        for r in records
         if r.test_id in {"traded_risk.brownian_bridge_barrier"} or r.test_id.startswith("barrier.")
     ]
     for r in barrier_records:
         m = r.metrics
         table.add_row(
-            r.test_id, "Crossing Probability",
+            r.test_id,
+            "Crossing Probability",
             _fmt(m.get("crossing_probability", 0.05)),
             str(m.get("boundary_admissibility", "ADMISSIBLE")),
-            _status_badge(r.status), r.evidence_id,
+            _status_badge(r.status),
+            r.evidence_id,
         )
 
     return table
@@ -1120,7 +1200,9 @@ def build_data_preprocessing_table(
         f"Base rate = {imb:.2%} (binary positive class)",
         f"Target column: '{meta.get('target_column', 'target')}'",
         "[green]PASS[/green]",
-        rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id if records else "—",
+        rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id
+        if records
+        else "—",
     )
 
     # 3. Missingness & Imputation
@@ -1173,14 +1255,54 @@ def build_dl_architecture_table(
 
     rec_map = {r.test_id: r for r in records}
     meta = arch_meta or {}
-    ev_id = rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id if records else "—"
+    ev_id = (
+        rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id
+        if records
+        else "—"
+    )
 
-    table.add_row("Framework & Family", str(meta.get("framework", "PyTorch 2.x")), str(meta.get("family", "Tabular Residual MLP")), "[green]PASS[/green]", ev_id)
-    table.add_row("Device Routing", str(meta.get("device", "CPU / MPS / CUDA auto")).upper(), "Deterministic device placement with seed synchronization", "[green]PASS[/green]", ev_id)
-    table.add_row("Parameter Capacity", f"{meta.get('trainable_parameters', 2849):,} trainable parameters", f"{meta.get('non_trainable_parameters', 0)} non-trainable (frozen)", "[green]PASS[/green]", ev_id)
-    table.add_row("Hidden Layers", "Input(10) -> Dense(64, SiLU) -> Dense(32, SiLU) -> Head(1, Sigmoid)", "Dropout p=0.10, LayerNorm normalization", "[green]PASS[/green]", ev_id)
-    table.add_row("Optimizer & LR", f"{meta.get('optimizer', 'AdamW')} (lr={meta.get('learning_rate', 0.005)}, wd={meta.get('weight_decay', 0.01)})", str(meta.get("scheduler", "CosineAnnealingLR (T_max=8)")), "[green]PASS[/green]", ev_id)
-    table.add_row("Training Batching", f"Batch Size = {meta.get('batch_size', 64)} | Epochs = {meta.get('epochs_completed', 8)}", str(meta.get("early_stopping", "Patience=3 (best_epoch=7)")), "[green]PASS[/green]", ev_id)
+    table.add_row(
+        "Framework & Family",
+        str(meta.get("framework", "PyTorch 2.x")),
+        str(meta.get("family", "Tabular Residual MLP")),
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Device Routing",
+        str(meta.get("device", "CPU / MPS / CUDA auto")).upper(),
+        "Deterministic device placement with seed synchronization",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Parameter Capacity",
+        f"{meta.get('trainable_parameters', 2849):,} trainable parameters",
+        f"{meta.get('non_trainable_parameters', 0)} non-trainable (frozen)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Hidden Layers",
+        "Input(10) -> Dense(64, SiLU) -> Dense(32, SiLU) -> Head(1, Sigmoid)",
+        "Dropout p=0.10, LayerNorm normalization",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Optimizer & LR",
+        f"{meta.get('optimizer', 'AdamW')} (lr={meta.get('learning_rate', 0.005)}, wd={meta.get('weight_decay', 0.01)})",
+        str(meta.get("scheduler", "CosineAnnealingLR (T_max=8)")),
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Training Batching",
+        f"Batch Size = {meta.get('batch_size', 64)} | Epochs = {meta.get('epochs_completed', 8)}",
+        str(meta.get("early_stopping", "Patience=3 (best_epoch=7)")),
+        "[green]PASS[/green]",
+        ev_id,
+    )
 
     return table
 
@@ -1206,14 +1328,42 @@ def build_dl_training_table(
     rec_map = {r.test_id: r for r in records}
     meta = tuning_meta or {}
     hist = history or {"train_loss": [0.65, 0.28], "val_loss": [0.66, 0.36]}
-    ev_id = rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id if records else "—"
+    ev_id = (
+        rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id
+        if records
+        else "—"
+    )
 
     tr_loss = hist.get("train_loss", [0.28])
     val_loss = hist.get("val_loss", [0.36])
-    table.add_row("Loss Convergence", f"Train loss: {tr_loss[0]:.3f} -> {tr_loss[-1]:.3f}", f"Val loss: {val_loss[0]:.3f} -> {val_loss[-1]:.3f}", "[green]PASS[/green]", ev_id)
-    table.add_row("Tuning Method", str(meta.get("tuning_method", "Optuna Bayesian TPE")), f"{meta.get('trials_completed', 20)} trials evaluated", "[green]PASS[/green]", ev_id)
-    table.add_row("Optimal Hyperparameters", "hidden=(64, 32), lr=0.005, dropout=0.10", "Best trial: #14 (Validation Loss = 0.360)", "[green]PASS[/green]", ev_id)
-    table.add_row("Generalization Gap", f"Train-Val Loss Gap = {meta.get('train_val_generalization_gap', 0.038):.3f}", str(meta.get("overfitting_diagnostic", "CONTROLLED (gap < 0.05)")), "[green]PASS[/green]", ev_id)
+    table.add_row(
+        "Loss Convergence",
+        f"Train loss: {tr_loss[0]:.3f} -> {tr_loss[-1]:.3f}",
+        f"Val loss: {val_loss[0]:.3f} -> {val_loss[-1]:.3f}",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Tuning Method",
+        str(meta.get("tuning_method", "Optuna Bayesian TPE")),
+        f"{meta.get('trials_completed', 20)} trials evaluated",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Optimal Hyperparameters",
+        "hidden=(64, 32), lr=0.005, dropout=0.10",
+        "Best trial: #14 (Validation Loss = 0.360)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Generalization Gap",
+        f"Train-Val Loss Gap = {meta.get('train_val_generalization_gap', 0.038):.3f}",
+        str(meta.get("overfitting_diagnostic", "CONTROLLED (gap < 0.05)")),
+        "[green]PASS[/green]",
+        ev_id,
+    )
 
     return table
 
@@ -1237,13 +1387,47 @@ def build_dl_sensitivity_table(
 
     rec_map = {r.test_id: r for r in records}
     meta = sensitivity_meta or {}
-    ev_id = rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id if records else "—"
+    ev_id = (
+        rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id
+        if records
+        else "—"
+    )
 
-    table.add_row("Seed Initialization Dispersion", f"AUC Std = {_fmt(meta.get('seed_dispersion_std', 0.0084))}", "Multi-seed initialization stability (< 0.015)", "[green]PASS[/green]", ev_id)
-    table.add_row("5-Fold Cross-Validation Dispersion", f"Mean AUC = {_fmt(meta.get('cv_5fold_auroc_mean', 0.8612))} (Std = {_fmt(meta.get('cv_5fold_auroc_std', 0.0124))})", "Cross-fold variance check (< 0.025)", "[green]PASS[/green]", ev_id)
-    table.add_row("Input Perturbation (10dB SNR)", f"Delta AUC = {_fmt(meta.get('perturbation_snr_10db_delta_auc', -0.0142))}", "Feature noise stress (< 0.050)", "[green]PASS[/green]", ev_id)
-    table.add_row("Missingness Stress (20% Drop)", f"Delta AUC = {_fmt(meta.get('missingness_stress_20pct_delta_auc', -0.0195))}", "Synthetic missing feature injection (< 0.050)", "[green]PASS[/green]", ev_id)
-    table.add_row("Subgroup Performance Disparity", f"Max Disparity = {_fmt(meta.get('subgroup_max_disparity', 0.0210))}", "Demographic/cohort parity threshold (< 0.050)", "[green]PASS[/green]", ev_id)
+    table.add_row(
+        "Seed Initialization Dispersion",
+        f"AUC Std = {_fmt(meta.get('seed_dispersion_std', 0.0084))}",
+        "Multi-seed initialization stability (< 0.015)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "5-Fold Cross-Validation Dispersion",
+        f"Mean AUC = {_fmt(meta.get('cv_5fold_auroc_mean', 0.8612))} (Std = {_fmt(meta.get('cv_5fold_auroc_std', 0.0124))})",
+        "Cross-fold variance check (< 0.025)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Input Perturbation (10dB SNR)",
+        f"Delta AUC = {_fmt(meta.get('perturbation_snr_10db_delta_auc', -0.0142))}",
+        "Feature noise stress (< 0.050)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Missingness Stress (20% Drop)",
+        f"Delta AUC = {_fmt(meta.get('missingness_stress_20pct_delta_auc', -0.0195))}",
+        "Synthetic missing feature injection (< 0.050)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Subgroup Performance Disparity",
+        f"Max Disparity = {_fmt(meta.get('subgroup_max_disparity', 0.0210))}",
+        "Demographic/cohort parity threshold (< 0.050)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
 
     return table
 
@@ -1267,15 +1451,43 @@ def build_dl_explainability_table(
 
     rec_map = {r.test_id: r for r in records}
     meta = explain_meta or {}
-    ev_id = rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id if records else "—"
+    ev_id = (
+        rec_map.get("supervised.discrimination", records[0] if records else None).evidence_id
+        if records
+        else "—"
+    )
 
     top_feats = meta.get("top_features", [("feat_00", 0.28), ("feat_01", 0.22), ("feat_02", 0.19)])
     top_str = ", ".join(f"{f} ({imp:.2f})" for f, imp in top_feats[:4])
 
-    table.add_row("Global Attribution Method", str(meta.get("method", "Tree/Deep SHAP & Integrated Gradients")), "Axiomatic completeness & efficiency", "[green]PASS[/green]", ev_id)
-    table.add_row("Top Explanatory Features", top_str, "Consistently ranked across permutations", "[green]PASS[/green]", ev_id)
-    table.add_row("Explanation Stability", f"Rank Correlation = {_fmt(meta.get('feature_importance_stability_rank_corr', 0.964))}", "Subsample explanation consistency (> 0.90)", "[green]PASS[/green]", ev_id)
-    table.add_row("Integrated Gradients Baseline", str(meta.get("integrated_gradients_baseline", "Zero/Median embedding reference")), "50 approximation Gauss-Legendre steps", "[green]PASS[/green]", ev_id)
+    table.add_row(
+        "Global Attribution Method",
+        str(meta.get("method", "Tree/Deep SHAP & Integrated Gradients")),
+        "Axiomatic completeness & efficiency",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Top Explanatory Features",
+        top_str,
+        "Consistently ranked across permutations",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Explanation Stability",
+        f"Rank Correlation = {_fmt(meta.get('feature_importance_stability_rank_corr', 0.964))}",
+        "Subsample explanation consistency (> 0.90)",
+        "[green]PASS[/green]",
+        ev_id,
+    )
+    table.add_row(
+        "Integrated Gradients Baseline",
+        str(meta.get("integrated_gradients_baseline", "Zero/Median embedding reference")),
+        "50 approximation Gauss-Legendre steps",
+        "[green]PASS[/green]",
+        ev_id,
+    )
 
     return table
 
@@ -1300,7 +1512,8 @@ def build_predictive_table(
     for r in records:
         m = r.metrics
         metric_items = [
-            f"{k}={_fmt(v, 4)}" for k, v in list(m.items())[:4]
+            f"{k}={_fmt(v, 4)}"
+            for k, v in list(m.items())[:4]
             if not k.startswith("extra_") and not isinstance(v, (dict, list))
         ]
         m_str = " | ".join(metric_items) if metric_items else "—"
@@ -1310,5 +1523,3 @@ def build_predictive_table(
         table.add_row("No predictive evidence records", "—", "—", "[dim]N/A[/dim]", "—")
 
     return table
-
-

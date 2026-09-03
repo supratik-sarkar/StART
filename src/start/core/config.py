@@ -136,9 +136,7 @@ class ModelConfig(BaseModel):
 
 
 class TestFamiliesConfig(BaseModel):
-    enabled: list[str] = Field(
-        default_factory=lambda: ["preprocessing", "supervised", "xai"]
-    )
+    enabled: list[str] = Field(default_factory=lambda: ["preprocessing", "supervised", "xai"])
     disabled: list[str] = Field(default_factory=list)
     overrides: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Per-test parameter overrides keyed by test_id."
@@ -174,9 +172,7 @@ class GovernanceConfig(BaseModel):
 
 
 class StartConfig(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="START_", env_nested_delimiter="__", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="START_", env_nested_delimiter="__", extra="ignore")
 
     project_name: str = "start-project"
     seed: int = 42

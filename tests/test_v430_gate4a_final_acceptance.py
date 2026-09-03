@@ -78,13 +78,17 @@ def test_human_review_visual_artifacts_and_semantic_companions() -> None:
         assert art_cov_diag.spec.evidence_ids == ("EV-001",)
 
         # 2. Raw Covariance Heatmap
-        art_raw_cov = render_raw_covariance_heatmap_artifact(np.eye(3), ["A", "B", "C"], ("EV-001",), output_dir=tmp_path)
+        art_raw_cov = render_raw_covariance_heatmap_artifact(
+            np.eye(3), ["A", "B", "C"], ("EV-001",), output_dir=tmp_path
+        )
         assert art_raw_cov.rendering_format == "svg"
         assert Path(art_raw_cov.file_path).exists()
         assert Path(tmp_path / f"{art_raw_cov.artifact_id}.json").exists()
 
         # 3. PSD Repair
-        rep = repair_psd_covariance(np.array([[1.0, 0.9], [0.9, 0.1]]), method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION)
+        rep = repair_psd_covariance(
+            np.array([[1.0, 0.9], [0.9, 0.1]]), method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION
+        )
         art_rep = render_psd_repair_artifact(rep, ("EV-002",), output_dir=tmp_path)
         assert art_rep.rendering_format == "svg"
         assert Path(art_rep.file_path).exists()
@@ -132,7 +136,9 @@ def test_human_review_visual_artifacts_and_semantic_companions() -> None:
         assert Path(tmp_path / f"{art_fra.artifact_id}.json").exists()
 
         # 9. Brinson Attribution
-        br = compute_brinson_attribution({"G1": 0.6, "G2": 0.4}, {"G1": 0.5, "G2": 0.5}, {"G1": 0.05, "G2": 0.02}, {"G1": 0.04, "G2": 0.03})
+        br = compute_brinson_attribution(
+            {"G1": 0.6, "G2": 0.4}, {"G1": 0.5, "G2": 0.5}, {"G1": 0.05, "G2": 0.02}, {"G1": 0.04, "G2": 0.03}
+        )
         art_br = render_brinson_attribution_artifact(br, ("EV-008",), output_dir=tmp_path)
         assert art_br.rendering_format == "svg"
         assert Path(art_br.file_path).exists()
@@ -161,31 +167,43 @@ def test_financial_horizon_active_risk_and_factor_model() -> None:
 
     # A. PERIODIC covariance + daily + ppy=252 -> valid annualized tracking error
     frm_periodic = build_linear_factor_model(
-        B, F, D,
+        B,
+        F,
+        D,
         factor_cov_horizon=MetricHorizon.PERIODIC,
         specific_var_horizon=MetricHorizon.PERIODIC,
         frequency="daily",
         periods_per_year=252.0,
     )
-    ard_periodic = decompose_active_risk({"A": 0.6, "B": 0.4}, {"A": 0.5, "B": 0.5}, frm_periodic, periods_per_year=252.0)
+    ard_periodic = decompose_active_risk(
+        {"A": 0.6, "B": 0.4}, {"A": 0.5, "B": 0.5}, frm_periodic, periods_per_year=252.0
+    )
     assert ard_periodic.tracking_error_annualised > 0.0
     assert ard_periodic.horizon == MetricHorizon.PERIODIC
 
     # B. ANNUAL covariance + ppy=1 -> valid annual tracking error without additional scaling
     frm_annual = build_linear_factor_model(
-        B, F, D,
+        B,
+        F,
+        D,
         factor_cov_horizon=MetricHorizon.ANNUAL,
         specific_var_horizon=MetricHorizon.ANNUAL,
         periods_per_year=1.0,
     )
-    ard_annual = decompose_active_risk({"A": 0.6, "B": 0.4}, {"A": 0.5, "B": 0.5}, frm_annual, periods_per_year=1.0)
-    assert ard_annual.tracking_error_annualised == pytest.approx(np.sqrt(ard_annual.total_active_variance_periodic), rel=1e-6)
+    ard_annual = decompose_active_risk(
+        {"A": 0.6, "B": 0.4}, {"A": 0.5, "B": 0.5}, frm_annual, periods_per_year=1.0
+    )
+    assert ard_annual.tracking_error_annualised == pytest.approx(
+        np.sqrt(ard_annual.total_active_variance_periodic), rel=1e-6
+    )
     assert ard_annual.horizon == MetricHorizon.ANNUAL
 
     # C. ANNUAL covariance + ppy=252 -> REJECT double annualization
     with pytest.raises(ValueError, match="Double annualization error"):
         build_linear_factor_model(
-            B, F, D,
+            B,
+            F,
+            D,
             factor_cov_horizon=MetricHorizon.ANNUAL,
             specific_var_horizon=MetricHorizon.ANNUAL,
             periods_per_year=252.0,
@@ -194,7 +212,9 @@ def test_financial_horizon_active_risk_and_factor_model() -> None:
     # D. PERIODIC covariance + monthly + ppy=252 -> REJECT frequency contradiction
     with pytest.raises(ValueError, match="Frequency contradiction"):
         build_linear_factor_model(
-            B, F, D,
+            B,
+            F,
+            D,
             factor_cov_horizon=MetricHorizon.PERIODIC,
             specific_var_horizon=MetricHorizon.PERIODIC,
             frequency="monthly",
@@ -204,7 +224,9 @@ def test_financial_horizon_active_risk_and_factor_model() -> None:
     # E. Factor covariance F (ANNUAL) + Specific risk D (PERIODIC) mismatch -> REJECT
     with pytest.raises(ValueError, match="Financial horizon mismatch"):
         build_linear_factor_model(
-            B, F, D,
+            B,
+            F,
+            D,
             factor_cov_horizon=MetricHorizon.ANNUAL,
             specific_var_horizon=MetricHorizon.PERIODIC,
         )
@@ -262,22 +284,30 @@ def test_attribution_timing_and_temporal_alignment() -> None:
 def test_higham_nearest_correlation_algorithm_contract() -> None:
     """Audit Higham alternating projections algorithm, symmetry, diagonal preservation, and idempotence."""
     # 1. Already valid positive definite correlation matrix -> unchanged within tolerance
-    valid_corr = np.array([
-        [1.0, 0.3, 0.2],
-        [0.3, 1.0, 0.1],
-        [0.2, 0.1, 1.0],
-    ])
-    res_valid = repair_psd_covariance(valid_corr, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION, min_eigenvalue=0.0)
+    valid_corr = np.array(
+        [
+            [1.0, 0.3, 0.2],
+            [0.3, 1.0, 0.1],
+            [0.2, 0.1, 1.0],
+        ]
+    )
+    res_valid = repair_psd_covariance(
+        valid_corr, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION, min_eigenvalue=0.0
+    )
     assert np.allclose(res_valid.repaired_matrix, valid_corr, atol=1e-5)
     assert res_valid.frobenius_distortion < 1e-4
 
     # 2. Indefinite correlation matrix -> repaired to PSD
-    indef_mat = np.array([
-        [1.0, 0.9, 0.9],
-        [0.9, 1.0, 0.9],
-        [0.9, 0.9, 0.1],  # diagonal altered to 0.1 causing negative eigenvalues
-    ])
-    res_indef = repair_psd_covariance(indef_mat, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION, min_eigenvalue=1e-8)
+    indef_mat = np.array(
+        [
+            [1.0, 0.9, 0.9],
+            [0.9, 1.0, 0.9],
+            [0.9, 0.9, 0.1],  # diagonal altered to 0.1 causing negative eigenvalues
+        ]
+    )
+    res_indef = repair_psd_covariance(
+        indef_mat, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION, min_eigenvalue=1e-8
+    )
     rep_arr = np.asarray(res_indef.repaired_matrix)
 
     assert res_indef.original_minimum_eigenvalue < 0.0
@@ -293,7 +323,9 @@ def test_higham_nearest_correlation_algorithm_contract() -> None:
     assert np.allclose(np.diag(rep_arr), np.diag(indef_mat), atol=1e-5)
 
     # Idempotence: re-running repair on already repaired matrix produces negligible distortion
-    res_repaired_again = repair_psd_covariance(rep_arr, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION, min_eigenvalue=1e-8)
+    res_repaired_again = repair_psd_covariance(
+        rep_arr, method=PSDRepairMethod.HIGHAM_NEAREST_CORRELATION, min_eigenvalue=1e-8
+    )
     assert res_repaired_again.frobenius_distortion < 1e-6
     assert np.allclose(res_repaired_again.repaired_matrix, rep_arr, atol=1e-6)
 

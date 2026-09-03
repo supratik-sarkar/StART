@@ -18,9 +18,16 @@ def tuned(tmp_path_factory):
     feats = [c for c in df.columns if c != "attrition"]
     reg = ArtifactRegistry()
     run = run_tuning(
-        df, "attrition", feats, strategy="bounded_random_search", n_trials=5,
-        primary_metric="pr_auc", seed=0,
-        output_root=str(tmp_path_factory.mktemp("tune")), run_id="R", registry=reg,
+        df,
+        "attrition",
+        feats,
+        strategy="bounded_random_search",
+        n_trials=5,
+        primary_metric="pr_auc",
+        seed=0,
+        output_root=str(tmp_path_factory.mktemp("tune")),
+        run_id="R",
+        registry=reg,
     )
     return run, reg
 
@@ -88,6 +95,14 @@ def test_markdown_render(tuned):
 def test_to_dict_complete(tuned):
     run, _ = tuned
     d = run.to_dict()
-    for key in ("strategy", "primary_metric", "n_trials", "ran", "trials",
-                "best_params", "rejected_params", "search_space"):
+    for key in (
+        "strategy",
+        "primary_metric",
+        "n_trials",
+        "ran",
+        "trials",
+        "best_params",
+        "rejected_params",
+        "search_space",
+    ):
         assert key in d

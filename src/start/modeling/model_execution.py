@@ -52,7 +52,7 @@ def _stratified_split(
 ) -> dict[str, pd.DataFrame]:
     """Train/test/OOS split honoring user proportions, with optional stratification."""
     train_p, test_p, _ = props
-    
+
     # If the task is regression, or classes < 2, stratify is not possible
     if stratify and target in df.columns and df[target].dropna().nunique() >= 2:
         try:
@@ -65,13 +65,15 @@ def _stratified_split(
                 n_tr = int(round(n * train_p))
                 n_te = int(round(n * test_p))
                 parts["train"].append(grp.loc[idx[:n_tr]])
-                parts["test"].append(grp.loc[idx[n_tr:n_tr + n_te]])
-                parts["oos"].append(grp.loc[idx[n_tr + n_te:]])
-            return {k: pd.concat(v).sample(frac=1.0, random_state=seed) if v else pd.DataFrame()
-                    for k, v in parts.items()}
+                parts["test"].append(grp.loc[idx[n_tr : n_tr + n_te]])
+                parts["oos"].append(grp.loc[idx[n_tr + n_te :]])
+            return {
+                k: pd.concat(v).sample(frac=1.0, random_state=seed) if v else pd.DataFrame()
+                for k, v in parts.items()
+            }
         except Exception:
-            pass # Fall back to random split
-            
+            pass  # Fall back to random split
+
     rng = np.random.default_rng(seed)
     idx = df.index.to_numpy().copy()
     rng.shuffle(idx)
@@ -80,8 +82,12 @@ def _stratified_split(
     n_te = int(round(n * test_p))
     return {
         "train": df.loc[idx[:n_tr]].sample(frac=1.0, random_state=seed) if n_tr > 0 else pd.DataFrame(),
-        "test": df.loc[idx[n_tr:n_tr + n_te]].sample(frac=1.0, random_state=seed) if n_te > 0 else pd.DataFrame(),
-        "oos": df.loc[idx[n_tr + n_te:]].sample(frac=1.0, random_state=seed) if (n - n_tr - n_te) > 0 else pd.DataFrame()
+        "test": df.loc[idx[n_tr : n_tr + n_te]].sample(frac=1.0, random_state=seed)
+        if n_te > 0
+        else pd.DataFrame(),
+        "oos": df.loc[idx[n_tr + n_te :]].sample(frac=1.0, random_state=seed)
+        if (n - n_tr - n_te) > 0
+        else pd.DataFrame(),
     }
 
 
@@ -94,13 +100,15 @@ def _split_rows(splits: dict[str, pd.DataFrame], target: str) -> list[dict[str, 
             pos = float((frame[target] == frame[target].max()).mean()) if n else 0.0
         except Exception:
             pos = 0.0
-        rows.append({
-            "split": name,
-            "rows": n,
-            "percent": round(100.0 * n / total, 2),
-            "positive_rate": round(pos, 4),
-            "negative_rate": round(1.0 - pos, 4),
-        })
+        rows.append(
+            {
+                "split": name,
+                "rows": n,
+                "percent": round(100.0 * n / total, 2),
+                "positive_rate": round(pos, 4),
+                "negative_rate": round(1.0 - pos, 4),
+            }
+        )
     return rows
 
 
@@ -128,11 +136,14 @@ def run_model_execution(
 ) -> ModelExecution | None:
     """Train a tabular model and emit the visible tables + artifacts."""
     from start.modeling.tuning_run import _model_family
+
     family = _model_family(architecture)
     try:
         from start.modeling.models import resolve_model
+
         if family != "sklearn":
             from start.modeling.deep_learning import torch_available
+
             if not torch_available():
                 return None
             if family == "tabular_dl":
@@ -146,10 +157,7 @@ def run_model_execution(
     except Exception:
         return None
 
-    features = [
-        c for c in df.columns
-        if c != target and pd.api.types.is_numeric_dtype(df[c])
-    ]
+    features = [c for c in df.columns if c != target and pd.api.types.is_numeric_dtype(df[c])]
     # honor the user's correlation-pruning decision in actual execution.
     pruned_features: list[str] = []
     if apply_correlation_pruning and len(features) > 2:
@@ -159,7 +167,7 @@ def run_model_execution(
         for i, a in enumerate(cols):
             if a in dropped:
                 continue
-            for b in cols[i + 1:]:
+            for b in cols[i + 1 :]:
                 if b in dropped:
                     continue
                 if corr.loc[a, b] > 0.95:
@@ -178,6 +186,7 @@ def run_model_execution(
 
     if family == "sklearn":
         from sklearn.impute import SimpleImputer
+
         imputer = SimpleImputer(strategy="median")
         for k in ("train", "test", "oos"):
             splits[k] = splits[k].copy()
@@ -220,6 +229,7 @@ def run_model_execution(
         clf = TabularDLClassifier(**kwargs)
         if winsorize:
             from scipy.stats import mstats
+
             X_train = splits["train"][features].copy()
             for col in features:
                 X_train[col] = mstats.winsorize(X_train[col], limits=[0.01, 0.01])
@@ -267,6 +277,7 @@ def run_model_execution(
         elif class_weight == "balanced":
             try:
                 from sklearn.utils.class_weight import compute_sample_weight
+
                 sample_weight = compute_sample_weight("balanced", splits["train"][target])
                 fit_kwargs["sample_weight"] = sample_weight
             except Exception:
@@ -285,6 +296,7 @@ def run_model_execution(
 
     class _CapturedConfig:
         pass
+
     _cfg = _CapturedConfig()
     _cfg.class_weight = class_weight
     _cfg.architecture_family = architecture
@@ -325,6 +337,7 @@ def run_model_execution(
         precision_score,
         recall_score,
     )
+
     for name, frame in splits.items():
         y_true = frame[target].to_numpy()
         if task_type in ("regression", "forecasting"):
@@ -394,12 +407,18 @@ def run_model_execution(
     }
     pd.DataFrame(scalar_metrics).T.to_csv(metrics_csv)
     result.artifacts.append(str(metrics_csv))
-    
+
     # confusion matrices exported separately (Section J)
     cm_rows = [
-        {"split": s, "tn": m["confusion_matrix"][0], "fp": m["confusion_matrix"][1],
-         "fn": m["confusion_matrix"][2], "tp": m["confusion_matrix"][3]}
-        for s, m in result.metrics_by_split.items() if "confusion_matrix" in m
+        {
+            "split": s,
+            "tn": m["confusion_matrix"][0],
+            "fp": m["confusion_matrix"][1],
+            "fn": m["confusion_matrix"][2],
+            "tp": m["confusion_matrix"][3],
+        }
+        for s, m in result.metrics_by_split.items()
+        if "confusion_matrix" in m
     ]
     if cm_rows:
         cm_csv = out_dir / "confusion_matrix.csv"
@@ -407,7 +426,11 @@ def run_model_execution(
         result.artifacts.append(str(cm_csv))
 
     if "train" in result.metrics_by_split and "oos" in result.metrics_by_split:
-        m = metric_name if metric_name in result.metrics_by_split["train"] else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
+        m = (
+            metric_name
+            if metric_name in result.metrics_by_split["train"]
+            else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
+        )
         result.generalization_gap = round(
             result.metrics_by_split["train"][m] - result.metrics_by_split["oos"][m], 6
         )
@@ -432,15 +455,22 @@ def run_model_execution(
     # --- global explainability table (Section K) ---
     try:
         imp = dl_global_importance(
-            clf, splits["test"][features], splits["test"][target].to_numpy(),
-            prefer=explain_method, seed=seed,
+            clf,
+            splits["test"][features],
+            splits["test"][target].to_numpy(),
+            prefer=explain_method,
+            seed=seed,
         )
         result.explainability_method = imp.method
         result.explainability_available = imp.available_methods
         ranked = imp.global_importance[:20]
         result.global_importance = [
-            {"rank": i + 1, "feature": f, "importance": round(float(v), 6),
-             "direction": "positive" if v >= 0 else "negative"}
+            {
+                "rank": i + 1,
+                "feature": f,
+                "importance": round(float(v), 6),
+                "direction": "positive" if v >= 0 else "negative",
+            }
             for i, (f, v) in enumerate(ranked)
         ]
         imp_csv = out_dir / "global_feature_importance.csv"
@@ -452,41 +482,60 @@ def run_model_execution(
     if registry is not None:
         for path in result.artifacts:
             category = (
-                "split" if "split" in path else
-                "metrics" if "metrics" in path else
-                "training" if "training" in path else
-                "explainability" if "importance" in path else "execution"
+                "split"
+                if "split" in path
+                else "metrics"
+                if "metrics" in path
+                else "training"
+                if "training" in path
+                else "explainability"
+                if "importance" in path
+                else "execution"
             )
             registry.register(path, category=category)
 
     return result
 
 
-
 def render_model_execution_markdown(ex: ModelExecution) -> str:
-    lines = ["### Train/Test/OOS split", "", "| Split | Rows | Percent | Positive rate | Negative rate |",
-             "| --- | --- | --- | --- | --- |"]
+    lines = [
+        "### Train/Test/OOS split",
+        "",
+        "| Split | Rows | Percent | Positive rate | Negative rate |",
+        "| --- | --- | --- | --- | --- |",
+    ]
     for r in ex.split_table:
         lines.append(
-            f"| {r['split']} | {r['rows']} | {r['percent']}% "
-            f"| {r['positive_rate']} | {r['negative_rate']} |"
+            f"| {r['split']} | {r['rows']} | {r['percent']}% | {r['positive_rate']} | {r['negative_rate']} |"
         )
     if ex.metrics_by_split:
         first_split = next(iter(ex.metrics_by_split.values()))
-        keys = [k for k in first_split.keys() if k != "confusion_matrix" and not isinstance(first_split[k], list)]
-        lines += ["", "### Metrics by split", "",
-                  "| Split | " + " | ".join(keys) + " |",
-                  "| --- " * (len(keys) + 1) + "|"]
+        keys = [
+            k for k in first_split.keys() if k != "confusion_matrix" and not isinstance(first_split[k], list)
+        ]
+        lines += [
+            "",
+            "### Metrics by split",
+            "",
+            "| Split | " + " | ".join(keys) + " |",
+            "| --- " * (len(keys) + 1) + "|",
+        ]
         for split, m in ex.metrics_by_split.items():
-            cells = " | ".join(f"{m.get(k, float('nan')):.4f}" if isinstance(m.get(k), (int, float)) else str(m.get(k)) for k in keys)
+            cells = " | ".join(
+                f"{m.get(k, float('nan')):.4f}" if isinstance(m.get(k), (int, float)) else str(m.get(k))
+                for k in keys
+            )
             lines.append(f"| {split} | {cells} |")
         if ex.generalization_gap is not None:
             lines += ["", f"Generalization gap (train - OOS): {ex.generalization_gap:.4f}"]
     if ex.global_importance:
-        lines += ["", f"### Global explainability ({ex.explainability_method})", "",
-                  "| Rank | Feature | Importance | Direction |", "| --- | --- | --- | --- |"]
+        lines += [
+            "",
+            f"### Global explainability ({ex.explainability_method})",
+            "",
+            "| Rank | Feature | Importance | Direction |",
+            "| --- | --- | --- | --- |",
+        ]
         for r in ex.global_importance:
-            lines.append(
-                f"| {r['rank']} | {r['feature']} | {r['importance']} | {r['direction']} |"
-            )
+            lines.append(f"| {r['rank']} | {r['feature']} | {r['importance']} | {r['direction']} |")
     return "\n".join(lines) + "\n"

@@ -2,7 +2,7 @@
 
 > **StART is a standardized agentic reusable testing framework for AI/ML evaluation. It combines deterministic quantitative validation engines with agent-assisted orchestration, evidence generation, adaptive compute routing, and reviewer-ready reporting.**
 
-[![ci](https://github.com/supratik-sarkar/StART/actions/workflows/ci.yml/badge.svg)](https://github.com/supratik-sarkar/StART/actions)
+[![ci](https://github.com/start-project/start/actions/workflows/ci.yml/badge.svg)](https://github.com/start-project/start/actions)
 ![python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue)
 ![license](https://img.shields.io/badge/license-Apache--2.0-green)
 ![platform](https://img.shields.io/badge/runs%20on-CPU%20%7C%20MPS%20%7C%20CUDA%20%7C%20Databricks-orange)
@@ -122,7 +122,7 @@ You never import from `src.start`; after installation you simply `import start`.
 Run each block from Terminal. Do **not** run `deactivate` until you're finished — that drops you out of the venv.
 
 ```bash
-cd ~/Desktop/StART
+cd ~/StART
 ```
 
 ```bash
@@ -503,7 +503,7 @@ Flags: `--non-interactive`, `--architecture`, `--epochs`, `--batch-size`, `--lea
 ### VS Code / Jupyter setup
 
 ```bash
-cd ~/Desktop/StART
+cd ~/StART
 source .venv-start/bin/activate          # Windows: .venv-start\Scripts\activate
 python -m pip install -e ".[torch,dev]"  # plus matplotlib for figures
 python -m pip install ipykernel jupyterlab notebook ipywidgets

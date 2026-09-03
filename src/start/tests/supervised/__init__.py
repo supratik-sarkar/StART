@@ -89,8 +89,7 @@ def classification_metrics(ctx: TestContext, decision_threshold: float = 0.5) ->
             "f1": round(float(skm.f1_score(y, pred, zero_division=0)), 6),
         },
         interpretation=(
-            f"At threshold {decision_threshold:.2f}, F1 is "
-            f"{skm.f1_score(y, pred, zero_division=0):.4f}."
+            f"At threshold {decision_threshold:.2f}, F1 is {skm.f1_score(y, pred, zero_division=0):.4f}."
         ),
         limitations=["Single-threshold metrics; threshold choice should match business costs."],
     )
@@ -165,9 +164,7 @@ def cohort_metrics_comparison(
 
     cohorts = _cohort_frames(ctx)
     if "train" not in cohorts or ctx.target_column is None or ctx.score_column is None:
-        return _skipped(
-            "supervised.cohort_metrics_comparison", "Train/Test/OOS metrics comparison"
-        )
+        return _skipped("supervised.cohort_metrics_comparison", "Train/Test/OOS metrics comparison")
     metrics: dict = {}
     per_cohort: dict[str, dict[str, float]] = {}
     for name, df in cohorts.items():
@@ -181,9 +178,7 @@ def cohort_metrics_comparison(
         for key, value in m.items():
             metrics[f"{name}_{key}"] = value
     metrics["cohorts_evaluated"] = ", ".join(per_cohort)
-    interpretation_bits = [
-        f"{name} AUC-ROC is {m['auc_roc']:.4f}" for name, m in per_cohort.items()
-    ]
+    interpretation_bits = [f"{name} AUC-ROC is {m['auc_roc']:.4f}" for name, m in per_cohort.items()]
     thresholds = []
     if "train" in per_cohort and "test" in per_cohort:
         gap = round(per_cohort["train"]["auc_roc"] - per_cohort["test"]["auc_roc"], 6)
@@ -191,9 +186,7 @@ def cohort_metrics_comparison(
         thresholds.append(ThresholdSpec(metric="auc_gap_train_test", warn=gap_warn, fail=gap_fail))
         interpretation_bits.append(f"train-test AUC gap is {gap:.4f}")
     if "test" in per_cohort and "oos" in per_cohort:
-        metrics["auc_gap_test_oos"] = round(
-            per_cohort["test"]["auc_roc"] - per_cohort["oos"]["auc_roc"], 6
-        )
+        metrics["auc_gap_test_oos"] = round(per_cohort["test"]["auc_roc"] - per_cohort["oos"]["auc_roc"], 6)
     result = TestResult(
         test_id="supervised.cohort_metrics_comparison",
         test_name="Train/Test/OOS metrics comparison",
@@ -201,9 +194,7 @@ def cohort_metrics_comparison(
         metrics=metrics,
         thresholds=thresholds,
         interpretation="; ".join(interpretation_bits) + ".",
-        limitations=[
-            "Cohorts missing target or score columns are excluded from the comparison."
-        ],
+        limitations=["Cohorts missing target or score columns are excluded from the comparison."],
     )
     return result.apply_thresholds()
 
@@ -237,9 +228,7 @@ def top_decile_lift_test(
         anchor = "test"
     else:
         anchor = next(k for k in metrics if k.endswith("_lift")).removesuffix("_lift")
-    thresholds = [
-        ThresholdSpec(metric=f"{anchor}_lift", warn=lift_warn, fail=lift_fail, direction="lower")
-    ]
+    thresholds = [ThresholdSpec(metric=f"{anchor}_lift", warn=lift_warn, fail=lift_fail, direction="lower")]
     result = TestResult(
         test_id="supervised.top_decile_lift",
         test_name="Top 10% lift",

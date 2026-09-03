@@ -120,9 +120,7 @@ class LLMProvider(ABC):
     @abstractmethod
     def complete(self, system: str, user: str, *, output_token_budget: int = 1024) -> str: ...
 
-    def complete_result(
-        self, system: str, user: str, *, output_token_budget: int = 1024
-    ) -> ProviderResult:
+    def complete_result(self, system: str, user: str, *, output_token_budget: int = 1024) -> ProviderResult:
         """Complete request returning a typed, normalized ProviderResult."""
         import time
 
@@ -158,9 +156,7 @@ class LLMProvider(ABC):
                 max_output_tokens=output_token_budget,
             )
 
-    def generate(
-        self, prompt: str, *, system: str | None = None, metadata: dict | None = None
-    ) -> str:
+    def generate(self, prompt: str, *, system: str | None = None, metadata: dict | None = None) -> str:
         """Common cross-provider interface (spec: prompt + optional system +
         optional metadata). Delegates to ``complete`` with semantic token budget;
         metadata is advisory and never contains raw confidential data."""

@@ -67,9 +67,7 @@ def importance_stability(
         thresholds=[
             ThresholdSpec(metric="topk_jaccard", warn=jaccard_warn, fail=jaccard_fail, direction="lower")
         ],
-        interpretation=(
-            f"Top-{top_k} permutation-importance Jaccard overlap across seeds is {jaccard:.2f}."
-        ),
+        interpretation=(f"Top-{top_k} permutation-importance Jaccard overlap across seeds is {jaccard:.2f}."),
         limitations=[
             "Rows containing NaN in features or target are dropped before scoring.",
             "Permutation importance can mislead under correlated features.",
@@ -106,9 +104,7 @@ def global_importance_test(ctx: TestContext, top_k: int = 5) -> TestResult:
         if c not in {ctx.target_column, ctx.score_column, ctx.prediction_column}
     ]
     frame = df[[*feature_cols, ctx.target_column]].dropna()
-    importance = compute_importance(
-        ctx.model, frame[feature_cols], frame[ctx.target_column], seed=ctx.seed
-    )
+    importance = compute_importance(ctx.model, frame[feature_cols], frame[ctx.target_column], seed=ctx.seed)
     top = importance.global_importance[:top_k]
     result = TestResult(
         test_id="xai.global_importance",
@@ -184,13 +180,9 @@ def feature_sensitivity(
         if c not in {ctx.target_column, ctx.score_column, ctx.prediction_column}
     ]
     frame = df[[*feature_cols, ctx.target_column]].dropna()
-    importance = compute_importance(
-        ctx.model, frame[feature_cols], frame[ctx.target_column], seed=ctx.seed
-    )
+    importance = compute_importance(ctx.model, frame[feature_cols], frame[ctx.target_column], seed=ctx.seed)
     top_features = importance.top_features(top_k)
-    rows = run_feature_shocks(
-        ctx.model, frame, top_features, ctx.target_column, feature_cols, DEFAULT_SHOCKS
-    )
+    rows = run_feature_shocks(ctx.model, frame, top_features, ctx.target_column, feature_cols, DEFAULT_SHOCKS)
     metrics: dict = {
         "cohort": cohort,
         "importance_method": importance.method,
@@ -237,11 +229,7 @@ def integrated_gradients_test(ctx: TestContext, top_k: int = 5, n_samples: int =
     from start.modeling.deep_learning import integrated_gradients_importance
 
     df = ctx.test if ctx.test is not None else ctx.train
-    if (
-        ctx.model is None
-        or df is None
-        or getattr(ctx.model, "_start_model_family", "") != "deep_learning"
-    ):
+    if ctx.model is None or df is None or getattr(ctx.model, "_start_model_family", "") != "deep_learning":
         return TestResult(
             test_id="xai.integrated_gradients",
             test_name="Integrated Gradients attribution (deep learning)",

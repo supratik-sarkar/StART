@@ -34,11 +34,7 @@ def run_feature_shocks(
         for feature in features:
             if feature in X_shocked.columns:
                 X_shocked[feature] = X_shocked[feature] * (1.0 + shock)
-        auc = (
-            baseline_auc
-            if shock == 0.0
-            else float(roc_auc_score(y, model.predict_proba(X_shocked)[:, 1]))
-        )
+        auc = baseline_auc if shock == 0.0 else float(roc_auc_score(y, model.predict_proba(X_shocked)[:, 1]))
         rows.append(
             {
                 "shock": shock,

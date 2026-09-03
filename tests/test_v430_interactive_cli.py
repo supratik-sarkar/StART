@@ -34,6 +34,7 @@ runner = CliRunner()
 # 1. MULTILINE GOVERNANCE TEXT INPUT & PASTE LEAKAGE TESTS
 # ========================================================================= #
 
+
 def test_multiline_paste_no_leakage_to_following_menu():
     """HARD acceptance test: multi-paragraph text ending with END does not leak into the next prompt."""
     pasted_stream = io.StringIO(
@@ -45,7 +46,9 @@ def test_multiline_paste_no_leakage_to_following_menu():
     )
 
     # Read multiline governance text
-    text = read_multiline_text("Business Context", required=True, stream=pasted_stream, printer=lambda _: None)
+    text = read_multiline_text(
+        "Business Context", required=True, stream=pasted_stream, printer=lambda _: None
+    )
 
     # Next menu read
     next_menu_choice = pasted_stream.readline().strip()
@@ -75,7 +78,9 @@ def test_multiline_menu_looking_text_not_confused_with_options():
 
 def test_multiline_required_empty_reprompts():
     pasted = "END\nReal content here\nEND\n"
-    text = read_multiline_text("Required Field", required=True, stream=io.StringIO(pasted), printer=lambda _: None)
+    text = read_multiline_text(
+        "Required Field", required=True, stream=io.StringIO(pasted), printer=lambda _: None
+    )
     assert text == "Real content here"
 
 
@@ -88,6 +93,7 @@ def test_multiline_eof_raises_cancelled():
 # 2. REVIEW MODE & DOMAIN ROUTING
 # ========================================================================= #
 
+
 def test_domain_selection_parsing():
     # Single mode
     assert parse_domain_selection("1", mode=ReviewMode.SINGLE_DOMAIN) == (ReviewDomain.PREDICTIVE,)
@@ -95,9 +101,19 @@ def test_domain_selection_parsing():
     assert parse_domain_selection("3", mode=ReviewMode.SINGLE_DOMAIN) == (ReviewDomain.TREASURY,)
 
     # Cross mode
-    assert parse_domain_selection("2,3", mode=ReviewMode.CROSS_DOMAIN) == (ReviewDomain.MARKET, ReviewDomain.TREASURY)
-    assert parse_domain_selection("3,2", mode=ReviewMode.CROSS_DOMAIN) == (ReviewDomain.MARKET, ReviewDomain.TREASURY)
-    assert parse_domain_selection("1,2,3", mode=ReviewMode.CROSS_DOMAIN) == (ReviewDomain.PREDICTIVE, ReviewDomain.MARKET, ReviewDomain.TREASURY)
+    assert parse_domain_selection("2,3", mode=ReviewMode.CROSS_DOMAIN) == (
+        ReviewDomain.MARKET,
+        ReviewDomain.TREASURY,
+    )
+    assert parse_domain_selection("3,2", mode=ReviewMode.CROSS_DOMAIN) == (
+        ReviewDomain.MARKET,
+        ReviewDomain.TREASURY,
+    )
+    assert parse_domain_selection("1,2,3", mode=ReviewMode.CROSS_DOMAIN) == (
+        ReviewDomain.PREDICTIVE,
+        ReviewDomain.MARKET,
+        ReviewDomain.TREASURY,
+    )
 
     # Rejection of duplicates and singles in cross mode
     with pytest.raises(ValueError):
@@ -109,6 +125,7 @@ def test_domain_selection_parsing():
 # ========================================================================= #
 # 3. DYNAMIC REGISTRY APPLICABILITY
 # ========================================================================= #
+
 
 def test_registry_applicability_counts():
     """Verify exact dynamic counts derived from registry metadata (79 total)."""
@@ -123,8 +140,11 @@ def test_registry_applicability_counts():
 # 4. SINGLE-DOMAIN MARKET REVIEW EXECUTION
 # ========================================================================= #
 
+
 def test_single_domain_market_review_flow(tmp_path):
-    world = generate_market_world(n_assets=12, n_periods=500, n_factors=3, seed=42, include_short_rate=True, missing_rate=0.15)
+    world = generate_market_world(
+        n_assets=12, n_periods=500, n_factors=3, seed=42, include_short_rate=True, missing_rate=0.15
+    )
     renamed = {old: f"ASSET_{i + 1:03d}" for i, old in enumerate(world.returns.columns)}
 
     market = MarketContext(
@@ -166,10 +186,10 @@ def test_single_domain_market_review_flow(tmp_path):
     assert len(outcome["binding"].bound) > 0
 
 
-
 # ========================================================================= #
 # 5. SINGLE-DOMAIN TREASURY REVIEW EXECUTION
 # ========================================================================= #
+
 
 def test_single_domain_treasury_review_flow(tmp_path):
     world = generate_market_world(n_assets=12, n_periods=500, n_factors=3, seed=42, include_short_rate=True)
@@ -197,6 +217,7 @@ def test_single_domain_treasury_review_flow(tmp_path):
 # ========================================================================= #
 # 6. CROSS-DOMAIN MARKET + TREASURY EXECUTION
 # ========================================================================= #
+
 
 def test_cross_domain_market_treasury_review_flow(tmp_path):
     world = generate_market_world(n_assets=12, n_periods=500, n_factors=3, seed=42, include_short_rate=True)
@@ -241,19 +262,20 @@ def test_cross_domain_market_treasury_review_flow(tmp_path):
 # 7. INTERACTIVE WIZARD ROUTING VIA PIPED INPUT
 # ========================================================================= #
 
+
 def test_interactive_wizard_market_treasury_piped_input():
     """Simulate user selecting Cross-Domain -> Market + Treasury without encountering ML prompts."""
     scripted_inputs = [
-        "2",        # Review Mode -> [2] Cross-Domain
-        "2,3",      # Review Domains -> [2,3] Market + Treasury
+        "2",  # Review Mode -> [2] Cross-Domain
+        "2,3",  # Review Domains -> [2,3] Market + Treasury
         # NOTE: Predictive technology is NOT asked because Predictive is not in domains!
-        "1",        # Backend -> [1] None (Deterministic)
-        "1",        # Materiality -> [1] High
-        "1",        # Lifecycle -> [1] Initial Validation
+        "1",  # Backend -> [1] None (Deterministic)
+        "1",  # Materiality -> [1] High
+        "1",  # Lifecycle -> [1] Initial Validation
         # Data source
-        "1",        # Market/Treasury Data Source -> [1] Built-in Synthetic Market World
-        "1",        # Review Scope -> [1] Full Recommended Review
-        "Y",        # Proceed to execute review? -> [Y]
+        "1",  # Market/Treasury Data Source -> [1] Built-in Synthetic Market World
+        "1",  # Review Scope -> [1] Full Recommended Review
+        "Y",  # Proceed to execute review? -> [Y]
     ]
 
     multiline_text = (
@@ -291,7 +313,19 @@ def test_interactive_wizard_market_treasury_piped_input():
 
 def test_cli_review_non_interactive_preserves_legacy(tmp_path):
     """Test start review with --non-interactive flag remains fully operational."""
-    res = runner.invoke(app, ["review", "--non-interactive", "--standard", "--target", "attrition", "--run-dl", "--output-root", str(tmp_path)])
+    res = runner.invoke(
+        app,
+        [
+            "review",
+            "--non-interactive",
+            "--standard",
+            "--target",
+            "attrition",
+            "--run-dl",
+            "--output-root",
+            str(tmp_path),
+        ],
+    )
     assert res.exit_code == 0
     assert "Review complete" in res.output
 
@@ -300,24 +334,28 @@ def test_cli_review_non_interactive_preserves_legacy(tmp_path):
 # 8. DEFECT A & B TESTS: MODEL SELECTION & REAL LLM DIALOGUE
 # ========================================================================= #
 
+
 def test_interactive_wizard_public_llm_model_selection():
     """Verify Public LLM provider displays model options, selects model, and updates plan preview."""
     from start.providers.model_discovery import FakeModelDiscovery
-    fake_discovery = FakeModelDiscovery({
-        "openai": ["gpt-4o-mini", "gpt-4o", "o1", "o3-mini"],
-    })
+
+    fake_discovery = FakeModelDiscovery(
+        {
+            "openai": ["gpt-4o-mini", "gpt-4o", "o1", "o3-mini"],
+        }
+    )
 
     scripted_inputs = [
-        "1",        # Mode -> Single
-        "2",        # Domain -> Market
-        "3",        # Backend -> [3] Public LLM Providers
-        "1",        # Provider -> [1] OpenAI
-        "2",        # Model -> [2] gpt-4o
-        "1",        # Materiality -> High
-        "1",        # Lifecycle -> Initial Validation
-        "1",        # Market Data Source -> Built-in Synthetic
-        "1",        # Review Scope -> Full Recommended Review
-        "Y",        # Proceed?
+        "1",  # Mode -> Single
+        "2",  # Domain -> Market
+        "3",  # Backend -> [3] Public LLM Providers
+        "1",  # Provider -> [1] OpenAI
+        "2",  # Model -> [2] gpt-4o
+        "1",  # Materiality -> High
+        "1",  # Lifecycle -> Initial Validation
+        "1",  # Market Data Source -> Built-in Synthetic
+        "1",  # Review Scope -> Full Recommended Review
+        "Y",  # Proceed?
     ]
 
     multiline_text = "Market Risk Framework.\nEND\nNotes\nEND\nTrading\nEND\nVol\nEND\n"
@@ -351,6 +389,7 @@ def test_domain_checkpoints_real_llm_dialogue_routing(monkeypatch):
     class MockProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             assert "Question:" in user or "CHALLENGE" in user or "Review Mode:" in user
             return "Mock Technical Analysis: Evidence demonstrates sufficient volatility control."
@@ -370,6 +409,7 @@ def test_domain_checkpoints_real_llm_dialogue_routing(monkeypatch):
     )
 
     from start.core.schemas import EvidenceRecord, Status, TestResult
+
     sample_records = [
         EvidenceRecord.from_result(
             TestResult(
@@ -384,9 +424,9 @@ def test_domain_checkpoints_real_llm_dialogue_routing(monkeypatch):
     ]
 
     prompts = [
-        "Q",                                                        # Action -> Question
+        "Q",  # Action -> Question
         "What is the impact of fat tails on portfolio volatility?",  # Question text
-        "A",                                                        # Accept remaining
+        "A",  # Accept remaining
         "A",
         "A",
         "A",
@@ -419,8 +459,8 @@ def test_domain_checkpoints_deterministic_none_routing():
     )
 
     prompts = [
-        "Q",                                          # Action -> Question
-        "Does volatility meet baseline constraints?", # Question text
+        "Q",  # Action -> Question
+        "Does volatility meet baseline constraints?",  # Question text
         "A",
         "A",
         "A",
@@ -444,6 +484,7 @@ def test_domain_checkpoints_deterministic_none_routing():
 # ========================================================================= #
 # 9. DEFECT C TESTS: GOVERNANCE & VALIDATION SCOPING
 # ========================================================================= #
+
 
 def test_market_only_review_governance_scoping(tmp_path):
     """Verify Market-only review contains exactly 22 records and NO CEV or Stanton validation."""
@@ -611,6 +652,7 @@ def test_domain_checkpoints_llm_failure_recovery(monkeypatch):
     class FailingProvider:
         name = "openai"
         model = "gpt-4o"
+
         def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             raise RuntimeError("Rate limit exceeded")
 
@@ -628,9 +670,9 @@ def test_domain_checkpoints_llm_failure_recovery(monkeypatch):
     )
 
     prompts = [
-        "Q",                  # Action -> Question
-        "Test question",      # Question text
-        "1",                  # On failure: [1] Continue deterministically
+        "Q",  # Action -> Question
+        "Test question",  # Question text
+        "1",  # On failure: [1] Continue deterministically
         "A",
         "A",
         "A",
@@ -660,6 +702,7 @@ def test_portfolio_checkpoint_evidence_scoping(monkeypatch):
     class MockProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             captured_prompts.append((system, user))
             return "The recorded annualised volatility is 0.0937 [EV-111111111111]."
@@ -753,6 +796,7 @@ def test_checkpoint_grounding_repair_single_attempt(monkeypatch):
     class GroundedProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             nonlocal call_count
             call_count += 1
@@ -807,6 +851,7 @@ def test_checkpoint_grounding_failure_surfaced(monkeypatch):
     class AlwaysUngroundedProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             return "The volatility is 0.9999 which is completely fabricated."
 
@@ -835,9 +880,9 @@ def test_checkpoint_grounding_failure_surfaced(monkeypatch):
     port_rec.evidence_id = "EV-PORT12345678"
 
     prompts = [
-        "Q",                  # Action -> Question
-        "Explain volatility", # Question text
-        "1",                  # On Grounding Failure: [1] Continue deterministically
+        "Q",  # Action -> Question
+        "Explain volatility",  # Question text
+        "1",  # On Grounding Failure: [1] Continue deterministically
         "A",
         "A",
         "A",
@@ -867,6 +912,7 @@ def test_checkpoint_challenge_uses_grounding_pipeline(monkeypatch):
     class ChallengeProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, *, output_token_budget: int = 1024, **kwargs) -> str:
             captured.append((system, user))
             return "The challenge is valid because 4 exceptions [EV-VAR12345678] were observed."
@@ -898,8 +944,8 @@ def test_checkpoint_challenge_uses_grounding_pipeline(monkeypatch):
     prompts = [
         "A",
         "A",
-        "C",                      # Checkpoint 3 (VaR) -> Challenge
-        "Challenge tail risk",    # Challenge text
+        "C",  # Checkpoint 3 (VaR) -> Challenge
+        "Challenge tail risk",  # Challenge text
         "A",
         "A",
     ]

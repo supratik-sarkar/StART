@@ -77,8 +77,7 @@ def test_unbudgeted_cycle_is_rejected() -> None:
 def test_unreachable_node_is_rejected() -> None:
     graph = ReviewGraph(
         name="bad",
-        nodes=(Node("a", NodeKind.AGENT), Node("orphan", NodeKind.AGENT),
-               Node("end", NodeKind.TERMINAL)),
+        nodes=(Node("a", NodeKind.AGENT), Node("orphan", NodeKind.AGENT), Node("end", NodeKind.TERMINAL)),
         edges=(Edge("a", "end"),),
         entry="a",
         exits=("end",),
@@ -151,9 +150,9 @@ def test_failing_diagnostic_routes_back_and_resolves() -> None:
             return NodeResult(outcome=NodeOutcome.FAIL, detail="gap 0.28 exceeds 0.10")
         return NodeResult(detail="gap 0.04")
 
-    path = GraphExecutor(
-        REVIEW_GRAPH, _handlers(hyperparameter_tuning=tuning, overfitting=overfitting)
-    ).run(dict(CTX))
+    path = GraphExecutor(REVIEW_GRAPH, _handlers(hyperparameter_tuning=tuning, overfitting=overfitting)).run(
+        dict(CTX)
+    )
 
     assert state["tune"] == 3, "tuning must actually re-run on each remediation"
     summary = path.remediation_summary()
@@ -299,9 +298,9 @@ def test_successful_remediation_records_what_changed() -> None:
     def overfitting(nid, ctx):
         return NodeResult() if state["n"] >= 2 else NodeResult(outcome=NodeOutcome.FAIL)
 
-    path = GraphExecutor(
-        REVIEW_GRAPH, _handlers(hyperparameter_tuning=tuning, overfitting=overfitting)
-    ).run(dict(CTX))
+    path = GraphExecutor(REVIEW_GRAPH, _handlers(hyperparameter_tuning=tuning, overfitting=overfitting)).run(
+        dict(CTX)
+    )
     resolved = [r for r in path.remediations if r.outcome == "resolved"]
     assert resolved
     assert resolved[0].changed and resolved[0].changed != "nothing"

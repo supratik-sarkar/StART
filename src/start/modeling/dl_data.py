@@ -82,9 +82,7 @@ def load_dl_bundle(
     if source == "pandas" or train_df is not None:
         if train_df is None:
             raise ValueError("source 'pandas' requires train_df.")
-        connector = PandasConnector(
-            train_df, test_df, oos_df, seed=seed, target_column=target_column
-        )
+        connector = PandasConnector(train_df, test_df, oos_df, seed=seed, target_column=target_column)
     elif source == "files":
         if not train_path:
             raise ValueError("source 'files' requires train_path.")
@@ -94,9 +92,7 @@ def load_dl_bundle(
     elif source == "spark":
         if spark_train is None:
             raise ValueError("source 'spark' requires spark_train (DataFrame/table/SQL).")
-        connector = SparkConnector(
-            spark_train, spark=spark, seed=seed, target_column=target_column
-        )
+        connector = SparkConnector(spark_train, spark=spark, seed=seed, target_column=target_column)
     else:  # demo
         connector = _DLDemoConnector(seed=seed, target_column=target_column)
     return connector.load_bundle()

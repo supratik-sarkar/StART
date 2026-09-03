@@ -141,7 +141,7 @@ def build_rnn(
                 hidden_size=hidden_size,
                 num_layers=1,
                 batch_first=True,
-                nonlinearity="relu" if activation == "relu" else "tanh"
+                nonlinearity="relu" if activation == "relu" else "tanh",
             )
             layers: list[Any] = []
             prev = hidden_size
@@ -172,10 +172,7 @@ def build_lstm(
             super().__init__()
             hidden_size = hidden_dims[0]
             self.lstm = nn.LSTM(
-                input_size=n_features,
-                hidden_size=hidden_size,
-                num_layers=1,
-                batch_first=True
+                input_size=n_features, hidden_size=hidden_size, num_layers=1, batch_first=True
             )
             layers: list[Any] = []
             prev = hidden_size
@@ -205,12 +202,7 @@ def build_gru(
         def __init__(self) -> None:
             super().__init__()
             hidden_size = hidden_dims[0]
-            self.gru = nn.GRU(
-                input_size=n_features,
-                hidden_size=hidden_size,
-                num_layers=1,
-                batch_first=True
-            )
+            self.gru = nn.GRU(input_size=n_features, hidden_size=hidden_size, num_layers=1, batch_first=True)
             layers: list[Any] = []
             prev = hidden_size
             for width in hidden_dims[1:]:
@@ -244,7 +236,7 @@ def build_bi_lstm(
                 hidden_size=hidden_size,
                 num_layers=1,
                 batch_first=True,
-                bidirectional=True
+                bidirectional=True,
             )
             layers: list[Any] = []
             prev = hidden_size * 2
@@ -276,7 +268,7 @@ def build_cnn(
             self.conv = nn.Conv1d(in_channels=1, out_channels=8, kernel_size=3, padding=1)
             self.act = _activation(activation)
             self.pool = nn.AdaptiveAvgPool1d(1)
-            
+
             layers: list[Any] = []
             prev = 8
             for width in hidden_dims:
@@ -311,7 +303,7 @@ def build_gnn(
             self.k_proj = nn.Linear(hidden_size, hidden_size, bias=False)
             self.act = _activation(activation)
             self.drop = nn.Dropout(dropout)
-            
+
             layers: list[Any] = []
             prev = hidden_size
             for width in hidden_dims[1:]:
@@ -327,7 +319,7 @@ def build_gnn(
             k = self.k_proj(h)
             scores = torch.matmul(q, k.transpose(0, 1)) / (h.shape[-1] ** 0.5)
             adj = F.softmax(scores, dim=-1)
-            
+
             # GCN-style aggregation
             h_graph = torch.matmul(adj, h)
             h = self.drop(self.act(h_graph) + h)
@@ -347,12 +339,12 @@ def build_dcn(
         def __init__(self, input_dim: int, num_layers: int = 2) -> None:
             super().__init__()
             self.num_layers = num_layers
-            self.weights = nn.ParameterList([
-                nn.Parameter(torch.randn(input_dim, 1) * 0.01) for _ in range(num_layers)
-            ])
-            self.biases = nn.ParameterList([
-                nn.Parameter(torch.zeros(input_dim, 1)) for _ in range(num_layers)
-            ])
+            self.weights = nn.ParameterList(
+                [nn.Parameter(torch.randn(input_dim, 1) * 0.01) for _ in range(num_layers)]
+            )
+            self.biases = nn.ParameterList(
+                [nn.Parameter(torch.zeros(input_dim, 1)) for _ in range(num_layers)]
+            )
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             x0 = x.unsqueeze(2)

@@ -43,9 +43,7 @@ def calculate_risk_contributions(
         aligned_w = np.asarray(weights, dtype=float)
 
     if len(aligned_w) != n or sigma.shape != (n, n):
-        raise ValueError(
-            f"Dimension mismatch: weights length {len(aligned_w)} vs covariance {sigma.shape}"
-        )
+        raise ValueError(f"Dimension mismatch: weights length {len(aligned_w)} vs covariance {sigma.shape}")
 
     # Variance and Volatility
     variance = float(aligned_w @ sigma @ aligned_w)

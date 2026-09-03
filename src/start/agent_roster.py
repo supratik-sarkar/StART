@@ -69,6 +69,7 @@ AGENT_COLORS: dict[str, str] = {
 
 def agent_color(name: str) -> str:
     from start.cli.view import AGENT_COLOR_REGISTRY
+
     return AGENT_COLOR_REGISTRY.get(name, "white")
 
 
@@ -84,8 +85,12 @@ def render_agent_roster_panel() -> Any:
     grid.add_column()
     for r in AGENT_ROSTER:
         grid.add_row(get_styled_agent_name(r.name), r.purpose)
-    return Panel(grid, title="[bold]Review committee — your AI reviewers[/bold]",
-                 border_style="cyan", title_align="left")
+    return Panel(
+        grid,
+        title="[bold]Review committee — your AI reviewers[/bold]",
+        border_style="cyan",
+        title_align="left",
+    )
 
 
 def render_adapter_panel(control_surface: list[dict]) -> str:

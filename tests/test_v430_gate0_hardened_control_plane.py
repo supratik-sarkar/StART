@@ -52,6 +52,7 @@ runner = CliRunner()
 # 1. DOUBLE-ABORT BUG REGRESSION & EXCEPTION TAXONOMY
 # ========================================================================= #
 
+
 def test_double_abort_grounding_failure_single_menu_clean_exit(monkeypatch):
     """REGRESSION TEST: User aborting after grounding failure shows EXACTLY ONE fallback menu,
 
@@ -127,6 +128,7 @@ def test_double_abort_grounding_failure_single_menu_clean_exit(monkeypatch):
 
 def test_provider_invocation_failure_single_menu_abort(monkeypatch):
     """REGRESSION TEST: Real provider request failure shows EXACTLY ONE menu and raises ReviewCancelled."""
+
     class FailingProvider:
         name = "openai"
         model = "gpt-4o-mini"
@@ -169,6 +171,7 @@ def test_provider_invocation_failure_single_menu_abort(monkeypatch):
 
 def test_provider_invocation_failure_fallback_deterministic(monkeypatch):
     """Provider failure with choice '1' (Continue deterministically) transitions cleanly."""
+
     class FailingProvider:
         name = "anthropic"
         model = "claude-sonnet-4-5"
@@ -208,6 +211,7 @@ def test_provider_invocation_failure_fallback_deterministic(monkeypatch):
 # ========================================================================= #
 # 2. CHECKPOINT STATE MACHINE PROPERTY TESTS
 # ========================================================================= #
+
 
 def test_state_machine_terminal_cancelled_invariants():
     sm = CheckpointStateMachine("Test Checkpoint")
@@ -267,6 +271,7 @@ def test_state_machine_terminal_decision_consistency():
 # ========================================================================= #
 # 3. STRUCTURED REVIEWER ASSESSMENT & DETERMINISTIC VALUE HYDRATION
 # ========================================================================= #
+
 
 def test_structured_reviewer_contract_and_hydration():
     """Verify that ReviewerAssessment observations deterministically hydrate numeric values from EvidenceRecord."""
@@ -328,6 +333,7 @@ def test_structured_reviewer_contract_and_hydration():
 # 4. FAIL-CLOSED GROUNDING DIAGNOSTICS & ALL 10 REASON CODES
 # ========================================================================= #
 
+
 def test_grounding_diagnostics_all_reason_codes():
     """Verify exact diagnostic reason codes across grounding failure modes."""
     rec = EvidenceRecord.from_result(
@@ -367,7 +373,9 @@ def test_grounding_diagnostics_all_reason_codes():
     assert b5.unbound[0]["reason"] == GroundingReasonCode.UNSUPPORTED_FREQUENCY_INFERENCE
 
     # 6. UNSUPPORTED_DERIVED_RELATION: asserting 0.001679 aligns with 3.7706%
-    c6 = extract_claims("The periodic vol of 0.001679 aligns numerically with 3.7706% annualised volatility [EV-VAR00000001].")
+    c6 = extract_claims(
+        "The periodic vol of 0.001679 aligns numerically with 3.7706% annualised volatility [EV-VAR00000001]."
+    )
     b6 = bind_claims(c6, [rec])
     assert b6.unbound[0]["reason"] == GroundingReasonCode.UNSUPPORTED_DERIVED_RELATION
 
@@ -375,6 +383,7 @@ def test_grounding_diagnostics_all_reason_codes():
 # ========================================================================= #
 # 5. EXACT PRIOR FAILURE REGRESSION FIXTURE
 # ========================================================================= #
+
 
 def test_exact_prior_failure_portfolio_fixture_rejected():
     """EXACT PRIOR FAILURE FIXTURE:
@@ -428,6 +437,7 @@ def test_exact_prior_failure_portfolio_fixture_rejected():
 # 6. NON-INTERACTIVE INTERACTIVE-TWIN (12 BRANCHES)
 # ========================================================================= #
 
+
 def test_twin_accept_action():
     """Branch 1: [A]ccept action -> COMPLETED."""
     bundle = ReviewContextBundle(mode=ReviewMode.SINGLE_DOMAIN, domains=(ReviewDomain.MARKET,))
@@ -452,9 +462,11 @@ def test_twin_override_action():
 
 def test_twin_question_verified_first_attempt(monkeypatch):
     """Branch 3: [Q]uestion -> Verified on 1st attempt."""
+
     class VerifiedProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "Annualized volatility is 0.0937 [EV-RISK0001]."
 
@@ -463,11 +475,15 @@ def test_twin_question_verified_first_attempt(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
     )
 
     rec = EvidenceRecord.from_result(
-        TestResult(test_id="portfolio.risk_statistics", test_name="Risk", metrics={"annualised_volatility": 0.0937}),
+        TestResult(
+            test_id="portfolio.risk_statistics", test_name="Risk", metrics={"annualised_volatility": 0.0937}
+        ),
         run_id="RUN-1",
     )
     rec.evidence_id = "EV-RISK0001"
@@ -484,9 +500,11 @@ def test_twin_question_verified_first_attempt(monkeypatch):
 
 def test_twin_challenge_verified_first_attempt(monkeypatch):
     """Branch 4: [C]hallenge -> Verified on 1st attempt."""
+
     class VerifiedProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "Challenge disposition: observed 4 exceptions [EV-VAR0001]."
 
@@ -495,7 +513,9 @@ def test_twin_challenge_verified_first_attempt(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
     )
 
     rec = EvidenceRecord.from_result(
@@ -531,11 +551,15 @@ def test_twin_question_verified_single_attempt(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
     )
 
     rec = EvidenceRecord.from_result(
-        TestResult(test_id="portfolio.risk_statistics", test_name="Risk", metrics={"annualised_volatility": 0.0937}),
+        TestResult(
+            test_id="portfolio.risk_statistics", test_name="Risk", metrics={"annualised_volatility": 0.0937}
+        ),
         run_id="RUN-1",
     )
     rec.evidence_id = "EV-RISK0001"
@@ -567,7 +591,9 @@ def test_twin_challenge_verified_single_attempt(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
     )
 
     rec = EvidenceRecord.from_result(
@@ -587,9 +613,11 @@ def test_twin_challenge_verified_single_attempt(monkeypatch):
 
 def test_twin_question_repair_failure_fallback_deterministic(monkeypatch):
     """Branch 7: [Q]uestion -> repair fails -> user chooses 1 (fallback deterministic)."""
+
     class StubbornProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "Still ungrounded 77.7% [EV-RISK0001]."
 
@@ -598,7 +626,9 @@ def test_twin_question_repair_failure_fallback_deterministic(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
     )
 
     prompts = ["Q", "Assess risk", "1", "A", "A", "A", "A"]  # 1 = continue deterministically
@@ -611,9 +641,11 @@ def test_twin_question_repair_failure_fallback_deterministic(monkeypatch):
 
 def test_twin_question_repair_failure_abort(monkeypatch):
     """Branch 8: [Q]uestion -> repair fails -> user chooses 2 (Abort review)."""
+
     class StubbornProvider:
         name = "openai"
         model = "gpt-4o-mini"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             return "Still ungrounded 77.7% [EV-RISK0001]."
 
@@ -622,7 +654,9 @@ def test_twin_question_repair_failure_abort(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="openai", model="gpt-4o-mini", status="CONNECTED"
+        ),
     )
 
     prompts = ["Q", "Assess risk", "2"]  # 2 = abort
@@ -634,9 +668,11 @@ def test_twin_question_repair_failure_abort(monkeypatch):
 
 def test_twin_challenge_provider_failure_fallback_deterministic(monkeypatch):
     """Branch 9: [C]hallenge -> provider failure -> user chooses 1 (fallback deterministic)."""
+
     class FailingProvider:
         name = "gemini"
         model = "gemini-2.0-flash"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             raise RuntimeError("Gemini Quota Exceeded")
 
@@ -645,7 +681,9 @@ def test_twin_challenge_provider_failure_fallback_deterministic(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="gemini", model="gemini-2.0-flash", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="gemini", model="gemini-2.0-flash", status="CONNECTED"
+        ),
     )
 
     prompts = ["C", "Challenge", "1", "A", "A", "A", "A"]
@@ -657,9 +695,11 @@ def test_twin_challenge_provider_failure_fallback_deterministic(monkeypatch):
 
 def test_twin_challenge_provider_failure_abort(monkeypatch):
     """Branch 10: [C]hallenge -> provider failure -> user chooses 2 (Abort review)."""
+
     class FailingProvider:
         name = "deepseek"
         model = "deepseek-chat"
+
         def complete(self, system: str, user: str, **kwargs) -> str:
             raise ConnectionResetError("DeepSeek API Reset")
 
@@ -668,7 +708,9 @@ def test_twin_challenge_provider_failure_abort(monkeypatch):
     bundle = ReviewContextBundle(
         mode=ReviewMode.SINGLE_DOMAIN,
         domains=(ReviewDomain.MARKET,),
-        llm_config=LLMReviewConfig(backend_mode="public", provider="deepseek", model="deepseek-chat", status="CONNECTED"),
+        llm_config=LLMReviewConfig(
+            backend_mode="public", provider="deepseek", model="deepseek-chat", status="CONNECTED"
+        ),
     )
 
     prompts = ["C", "Challenge", "2"]
@@ -692,7 +734,9 @@ def test_twin_cli_review_cancellation_zero_tracebacks(tmp_path):
 
     and returns stable non-zero exit code (1).
     """
-    res = runner.invoke(app, ["review", "--standard", "--target", "attrition", "--output-root", str(tmp_path)], input="\n")
+    res = runner.invoke(
+        app, ["review", "--standard", "--target", "attrition", "--output-root", str(tmp_path)], input="\n"
+    )
     # Clean non-zero exit
     assert res.exit_code == 1
     # Clean cancellation notice

@@ -1,4 +1,5 @@
 """B6 — covariance, with independently derived known answers."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -29,8 +30,9 @@ def _ctx(frame):
 
 def _frame(array, columns=None):
     columns = columns or [f"A{i}" for i in range(array.shape[1])]
-    return pd.DataFrame(array, index=pd.date_range("2024-01-01", periods=len(array), freq="B"),
-                        columns=columns)
+    return pd.DataFrame(
+        array, index=pd.date_range("2024-01-01", periods=len(array), freq="B"), columns=columns
+    )
 
 
 # ==================================================== FROZEN CONSTANTS ==
@@ -68,8 +70,7 @@ def test_empirical_uses_complete_cases_and_says_so():
 
 def test_empirical_refuses_a_pairwise_policy():
     """A pairwise matrix mixes sample sizes and is often not PSD."""
-    result = empirical(_ctx(_frame(np.random.default_rng(2).normal(size=(50, 3)))),
-                       missing_policy="pairwise")
+    result = empirical(_ctx(_frame(np.random.default_rng(2).normal(size=(50, 3)))), missing_policy="pairwise")
     assert result.status == Status.ERROR
     assert "regularized_em" in result.interpretation
 
@@ -168,8 +169,8 @@ def test_regem_e_step_includes_the_conditional_covariance_term():
     imputed[:60, 1] = np.nanmean(masked[:, 1])
     naive_var = float(np.var(imputed[:, 1], ddof=0))
 
-    assert naive_var < complete_var * 0.95          # mean imputation understates
-    assert em.covariance[1, 1] > naive_var          # EM recovers more of it
+    assert naive_var < complete_var * 0.95  # mean imputation understates
+    assert em.covariance[1, 1] > naive_var  # EM recovers more of it
 
 
 def test_regem_initialisation_is_deterministic():
@@ -183,8 +184,9 @@ def test_regem_initialisation_is_deterministic():
 
 
 def test_regem_result_is_psd_at_high_missingness():
-    world = generate_market_world(n_assets=8, n_periods=300, seed=15,
-                                  missing_rate=0.40, missing_mechanism="mcar")
+    world = generate_market_world(
+        n_assets=8, n_periods=300, seed=15, missing_rate=0.40, missing_mechanism="mcar"
+    )
     result = regularized_em(_ctx(world.incomplete_returns))
     assert result.status == Status.RECORDED
     assert result.metrics["is_psd"] is True
@@ -192,16 +194,14 @@ def test_regem_result_is_psd_at_high_missingness():
 
 
 def test_regem_handles_a_near_singular_structure():
-    world = generate_market_world(n_assets=6, n_periods=300, seed=16,
-                                  near_singular=True, missing_rate=0.20)
+    world = generate_market_world(n_assets=6, n_periods=300, seed=16, near_singular=True, missing_rate=0.20)
     result = regularized_em(_ctx(world.incomplete_returns))
     assert result.status in {Status.RECORDED, Status.FAIL}
     assert result.metrics["is_psd"] is True
 
 
 def test_regem_records_eigenvalue_clipping_as_a_start_safeguard():
-    world = generate_market_world(n_assets=6, n_periods=200, seed=17,
-                                  near_singular=True, missing_rate=0.30)
+    world = generate_market_world(n_assets=6, n_periods=200, seed=17, near_singular=True, missing_rate=0.30)
     result = regularized_em(_ctx(world.incomplete_returns), ridge=0.0)
     assert "n_eigenvalue_clips" in result.metrics
     assert result.metrics["psd_floor"] == PSD_EIGENVALUE_FLOOR
@@ -226,16 +226,19 @@ def test_regem_rejects_an_all_missing_variable():
 
 
 def test_regem_rejects_negative_ridge():
-    result = regularized_em(_ctx(_frame(np.random.default_rng(20).normal(size=(80, 3)))),
-                            ridge=-1.0)
+    result = regularized_em(_ctx(_frame(np.random.default_rng(20).normal(size=(80, 3)))), ridge=-1.0)
     assert result.status == Status.ERROR
 
 
 def test_regem_records_missingness_structure():
     world = generate_market_world(n_assets=5, n_periods=200, seed=21, missing_rate=0.20)
     result = regularized_em(_ctx(world.incomplete_returns))
-    for key in ("missing_fraction", "n_missingness_patterns", "n_complete_rows",
-                "max_column_missing_fraction"):
+    for key in (
+        "missing_fraction",
+        "n_missingness_patterns",
+        "n_complete_rows",
+        "max_column_missing_fraction",
+    ):
         assert key in result.metrics
     assert 0.1 < result.metrics["missing_fraction"] < 0.3
 
@@ -258,8 +261,9 @@ def test_regem_reports_pseudoinverse_fallbacks():
 
 def test_regem_recovers_a_known_covariance_better_than_complete_case_at_high_missingness():
     """Not a universal-dominance claim: one seeded configuration, reported as such."""
-    world = generate_market_world(n_assets=6, n_periods=400, seed=24,
-                                  missing_rate=0.35, missing_mechanism="mcar")
+    world = generate_market_world(
+        n_assets=6, n_periods=400, seed=24, missing_rate=0.35, missing_mechanism="mcar"
+    )
     em = regularized_em(_ctx(world.incomplete_returns))
     assert em.status == Status.RECORDED
     complete_rows = world.incomplete_returns.dropna()

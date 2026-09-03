@@ -1,4 +1,5 @@
 """A4 — execution contract, transformations, and the fitting-scope audit."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,29 +53,39 @@ RNG = np.random.default_rng(0)
 
 def _frames(n=300, m=90):
     rng = np.random.default_rng(11)
-    train = pd.DataFrame({
-        "a": rng.normal(10, 3, n), "b": np.abs(rng.normal(5, 2, n)) + 0.5,
-        "cat": rng.choice(list("ABCD"), n), "e": rng.choice(["e1", "e2", "e3"], n),
-        "t": pd.date_range("2024-01-01", periods=n, freq="D"),
-        "y": rng.integers(0, 2, n),
-    })
-    test = pd.DataFrame({
-        "a": rng.normal(40, 3, m), "b": np.abs(rng.normal(9, 2, m)) + 0.5,
-        "cat": rng.choice(list("ABCD"), m), "e": rng.choice(["e9"], m),
-        "t": pd.date_range("2025-06-01", periods=m, freq="D"),
-        "y": rng.integers(0, 2, m),
-    })
+    train = pd.DataFrame(
+        {
+            "a": rng.normal(10, 3, n),
+            "b": np.abs(rng.normal(5, 2, n)) + 0.5,
+            "cat": rng.choice(list("ABCD"), n),
+            "e": rng.choice(["e1", "e2", "e3"], n),
+            "t": pd.date_range("2024-01-01", periods=n, freq="D"),
+            "y": rng.integers(0, 2, n),
+        }
+    )
+    test = pd.DataFrame(
+        {
+            "a": rng.normal(40, 3, m),
+            "b": np.abs(rng.normal(9, 2, m)) + 0.5,
+            "cat": rng.choice(list("ABCD"), m),
+            "e": rng.choice(["e9"], m),
+            "t": pd.date_range("2025-06-01", periods=m, freq="D"),
+            "y": rng.integers(0, 2, m),
+        }
+    )
     return train, test
 
 
 def _ctx(train=None, test=None, **kw):
     tr, te = _frames()
-    return TestContext(train=tr if train is None else train,
-                       test=te if test is None else test,
-                       target_column=kw.pop("target", "y"),
-                       timestamp_column=kw.pop("ts", None),
-                       entity_id_column=kw.pop("entity", None),
-                       extra=kw.pop("extra", {}) or {})
+    return TestContext(
+        train=tr if train is None else train,
+        test=te if test is None else test,
+        target_column=kw.pop("target", "y"),
+        timestamp_column=kw.pop("ts", None),
+        entity_id_column=kw.pop("entity", None),
+        extra=kw.pop("extra", {}) or {},
+    )
 
 
 # =============================================================== execution ==
@@ -213,8 +224,7 @@ def test_rare_grouping_maps_unseen_levels_to_other():
 
 def test_onehot_encoding_widens_and_drops_source():
     tr, te = _frames()
-    result = run_categorical_encoding(tr, te, None, method="onehot",
-                                      target_column="y", exclude=())
+    result = run_categorical_encoding(tr, te, None, method="onehot", target_column="y", exclude=())
     assert "cat" not in result.transformed_train.columns
     assert any(c.startswith("cat__") for c in result.transformed_train.columns)
 
@@ -222,15 +232,13 @@ def test_onehot_encoding_widens_and_drops_source():
 def test_ordinal_encoding_uses_sentinel_for_unseen():
     tr, te = _frames()
     te.loc[0, "cat"] = "ZZZ"
-    result = run_categorical_encoding(tr, te, None, method="ordinal",
-                                      target_column="y", exclude=())
+    result = run_categorical_encoding(tr, te, None, method="ordinal", target_column="y", exclude=())
     assert result.transformed_test.loc[0, "cat"] == -1
 
 
 def test_target_encoding_is_declared_out_of_fold():
     tr, te = _frames()
-    result = run_categorical_encoding(tr, te, None, method="target",
-                                      target_column="y", exclude=())
+    result = run_categorical_encoding(tr, te, None, method="target", target_column="y", exclude=())
     assert result.fitting_scope == FittingScope.TRAIN_FOLDS
     assert any("OUT-OF-FOLD" in n for n in result.notes)
 
@@ -282,8 +290,7 @@ def test_interactions_are_capped_and_deterministic():
     assert len(a.fitted_state["pairs"]) == 1
     # With more features the cap binds and truncation is recorded.
     wide = tr.assign(c=tr["a"] * 2, d=tr["b"] * 3)
-    capped = run_interactions(wide, te, None, method="product", max_features=3,
-                              exclude=("y",))
+    capped = run_interactions(wide, te, None, method="product", max_features=3, exclude=("y",))
     assert len(capped.fitted_state["pairs"]) == 3
     assert any("capped" in n for n in capped.notes)
 
@@ -299,8 +306,9 @@ def test_temporal_features_use_the_training_origin():
 def test_aggregation_excludes_the_current_row():
     """closed='left': the row being predicted from must not be inside its own feature."""
     tr, te = _frames()
-    result = run_aggregation_features(tr, te, None, entity_id_column="e",
-                                      timestamp_column="t", windows=(7,), exclude=("y",))
+    result = run_aggregation_features(
+        tr, te, None, entity_id_column="e", timestamp_column="t", windows=(7,), exclude=("y",)
+    )
     column = "a__mean_7d"
     assert column in result.transformed_train.columns
     # The first observation for an entity has no prior window. Uses head(1) rather than
@@ -354,16 +362,16 @@ def test_every_leaky_fixture_is_caught(index):
         "leaky_scaler": {"method": "standard"},
         "leaky_imputer": {"strategy": "median"},
         "leaky_target_encoder": {"target_column": "y"},
-        "leaky_aggregation": {"entity_id_column": "e", "timestamp_column": "t",
-                              "windows": (7,)},
+        "leaky_aggregation": {"entity_id_column": "e", "timestamp_column": "t", "windows": (7,)},
         "leaky_pca": {"n_components": 2, "exclude": ("y", "t", "e", "cat")},
         "leaky_selector": {"target_column": "y", "top_k": 1},
     }[fixture.__name__]
     call = dict(kwargs)
     target = call.pop("target_column", None)
     stamp = call.pop("timestamp_column", None)
-    audit = audit_executor(fixture, tr, te, step=fixture.__name__,
-                           target_column=target, timestamp_column=stamp, **call)
+    audit = audit_executor(
+        fixture, tr, te, step=fixture.__name__, target_column=target, timestamp_column=stamp, **call
+    )
     fired = {f.check for f in audit.violations}
     assert all(check in fired for check in expected), (fixture.__name__, fired)
 
@@ -375,33 +383,30 @@ def test_every_leaky_fixture_is_caught(index):
         ("imputation", run_imputation, {"strategy": "median", "exclude": ("y",)}, None, None),
         ("target_encoding", run_categorical_encoding, {"method": "target"}, "y", None),
         ("woe", run_woe_iv, {}, "y", None),
-        ("aggregation", run_aggregation_features,
-         {"entity_id_column": "e", "exclude": ("y",)}, None, "t"),
-        ("pca", run_pca_transform,
-         {"n_components": 2, "exclude": ("y", "t", "e", "cat")}, None, None),
+        ("aggregation", run_aggregation_features, {"entity_id_column": "e", "exclude": ("y",)}, None, "t"),
+        ("pca", run_pca_transform, {"n_components": 2, "exclude": ("y", "t", "e", "cat")}, None, None),
         ("selection", run_selection, {"method": "mutual_info", "top_k": 2}, "y", None),
     ],
 )
 def test_correct_executors_pass_the_audit(label, executor, kwargs, target, stamp):
     tr, te = _frames()
-    audit = audit_executor(executor, tr, te, step=label, target_column=target,
-                           timestamp_column=stamp, **kwargs)
+    audit = audit_executor(
+        executor, tr, te, step=label, target_column=target, timestamp_column=stamp, **kwargs
+    )
     assert audit.passed, (label, audit.summary())
 
 
 def test_audit_forwards_target_column_to_the_executor():
     """Swallowing it would produce a spurious execution failure, not a real finding."""
     tr, te = _frames()
-    audit = audit_executor(run_categorical_encoding, tr, te, step="enc",
-                           target_column="y", method="target")
+    audit = audit_executor(run_categorical_encoding, tr, te, step="enc", target_column="y", method="target")
     assert not any(f.check == "check_0_execution" for f in audit.findings)
 
 
 def test_out_of_fold_prior_is_also_out_of_fold():
     """A full-train prior leaks a row's own target through the smoothing term."""
     tr, te = _frames()
-    audit = audit_executor(run_categorical_encoding, tr, te, step="enc",
-                           target_column="y", method="target")
+    audit = audit_executor(run_categorical_encoding, tr, te, step="enc", target_column="y", method="target")
     check3 = [f for f in audit.findings if f.check == "check_3_out_of_fold_target_encoding"]
     assert check3 and check3[0].passed
 
@@ -409,6 +414,7 @@ def test_out_of_fold_prior_is_also_out_of_fold():
 def test_violation_names_the_step_and_check():
     """'Something leaked' is not actionable."""
     from start.tests.feature_engineering.leaky_fixtures import leaky_scaler
+
     tr, te = _frames()
     audit = audit_executor(leaky_scaler, tr, te, step="leaky_scaler", method="standard")
     assert not audit.passed
@@ -434,9 +440,14 @@ def test_plan_fails_when_mutated_during_execution():
 @pytest.mark.parametrize(
     "fn,kw",
     [
-        (imputation, {}), (scaling, {}), (numeric_transform, {}),
-        (winsorization, {}), (categorical_encoding, {}),
-        (rare_category_grouping, {}), (interactions, {}), (selection, {}),
+        (imputation, {}),
+        (scaling, {}),
+        (numeric_transform, {}),
+        (winsorization, {}),
+        (categorical_encoding, {}),
+        (rare_category_grouping, {}),
+        (interactions, {}),
+        (selection, {}),
     ],
 )
 def test_registered_surfaces_emit_scalar_evidence(fn, kw):

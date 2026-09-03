@@ -253,9 +253,7 @@ def policy_for(profile: str | None = None, *, override: str | None = None) -> Di
     """
     if override:
         if override not in POLICIES:
-            raise KeyError(
-                f"Unknown disclosure policy {override!r}. Known: {', '.join(sorted(POLICIES))}"
-            )
+            raise KeyError(f"Unknown disclosure policy {override!r}. Known: {', '.join(sorted(POLICIES))}")
         return POLICIES[override]
 
     if profile is None:
@@ -315,8 +313,10 @@ class DisclosureEnvelope:
 
     def render(self) -> str:
         """The envelope as prompt-ready text. This is the only permitted input."""
-        lines = ["EVIDENCE (projected under disclosure policy "
-                 f"'{self.policy_id}'; envelope {self.envelope_hash()[:12]}):"]
+        lines = [
+            "EVIDENCE (projected under disclosure policy "
+            f"'{self.policy_id}'; envelope {self.envelope_hash()[:12]}):"
+        ]
         for path in sorted(self.projected):
             aliased = _alias_path_indices(path)
             lines.append(f"  {aliased} = {self.projected[path]}")
@@ -341,6 +341,7 @@ def _alias_path_indices(path: str) -> str:
     '[0].metrics.gap' -> 'rA.metrics.gap'
     '[0].thresholds[0].fail' -> 'rA.thresholds[A].fail'
     """
+
     def repl_leading(m: re.Match[str]) -> str:
         idx = int(m.group(1))
         suffix = "." if m.group(0).endswith(".") else ""
@@ -416,9 +417,7 @@ def build_envelope(
             value = value[: policy.max_text_chars]
         projected[path] = value
 
-    numeric_surface = {
-        _format_number(v) for v in flatten_evidence_values(projected).values()
-    }
+    numeric_surface = {_format_number(v) for v in flatten_evidence_values(projected).values()}
 
     return DisclosureEnvelope(
         policy_id=policy.id,

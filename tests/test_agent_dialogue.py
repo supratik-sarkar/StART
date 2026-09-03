@@ -6,11 +6,13 @@ from start.review_session import ReviewSession
 
 def _ctx():
     return AgentContext(
-        agent="ArchitectureReviewAgent", recommendation="mlp",
+        agent="ArchitectureReviewAgent",
+        recommendation="mlp",
         reason="Small tabular dataset; simpler MLP lowers overfitting risk.",
         risk_if_ignored="Higher overfitting risk and reduced interpretability.",
         alternatives=[{"family": "mlp"}, {"family": "wide_deep"}, {"family": "xgboost"}],
-        dataset_summary="569 rows x 31 cols", checkpoint="architecture",
+        dataset_summary="569 rows x 31 cols",
+        checkpoint="architecture",
     )
 
 
@@ -62,8 +64,7 @@ def test_llm_backend_used_when_connected():
         def generate(self, prompt, *, system=None, metadata=None):
             return "MLP is preferred because the dataset is small and simple."
 
-    ex = ask_agent("ArchitectureReviewAgent", "Why MLP?", _ctx(), s,
-                   llm=FakeLLM(), llm_connected=True)
+    ex = ask_agent("ArchitectureReviewAgent", "Why MLP?", _ctx(), s, llm=FakeLLM(), llm_connected=True)
     assert ex.backend == "openai"
     assert "MLP" in ex.answer
 
@@ -77,8 +78,7 @@ def test_llm_failure_falls_back_to_deterministic():
         def generate(self, prompt, *, system=None, metadata=None):
             raise RuntimeError("api down")
 
-    ex = ask_agent("ArchitectureReviewAgent", "Why MLP?", _ctx(), s,
-                   llm=BrokenLLM(), llm_connected=True)
+    ex = ask_agent("ArchitectureReviewAgent", "Why MLP?", _ctx(), s, llm=BrokenLLM(), llm_connected=True)
     assert ex.backend == "deterministic"  # honest fallback
     assert ex.answer
 
@@ -93,6 +93,7 @@ def test_compare_model_families_table():
 
 def test_conceptual_question_bypasses_refusal():
     from start.evidence_store import EvidenceStore
+
     s = ReviewSession(run_id="R")
     ctx = _ctx()
     ctx.evidence = EvidenceStore()

@@ -40,12 +40,14 @@ from start.portfolio.evidence_bridge import (
 def clean_cov_4x4() -> tuple[np.ndarray, list[str]]:
     """Well-conditioned positive definite 4x4 covariance matrix."""
     stds = np.array([0.15, 0.20, 0.25, 0.30])
-    corr = np.array([
-        [1.00, 0.50, 0.30, 0.10],
-        [0.50, 1.00, 0.40, 0.20],
-        [0.30, 0.40, 1.00, 0.35],
-        [0.10, 0.20, 0.35, 1.00],
-    ])
+    corr = np.array(
+        [
+            [1.00, 0.50, 0.30, 0.10],
+            [0.50, 1.00, 0.40, 0.20],
+            [0.30, 0.40, 1.00, 0.35],
+            [0.10, 0.20, 0.35, 1.00],
+        ]
+    )
     cov = np.outer(stds, stds) * corr
     assets = ["A0", "A1", "A2", "A3"]
     return cov, assets
@@ -54,11 +56,13 @@ def clean_cov_4x4() -> tuple[np.ndarray, list[str]]:
 @pytest.fixture
 def indefinite_cov_3x3() -> np.ndarray:
     """Symmetric 3x3 matrix with a strictly negative eigenvalue."""
-    mat = np.array([
-        [1.00, 0.90, 0.90],
-        [0.90, 1.00, 0.90],
-        [0.90, 0.90, 0.10],  # Incompatible third asset correlation/variance structure
-    ])
+    mat = np.array(
+        [
+            [1.00, 0.90, 0.90],
+            [0.90, 1.00, 0.90],
+            [0.90, 0.90, 0.10],  # Incompatible third asset correlation/variance structure
+        ]
+    )
     return mat
 
 
@@ -115,10 +119,12 @@ def test_diagnose_covariance_effective_rank_extremes():
 
 def test_diagnose_covariance_fail_closed_non_finite():
     """Non-finite (NaN/Inf) covariance elements must fail closed immediately."""
-    bad_mat = np.array([
-        [1.0, float("nan")],
-        [float("nan"), 1.0],
-    ])
+    bad_mat = np.array(
+        [
+            [1.0, float("nan")],
+            [float("nan"), 1.0],
+        ]
+    )
     with pytest.raises(ValueError, match="non-finite"):
         diagnose_covariance(bad_mat)
 
@@ -224,8 +230,12 @@ def test_covariance_evidence_adapters_and_artifacts(clean_cov_4x4):
 
     # Render artifacts
     with tempfile.TemporaryDirectory() as tmpdir:
-        art_diag = render_covariance_diagnostics_artifact(diag, evidence_ids=(ev_diag.evidence_id,), output_dir=tmpdir)
+        art_diag = render_covariance_diagnostics_artifact(
+            diag, evidence_ids=(ev_diag.evidence_id,), output_dir=tmpdir
+        )
         assert Path(art_diag.file_path).exists()
 
-        art_repair = render_psd_repair_artifact(repair, evidence_ids=(ev_repair.evidence_id,), output_dir=tmpdir)
+        art_repair = render_psd_repair_artifact(
+            repair, evidence_ids=(ev_repair.evidence_id,), output_dir=tmpdir
+        )
         assert Path(art_repair.file_path).exists()

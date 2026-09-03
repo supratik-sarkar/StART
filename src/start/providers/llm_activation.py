@@ -102,8 +102,12 @@ def preflight_llm(provider_name: str, llm: Any = None, *, probe: bool = False) -
 
     if provider_name in ("none", "") or provider_name is None:
         return ActivationReport(
-            provider="none", model="—", trust_domain="none", endpoint="—",
-            status="DETERMINISTIC", detail="No LLM selected; deterministic engines only.",
+            provider="none",
+            model="—",
+            trust_domain="none",
+            endpoint="—",
+            status="DETERMINISTIC",
+            detail="No LLM selected; deterministic engines only.",
         )
 
     model = getattr(llm, "model", None) or _DEFAULT_MODELS.get(provider_name, "unknown")
@@ -115,12 +119,19 @@ def preflight_llm(provider_name: str, llm: Any = None, *, probe: bool = False) -
 
     if llm is None:
         return ActivationReport(
-            provider=provider_name, model=model, trust_domain=domain, endpoint=endpoint,
-            status="NOT_CONFIGURED", detail="Provider not resolved.",
+            provider=provider_name,
+            model=model,
+            trust_domain=domain,
+            endpoint=endpoint,
+            status="NOT_CONFIGURED",
+            detail="Provider not resolved.",
         )
     if llm_class == "NoLLMProvider" or not available:
         return ActivationReport(
-            provider=provider_name, model=model, trust_domain=domain, endpoint=endpoint,
+            provider=provider_name,
+            model=model,
+            trust_domain=domain,
+            endpoint=endpoint,
             status="FALLBACK",
             detail="Provider unavailable (no key or unreachable); using deterministic "
             "fallback. Set the API key to enable LLM execution.",
@@ -130,18 +141,30 @@ def preflight_llm(provider_name: str, llm: Any = None, *, probe: bool = False) -
         try:
             llm.complete("You are a connectivity probe.", "Reply with: ok", output_token_budget=5)
             return ActivationReport(
-                provider=provider_name, model=model, trust_domain=domain, endpoint=endpoint,
-                status="CONNECTED", detail="Connectivity probe succeeded.",
+                provider=provider_name,
+                model=model,
+                trust_domain=domain,
+                endpoint=endpoint,
+                status="CONNECTED",
+                detail="Connectivity probe succeeded.",
             )
         except Exception as exc:  # noqa: BLE001 - surface, do not hide
             return ActivationReport(
-                provider=provider_name, model=model, trust_domain=domain, endpoint=endpoint,
-                status="FAILED", detail=f"Connectivity probe failed: {type(exc).__name__}.",
+                provider=provider_name,
+                model=model,
+                trust_domain=domain,
+                endpoint=endpoint,
+                status="FAILED",
+                detail=f"Connectivity probe failed: {type(exc).__name__}.",
             )
 
     return ActivationReport(
-        provider=provider_name, model=model, trust_domain=domain, endpoint=endpoint,
-        status="CONNECTED", detail="Provider available (key present).",
+        provider=provider_name,
+        model=model,
+        trust_domain=domain,
+        endpoint=endpoint,
+        status="CONNECTED",
+        detail="Provider available (key present).",
     )
 
 
@@ -153,6 +176,5 @@ def render_activation_markdown(report: ActivationReport) -> str:
         f"| Model | {report.model} |\n"
         f"| Trust domain | {report.trust_domain} |\n"
         f"| Endpoint | {report.endpoint} |\n"
-        f"| Status | {report.status} |\n"
-        + (f"\n{report.detail}\n" if report.detail else "")
+        f"| Status | {report.status} |\n" + (f"\n{report.detail}\n" if report.detail else "")
     )

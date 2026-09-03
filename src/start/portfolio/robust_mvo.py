@@ -93,7 +93,11 @@ def solve_robust_mvo(
 
     if kappa == 0.0:
         eff_policy = UncertaintyDerivationPolicy.EXPLICIT_UNCERTAINTY_COV
-        sigma_mu = np.zeros((n, n), dtype=float) if uncertainty_cov is None else np.asarray(uncertainty_cov, dtype=float)
+        sigma_mu = (
+            np.zeros((n, n), dtype=float)
+            if uncertainty_cov is None
+            else np.asarray(uncertainty_cov, dtype=float)
+        )
     elif uncertainty_cov is None and uncertainty_policy is None:
         raise ValueError(
             "solve_robust_mvo requires either an explicit uncertainty_cov matrix or a named uncertainty_policy "
@@ -141,7 +145,7 @@ def solve_robust_mvo(
         pen_vol = math.sqrt(max(0.0, pen_var))
         robust_ret = float(w @ mu_vec) - kappa * pen_vol
         var = float(w @ sigma @ w)
-        return float(- (robust_ret - 0.5 * delta_val * var))
+        return float(-(robust_ret - 0.5 * delta_val * var))
 
     bounds: list[tuple[float | None, float | None]] = []
     for _i, a in enumerate(asset_names):
@@ -224,9 +228,7 @@ def solve_robust_mvo(
         h = float(np.sum(w_opt**2))
         eff_n = float(1.0 / h) if h > 1e-12 else 0.0
 
-        turnover = (
-            float(0.5 * np.sum(np.abs(w_opt - prior_arr))) if prior_arr is not None else None
-        )
+        turnover = float(0.5 * np.sum(np.abs(w_opt - prior_arr))) if prior_arr is not None else None
 
     return RobustMVOResult(
         weights={a: round(float(w_opt[i]), 8) for i, a in enumerate(asset_names)} if usable_solution else {},
@@ -267,7 +269,11 @@ def robust_mvo_sensitivity_grid(
     points: list[RobustSensitivityPoint] = []
     baseline_r = float(radii[0]) if len(radii) else 0.0
 
-    eff_policy = uncertainty_policy or (UncertaintyDerivationPolicy.EXPLICIT_UNCERTAINTY_COV if uncertainty_cov is not None else UncertaintyDerivationPolicy.SAMPLE_COVARIANCE_DIV_N)
+    eff_policy = uncertainty_policy or (
+        UncertaintyDerivationPolicy.EXPLICIT_UNCERTAINTY_COV
+        if uncertainty_cov is not None
+        else UncertaintyDerivationPolicy.SAMPLE_COVARIANCE_DIV_N
+    )
 
     for r in radii:
         res = solve_robust_mvo(

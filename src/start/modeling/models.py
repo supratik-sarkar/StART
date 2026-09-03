@@ -25,7 +25,7 @@ MODEL_CHOICES = (
     "cnn",
     "simple_cnn_small",
     "simple_cnn_medium",
-    "simple_cnn_deep"
+    "simple_cnn_deep",
 )
 
 # Five standard tunable hyperparameters per model (suggested spaces shown to
@@ -58,7 +58,11 @@ HYPERPARAM_SPACES: dict[str, dict[str, dict[str, Any]]] = {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
         "learning_rate": {
-            "type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
         },
         "dropout": {"type": "float", "grid": [0.0, 0.1, 0.3], "low": 0.0, "high": 0.5},
         "activation": {"type": "cat", "grid": ["relu", "leaky_relu"], "choices": ["relu", "leaky_relu"]},
@@ -94,46 +98,94 @@ HYPERPARAM_SPACES: dict[str, dict[str, dict[str, Any]]] = {
     "rnn": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
         "dropout": {"type": "float", "grid": [0.0, 0.1, 0.3], "low": 0.0, "high": 0.5},
     },
     "lstm": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
         "dropout": {"type": "float", "grid": [0.0, 0.1, 0.3], "low": 0.0, "high": 0.5},
     },
     "gru": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
         "dropout": {"type": "float", "grid": [0.0, 0.1, 0.3], "low": 0.0, "high": 0.5},
     },
     "bi_lstm": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
         "dropout": {"type": "float", "grid": [0.0, 0.1, 0.3], "low": 0.0, "high": 0.5},
     },
     "cnn": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
     },
     "simple_cnn_small": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
     },
     "simple_cnn_medium": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
     },
     "simple_cnn_deep": {
         "epochs": {"type": "int", "grid": [5, 8, 10], "low": 3, "high": 10, "step": 1},
         "batch_size": {"type": "int", "grid": [32, 64, 128], "low": 16, "high": 128, "step": 16},
-        "learning_rate": {"type": "float", "grid": [3e-4, 1e-3, 3e-3], "low": 1e-4, "high": 1e-2, "log": True},
+        "learning_rate": {
+            "type": "float",
+            "grid": [3e-4, 1e-3, 3e-3],
+            "low": 1e-4,
+            "high": 1e-2,
+            "log": True,
+        },
     },
 }
 
@@ -186,8 +238,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
             return (
                 _make_random_forest(seed),
                 "random_forest",
-                "xgboost is not installed (pip install -e \".[tree-models]\"); "
-                "falling back to Random Forest.",
+                'xgboost is not installed (pip install -e ".[tree-models]"); falling back to Random Forest.',
             )
         from xgboost import XGBClassifier
 
@@ -207,8 +258,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
             return (
                 _make_random_forest(seed),
                 "random_forest",
-                "lightgbm is not installed (pip install -e \".[tree-models]\"); "
-                "falling back to Random Forest.",
+                'lightgbm is not installed (pip install -e ".[tree-models]"); falling back to Random Forest.',
             )
         from lightgbm import LGBMClassifier
 
@@ -224,8 +274,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
             return (
                 _make_random_forest(seed),
                 "random_forest",
-                "torch is not installed (pip install -e \".[torch]\"); "
-                "falling back to Random Forest.",
+                'torch is not installed (pip install -e ".[torch]"); falling back to Random Forest.',
             )
         return TorchMLPClassifier(random_state=seed), "mlp", ""
     if name == "catboost":
@@ -236,6 +285,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
                 "catboost is not installed; falling back to Random Forest.",
             )
         from catboost import CatBoostClassifier
+
         return (
             CatBoostClassifier(iterations=200, random_seed=seed, verbose=0),
             "catboost",
@@ -243,6 +293,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
         )
     if name == "distributed_random_forest":
         from sklearn.ensemble import RandomForestClassifier
+
         return (
             RandomForestClassifier(n_estimators=200, random_state=seed, n_jobs=-1),
             "distributed_random_forest",
@@ -250,6 +301,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
         )
     if name == "extra_trees":
         from sklearn.ensemble import ExtraTreesClassifier
+
         return (
             ExtraTreesClassifier(n_estimators=200, random_state=seed, n_jobs=-1),
             "extra_trees",
@@ -263,6 +315,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
         )
     if name in ("rnn", "lstm", "gru", "bi_lstm"):
         from start.modeling.deep_learning import torch_available
+
         if not torch_available():
             return (
                 _make_random_forest(seed),
@@ -270,9 +323,11 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
                 f"torch is not installed; falling back to Random Forest for {name}.",
             )
         from start.modeling.sequence_dl import SequenceClassifier
+
         return SequenceClassifier(family=name, random_state=seed), name, ""
     if name in ("cnn", "simple_cnn_small", "simple_cnn_medium", "simple_cnn_deep"):
         from start.modeling.deep_learning import torch_available
+
         if not torch_available():
             return (
                 _make_random_forest(seed),
@@ -280,6 +335,7 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
                 f"torch is not installed; falling back to Random Forest for {name}.",
             )
         from start.modeling.vision_dl import VisionCNNClassifier
+
         arch = "simple_cnn_small" if name == "cnn" else name
         return VisionCNNClassifier(architecture=arch, random_state=seed), name, ""
     return _make_random_forest(seed), "random_forest", ""

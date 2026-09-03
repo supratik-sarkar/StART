@@ -431,7 +431,9 @@ class FactorConstraintSpec:
         """Verify that every asset in the universe has explicit factor loadings."""
         missing = [a for a in assets if a not in self.loadings]
         if missing:
-            raise ValueError(f"Asset(s) {missing} missing factor exposure in factor_constraints loadings (fail-closed)")
+            raise ValueError(
+                f"Asset(s) {missing} missing factor exposure in factor_constraints loadings (fail-closed)"
+            )
         for a in assets:
             for f in self.factor_names:
                 if f not in self.loadings[a]:
@@ -475,10 +477,7 @@ class GroupConstraintSpec:
             eff_policy = GroupCoveragePolicy(eff_policy)
 
         # Check exhaustive partition / unmapped assets
-        is_exhaustive = (
-            eff_policy == GroupCoveragePolicy.EXHAUSTIVE_PARTITION
-            or (allow_unmapped is False)
-        )
+        is_exhaustive = eff_policy == GroupCoveragePolicy.EXHAUSTIVE_PARTITION or (allow_unmapped is False)
         if is_exhaustive:
             unmapped = set(assets) - all_members
             if unmapped:
@@ -487,9 +486,8 @@ class GroupConstraintSpec:
                 )
 
         # Check disjoint groups / overlapping
-        is_disjoint = (
-            eff_policy == GroupCoveragePolicy.DISJOINT_GROUPS_REQUIRED
-            or (self.allow_overlapping is False)
+        is_disjoint = eff_policy == GroupCoveragePolicy.DISJOINT_GROUPS_REQUIRED or (
+            self.allow_overlapping is False
         )
         if is_disjoint:
             seen: set[str] = set()
@@ -571,7 +569,9 @@ class RobustMVOResult:
     turnover_vs_prior: float | None
     constraint_verification: ConstraintVerificationResult
     uncertainty_set_type: str = "ellipsoidal_return"
-    uncertainty_policy: UncertaintyDerivationPolicy | str = UncertaintyDerivationPolicy.EXPLICIT_UNCERTAINTY_COV
+    uncertainty_policy: UncertaintyDerivationPolicy | str = (
+        UncertaintyDerivationPolicy.EXPLICIT_UNCERTAINTY_COV
+    )
     uncertainty_covariance_fingerprint: str = ""
     converged: bool = True
     usable_solution: bool = True
@@ -1071,6 +1071,7 @@ class TailModelComparisonResult:
 # GATE 6: INSTITUTIONAL SCENARIO, STRESS & REVERSE-STRESS CONTRACTS
 # =========================================================================== #
 
+
 class ScenarioType(StrEnum):
     """Categorical classification of stress and scenario projections."""
 
@@ -1325,7 +1326,3 @@ class ScenarioDataIntegrityResult:
     provenance_valid: bool = True
     issues: tuple[str, ...] = ()
     data_fingerprint: str = ""
-
-
-
-

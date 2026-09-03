@@ -26,9 +26,7 @@ def test_leakage_flags_perfect_feature(toy_frame):
 
 def test_split_overlap_detected(toy_frame):
     spec = get_test("preprocessing.split_diagnostics")
-    result = spec.fn(
-        TestContext(train=toy_frame, test=toy_frame.head(50), target_column="target")
-    )
+    result = spec.fn(TestContext(train=toy_frame, test=toy_frame.head(50), target_column="target"))
     assert result.metrics["test_rows_seen_in_train_pct"] == 100.0
     assert result.status == Status.FAIL
 

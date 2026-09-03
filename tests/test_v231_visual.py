@@ -1,5 +1,6 @@
 """v2.3.1 batch-2 tests: dataset/target transparency, boxed panels, colored
 agent/adapter names, safe endpoint display, progress helpers."""
+
 from __future__ import annotations
 
 import pytest
@@ -13,8 +14,7 @@ pytestmark = pytest.mark.filterwarnings("ignore")
 
 # --- #2 dataset / target transparency ------------------------------------- #
 def test_demo_dataset_transparency_printed(tmp_path):
-    res = runner.invoke(app, ["review", "--non-interactive", "--run-dl",
-                              "--output-root", str(tmp_path)])
+    res = runner.invoke(app, ["review", "--non-interactive", "--run-dl", "--output-root", str(tmp_path)])
     assert res.exit_code == 0, res.output
     assert "Demo dataset:" in res.output
     assert "Synthetic" in res.output or "synthetic" in res.output
@@ -22,15 +22,16 @@ def test_demo_dataset_transparency_printed(tmp_path):
 
 
 def test_target_transparency_user_supplied(tmp_path):
-    res = runner.invoke(app, ["review", "--non-interactive", "--target", "attrition",
-                              "--run-dl", "--output-root", str(tmp_path)])
+    res = runner.invoke(
+        app,
+        ["review", "--non-interactive", "--target", "attrition", "--run-dl", "--output-root", str(tmp_path)],
+    )
     assert "Target:" in res.output
     assert "supplied by user" in res.output
 
 
 def test_candidate_targets_listed(tmp_path):
-    res = runner.invoke(app, ["review", "--non-interactive", "--run-dl",
-                              "--output-root", str(tmp_path)])
+    res = runner.invoke(app, ["review", "--non-interactive", "--run-dl", "--output-root", str(tmp_path)])
     assert "candidate target" in res.output.lower()
 
 
@@ -80,9 +81,17 @@ def test_adapter_inventory_has_colored_names_and_fallback_col():
 
     from start.review_tables import adapter_inventory_table
 
-    cs = [{"adapter": "DeepEval", "status": "not_installed", "purpose": "quality",
-           "runtime_s": 0.0, "artifacts": 0, "evidence": 0,
-           "install_guidance": "pip install deepeval"}]
+    cs = [
+        {
+            "adapter": "DeepEval",
+            "status": "not_installed",
+            "purpose": "quality",
+            "runtime_s": 0.0,
+            "artifacts": 0,
+            "evidence": 0,
+            "install_guidance": "pip install deepeval",
+        }
+    ]
     console = Console(record=True, width=140)
     console.print(adapter_inventory_table(cs))
     text = console.export_text()
@@ -174,10 +183,10 @@ def test_spinner_runs():
 # --- no secret leakage with the new surfaces ------------------------------ #
 def test_no_secret_leak_in_panels(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-leak-test-0000000000")
-    res = runner.invoke(app, ["review", "--non-interactive", "--run-dl",
-                              "--output-root", str(tmp_path)])
+    res = runner.invoke(app, ["review", "--non-interactive", "--run-dl", "--output-root", str(tmp_path)])
     assert "sk-fake-leak-test" not in res.output
     from pathlib import Path
+
     for art in Path(tmp_path).rglob("*"):
         if art.is_file() and art.suffix in {".md", ".json", ".html", ".txt"}:
             assert "sk-fake-leak-test" not in art.read_text(errors="ignore"), art

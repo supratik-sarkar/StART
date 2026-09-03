@@ -100,7 +100,11 @@ def compute_black_litterman_posterior(
     if len(q_vec) != k:
         raise ValueError(f"View vector Q length ({len(q_vec)}) must match view count ({k})")
 
-    eff_policy = uncertainty_policy or (ViewUncertaintyPolicy.EXPLICIT_OMEGA if Omega is not None else ViewUncertaintyPolicy.PROPORTIONAL_TAU_SIGMA)
+    eff_policy = uncertainty_policy or (
+        ViewUncertaintyPolicy.EXPLICIT_OMEGA
+        if Omega is not None
+        else ViewUncertaintyPolicy.PROPORTIONAL_TAU_SIGMA
+    )
 
     if Omega is None:
         # He & Litterman (1999) / Idzorek default: proportional view uncertainty
@@ -178,9 +182,13 @@ def solve_black_litterman(
         raise ValueError(f"Market weights length {len(w_m_arr)} does not match asset count {n}")
 
     k = len(Q) if hasattr(Q, "__len__") else 1
-    v_labels = tuple(view_labels) if view_labels is not None else tuple(f"View_{i+1}" for i in range(k))
+    v_labels = tuple(view_labels) if view_labels is not None else tuple(f"View_{i + 1}" for i in range(k))
 
-    eff_policy = uncertainty_policy or (ViewUncertaintyPolicy.EXPLICIT_OMEGA if Omega is not None else ViewUncertaintyPolicy.PROPORTIONAL_TAU_SIGMA)
+    eff_policy = uncertainty_policy or (
+        ViewUncertaintyPolicy.EXPLICIT_OMEGA
+        if Omega is not None
+        else ViewUncertaintyPolicy.PROPORTIONAL_TAU_SIGMA
+    )
 
     mu_bl, sigma_bl, diag = compute_black_litterman_posterior(
         covariance=sigma,
@@ -211,10 +219,10 @@ def solve_black_litterman(
     delta_val = float(risk_aversion)
 
     def objective(w: np.ndarray) -> float:
-        return float(- (w @ mu_bl - 0.5 * delta_val * (w @ sigma_bl @ w)))
+        return float(-(w @ mu_bl - 0.5 * delta_val * (w @ sigma_bl @ w)))
 
     def grad(w: np.ndarray) -> np.ndarray:
-        return - (mu_bl - delta_val * (sigma_bl @ w))
+        return -(mu_bl - delta_val * (sigma_bl @ w))
 
     bounds: list[tuple[float | None, float | None]] = []
     for _i, a in enumerate(asset_names):
@@ -284,23 +292,27 @@ def solve_black_litterman(
         post_vol_ann = post_vol * math.sqrt(ppy)
         post_ret_per = float(w_opt @ mu_bl)
 
-        sharpe_ann = (
-            ((post_ret_per - rf_periodic) / post_vol) * math.sqrt(ppy)
-            if post_vol > 1e-12
-            else None
-        )
+        sharpe_ann = ((post_ret_per - rf_periodic) / post_vol) * math.sqrt(ppy) if post_vol > 1e-12 else None
 
         turnover = float(0.5 * np.sum(np.abs(w_opt - prior_arr)))
 
     cov_hash = hashlib.sha256(sigma_bl.tobytes()).hexdigest()[:32]
 
     return BlackLittermanResult(
-        implied_returns={a: round(float(v), 8) for a, v in zip(asset_names, diag["implied_returns"], strict=True)},
+        implied_returns={
+            a: round(float(v), 8) for a, v in zip(asset_names, diag["implied_returns"], strict=True)
+        },
         posterior_returns={a: round(float(v), 8) for a, v in zip(asset_names, mu_bl, strict=True)},
         prior_weights={a: round(float(v), 8) for a, v in zip(asset_names, w_m_arr, strict=True)},
-        posterior_weights={a: round(float(w_opt[i]), 8) for i, a in enumerate(asset_names)} if usable_solution else {},
-        view_residuals={v: round(float(res_val), 8) for v, res_val in zip(v_labels, diag["view_residuals"], strict=True)},
-        view_uncertainties={v: round(float(u_val), 8) for v, u_val in zip(v_labels, diag["view_uncertainties"], strict=True)},
+        posterior_weights={a: round(float(w_opt[i]), 8) for i, a in enumerate(asset_names)}
+        if usable_solution
+        else {},
+        view_residuals={
+            v: round(float(res_val), 8) for v, res_val in zip(v_labels, diag["view_residuals"], strict=True)
+        },
+        view_uncertainties={
+            v: round(float(u_val), 8) for v, u_val in zip(v_labels, diag["view_uncertainties"], strict=True)
+        },
         risk_aversion=risk_aversion,
         tau=tau,
         turnover_vs_prior=round(turnover, 6),

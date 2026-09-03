@@ -1,4 +1,5 @@
 """Gate A slice A2 — six EDA tests and two compatible preprocessing extensions."""
+
 from __future__ import annotations
 
 import math
@@ -81,9 +82,14 @@ def test_descriptive_skips_when_no_numeric_features():
 def test_correlation_recovers_known_structure():
     rng = np.random.default_rng(1)
     a = rng.normal(size=800)
-    df = pd.DataFrame({"a": a, "pos": a * 2 + rng.normal(scale=0.05, size=800),
-                       "neg": -a * 2 + rng.normal(scale=0.05, size=800),
-                       "indep": rng.normal(size=800)})
+    df = pd.DataFrame(
+        {
+            "a": a,
+            "pos": a * 2 + rng.normal(scale=0.05, size=800),
+            "neg": -a * 2 + rng.normal(scale=0.05, size=800),
+            "indep": rng.normal(size=800),
+        }
+    )
     r = correlation(_ctx(df))
     assert r.metrics["max_abs_correlation"] > 0.95
     # The strongest pair may legitimately be the negative one; magnitude is what ranks.
@@ -143,8 +149,7 @@ def test_vif_near_one_for_independent_features():
 def test_vif_rises_with_correlation():
     rng = np.random.default_rng(4)
     a = rng.normal(size=600)
-    df = pd.DataFrame({"a": a, "b": a * 0.98 + rng.normal(scale=0.2, size=600),
-                       "c": rng.normal(size=600)})
+    df = pd.DataFrame({"a": a, "b": a * 0.98 + rng.normal(scale=0.2, size=600), "c": rng.normal(size=600)})
     r = multicollinearity(_ctx(df))
     assert r.metrics["max_vif"] > 5.0
 
@@ -162,8 +167,7 @@ def test_perfect_collinearity_does_not_poison_the_finite_maximum():
     """max_vif = inf would hide how many features are actually affected."""
     rng = np.random.default_rng(6)
     a = rng.normal(size=400)
-    df = pd.DataFrame({"a": a, "double": a * 2.0, "c": rng.normal(size=400),
-                       "d": rng.normal(size=400)})
+    df = pd.DataFrame({"a": a, "double": a * 2.0, "c": rng.normal(size=400), "d": rng.normal(size=400)})
     r = multicollinearity(_ctx(df))
     assert math.isfinite(r.metrics["max_vif"])
 
@@ -230,14 +234,14 @@ def test_categorical_reports_structure():
     r = categorical_distribution(_ctx(df))
     assert r.metrics["c.n_unique"] == 3
     assert abs(r.metrics["c.mode_share_pct"] - 90.0) < 1e-6
-    assert r.metrics["c.n_rare_levels"] == 1        # C at 0.5% < rare_pct 1.0
+    assert r.metrics["c.n_rare_levels"] == 1  # C at 0.5% < rare_pct 1.0
     assert r.metrics["c.entropy"] > 0
 
 
 def test_categorical_rare_boundary_is_strict():
     """A level sitting exactly on the threshold is not rare. Strict `<` is documented
     because implementations differ and the choice changes the count."""
-    df = pd.DataFrame({"c": ["A"] * 99 + ["B"]})       # B is exactly 1.0%
+    df = pd.DataFrame({"c": ["A"] * 99 + ["B"]})  # B is exactly 1.0%
     assert categorical_distribution(_ctx(df), rare_pct=1.0).metrics["c.n_rare_levels"] == 0
     assert categorical_distribution(_ctx(df), rare_pct=1.01).metrics["c.n_rare_levels"] == 1
 
@@ -353,8 +357,7 @@ def test_outliers_boxplot_is_opt_in():
 
 def test_outliers_numeric_evidence_is_identical_with_and_without_the_figure(tmp_path):
     legacy = outliers(_ctx(_outlier_frame()))
-    with_fig = outliers(_ctx(_outlier_frame(), extra={"output_dir": str(tmp_path)}),
-                        emit_boxplot=True)
+    with_fig = outliers(_ctx(_outlier_frame(), extra={"output_dir": str(tmp_path)}), emit_boxplot=True)
     assert legacy.metrics == with_fig.metrics
     assert legacy.status == with_fig.status
 

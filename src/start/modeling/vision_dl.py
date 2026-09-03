@@ -72,12 +72,13 @@ class VisionCNNClassifier:
         if X.ndim == 2:
             n_samples, n_features = X.shape
             from start.modeling.vision_models import _PRESET_CONFIG
+
             n_blocks = 2
             if self.architecture in _PRESET_CONFIG:
                 n_blocks = _PRESET_CONFIG[self.architecture].get("n_blocks", 2)
             elif self.config:
                 n_blocks = self.config.n_blocks
-            min_size = 2 ** n_blocks
+            min_size = 2**n_blocks
             image_size = max(min_size, int(np.ceil(np.sqrt(n_features))))
             padded_features = image_size * image_size
             if n_features < padded_features:
@@ -118,8 +119,11 @@ class VisionCNNClassifier:
         opt = torch.optim.Adam(self._net.parameters(), lr=self.learning_rate)
         if self.class_weight == "balanced":
             from sklearn.utils.class_weight import compute_class_weight
+
             weights = compute_class_weight("balanced", classes=self.classes_, y=y_arr)
-            loss_fn = torch.nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
+            loss_fn = torch.nn.CrossEntropyLoss(
+                weight=torch.tensor(weights, dtype=torch.float32, device=device)
+            )
         else:
             loss_fn = torch.nn.CrossEntropyLoss()
         self.history_ = {"train_loss": [], "val_loss": []}
@@ -166,12 +170,13 @@ class VisionCNNClassifier:
         if X.ndim == 2:
             n_samples, n_features = X.shape
             from start.modeling.vision_models import _PRESET_CONFIG
+
             n_blocks = 2
             if self.architecture in _PRESET_CONFIG:
                 n_blocks = _PRESET_CONFIG[self.architecture].get("n_blocks", 2)
             elif self.config:
                 n_blocks = self.config.n_blocks
-            min_size = 2 ** n_blocks
+            min_size = 2**n_blocks
             image_size = max(min_size, int(np.ceil(np.sqrt(n_features))))
             padded_features = image_size * image_size
             if n_features < padded_features:

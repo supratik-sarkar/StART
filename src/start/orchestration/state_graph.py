@@ -105,7 +105,9 @@ def build_canonical_review_graph(
                 "stage": "EXECUTION",
                 "errors": [],
                 "retry_count": state.get("retry_count", 0) + 1,
-                "step_history": [{"node": "execute_tools", "timestamp": time.time(), "status": "RETRY_SUCCESS"}],
+                "step_history": [
+                    {"node": "execute_tools", "timestamp": time.time(), "status": "RETRY_SUCCESS"}
+                ],
             }
         return {
             "current_node": "execute_tools",

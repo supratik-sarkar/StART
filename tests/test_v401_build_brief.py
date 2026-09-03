@@ -76,6 +76,7 @@ def test_status_enum_backward_compatibility(tmp_path: Path):
     assert ledger_reload.verify() is True
 
     from start.attestation import replay_ledger
+
     replay_verdict = replay_ledger(ledger_path)
     assert replay_verdict.intact is True
 

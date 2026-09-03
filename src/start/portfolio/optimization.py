@@ -225,7 +225,7 @@ def trace_efficient_frontier(
             sh_t = (float(t_ret) - rf_periodic) / vol_t if vol_t > 1e-12 else None
             points.append(
                 FrontierPoint(
-                    label=f"Frontier ({float(t_ret)*ppy:.2%})",
+                    label=f"Frontier ({float(t_ret) * ppy:.2%})",
                     target_return=round(float(t_ret), 10),
                     expected_return_annualised=round(float(t_ret) * ppy, 8),
                     volatility_annualised=round(vol_t * math.sqrt(ppy), 8),

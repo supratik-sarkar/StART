@@ -38,9 +38,7 @@ def _configure_single_provider(
     has_existing = keys_module.keychain_has_key(provider)
 
     if has_existing:
-        console.print(
-            f"\n[bold]{prov_display}[/bold] credential already configured in macOS Keychain."
-        )
+        console.print(f"\n[bold]{prov_display}[/bold] credential already configured in macOS Keychain.")
         console.print("  [1] Keep existing (default)")
         console.print("  [2] Replace credential")
         console.print("  [3] Delete credential")
@@ -176,7 +174,7 @@ def delete_cmd(
     provider: str = typer.Argument(
         None,
         help="Provider to delete: openai | anthropic | gemini | deepseek | grok | all",
-    )
+    ),
 ) -> None:
     """Delete a stored provider credential from macOS Keychain."""
     if not keys_module.keychain_is_supported():

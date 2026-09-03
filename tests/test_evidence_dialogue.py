@@ -19,37 +19,32 @@ def _store_with_data():
 
 # -- the core anti-hallucination requirement --------------------------------- #
 def test_outlier_question_returns_real_values():
-    ea = answer_from_evidence("Show top 10 variables with highest outlier burden",
-                              _store_with_data())
+    ea = answer_from_evidence("Show top 10 variables with highest outlier burden", _store_with_data())
     assert ea is not None and ea.grounded is True
     assert "area_error" in ea.answer  # a real column, retrieved from evidence
 
 
 def test_missing_evidence_triggers_explicit_refusal():
     # no missingness exists -> must refuse, not fabricate
-    ea = answer_from_evidence("Which 5 features have the most missing values?",
-                              _store_with_data())
+    ea = answer_from_evidence("Which 5 features have the most missing values?", _store_with_data())
     assert ea is not None and ea.refused is True
     assert INSUFFICIENT in ea.answer
 
 
 def test_importance_without_model_refuses():
-    ea = answer_from_evidence("List the top 10 most important features",
-                              _store_with_data())
+    ea = answer_from_evidence("List the top 10 most important features", _store_with_data())
     assert ea.refused is True
     assert INSUFFICIENT in ea.answer
 
 
 def test_sensitivity_without_run_refuses():
-    ea = answer_from_evidence("What is the maximum drift in sensitivity?",
-                              _store_with_data())
+    ea = answer_from_evidence("What is the maximum drift in sensitivity?", _store_with_data())
     assert ea.refused is True
 
 
 def test_empty_store_refuses_everything_diagnostic():
     empty = EvidenceStore()
-    for q in ("top outliers", "feature importance", "correlation pairs",
-              "missing values", "auc by split"):
+    for q in ("top outliers", "feature importance", "correlation pairs", "missing values", "auc by split"):
         ea = answer_from_evidence(q, empty)
         assert ea is not None and ea.refused is True
 

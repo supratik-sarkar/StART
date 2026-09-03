@@ -48,20 +48,28 @@ def render_run_header(
         shape_str = str(dataset_shape)
 
     table.add_row(
-        "Review ID", f"[bold white]{review_id}[/bold white]",
-        "Runtime Profile", f"[bold green]{profile}[/bold green]",
+        "Review ID",
+        f"[bold white]{review_id}[/bold white]",
+        "Runtime Profile",
+        f"[bold green]{profile}[/bold green]",
     )
     table.add_row(
-        "Target Column", f"[yellow]{target or 'inferred'}[/yellow]",
-        "Disclosure Policy", f"[blue]{policy_id}[/blue]",
+        "Target Column",
+        f"[yellow]{target or 'inferred'}[/yellow]",
+        "Disclosure Policy",
+        f"[blue]{policy_id}[/blue]",
     )
     table.add_row(
-        "Task Type", f"{task_type or 'binary_classification'}",
-        "Random Seed", f"{seed}",
+        "Task Type",
+        f"{task_type or 'binary_classification'}",
+        "Random Seed",
+        f"{seed}",
     )
     table.add_row(
-        "Agent Mode", f"{mode} ({provider})",
-        "Dataset Shape", shape_str,
+        "Agent Mode",
+        f"{mode} ({provider})",
+        "Dataset Shape",
+        shape_str,
     )
 
     return Panel(
@@ -270,7 +278,7 @@ def render_seal_panel(seal: Any, critic_verdict: str = "PASSED") -> Panel:
     summary.add_row(f"[bold white]Merkle Root:[/bold white] [bold cyan]{root_str}[/bold cyan]")
     short_seal = f"{seal_str[:60]}…" if len(seal_str) > 60 else seal_str
     summary.add_row(f"[bold white]Seal String:[/bold white] [bold green]{short_seal}[/bold green]")
-    
+
     # Critic verdict display (advisory in v4.0.2 per Amendment 1)
     if critic_verdict in ("PASSED", "passed", "ok"):
         crit_text = "[bold green]PASSED ✓[/bold green]"

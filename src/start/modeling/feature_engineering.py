@@ -147,8 +147,7 @@ class FeatureEngineeringAgent:
         text_cols = [
             c
             for c in train.columns
-            if c != target_column
-            and (train[c].dtype == object or pd.api.types.is_string_dtype(train[c]))
+            if c != target_column and (train[c].dtype == object or pd.api.types.is_string_dtype(train[c]))
         ]
         lengths = []
         for c in text_cols:
@@ -181,12 +180,9 @@ class FeatureEngineeringAgent:
             metrics=metrics,
             thresholds=thresholds,
             interpretation=(
-                f"{diag.modality} diagnostics. " + " ".join(diag.notes)
-                + (
-                    f" Possible leakage: {', '.join(diag.leakage_suspects)}."
-                    if diag.leakage_suspects
-                    else ""
-                )
+                f"{diag.modality} diagnostics. "
+                + " ".join(diag.notes)
+                + (f" Possible leakage: {', '.join(diag.leakage_suspects)}." if diag.leakage_suspects else "")
             ),
             limitations=[
                 "Diagnostics flag preprocessing needs; transforms are applied transparently downstream.",

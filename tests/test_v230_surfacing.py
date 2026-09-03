@@ -14,10 +14,18 @@ from start.interactive_review import ReviewConfig, run_interactive_review  # noq
 def _run():
     out_root = tempfile.mkdtemp()
     cfg = ReviewConfig(
-        data_path=None, target="attrition", architecture_family="mlp",
-        activation="relu", agent_mode="deterministic", llm_provider="none",
-        run_dl=True, enterprise_mode=True, costlier_errors="false_negatives",
-        non_interactive=True, accept_recommendations=True, output_root=out_root,
+        data_path=None,
+        target="attrition",
+        architecture_family="mlp",
+        activation="relu",
+        agent_mode="deterministic",
+        llm_provider="none",
+        run_dl=True,
+        enterprise_mode=True,
+        costlier_errors="false_negatives",
+        non_interactive=True,
+        accept_recommendations=True,
+        output_root=out_root,
         seed=0,
     )
     out = run_interactive_review(cfg)

@@ -9,6 +9,7 @@ So no new parameter-management framework is built. These tests verify the existi
 mechanism genuinely reaches the Gate-A surfaces, which is the difference between a
 control that is documented and a control that works.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -42,8 +43,7 @@ REVIEWER_CONTROLS: dict[str, tuple[str, ...]] = {
 }
 
 #: Never reviewer policy. Correctness machinery.
-NOT_REVIEWER_CONTROLS: tuple[str, ...] = ("atol", "rtol", "STATE_HASH_DECIMALS",
-                                          "STATE_ATOL", "decimals")
+NOT_REVIEWER_CONTROLS: tuple[str, ...] = ("atol", "rtol", "STATE_HASH_DECIMALS", "STATE_ATOL", "decimals")
 
 
 def _specs():
@@ -58,9 +58,7 @@ def test_a_generic_override_mechanism_already_exists():
 
 
 def test_overrides_accept_gate_a_test_ids():
-    config = TestFamiliesConfig(
-        overrides={"preprocessing.outliers": {"iqr_multiplier": 3.0}}
-    )
+    config = TestFamiliesConfig(overrides={"preprocessing.outliers": {"iqr_multiplier": 3.0}})
     assert config.overrides["preprocessing.outliers"]["iqr_multiplier"] == 3.0
 
 

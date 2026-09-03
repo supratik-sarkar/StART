@@ -146,11 +146,11 @@ def _render_coverage(report: dict) -> str:
         )
         for row in framework["expectations"]:
             mark = "x" if row["covered"] else "."
-            lines.append(f"  [{mark}] {row['expectation_id']:<28} missing: "
-                         f"{', '.join(row['missing']) or '-'}")
+            lines.append(
+                f"  [{mark}] {row['expectation_id']:<28} missing: {', '.join(row['missing']) or '-'}"
+            )
     if report["unmapped_frameworks"]:
-        lines.append(f"\nunmapped (coverage not claimed): "
-                     f"{', '.join(report['unmapped_frameworks'])}")
+        lines.append(f"\nunmapped (coverage not claimed): {', '.join(report['unmapped_frameworks'])}")
     lines.append(f"\n{report['caveat']}")
     return "\n".join(lines)
 

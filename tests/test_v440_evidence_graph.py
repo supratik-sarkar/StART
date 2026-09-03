@@ -15,7 +15,9 @@ from start.evidence.graph import (
 )
 
 
-def _make_dummy_evidence(test_id: str, name: str, metrics: dict, status: Status = Status.PASS) -> EvidenceRecord:
+def _make_dummy_evidence(
+    test_id: str, name: str, metrics: dict, status: Status = Status.PASS
+) -> EvidenceRecord:
     return EvidenceRecord(
         test_id=test_id,
         test_name=name,

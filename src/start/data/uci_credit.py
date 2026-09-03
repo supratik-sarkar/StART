@@ -79,8 +79,13 @@ def fetch_or_load_german_credit(*, force_download: bool = False) -> pd.DataFrame
             df = pd.DataFrame(rows, columns=GERMAN_CREDIT_COLUMNS)
             # Convert numeric columns
             numeric_cols = [
-                "duration_months", "credit_amount", "installment_rate",
-                "residence_years", "age_years", "existing_credits", "liable_people",
+                "duration_months",
+                "credit_amount",
+                "installment_rate",
+                "residence_years",
+                "age_years",
+                "existing_credits",
+                "liable_people",
             ]
             for col in numeric_cols:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -108,12 +113,8 @@ def _generate_synthetic_german_credit_fallback(seed: int = 42) -> pd.DataFrame:
     n_rows = 1000
     y = (rng.uniform(0, 1, size=n_rows) < 0.30).astype(int)
 
-    duration = np.clip(
-        rng.integers(6, 72, size=n_rows) + (y * rng.integers(6, 18, size=n_rows)), 6, 72
-    )
-    amount = np.clip(
-        rng.lognormal(mean=7.8, sigma=0.8, size=n_rows) + (y * 1500), 250, 20000
-    ).astype(int)
+    duration = np.clip(rng.integers(6, 72, size=n_rows) + (y * rng.integers(6, 18, size=n_rows)), 6, 72)
+    amount = np.clip(rng.lognormal(mean=7.8, sigma=0.8, size=n_rows) + (y * 1500), 250, 20000).astype(int)
     age = np.clip(rng.normal(loc=35, scale=11, size=n_rows) - (y * 3), 19, 75).astype(int)
 
     purpose_codes = ["A40", "A41", "A42", "A43", "A44", "A45", "A46", "A48", "A49", "A410"]

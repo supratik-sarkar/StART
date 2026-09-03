@@ -101,9 +101,13 @@ class ActionLog:
         output_artifact: str | None = None,
     ) -> AgentAction:
         entry = AgentAction(
-            agent=agent, input_reviewed=input_reviewed, action=action,
-            recommendation=recommendation, evidence_ids=evidence_ids or [],
-            user_decision=user_decision, output_artifact=output_artifact,
+            agent=agent,
+            input_reviewed=input_reviewed,
+            action=action,
+            recommendation=recommendation,
+            evidence_ids=evidence_ids or [],
+            user_decision=user_decision,
+            output_artifact=output_artifact,
         )
         self.actions.append(entry)
         return entry

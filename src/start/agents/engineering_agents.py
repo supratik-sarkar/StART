@@ -25,9 +25,7 @@ from typing import Any
 # ---------------------------------------------------------------------------- #
 # Metric priority routing
 # ---------------------------------------------------------------------------- #
-def select_primary_metric(
-    task_type: str, *, costlier_errors: str = "balanced"
-) -> dict[str, Any]:
+def select_primary_metric(task_type: str, *, costlier_errors: str = "balanced") -> dict[str, Any]:
     """Route task type + which errors are costlier to a primary metric.
 
     costlier_errors: 'false_negatives' | 'false_positives' | 'balanced' | 'recall' | 'precision' | 'f1'.

@@ -93,7 +93,7 @@ def solve_tracking_error_constrained(
         if objective_type == "min_active_variance":
             active_w = w - bw_arr
             return float(active_w @ sigma @ active_w)
-        return - float(active_ret)
+        return -float(active_ret)
 
     bounds: list[tuple[float | None, float | None]] = []
     for _i, a in enumerate(asset_names):
@@ -193,7 +193,9 @@ def solve_tracking_error_constrained(
     return TrackingErrorResult(
         weights={a: round(float(w_opt[i]), 8) for i, a in enumerate(asset_names)} if usable_solution else {},
         benchmark_weights={a: round(float(bw_arr[i]), 8) for i, a in enumerate(asset_names)},
-        active_weights={a: round(float(active_w[i]), 8) for i, a in enumerate(asset_names)} if usable_solution else {},
+        active_weights={a: round(float(active_w[i]), 8) for i, a in enumerate(asset_names)}
+        if usable_solution
+        else {},
         tracking_error_periodic=round(te_periodic, 8),
         tracking_error_annualised=round(te_annualised, 8),
         active_return_annualised=round(active_ret_ann, 8) if active_ret_ann is not None else None,

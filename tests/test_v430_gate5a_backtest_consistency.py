@@ -41,6 +41,7 @@ from start.portfolio.tail_risk import (
 # 1. EXCEPTION COUNT & RATE INVARIANTS
 # =========================================================================== #
 
+
 def test_exception_count_and_rate_invariants() -> None:
     """Identity check: sum(I_t) == n_exceptions and rate == sum(I_t)/T across all outputs."""
     n_days = 250
@@ -85,6 +86,7 @@ def test_exception_count_and_rate_invariants() -> None:
 # 2. KUPIEC INDEPENDENT ANALYTICAL KNOWN-ANSWER TESTS
 # =========================================================================== #
 
+
 def test_kupiec_independent_analytical_known_answers() -> None:
     """Independently calculate Kupiec POF from defining likelihood ratio formula."""
 
@@ -121,6 +123,7 @@ def test_kupiec_independent_analytical_known_answers() -> None:
 # =========================================================================== #
 # 3. CHRISTOFFERSEN INDEPENDENCE TRANSITION CONTRACT & CONSECUTIVE-4
 # =========================================================================== #
+
 
 def test_christoffersen_transition_count_contract_and_consecutive_four() -> None:
     """Verify standard (T-1) transition contract and exact consecutive-4 Markov likelihoods."""
@@ -164,6 +167,7 @@ def test_christoffersen_transition_count_contract_and_consecutive_four() -> None
 # 4. CONDITIONAL COVERAGE EXACT ADDITIVE IDENTITY
 # =========================================================================== #
 
+
 def test_conditional_coverage_exact_additive_identity() -> None:
     """LR_cc == LR_uc + LR_ind must hold strictly on the same canonical sequence."""
     n_days = 250
@@ -197,6 +201,7 @@ def test_conditional_coverage_exact_additive_identity() -> None:
 # =========================================================================== #
 # 5. NEGATIVE SHOWCASE SCIENTIFIC TARGET
 # =========================================================================== #
+
 
 def test_negative_showcase_scientific_target() -> None:
     """Proof-carrying negative evidence: Kupiec DOES NOT REJECT, Christoffersen REJECTS."""
@@ -247,6 +252,7 @@ def test_negative_showcase_scientific_target() -> None:
 # 6. SHOWCASE MANIFEST VALUES SOURCED DIRECTLY FROM EVIDENCE
 # =========================================================================== #
 
+
 def test_showcase_manifest_values_match_evidence() -> None:
     """Verify that values in showcase manifest match the computed EvidenceRecords."""
     manifest_path = Path("start_output/gate5_showcase/manifest.json")
@@ -275,6 +281,7 @@ def test_showcase_manifest_values_match_evidence() -> None:
 # =========================================================================== #
 # 7. TRACEABLE PSD REPAIR PROVENANCE BEFORE GAUSSIAN SIMULATION
 # =========================================================================== #
+
 
 def test_psd_simulation_provenance_chain_traceability() -> None:
     """Verify explicit provenance chain: raw covariance -> PSD repair -> challenge diagnostic."""

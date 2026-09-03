@@ -225,7 +225,6 @@ def repair_psd_covariance(
         repaired = np.outer(stds, stds) * R_final
         repaired = (repaired + repaired.T) / 2.0
 
-
     repaired_min_eig = float(np.linalg.eigvalsh(repaired).min())
     frob_dist = float(np.linalg.norm(repaired - mat, "fro"))
     orig_frob = float(np.linalg.norm(mat, "fro"))
@@ -282,7 +281,9 @@ def compare_covariance_estimators(
             asset_names = tuple(f"A{i}" for i in range(ret_arr.shape[1]))
         ret_df = pd.DataFrame(ret_arr, columns=asset_names)
 
-    eff_estimators = tuple(estimators) if estimators is not None else ("empirical", "ledoit_wolf", "regularized_em")
+    eff_estimators = (
+        tuple(estimators) if estimators is not None else ("empirical", "ledoit_wolf", "regularized_em")
+    )
 
     cov_matrices: dict[str, np.ndarray] = {}
     diagnostics_by_estimator: dict[str, CovarianceDiagnostics] = {}

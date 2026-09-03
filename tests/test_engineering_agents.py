@@ -32,8 +32,12 @@ def test_multiclass_and_regression_metrics():
 # -- architecture review agent ----------------------------------------------- #
 def test_complex_arch_on_small_tabular_recommends_mlp():
     review = ArchitectureReviewAgent().review(
-        user_family="wide_deep", user_activation="gelu", modality="tabular",
-        n_samples=569, n_features=30, task_type="binary_classification",
+        user_family="wide_deep",
+        user_activation="gelu",
+        modality="tabular",
+        n_samples=569,
+        n_features=30,
+        task_type="binary_classification",
     )
     assert review.recommendation["family"] == "mlp"
     assert not review.agrees
@@ -43,8 +47,12 @@ def test_complex_arch_on_small_tabular_recommends_mlp():
 
 def test_appropriate_choice_agrees():
     review = ArchitectureReviewAgent().review(
-        user_family="mlp", user_activation="relu", modality="tabular",
-        n_samples=569, n_features=30, task_type="binary_classification",
+        user_family="mlp",
+        user_activation="relu",
+        modality="tabular",
+        n_samples=569,
+        n_features=30,
+        task_type="binary_classification",
     )
     assert review.agrees
     assert review.recommendation == review.user_choice
@@ -52,8 +60,12 @@ def test_appropriate_choice_agrees():
 
 def test_sequence_modality_recommends_recurrent():
     review = ArchitectureReviewAgent().review(
-        user_family="mlp", user_activation="relu", modality="sequence",
-        n_samples=2000, n_features=5, task_type="binary_classification",
+        user_family="mlp",
+        user_activation="relu",
+        modality="sequence",
+        n_samples=2000,
+        n_features=5,
+        task_type="binary_classification",
     )
     assert review.recommendation["family"] in ("lstm", "gru", "rnn", "bi_lstm")
     assert not review.agrees
@@ -61,28 +73,39 @@ def test_sequence_modality_recommends_recurrent():
 
 def test_vision_modality_recommends_cnn():
     review = ArchitectureReviewAgent().review(
-        user_family="mlp", user_activation="relu", modality="vision",
-        n_samples=1000, n_features=0, task_type="multiclass_classification",
+        user_family="mlp",
+        user_activation="relu",
+        modality="vision",
+        n_samples=1000,
+        n_features=0,
+        task_type="multiclass_classification",
     )
     assert review.recommendation["family"].startswith("simple_cnn")
 
 
 def test_large_dataset_keeps_complex_arch():
     review = ArchitectureReviewAgent().review(
-        user_family="wide_deep", user_activation="relu", modality="tabular",
-        n_samples=50000, n_features=40, task_type="binary_classification",
+        user_family="wide_deep",
+        user_activation="relu",
+        modality="tabular",
+        n_samples=50000,
+        n_features=40,
+        task_type="binary_classification",
     )
     assert review.agrees  # enough data to justify the larger model
 
 
 def test_review_to_dict_complete():
     review = ArchitectureReviewAgent().review(
-        user_family="residual_mlp", user_activation="selu", modality="tabular",
-        n_samples=300, n_features=10, task_type="binary_classification",
+        user_family="residual_mlp",
+        user_activation="selu",
+        modality="tabular",
+        n_samples=300,
+        n_features=10,
+        task_type="binary_classification",
     )
     d = review.to_dict()
-    for key in ("user_choice", "recommendation", "reason", "evidence_id",
-                "risk_if_ignored", "agrees"):
+    for key in ("user_choice", "recommendation", "reason", "evidence_id", "risk_if_ignored", "agrees"):
         assert key in d
 
 

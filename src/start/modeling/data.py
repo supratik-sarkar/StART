@@ -60,12 +60,10 @@ def three_way_split(
     if not np.isclose(sum(fracs), 1.0):
         raise ValueError(f"Split fractions must sum to 1.0, got {fracs}")
     train_frac, test_frac, oos_frac = fracs
-    
+
     stratify_y = df[target_column] if (stratify and target_column in df.columns) else None
-    train, rest = train_test_split(
-        df, test_size=test_frac + oos_frac, stratify=stratify_y, random_state=seed
-    )
-    
+    train, rest = train_test_split(df, test_size=test_frac + oos_frac, stratify=stratify_y, random_state=seed)
+
     stratify_rest = rest[target_column] if (stratify and target_column in rest.columns) else None
     test, oos = train_test_split(
         rest,
@@ -82,9 +80,7 @@ def three_way_split(
 
 def feature_columns(df: pd.DataFrame, target_column: str = TARGET_COLUMN) -> list[str]:
     return [
-        c
-        for c in df.select_dtypes(include=[np.number]).columns
-        if c not in {target_column, SCORE_COLUMN}
+        c for c in df.select_dtypes(include=[np.number]).columns if c not in {target_column, SCORE_COLUMN}
     ]
 
 
@@ -99,8 +95,12 @@ def load_preset_dataset(preset_key: str, seed: int = 42) -> pd.DataFrame:
         # Anomaly / Transaction Monitoring: Binary Classification (is_fraud)
         # Highly imbalanced, outliers, missing values
         X, y = make_classification(
-            n_samples=600, n_features=25, n_informative=15, n_redundant=5,
-            weights=[0.95, 0.05], random_state=seed
+            n_samples=600,
+            n_features=25,
+            n_informative=15,
+            n_redundant=5,
+            weights=[0.95, 0.05],
+            random_state=seed,
         )
         df = pd.DataFrame(X, columns=[f"feature_{i:02d}" for i in range(25)])
         df["is_fraud"] = y
@@ -132,14 +132,16 @@ def load_preset_dataset(preset_key: str, seed: int = 42) -> pd.DataFrame:
         outlier_indices = np.random.choice(n_samples, size=15, replace=False)
         target_val[outlier_indices] += np.random.choice([-100.0, 100.0], size=15)
 
-        df = pd.DataFrame({
-            "feature_trend": trend + np.random.randn(n_samples),
-            "feature_season": seasonality + np.random.randn(n_samples),
-            "feature_noise": np.random.randn(n_samples) * 2,
-            "feature_lag1": np.roll(target_val, 1),
-            "feature_lag2": np.roll(target_val, 2),
-            "target_value": target_val
-        })
+        df = pd.DataFrame(
+            {
+                "feature_trend": trend + np.random.randn(n_samples),
+                "feature_season": seasonality + np.random.randn(n_samples),
+                "feature_noise": np.random.randn(n_samples) * 2,
+                "feature_lag1": np.roll(target_val, 1),
+                "feature_lag2": np.roll(target_val, 2),
+                "target_value": target_val,
+            }
+        )
         # Handle rolled edge case
         df.iloc[0, df.columns.get_loc("feature_lag1")] = target_val[0]
         df.iloc[0, df.columns.get_loc("feature_lag2")] = target_val[0]
@@ -155,9 +157,7 @@ def load_preset_dataset(preset_key: str, seed: int = 42) -> pd.DataFrame:
     elif preset_key == "C":
         # Asset Pricing: Regression (adjusted_price)
         # Outliers, missing values
-        X, y = make_regression(
-            n_samples=600, n_features=20, n_informative=12, noise=10.0, random_state=seed
-        )
+        X, y = make_regression(n_samples=600, n_features=20, n_informative=12, noise=10.0, random_state=seed)
         # Scale target to resemble adjusted prices
         y = np.abs(y) * 1.5 + 50.0
         df = pd.DataFrame(X, columns=[f"feature_{i:02d}" for i in range(20)])
@@ -179,8 +179,13 @@ def load_preset_dataset(preset_key: str, seed: int = 42) -> pd.DataFrame:
         # ML Decision Support Model Data: Multiclass Classification (decision_label)
         # Classes: 0, 1, 2. Outliers, missing values
         X, y = make_classification(
-            n_samples=600, n_features=22, n_informative=12, n_redundant=4,
-            n_classes=3, n_clusters_per_class=1, random_state=seed
+            n_samples=600,
+            n_features=22,
+            n_informative=12,
+            n_redundant=4,
+            n_classes=3,
+            n_clusters_per_class=1,
+            random_state=seed,
         )
         df = pd.DataFrame(X, columns=[f"feature_{i:02d}" for i in range(22)])
         df["decision_label"] = y
@@ -203,4 +208,3 @@ def load_preset_dataset(preset_key: str, seed: int = 42) -> pd.DataFrame:
         from start.data.synthetic import generate_synthetic_transactions
 
         return generate_synthetic_transactions(n_rows=1000, prevalence=0.055, n_features=25, seed=seed)
-

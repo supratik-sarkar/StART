@@ -1,4 +1,5 @@
 """B2 — synthetic market generator and its ground truth."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -24,9 +25,17 @@ def _world(**kw):
 # ------------------------------------------------------------ structure ==
 def test_world_has_all_required_outputs():
     w = _world()
-    for attribute in ("returns", "prices", "factor_returns", "factor_exposures",
-                      "weights", "benchmark_weights", "pnl", "hypothetical_pnl",
-                      "var_series"):
+    for attribute in (
+        "returns",
+        "prices",
+        "factor_returns",
+        "factor_exposures",
+        "weights",
+        "benchmark_weights",
+        "pnl",
+        "hypothetical_pnl",
+        "var_series",
+    ):
         assert getattr(w, attribute) is not None
 
 
@@ -92,8 +101,7 @@ def test_actual_and_hypothetical_pnl_are_distinct():
 
 def test_hypothetical_pnl_is_exactly_the_weighted_return():
     w = _world()
-    assert np.allclose(w.hypothetical_pnl.to_numpy(),
-                       (w.returns @ w.weights).to_numpy(), atol=1e-15)
+    assert np.allclose(w.hypothetical_pnl.to_numpy(), (w.returns @ w.weights).to_numpy(), atol=1e-15)
 
 
 # ---------------------------------------------------------- determinism ==
@@ -157,6 +165,7 @@ def test_fat_tails_preserves_the_second_moment():
     normal = _world(n_periods=2000, seed=11)
     heavy = _world(n_periods=2000, seed=11, fat_tails=True)
     from scipy import stats as sp
+
     normal_k = float(sp.kurtosis(normal.factor_returns.iloc[:, 0]))
     heavy_k = float(sp.kurtosis(heavy.factor_returns.iloc[:, 0]))
     assert heavy_k > normal_k
@@ -194,6 +203,7 @@ def test_invalid_missing_mechanism_is_rejected():
 def test_var_series_uses_the_true_generating_quantile():
     w = _world(var_confidence=0.99)
     from scipy import stats as sp
+
     expected = -float(sp.norm.ppf(0.01)) * np.sqrt(w.true_portfolio_variance)
     assert abs(w.var_series.iloc[0] - expected) < 1e-12
 
@@ -264,8 +274,7 @@ def test_already_crossed_endpoints_return_certainty():
 
 def test_barrier_ground_truth_comes_from_a_finer_simulation():
     """Truth must not be the coarse estimate the test exists to critique."""
-    paths, truth = generate_barrier_paths(n_paths=100, n_steps=20, seed=6,
-                                          fine_steps_per_step=20)
+    paths, truth = generate_barrier_paths(n_paths=100, n_steps=20, seed=6, fine_steps_per_step=20)
     coarse_rate = float((paths.to_numpy() >= 115.0).any(axis=1).mean())
     assert 0.0 <= truth <= 1.0
     assert truth >= coarse_rate - 1e-12, "fine monitoring cannot detect fewer crossings"
@@ -291,5 +300,4 @@ def test_incomplete_context_carries_the_masked_returns():
 
 
 def test_market_context_fingerprint_tracks_the_seed():
-    assert _world(seed=1).market_context().fingerprint() != \
-           _world(seed=2).market_context().fingerprint()
+    assert _world(seed=1).market_context().fingerprint() != _world(seed=2).market_context().fingerprint()

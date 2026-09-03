@@ -111,9 +111,7 @@ class EvidenceLedger(EvidenceProvider):
         from start.core.schemas import EvidenceRecord, TestResult
 
         if isinstance(record, TestResult):
-            rec = EvidenceRecord.from_result(
-                record, run_id=run_id, enterprise_run_id=enterprise_run_id
-            )
+            rec = EvidenceRecord.from_result(record, run_id=run_id, enterprise_run_id=enterprise_run_id)
         elif isinstance(record, EvidenceRecord):
             rec = record
             if enterprise_run_id and not rec.enterprise_run_id:
@@ -174,12 +172,8 @@ class EvidenceLedger(EvidenceProvider):
 
     def records_for_run(self, run_id: str) -> list[EvidenceRecord]:
         """Return all records matching an enterprise_run_id or run_id."""
-        return [
-            r for r in self.records()
-            if r.enterprise_run_id == run_id or r.run_id == run_id
-        ]
+        return [r for r in self.records() if r.enterprise_run_id == run_id or r.run_id == run_id]
 
     def last_record_for_run(self, run_id: str) -> EvidenceRecord | None:
         matched = self.records_for_run(run_id)
         return matched[-1] if matched else None
-

@@ -117,9 +117,7 @@ def test_public_egress_override_is_recorded_not_silent() -> None:
 def test_manifest_hash_changes_when_the_regime_changes() -> None:
     """The seal must distinguish a contained review from an uncontained one."""
     contained = profile_manifest({"START_PROFILE": "enterprise"})
-    overridden = profile_manifest(
-        {"START_PROFILE": "enterprise", "START_ALLOW_PUBLIC_EGRESS": "1"}
-    )
+    overridden = profile_manifest({"START_PROFILE": "enterprise", "START_ALLOW_PUBLIC_EGRESS": "1"})
     assert contained["manifest_hash"] != overridden["manifest_hash"]
 
 

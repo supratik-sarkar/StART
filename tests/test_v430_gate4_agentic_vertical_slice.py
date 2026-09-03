@@ -56,22 +56,26 @@ def agentic_market_context() -> dict[str, Any]:
 
     # 1. Clean covariance
     stds = np.array([0.15, 0.20, 0.25, 0.30])
-    corr = np.array([
-        [1.00, 0.50, 0.30, 0.10],
-        [0.50, 1.00, 0.40, 0.20],
-        [0.30, 0.40, 1.00, 0.35],
-        [0.10, 0.20, 0.35, 1.00],
-    ])
+    corr = np.array(
+        [
+            [1.00, 0.50, 0.30, 0.10],
+            [0.50, 1.00, 0.40, 0.20],
+            [0.30, 0.40, 1.00, 0.35],
+            [0.10, 0.20, 0.35, 1.00],
+        ]
+    )
     cov = np.outer(stds, stds) * corr
     diag = diagnose_covariance(cov, assets=assets)
     ev_cov = covariance_diagnostics_to_evidence(diag)
 
     # 2. Indefinite covariance requiring explicit repair
-    indef_mat = np.array([
-        [1.00, 0.90, 0.90],
-        [0.90, 1.00, 0.90],
-        [0.90, 0.90, 0.10],
-    ])
+    indef_mat = np.array(
+        [
+            [1.00, 0.90, 0.90],
+            [0.90, 1.00, 0.90],
+            [0.90, 0.90, 0.10],
+        ]
+    )
     diag_indef = diagnose_covariance(indef_mat, assets=["A0", "A1", "A2"])
     ev_indef = covariance_diagnostics_to_evidence(diag_indef)
 

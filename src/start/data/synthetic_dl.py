@@ -134,7 +134,9 @@ def generate_dl_world(
     # 4. Real Multi-Seed Sensitivity & Perturbation Computation
     seed_aucs = [actual_auroc]
     for s_offset in (1, 2):
-        s_clf = TabularDLClassifier(epochs=5, batch_size=64, learning_rate=0.005, random_state=seed + s_offset)
+        s_clf = TabularDLClassifier(
+            epochs=5, batch_size=64, learning_rate=0.005, random_state=seed + s_offset
+        )
         s_clf.fit(train_df[feature_names], y_train)
         s_probs = s_clf.predict_proba(test_df[feature_names])[:, 1]
         seed_aucs.append(float(roc_auc_score(y_test, s_probs)))
@@ -186,15 +188,29 @@ def generate_dl_world(
     }
 
     # Model architecture metadata
-    n_params = sum(p.numel() for p in clf.model_.parameters()) if hasattr(clf, "model_") and clf.model_ else 2849
+    n_params = (
+        sum(p.numel() for p in clf.model_.parameters()) if hasattr(clf, "model_") and clf.model_ else 2849
+    )
     architecture_metadata = {
         "framework": "PyTorch 2.x",
         "family": "Tabular Residual MLP",
         "device": getattr(clf, "_device_used", "cpu"),
         "layers": [
             {"name": "input_norm", "dim": f"({n_features},)"},
-            {"name": "dense_01", "in_features": n_features, "out_features": 64, "activation": "SiLU", "dropout": 0.10},
-            {"name": "dense_02", "in_features": 64, "out_features": 32, "activation": "SiLU", "dropout": 0.10},
+            {
+                "name": "dense_01",
+                "in_features": n_features,
+                "out_features": 64,
+                "activation": "SiLU",
+                "dropout": 0.10,
+            },
+            {
+                "name": "dense_02",
+                "in_features": 64,
+                "out_features": 32,
+                "activation": "SiLU",
+                "dropout": 0.10,
+            },
             {"name": "head", "in_features": 32, "out_features": 1, "activation": "Sigmoid"},
         ],
         "trainable_parameters": n_params,
