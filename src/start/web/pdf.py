@@ -102,15 +102,22 @@ def generate_institutional_pdf(
             stream_lines.append(f"({_escape_pdf_text(row_str[:85])}) Tj")
             y_offset = -14
 
+    footer_text = _escape_pdf_text(
+        "StART v4.5 Certified Deterministic Attestation — Cryptographically Bound to Evidence Records"
+    )
     stream_lines.extend([
         "/F1 8 Tf",
         "0 -30 Td",
-        f"({_escape_pdf_text('StART v4.5 Certified Deterministic Attestation — Cryptographically Bound to Evidence Records')}) Tj",
+        f"({footer_text}) Tj",
         "ET",
     ])
 
     stream_data = "\n".join(stream_lines).encode("latin-1", errors="replace")
-    stream_obj_content = f"<< /Length {len(stream_data)} >>\nstream\n".encode("latin-1") + stream_data + b"\nendstream"
+    stream_obj_content = (
+        f"<< /Length {len(stream_data)} >>\nstream\n".encode("latin-1")
+        + stream_data
+        + b"\nendstream"
+    )
 
     # 1: Catalog
     add_object(f"<< /Type /Catalog /Pages {pages_id} 0 R >>")
@@ -119,7 +126,11 @@ def generate_institutional_pdf(
     # 3: Font
     add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     # 4: Page
-    add_object(f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 612 792] /Contents {content_id} 0 R /Resources << /Font << /F1 {font_id} 0 R >> >> >>")
+    page_dict = (
+        f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 612 792] "
+        f"/Contents {content_id} 0 R /Resources << /Font << /F1 {font_id} 0 R >> >> >>"
+    )
+    add_object(page_dict)
     # 5: Content Stream
     add_object(stream_obj_content)
 
@@ -141,7 +152,10 @@ def generate_institutional_pdf(
         buffer.write(f"{offset:010d} 00000 n \n".encode("latin-1"))
 
     # Trailer
-    trailer = f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\nstartxref\n{xref_start}\n%%EOF\n"
+    trailer = (
+        f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\n"
+        f"startxref\n{xref_start}\n%%EOF\n"
+    )
     buffer.write(trailer.encode("latin-1"))
 
     return buffer.getvalue()

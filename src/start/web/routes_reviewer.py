@@ -10,10 +10,10 @@ from fastapi import APIRouter, HTTPException
 
 from start.web.queue import GLOBAL_QUEUE
 from start.web.schemas import (
+    START_SCHEMA_VERSION,
     APIResponseEnvelope,
     HydratedFindingView,
     ReviewerHydrationResponse,
-    START_SCHEMA_VERSION,
     WebReviewerSubmission,
 )
 

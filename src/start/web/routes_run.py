@@ -3,25 +3,21 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import logging
 import time
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from start.web.pdf import generate_institutional_pdf
 from start.web.queue import GLOBAL_QUEUE
 from start.web.schemas import (
-    APIResponseEnvelope,
-    ReviewPresentationExport,
-    RunRequest,
-    RunStatusResponse,
     START_SCHEMA_VERSION,
+    APIResponseEnvelope,
+    RunRequest,
 )
 from start.web.security import sanitize_artifact_id, verify_turnstile_token
 from start.web.sse import sse_event_generator
@@ -36,15 +32,15 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         GLOBAL_QUEUE.mark_running(run_id)
 
         # Import canonical review executor and architecture models
-        from start.review.executor import run_unified_review
         from start.review.architecture import (
+            LLMReviewConfig,
             ReviewContextBundle,
             ReviewDomain,
+            ReviewGroundingMode,
             ReviewLifecycle,
             ReviewMode,
-            ReviewGroundingMode,
-            LLMReviewConfig,
         )
+        from start.review.executor import run_unified_review
 
         # Map domain
         if request.domain == "predictive":
@@ -98,7 +94,10 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 GLOBAL_QUEUE.append_event(run_id, evt.to_dict())
 
         # Serialize presentation model
-        pres_dict = presentation_model.to_dict() if presentation_model and hasattr(presentation_model, "to_dict") else {}
+        if presentation_model and hasattr(presentation_model, "to_dict"):
+            pres_dict = presentation_model.to_dict()
+        else:
+            pres_dict = {}
         if not pres_dict:
             pres_dict = {
                 "run_id": run_id,
@@ -238,7 +237,10 @@ def get_run_artifact(
     art = ctx.artifacts.get(clean_artifact_id)
     if not art:
         # Check if artifact matches by title or key in presentation
-        raise HTTPException(status_code=404, detail=f"Artifact '{clean_artifact_id}' not found for run '{run_id}'")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Artifact '{clean_artifact_id}' not found for run '{run_id}'",
+        )
 
     content = art.get("content", "")
     art_type = art.get("artifact_type", "svg")
@@ -249,8 +251,12 @@ def get_run_artifact(
         return JSONResponse(content=content if isinstance(content, dict) else json.loads(content))
     elif art_type == "html":
         # Sandboxed HTML: prevent same-origin script execution
+        csp_val = (
+            "sandbox allow-scripts; default-src 'none'; "
+            "style-src 'unsafe-inline'; script-src 'unsafe-inline';"
+        )
         headers = {
-            "Content-Security-Policy": "sandbox allow-scripts; default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';",
+            "Content-Security-Policy": csp_val,
             "X-Content-Type-Options": "nosniff",
         }
         return Response(content=content, media_type="text/html", headers=headers)

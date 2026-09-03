@@ -9,8 +9,8 @@ Configures:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -27,7 +27,9 @@ def create_app() -> FastAPI:
     """Create and configure the production StART FastAPI application."""
     app = FastAPI(
         title="StART — Standardized Agentic Reusable Tests Web API",
-        description="Deterministic model risk validation, institutional presentation, and WebLLM reviewer hydration.",
+        description=(
+            "Deterministic model risk validation, institutional presentation, and WebLLM reviewer hydration."
+        ),
         version="4.5.0",
         docs_url="/api/docs",
         redoc_url="/api/redoc",

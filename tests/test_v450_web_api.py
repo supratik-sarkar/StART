@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,11 +9,11 @@ from start.core.schemas import EvidenceRecord, Status
 from start.web.app import create_app
 from start.web.queue import GLOBAL_QUEUE
 from start.web.schemas import (
+    START_SCHEMA_VERSION,
+    START_VERSION,
     EvidenceMetricRef,
     QualitativeFinding,
     RunRequest,
-    START_SCHEMA_VERSION,
-    START_VERSION,
     WebReviewerSubmission,
 )
 from start.web.security import sanitize_artifact_id

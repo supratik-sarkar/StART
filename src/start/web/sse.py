@@ -11,10 +11,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from start.web.queue import GLOBAL_QUEUE, ActiveRunContext
-from start.web.schemas import SSEEnvelope, START_SCHEMA_VERSION
+from start.web.queue import GLOBAL_QUEUE
+from start.web.schemas import START_SCHEMA_VERSION, SSEEnvelope
 
 logger = logging.getLogger("start.web.sse")
 

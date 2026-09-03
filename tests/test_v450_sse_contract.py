@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 from start.web.app import create_app
 from start.web.queue import GLOBAL_QUEUE
-from start.web.schemas import RunRequest, SSEEnvelope, START_SCHEMA_VERSION
+from start.web.schemas import START_SCHEMA_VERSION, RunRequest
 
 
 @pytest.fixture

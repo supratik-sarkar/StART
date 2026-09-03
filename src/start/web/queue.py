@@ -14,7 +14,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from start.web.schemas import RunRequest, RunStatusResponse
 
@@ -153,7 +153,8 @@ class AnalyticalQueue:
         to_purge = []
         with self._lock:
             for run_id, ctx in self._runs.items():
-                if ctx.status in ("COMPLETED", "FAILED") and (now - (ctx.completed_at or ctx.created_at)) > self.session_ttl_seconds:
+                run_age = now - (ctx.completed_at or ctx.created_at)
+                if ctx.status in ("COMPLETED", "FAILED") and run_age > self.session_ttl_seconds:
                     to_purge.append(run_id)
             for r_id in to_purge:
                 del self._runs[r_id]

@@ -15,7 +15,8 @@ from __future__ import annotations
 import time
 import uuid
 from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict, Field
+
+from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "4.5.0"
 START_VERSION: str = "4.5.0"
@@ -32,8 +33,16 @@ class SystemInfo(BaseModel):
     compute_runtime: str = "local"  # "local" | "oracle_a1_arm64"
     max_concurrency: int = 1
     engine_status: Literal["READY", "BUSY", "MAINTENANCE"] = "READY"
-    supported_domains: list[str] = Field(default_factory=lambda: ["market", "predictive", "deep_learning"])
-    synthetic_profiles: list[str] = Field(default_factory=lambda: ["institutional_market_v1", "institutional_credit_v1", "deep_learning_v1"])
+    supported_domains: list[str] = Field(
+        default_factory=lambda: ["market", "predictive", "deep_learning"]
+    )
+    synthetic_profiles: list[str] = Field(
+        default_factory=lambda: [
+            "institutional_market_v1",
+            "institutional_credit_v1",
+            "deep_learning_v1",
+        ]
+    )
 
 
 class APIResponseEnvelope(BaseModel):
@@ -52,7 +61,9 @@ class SSEEnvelope(BaseModel):
     sequence: int = 0
     run_id: str
     timestamp: float = Field(default_factory=time.time)
-    event_type: str = "agent_transition"  # agent_transition | tool_execution | policy_decision | evidence_commit | artifact_generate | governance_seal
+    # event_type: agent_transition | tool_execution | policy_decision
+    #             evidence_commit | artifact_generate | governance_seal
+    event_type: str = "agent_transition"
     schema_version: str = START_SCHEMA_VERSION
     source_agent: str = "Director"
     target_agent: str = "DeterministicEngine"

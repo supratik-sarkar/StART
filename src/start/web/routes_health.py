@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
+
 from fastapi import APIRouter
+
 from start.web.schemas import (
+    START_SCHEMA_VERSION,
+    START_VERSION,
     APIResponseEnvelope,
     SystemInfo,
     ZeroCostAttestation,
-    START_SCHEMA_VERSION,
-    START_VERSION,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
@@ -66,7 +68,10 @@ def list_synthetic_profiles() -> APIResponseEnvelope:
             "name": "Institutional Market Risk & Portfolio Optimization",
             "domain": "market",
             "version": "1.0.0",
-            "description": "Multi-asset portfolio with equity indices, volatility surface, and historical shock scenarios.",
+            "description": (
+                "Multi-asset portfolio with equity indices, volatility surface, "
+                "and historical shock scenarios."
+            ),
             "seed": 42,
         },
         {
@@ -74,7 +79,10 @@ def list_synthetic_profiles() -> APIResponseEnvelope:
             "name": "Institutional Credit & Propensity Risk",
             "domain": "predictive",
             "version": "1.0.0",
-            "description": "Tabular credit risk benchmark with class imbalance, protected attributes, and SHAP explainability.",
+            "description": (
+                "Tabular credit risk benchmark with class imbalance, protected attributes, "
+                "and SHAP explainability."
+            ),
             "seed": 42,
         },
         {
@@ -82,7 +90,9 @@ def list_synthetic_profiles() -> APIResponseEnvelope:
             "name": "Deep Learning & PyTorch Architecture Inspection",
             "domain": "deep_learning",
             "version": "1.0.0",
-            "description": "Deep neural model with gradient norms, weight spectra, and Captum integrated gradients.",
+            "description": (
+                "Deep neural model with gradient norms, weight spectra, and Captum integrated gradients."
+            ),
             "seed": 42,
         },
     ]

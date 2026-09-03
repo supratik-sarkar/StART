@@ -11,14 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import os
 import re
 import time
-from typing import Any
-import urllib.request
 import urllib.parse
-import json
+import urllib.request
 
 logger = logging.getLogger("start.web.security")
 
@@ -41,7 +40,7 @@ def verify_origin_hmac(
     In development mode or when no origin secret is enforced, requests pass.
     In production mode with START_REQUIRE_ORIGIN_AUTH=true, valid HMAC is mandatory.
     """
-    if not os.environ.get("START_REQUIRE_ORIGIN_AUTH", "false").lower() in ("true", "1"):
+    if os.environ.get("START_REQUIRE_ORIGIN_AUTH", "false").lower() not in ("true", "1"):
         return True
 
     if not signature or not timestamp_str or not nonce:
