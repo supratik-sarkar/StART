@@ -30,7 +30,7 @@ def create_app() -> FastAPI:
         description=(
             "Deterministic model risk validation, institutional presentation, and WebLLM reviewer hydration."
         ),
-        version="4.5.0",
+        version="4.5.2",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
@@ -77,7 +77,7 @@ def create_app() -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
-        response.headers["X-StART-Schema-Version"] = "4.5.0"
+        response.headers["X-StART-Schema-Version"] = "4.5.2"
 
         # Content Security Policy (allows WebAssembly & WebGPU compilation for WebLLM)
         csp = (

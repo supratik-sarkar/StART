@@ -18,8 +18,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-START_SCHEMA_VERSION: str = "4.5.1"
-START_VERSION: str = "4.5.1"
+START_SCHEMA_VERSION: str = "4.5.2"
+START_VERSION: str = "4.5.2"
 
 
 # --------------------------------------------------------------------------- #

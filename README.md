@@ -56,8 +56,9 @@ The **StART v4.5 Institutional Workstation** delivers an evidence-native interfa
   - **Server-Side Hydration Protocol**: The browser LLM only cites Evidence IDs (`[EV-xxxx]`); the backend server rejects any client-supplied numbers, hydrates exact numerical metrics directly from immutable `EvidenceRecord`s, evaluates authentic **OPA** Rego policies, and generates the final Merkle attestation root.
 
 * **Zero-Cost Production Deployment ($0.00 / month)**:
-  - **Cloudflare Free Edge**: Static assets cached on Cloudflare Free CDN; dynamic `/api/*` requests authenticated with HMAC signatures.
-  - **Oracle Cloud Always Free ARM64**: Backend runs on `VM.Standard.A1.Flex` (2 OCPU / 12 GB RAM) with single-slot concurrency governance and deterministic in-memory execution.
+  - **Primary Public Workstation**: [https://start-mrt-gateway.sapman.workers.dev](https://start-mrt-gateway.sapman.workers.dev)
+  - **Hugging Face Static Mirror**: [https://huggingface.co/spaces/sapman/start-mrt](https://huggingface.co/spaces/sapman/start-mrt) (Direct: [https://sapman-start-mrt.hf.space](https://sapman-start-mrt.hf.space))
+  - **Oracle Cloud ARM64 Origin**: `https://137.23.61.219.sslip.io` (`VM.Standard.A1.Flex` Always Free, Let's Encrypt TLS, HMAC origin authentication)
 
 ---
 

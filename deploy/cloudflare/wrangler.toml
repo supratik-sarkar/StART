@@ -1,6 +1,7 @@
 name = "start-mrt-gateway"
 main = "worker.js"
 compatibility_date = "2024-09-01"
+account_id = "ce0ed251afb1110fd68281f824baceea"
 
 # Route static assets directly to Cloudflare Static Assets (bypasses worker execution to preserve free-tier quota)
 [assets]
@@ -9,5 +10,6 @@ binding = "ASSETS"
 
 # Environment variables
 [vars]
-ORACLE_ORIGIN_URL = "https://oracle-origin.start-mrt.org"
+ORACLE_ORIGIN_URL = "https://137.23.61.219.sslip.io"
+START_ORIGIN_SECRET = "start-v452-production-origin-hmac-secret-mumbai"
 ENVIRONMENT = "production"
