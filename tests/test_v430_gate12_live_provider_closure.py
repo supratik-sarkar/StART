@@ -343,6 +343,7 @@ def test_format_safe_provider_diagnostic_no_secrets():
 # =========================================================================== #
 def test_full_production_question_path_success(monkeypatch):
     """Full question path: checkpoint -> [Q] -> real OpenAIProvider method -> mock SDK -> grounding -> completed."""
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-mock-production-key")
 
     mock_resp = make_mock_response(
@@ -414,6 +415,7 @@ def test_full_production_question_path_success(monkeypatch):
 
 def test_full_production_question_path_incomplete_gpt5_diagnostic(monkeypatch):
     """Full question path with incomplete GPT-5: surfaces INCOMPLETE_PROVIDER_RESPONSE and diagnostic metadata."""
+    monkeypatch.setenv("START_PROFILE", "public_demo")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-mock-production-key")
 
     mock_resp = make_mock_response(
