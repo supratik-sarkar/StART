@@ -28,7 +28,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="StART — Browser-Native Agentic Engineering Workbench Web API",
         description=(
-            "Deterministic ML/DL & quantitative engineering workbench, live SSE streaming, and WebLLM reviewer hydration."
+            "Deterministic ML/DL & quantitative engineering workbench, "
+            "live SSE streaming, and WebLLM reviewer hydration."
         ),
         version="4.6.0",
         docs_url="/api/docs",

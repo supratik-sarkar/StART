@@ -45,8 +45,16 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         from start.review.executor import run_unified_review
 
         # 1. Map domain and technology
-        is_dl = request.domain == "deep_learning" or request.synthetic_profile == "deep_learning_v1" or request.workflow == "deep_learning"
-        is_market = request.domain == "market" or request.synthetic_profile == "institutional_market_v1" or request.workflow == "quantitative_finance"
+        is_dl = (
+            request.domain == "deep_learning"
+            or request.synthetic_profile == "deep_learning_v1"
+            or request.workflow == "deep_learning"
+        )
+        is_market = (
+            request.domain == "market"
+            or request.synthetic_profile == "institutional_market_v1"
+            or request.workflow == "quantitative_finance"
+        )
 
         seed = request.seed or 42
 
@@ -186,7 +194,10 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 artifacts_dict = presentation_model["artifacts"]
 
         tracer = res.get("tracer")
-        events = [e.to_dict() if hasattr(e, "to_dict") else e for e in tracer.events] if tracer else res.get("orchestration_events", [])
+        if tracer:
+            events = [e.to_dict() if hasattr(e, "to_dict") else e for e in tracer.events]
+        else:
+            events = res.get("orchestration_events", [])
 
         # Emit Step 3 & 4: Analytical Surfaces & Governance
         GLOBAL_QUEUE.append_event(
@@ -208,7 +219,9 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 "total": 5,
                 "percent": 85.0,
                 "elapsed_seconds": round(time.time() - start_time, 2),
-                "message": f"Computed {len(records)} deterministic evidence surfaces and statistical checkpoints",
+                "message": (
+                    f"Computed {len(records)} deterministic evidence surfaces and statistical checkpoints"
+                ),
             },
         )
 
@@ -288,7 +301,9 @@ async def start_run(
             status_code=400,
             content={
                 "success": False,
-                "error": "Turnstile challenge verification failed. Please complete the verification challenge.",
+                "error": (
+                    "Turnstile challenge verification failed. Please complete the verification challenge."
+                ),
                 "error_code": "TURNSTILE_FAILED",
                 "data": {},
             },
