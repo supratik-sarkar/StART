@@ -22,17 +22,13 @@ Product-Truth Closure Acceptance Gates:
 18. PRIVACY: Clean zero-leak scan
 """
 
-import hashlib
-import hmac
 import json
-import os
 import socket
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -89,12 +85,6 @@ def main():
 
     results = {}
     timestamp = time.time()
-
-    # Load secrets
-    with open("/tmp/rotated_hmac_secret.txt") as f:
-        rotated_hmac_secret = f.read().strip()
-    with open("/tmp/turnstile_secret.txt") as f:
-        turnstile_secret = f.read().strip()
 
     # -------------------------------------------------------------------------
     # Gate 1: PUBLIC_RELEASE_PARITY
