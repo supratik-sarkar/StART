@@ -18,8 +18,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-START_SCHEMA_VERSION: str = "4.5.3"
-START_VERSION: str = "4.5.3"
+START_SCHEMA_VERSION: str = "4.6.0"
+START_VERSION: str = "4.6.0"
 
 
 # --------------------------------------------------------------------------- #
@@ -28,17 +28,17 @@ START_VERSION: str = "4.5.3"
 class SystemInfo(BaseModel):
     start_version: str = START_VERSION
     start_schema_version: str = START_SCHEMA_VERSION
-    backend_build_version: str = "4.5.0-arm64-prod"
+    backend_build_version: str = "4.6.0-arm64-prod"
     git_sha: str | None = None
     compute_runtime: str = "local"  # "local" | "oracle_a1_arm64"
     max_concurrency: int = 1
     engine_status: Literal["READY", "BUSY", "MAINTENANCE"] = "READY"
-    supported_domains: list[str] = Field(default_factory=lambda: ["market", "predictive", "deep_learning"])
+    supported_domains: list[str] = Field(default_factory=lambda: ["predictive", "deep_learning", "market"])
     synthetic_profiles: list[str] = Field(
         default_factory=lambda: [
-            "institutional_market_v1",
             "institutional_credit_v1",
             "deep_learning_v1",
+            "institutional_market_v1",
         ]
     )
 
@@ -50,17 +50,18 @@ class APIResponseEnvelope(BaseModel):
     timestamp: float = Field(default_factory=time.time)
     data: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
+    error_code: str | None = None
 
 
 class SSEEnvelope(BaseModel):
-    """Typed Server-Sent Event envelope bridging canonical RuntimeEvents."""
+    """Typed Server-Sent Event envelope bridging canonical RuntimeEvents with truthful progress."""
 
     event_id: str = Field(default_factory=lambda: f"EVT-{uuid.uuid4().hex[:8]}")
     sequence: int = 0
     run_id: str
     timestamp: float = Field(default_factory=time.time)
     # event_type: agent_transition | tool_execution | policy_decision
-    #             evidence_commit | artifact_generate | governance_seal
+    #             evidence_commit | artifact_generate | governance_seal | progress_update
     event_type: str = "agent_transition"
     schema_version: str = START_SCHEMA_VERSION
     source_agent: str = "Director"
@@ -74,6 +75,16 @@ class SSEEnvelope(BaseModel):
     policy_decision: str = "ALLOW"
     payload: dict[str, Any] = Field(default_factory=dict)
 
+    # Truthful progress fields
+    phase: str = ""
+    step: int = 0
+    completed: int = 0
+    total: int = 0
+    percent: float = 0.0
+    elapsed_seconds: float = 0.0
+    estimated_remaining_seconds: float | None = None
+    message: str = ""
+
 
 # --------------------------------------------------------------------------- #
 # Run Request & Session Management
@@ -81,21 +92,36 @@ class SSEEnvelope(BaseModel):
 class RunRequest(BaseModel):
     """Request to initiate a deterministic StART analytical run."""
 
-    domain: Literal["market", "predictive", "deep_learning"] = "market"
+    domain: Literal["predictive", "deep_learning", "market"] = "predictive"
     mode: Literal["deterministic", "llm"] = "deterministic"
     materiality: Literal["low", "medium", "high"] = "high"
     lifecycle: Literal["pre_implementation", "validation", "annual_review", "monitoring"] = "validation"
-    synthetic_profile: str = "institutional_market_v1"
+    synthetic_profile: str = "institutional_credit_v1"
     synthetic_profile_version: str = "1.0.0"
     seed: int = 42
     turnstile_token: str | None = None
     session_id: str = Field(default_factory=lambda: f"SES-{uuid.uuid4().hex[:12]}")
+    workflow: str = "predictive_ml"
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    parent_run_id: str | None = None
+    intervention: str | None = None
 
 
 class RunStatusResponse(BaseModel):
     run_id: str
     session_id: str
-    status: Literal["QUEUED", "RUNNING", "COMPLETED", "FAILED", "BUSY"]
+    status: Literal[
+        "CONFIGURING",
+        "VALIDATING",
+        "QUEUED",
+        "INITIALIZING",
+        "RUNNING",
+        "PARTIAL",
+        "COMPLETED",
+        "RECOVERABLE_FAILURE",
+        "FAILED",
+        "BUSY",
+    ]
     domain: str
     synthetic_profile: str
     created_at: float
@@ -104,6 +130,14 @@ class RunStatusResponse(BaseModel):
     evidence_count: int = 0
     artifact_count: int = 0
     error_message: str | None = None
+    error_code: str | None = None
+    queue_position: int = 0
+    phase: str = ""
+    step: int = 0
+    completed: int = 0
+    total: int = 0
+    percent: float = 0.0
+    elapsed_seconds: float = 0.0
 
 
 # --------------------------------------------------------------------------- #

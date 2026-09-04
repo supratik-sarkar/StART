@@ -37,7 +37,7 @@ def get_info() -> APIResponseEnvelope:
     info = SystemInfo(
         start_version=START_VERSION,
         start_schema_version=START_SCHEMA_VERSION,
-        backend_build_version="4.5.0-arm64-prod",
+        backend_build_version="4.6.0-arm64-prod",
         git_sha=os.environ.get("START_GIT_SHA"),
         compute_runtime=runtime,
         max_concurrency=1,
@@ -61,37 +61,38 @@ def get_zero_cost_attestation() -> APIResponseEnvelope:
 
 @router.get("/profiles", response_model=APIResponseEnvelope)
 def list_synthetic_profiles() -> APIResponseEnvelope:
-    """List available versioned synthetic dataset profiles."""
+    """List available versioned synthetic dataset profiles (ML/DL first)."""
     profiles = [
         {
-            "profile_id": "institutional_market_v1",
-            "name": "Institutional Market Risk & Portfolio Optimization",
-            "domain": "market",
-            "version": "1.0.0",
-            "description": (
-                "Multi-asset portfolio with equity indices, volatility surface, "
-                "and historical shock scenarios."
-            ),
-            "seed": 42,
-        },
-        {
             "profile_id": "institutional_credit_v1",
-            "name": "Institutional Credit & Propensity Risk",
+            "name": "Predictive ML — Institutional Credit & Classification",
             "domain": "predictive",
             "version": "1.0.0",
             "description": (
-                "Tabular credit risk benchmark with class imbalance, protected attributes, "
-                "and SHAP explainability."
+                "Tabular classification benchmark with feature diagnostics, "
+                "calibration curves, and SHAP explainability."
             ),
             "seed": 42,
         },
         {
             "profile_id": "deep_learning_v1",
-            "name": "Deep Learning & PyTorch Architecture Inspection",
+            "name": "Deep Learning — Neural Architecture & Gradient Diagnostics",
             "domain": "deep_learning",
             "version": "1.0.0",
             "description": (
-                "Deep neural model with gradient norms, weight spectra, and Captum integrated gradients."
+                "Deep neural network inspection with layer spectra, activation distributions, "
+                "and integrated gradients."
+            ),
+            "seed": 42,
+        },
+        {
+            "profile_id": "institutional_market_v1",
+            "name": "Quantitative Finance — Market Risk & Portfolio Stress",
+            "domain": "market",
+            "version": "1.0.0",
+            "description": (
+                "Multi-asset portfolio returns, covariance matrices, VaR/ES backtests, "
+                "and historical shock scenarios."
             ),
             "seed": 42,
         },

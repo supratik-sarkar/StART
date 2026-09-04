@@ -8,120 +8,186 @@ import {
   Download,
   Maximize2,
   Minimize2,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
+  Layers,
+  Activity,
 } from "lucide-react";
 
 interface ArtifactInspectorProps {
   selectedEvidenceId?: string;
   onClose?: () => void;
+  runId?: string;
+  sessionId?: string;
 }
 
-export const ArtifactInspector: React.FC<ArtifactInspectorProps> = ({ selectedEvidenceId }) => {
-  const [activeTab, setActiveTab] = useState<"chart" | "svg" | "pdf" | "html" | "json">("chart");
+export const ArtifactInspector: React.FC<ArtifactInspectorProps> = ({
+  selectedEvidenceId,
+  runId,
+  sessionId,
+}) => {
+  const [activeTab, setActiveTab] = useState<"charts" | "calibration" | "shap" | "pdf" | "json">("charts");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // ECharts: Efficient Frontier & Factor Risk Contribution
-  const getFrontierOption = () => ({
+  // ECharts: ROC Curve & Neural Training Loss
+  const getROCCurveOption = () => ({
     backgroundColor: "transparent",
     tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
     grid: { left: "10%", right: "8%", top: "12%", bottom: "14%" },
     xAxis: {
       type: "value",
-      name: "Volatility (σ)",
-      nameTextStyle: { color: "#94a3b8", fontSize: 10 },
-      axisLabel: { color: "#94a3b8", fontSize: 10 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
+      name: "False Positive Rate",
+      nameTextStyle: { color: "#71717A", fontSize: 10 },
+      axisLabel: { color: "#71717A", fontSize: 10 },
+      splitLine: { lineStyle: { color: "#E5E5E2" } },
     },
     yAxis: {
       type: "value",
-      name: "Expected Return (μ)",
-      nameTextStyle: { color: "#94a3b8", fontSize: 10 },
-      axisLabel: { color: "#94a3b8", fontSize: 10 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
+      name: "True Positive Rate",
+      nameTextStyle: { color: "#71717A", fontSize: 10 },
+      axisLabel: { color: "#71717A", fontSize: 10 },
+      splitLine: { lineStyle: { color: "#E5E5E2" } },
     },
     series: [
       {
-        name: "Efficient Frontier (HERC/HRP)",
+        name: "Supervised Classifier (AUC = 0.850)",
         type: "line",
         smooth: true,
         data: [
-          [0.08, 0.04],
-          [0.09, 0.065],
-          [0.11, 0.09],
-          [0.14, 0.12],
-          [0.18, 0.155],
-          [0.23, 0.185],
+          [0.0, 0.0],
+          [0.05, 0.42],
+          [0.1, 0.65],
+          [0.2, 0.78],
+          [0.4, 0.88],
+          [0.7, 0.95],
+          [1.0, 1.0],
         ],
-        lineStyle: { color: "#3b82f6", width: 2.5 },
-        itemStyle: { color: "#60a5fa" },
+        lineStyle: { color: "#4F46E5", width: 2.5 },
+        itemStyle: { color: "#6366F1" },
+        areaStyle: { color: "rgba(79, 70, 229, 0.08)" },
       },
       {
-        name: "Active HERC Portfolio",
-        type: "scatter",
-        symbolSize: 12,
-        data: [[0.12, 0.105]],
-        itemStyle: { color: "#10b981" },
+        name: "Random Baseline",
+        type: "line",
+        lineStyle: { color: "#A1A1AA", width: 1.5, type: "dashed" },
+        data: [
+          [0, 0],
+          [1, 1],
+        ],
       },
     ],
   });
 
-  const getRiskContributionOption = () => ({
+  const getCalibrationOption = () => ({
     backgroundColor: "transparent",
     tooltip: { trigger: "axis" },
-    grid: { left: "12%", right: "8%", top: "10%", bottom: "25%" },
+    grid: { left: "12%", right: "8%", top: "12%", bottom: "14%" },
     xAxis: {
-      type: "category",
-      data: ["Equity Beta", "Momentum", "Size", "Value", "Volatility", "Idiosyncratic"],
-      axisLabel: { color: "#94a3b8", fontSize: 9, rotate: 25 },
+      type: "value",
+      name: "Mean Predicted Score",
+      nameTextStyle: { color: "#71717A", fontSize: 10 },
+      axisLabel: { color: "#71717A", fontSize: 10 },
+      splitLine: { lineStyle: { color: "#E5E5E2" } },
     },
     yAxis: {
       type: "value",
-      name: "Risk Share (%)",
-      nameTextStyle: { color: "#94a3b8", fontSize: 10 },
-      axisLabel: { color: "#94a3b8", fontSize: 10 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
+      name: "Fraction of Positives",
+      nameTextStyle: { color: "#71717A", fontSize: 10 },
+      axisLabel: { color: "#71717A", fontSize: 10 },
+      splitLine: { lineStyle: { color: "#E5E5E2" } },
+    },
+    series: [
+      {
+        name: "Reliability Curve (ECE = 0.084)",
+        type: "line",
+        data: [
+          [0.05, 0.03],
+          [0.15, 0.12],
+          [0.3, 0.24],
+          [0.5, 0.41],
+          [0.7, 0.68],
+          [0.9, 0.92],
+        ],
+        lineStyle: { color: "#D97706", width: 2.5 },
+        itemStyle: { color: "#F59E0B" },
+      },
+      {
+        name: "Perfect Calibration",
+        type: "line",
+        lineStyle: { color: "#10B981", width: 1.5, type: "dashed" },
+        data: [
+          [0, 0],
+          [1, 1],
+        ],
+      },
+    ],
+  });
+
+  const getSHAPOption = () => ({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis" },
+    grid: { left: "20%", right: "8%", top: "8%", bottom: "10%" },
+    xAxis: {
+      type: "value",
+      name: "Mean |SHAP Value|",
+      nameTextStyle: { color: "#71717A", fontSize: 10 },
+      axisLabel: { color: "#71717A", fontSize: 10 },
+      splitLine: { lineStyle: { color: "#E5E5E2" } },
+    },
+    yAxis: {
+      type: "category",
+      data: ["debt_ratio", "revolving_util", "age", "monthly_income", "delinquency_90d", "open_credit_lines"],
+      axisLabel: { color: "#18181B", fontSize: 10, fontFamily: "monospace" },
     },
     series: [
       {
         type: "bar",
-        data: [38.5, 14.2, 8.4, 6.1, 18.3, 14.5],
+        data: [0.124, 0.098, 0.075, 0.061, 0.048, 0.032],
         itemStyle: {
-          color: (params: any) => {
-            const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#64748b"];
-            return colors[params.dataIndex % colors.length];
-          },
-          borderRadius: [3, 3, 0, 0],
+          color: "#4F46E5",
+          borderRadius: [0, 3, 3, 0],
         },
       },
     ],
   });
 
+  const handleDownloadPDF = () => {
+    if (!runId) return;
+    const url = `/api/v1/runs/${runId}/pdf${sessionId ? `?session_id=${sessionId}` : ""}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <div
-      className={`flex flex-col h-full bg-card border border-border rounded-lg overflow-hidden transition-all ${
-        isFullscreen ? "fixed inset-4 z-50 shadow-2xl" : ""
+      className={`flex flex-col bg-white border border-[#E5E5E2] rounded-xl overflow-hidden shadow-xs text-left ${
+        isFullscreen ? "fixed inset-4 z-50 shadow-2xl" : "h-full"
       }`}
     >
-      {/* Inspector Header */}
-      <div className="p-3 border-b border-border bg-card/80 flex items-center justify-between">
+      {/* Top Inspector Bar */}
+      <div className="p-3 border-b border-[#E5E5E2] bg-[#FBFBFA] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-primary" />
-          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-            Artifact Inspector
+          <FileText className="w-4 h-4 text-indigo-600" />
+          <h3 className="text-xs font-semibold text-stone-900 tracking-wide">
+            Artifact & Diagnostics Inspector
           </h3>
           {selectedEvidenceId && (
-            <span className="px-1.5 py-0.5 rounded bg-blue-950/60 text-blue-400 text-[10px] font-mono border border-blue-900/50">
-              [{selectedEvidenceId}]
+            <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {selectedEvidenceId}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleDownloadPDF}
+            className="px-2.5 py-1 bg-white hover:bg-stone-50 border border-[#E5E5E2] rounded text-xs font-medium text-stone-700 flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Download Attested PDF Report"
+          >
+            <Download className="w-3 h-3 text-stone-500" />
+            <span>Report PDF</span>
+          </button>
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
-            title="Toggle fullscreen"
+            className="p-1.5 hover:bg-stone-100 rounded text-stone-500 transition-colors cursor-pointer"
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
@@ -129,134 +195,107 @@ export const ArtifactInspector: React.FC<ArtifactInspectorProps> = ({ selectedEv
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-border px-3 py-1.5 bg-muted/20 font-mono text-xs">
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-[#E5E5E2] bg-[#FBFBFA] text-xs font-mono">
         <button
-          onClick={() => setActiveTab("chart")}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
-            activeTab === "chart" ? "bg-secondary text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+          onClick={() => setActiveTab("charts")}
+          className={`px-3 py-1 rounded transition-colors ${
+            activeTab === "charts"
+              ? "bg-stone-900 text-white font-medium"
+              : "text-stone-600 hover:bg-stone-100"
           }`}
         >
-          <BarChart2 className="w-3 h-3" />
-          <span>Interactive Plots</span>
+          ROC Curve
         </button>
         <button
-          onClick={() => setActiveTab("svg")}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
-            activeTab === "svg" ? "bg-secondary text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+          onClick={() => setActiveTab("calibration")}
+          className={`px-3 py-1 rounded transition-colors ${
+            activeTab === "calibration"
+              ? "bg-stone-900 text-white font-medium"
+              : "text-stone-600 hover:bg-stone-100"
           }`}
         >
-          <Image className="w-3 h-3" />
-          <span>High-Res SVG</span>
+          Calibration
         </button>
         <button
-          onClick={() => setActiveTab("pdf")}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
-            activeTab === "pdf" ? "bg-secondary text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+          onClick={() => setActiveTab("shap")}
+          className={`px-3 py-1 rounded transition-colors ${
+            activeTab === "shap"
+              ? "bg-stone-900 text-white font-medium"
+              : "text-stone-600 hover:bg-stone-100"
           }`}
         >
-          <FileText className="w-3 h-3" />
-          <span>PDF Report</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("html")}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
-            activeTab === "html" ? "bg-secondary text-primary font-bold" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <ExternalLink className="w-3 h-3" />
-          <span>Sandboxed HTML</span>
+          SHAP Feature Impact
         </button>
         <button
           onClick={() => setActiveTab("json")}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
-            activeTab === "json" ? "bg-secondary text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+          className={`px-3 py-1 rounded transition-colors ${
+            activeTab === "json"
+              ? "bg-stone-900 text-white font-medium"
+              : "text-stone-600 hover:bg-stone-100"
           }`}
         >
-          <Code className="w-3 h-3" />
-          <span>Raw JSON</span>
+          Provenance JSON
         </button>
       </div>
 
-      {/* Content Viewport */}
-      <div className="flex-1 p-3 overflow-y-auto bg-background/50 flex flex-col gap-4">
-        {activeTab === "chart" && (
-          <div className="flex flex-col gap-4 h-full">
-            <div className="bg-card border border-border rounded-lg p-2.5 flex flex-col">
-              <span className="text-xs font-semibold text-foreground px-2 pt-1 font-mono">
-                Efficient Frontier & Optimal Asset Allocation
-              </span>
-              <ReactECharts option={getFrontierOption()} style={{ height: "180px", width: "100%" }} />
+      {/* Content Area */}
+      <div className="flex-1 p-4 overflow-y-auto bg-white">
+        {activeTab === "charts" && (
+          <div className="flex flex-col gap-2 h-full">
+            <div className="flex items-center justify-between text-xs text-stone-500 font-mono">
+              <span>Supervised Classification Performance Envelope</span>
+              <span className="text-emerald-700 font-bold">AUC-ROC: 0.8500</span>
             </div>
-            <div className="bg-card border border-border rounded-lg p-2.5 flex flex-col">
-              <span className="text-xs font-semibold text-foreground px-2 pt-1 font-mono">
-                Factor Risk Contribution Breakdown (%)
-              </span>
-              <ReactECharts option={getRiskContributionOption()} style={{ height: "180px", width: "100%" }} />
+            <div className="flex-1 min-h-[260px]">
+              <ReactECharts option={getROCCurveOption()} style={{ height: "100%", width: "100%" }} />
             </div>
           </div>
         )}
 
-        {activeTab === "svg" && (
-          <div className="flex flex-col items-center justify-center h-full border border-dashed border-border/80 rounded-lg p-4 bg-card/40">
-            <svg viewBox="0 0 400 200" className="w-full max-h-56">
-              <rect width="400" height="200" fill="#0f172a" rx="8" />
-              <path d="M 50 150 Q 150 50 250 120 T 350 40" fill="none" stroke="#3b82f6" strokeWidth="3" />
-              <circle cx="50" cy="150" r="4" fill="#60a5fa" />
-              <circle cx="150" cy="80" r="4" fill="#60a5fa" />
-              <circle cx="250" cy="120" r="4" fill="#60a5fa" />
-              <circle cx="350" cy="40" r="4" fill="#10b981" />
-              <text x="20" y="30" fill="#94a3b8" fontSize="11" fontFamily="monospace">
-                Hierarchical Risk Parity (HRP) Dendrogram Tree
-              </text>
-            </svg>
-            <span className="text-[11px] font-mono text-muted-foreground mt-3">
-              Cryptographically verified SVG artifact generated from deterministic tree clustering
-            </span>
-          </div>
-        )}
-
-        {activeTab === "pdf" && (
-          <div className="flex flex-col items-center justify-center h-full border border-border rounded-lg p-6 bg-card/40 text-center gap-3">
-            <FileText className="w-12 h-12 text-primary animate-pulse" />
-            <div className="flex flex-col gap-1">
-              <h4 className="text-xs font-bold text-foreground">Institutional Validation Report (PDF)</h4>
-              <p className="text-[11px] text-muted-foreground max-w-sm">
-                Deterministic PDF document containing Executive Summary, Technical Validation, Evidence Appendix, and Merkle Attestation Seal.
-              </p>
+        {activeTab === "calibration" && (
+          <div className="flex flex-col gap-2 h-full">
+            <div className="flex items-center justify-between text-xs text-stone-500 font-mono">
+              <span>Expected Calibration Error (ECE) & Reliability Distribution</span>
+              <span className="text-amber-700 font-bold">ECE: 0.0842</span>
             </div>
-            <a
-              href="/api/v1/runs/RUN-DEMO-01/pdf"
-              download
-              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold rounded flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download Signed Review PDF</span>
-            </a>
+            <div className="flex-1 min-h-[260px]">
+              <ReactECharts option={getCalibrationOption()} style={{ height: "100%", width: "100%" }} />
+            </div>
           </div>
         )}
 
-        {activeTab === "html" && (
-          <div className="h-full border border-border rounded-lg overflow-hidden bg-white">
-            <iframe
-              title="Sandboxed HTML Report"
-              sandbox="allow-scripts"
-              srcDoc="<html><body style='font-family:sans-serif;padding:16px;background:#f8fafc;color:#0f172a'><h3>StART Standalone Diagnostic Report</h3><p style='font-size:12px;color:#64748b'>Rendered in strict sandbox iframe without parent-origin privileges.</p></body></html>"
-              className="w-full h-full border-none"
-            />
+        {activeTab === "shap" && (
+          <div className="flex flex-col gap-2 h-full">
+            <div className="flex items-center justify-between text-xs text-stone-500 font-mono">
+              <span>Mean Global Feature Attributions (TreeSHAP)</span>
+              <span className="text-indigo-700 font-bold">Top: debt_ratio</span>
+            </div>
+            <div className="flex-1 min-h-[260px]">
+              <ReactECharts option={getSHAPOption()} style={{ height: "100%", width: "100%" }} />
+            </div>
           </div>
         )}
 
         {activeTab === "json" && (
-          <div className="bg-background border border-border rounded-lg p-3 font-mono text-xs text-foreground/80 overflow-x-auto">
-            <pre>
+          <div className="bg-[#FBFBFA] border border-[#E5E5E2] rounded-lg p-3 font-mono text-xs text-stone-800 max-h-72 overflow-auto">
+            <pre className="whitespace-pre-wrap">
               {JSON.stringify(
                 {
-                  artifact_id: "ART-MKT-001",
-                  title: "Hierarchical Risk Parity Dendrogram",
-                  evidence_id: selectedEvidenceId || "EV-MKT-001",
-                  generator: "start.portfolio.hrp",
-                  sha256: "8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f",
-                  status: "VERIFIED_DETERMINISTIC",
+                  evidence_id: selectedEvidenceId || "EV-PRED-001",
+                  test_id: "predictive.supervised_benchmark",
+                  run_id: runId || "RUN-WEB-CURRENT",
+                  provenance: {
+                    engine: "start.modeling.models",
+                    grounding: "DETERMINISTIC_CANONICAL",
+                    merkle_leaf_hash: "3a8c7e2b109f...",
+                  },
+                  metrics: {
+                    roc_auc: 0.85,
+                    brier_score: 0.124,
+                    ece: 0.084,
+                    train_samples: 400,
+                    test_samples: 100,
+                  },
                 },
                 null,
                 2

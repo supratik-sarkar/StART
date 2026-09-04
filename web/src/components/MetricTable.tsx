@@ -58,29 +58,42 @@ export const MetricTable: React.FC<MetricTableProps> = ({ rows, title, onSelectE
     {
       accessorKey: "test_id",
       header: "Test Identifier",
-      cell: (info) => <span className="font-mono text-xs text-foreground/90 font-medium">{String(info.getValue())}</span>,
+      cell: (info) => (
+        <span className="font-mono text-xs text-stone-900 font-medium">{String(info.getValue())}</span>
+      ),
     },
     {
       accessorKey: "metric",
       header: "Metric",
-      cell: (info) => <span className="font-mono text-xs text-muted-foreground">{String(info.getValue())}</span>,
+      cell: (info) => (
+        <span className="font-mono text-xs text-stone-600">{String(info.getValue())}</span>
+      ),
     },
     {
       accessorKey: "value",
       header: "Observed Value",
       cell: (info) => {
         const val = info.getValue();
-        const formatted = typeof val === "number" ? (Number.isInteger(val) ? val.toString() : val.toFixed(4)) : String(val);
+        const formatted =
+          typeof val === "number"
+            ? Number.isInteger(val)
+              ? val.toString()
+              : val.toFixed(4)
+            : String(val);
         const cellId = `${info.row.id}-val`;
         return (
-          <div className="flex items-center gap-1.5 font-mono text-xs text-primary font-semibold">
+          <div className="flex items-center gap-1.5 font-mono text-xs text-indigo-600 font-semibold group">
             <span>{formatted}</span>
             <button
               onClick={() => copyToClipboard(formatted, cellId)}
-              className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              className="text-stone-400 hover:text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               title="Copy value"
             >
-              {copiedCell === cellId ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+              {copiedCell === cellId ? (
+                <Check className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
             </button>
           </div>
         );
@@ -95,12 +108,12 @@ export const MetricTable: React.FC<MetricTableProps> = ({ rows, title, onSelectE
         const isWarn = st === "WARN";
         return (
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider ${
+            className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium tracking-wider ${
               isPass
-                ? "bg-green-950/60 text-green-400 border border-green-800/60"
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                 : isWarn
-                ? "bg-amber-950/60 text-amber-400 border border-amber-800/60"
-                : "bg-red-950/60 text-red-400 border border-red-800/60"
+                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                : "bg-rose-50 text-rose-700 border border-rose-200"
             }`}
           >
             {st}
@@ -110,16 +123,16 @@ export const MetricTable: React.FC<MetricTableProps> = ({ rows, title, onSelectE
     },
     {
       accessorKey: "evidence_id",
-      header: "Evidence Link",
+      header: "Evidence ID",
       cell: (info) => {
         const evId = String(info.getValue() || "");
-        if (!evId) return <span className="text-muted-foreground text-xs">—</span>;
+        if (!evId) return <span className="text-stone-300 font-mono text-xs">—</span>;
         return (
           <button
             onClick={() => onSelectEvidence && onSelectEvidence(evId)}
-            className="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline bg-blue-950/30 px-1.5 py-0.5 rounded border border-blue-900/50"
+            className="font-mono text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium cursor-pointer"
           >
-            [{evId}]
+            {evId}
           </button>
         );
       },
@@ -129,76 +142,82 @@ export const MetricTable: React.FC<MetricTableProps> = ({ rows, title, onSelectE
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, globalFilter },
+    state: {
+      sorting,
+      globalFilter,
+    },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 8 } },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
   });
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col shadow-sm">
-      {/* Header Controls */}
-      <div className="p-3 border-b border-border bg-card/60 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {title && <h4 className="text-xs font-semibold text-foreground tracking-wide uppercase">{title}</h4>}
-          <span className="text-[11px] text-muted-foreground font-mono">({rows.length} metrics)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    <div className="flex flex-col h-full bg-white border border-[#E5E5E2] rounded-xl overflow-hidden shadow-xs text-left">
+      {/* Table Action Bar */}
+      <div className="p-3 border-b border-[#E5E5E2] bg-[#FBFBFA] flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-1 max-w-sm">
+          <div className="relative w-full">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
               type="text"
-              placeholder="Filter metrics..."
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-8 pr-2.5 py-1 text-xs bg-background/80 border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary w-40 text-foreground font-mono"
+              placeholder="Search metrics, tests, evidence..."
+              className="w-full bg-white border border-[#E5E5E2] rounded-md pl-8 pr-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-indigo-500 font-mono"
             />
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-stone-500">{rows.length} records</span>
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded border border-border transition-colors"
+            className="px-2.5 py-1 bg-white hover:bg-stone-50 text-stone-700 text-xs font-medium border border-[#E5E5E2] rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
-            <Download className="w-3 h-3" />
-            <span>CSV</span>
+            <Download className="w-3 h-3 text-stone-500" />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* Table Body */}
-      <div className="overflow-x-auto">
+      {/* Table Container */}
+      <div className="flex-1 overflow-auto">
         <table className="w-full text-left border-collapse">
-          <thead>
+          <thead className="bg-[#FBFBFA] sticky top-0 border-b border-[#E5E5E2] z-10">
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-border bg-muted/20">
+              <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className="px-3.5 py-2 text-[11px] font-semibold text-muted-foreground uppercase font-mono tracking-wider cursor-pointer select-none hover:text-foreground"
+                    className="px-4 py-2.5 text-[11px] font-semibold text-stone-600 font-mono select-none cursor-pointer hover:text-stone-900"
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
-                    {{ asc: " ↑", desc: " ↓" }[header.column.getIsSorted() as string] ?? null}
                   </th>
                 ))}
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-border/60">
+          <tbody className="divide-y divide-[#E5E5E2] bg-white text-stone-800">
             {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-3.5 py-4 text-center text-xs text-muted-foreground font-mono">
-                  No metrics found matching filter.
+                <td colSpan={columns.length} className="text-center py-8 text-stone-400 text-xs font-mono">
+                  No matching metrics found.
                 </td>
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="group hover:bg-muted/30 transition-colors">
+                <tr key={row.id} className="hover:bg-stone-50/80 transition-colors">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3.5 py-2 text-xs">
+                    <td key={cell.id} className="px-4 py-2.5">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -210,29 +229,30 @@ export const MetricTable: React.FC<MetricTableProps> = ({ rows, title, onSelectE
       </div>
 
       {/* Pagination Footer */}
-      {table.getPageCount() > 1 && (
-        <div className="p-2 border-t border-border bg-card/40 flex items-center justify-between text-xs text-muted-foreground font-mono px-3">
-          <span>
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </span>
-          <div className="flex gap-1">
-            <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="px-2 py-0.5 rounded border border-border bg-secondary hover:bg-secondary/80 disabled:opacity-40"
-            >
-              Prev
-            </button>
-            <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="px-2 py-0.5 rounded border border-border bg-secondary hover:bg-secondary/80 disabled:opacity-40"
-            >
-              Next
-            </button>
-          </div>
+      <div className="p-2.5 border-t border-[#E5E5E2] bg-[#FBFBFA] flex items-center justify-between text-xs font-mono text-stone-500">
+        <div className="flex items-center gap-1">
+          <span>Page</span>
+          <span className="font-bold text-stone-800">{table.getState().pagination.pageIndex + 1}</span>
+          <span>of</span>
+          <span className="font-bold text-stone-800">{table.getPageCount() || 1}</span>
         </div>
-      )}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="px-2 py-0.5 bg-white border border-[#E5E5E2] rounded text-stone-700 disabled:opacity-40 hover:bg-stone-50 cursor-pointer"
+          >
+            Prev
+          </button>
+          <button
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="px-2 py-0.5 bg-white border border-[#E5E5E2] rounded text-stone-700 disabled:opacity-40 hover:bg-stone-50 cursor-pointer"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

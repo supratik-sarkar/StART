@@ -1,6 +1,6 @@
 # StART — Standardized Agentic Reusable Tests
 
-StART is an **evidence-native model validation, risk management, and governance platform** designed for institutional quantitative finance, machine learning, and deep learning.
+StART is an **evidence-native model dev/review, risk management, and governance platform** designed for institutional machine learning, deep learning, and quantitative finance.
 
 Unlike conventional LLM-based assistants that perform hallucination-prone arithmetic, StART enforces a strict architectural invariant: **AI agents reason and orchestrate, while deterministic mathematical engines perform all computations**. Every diagnostic produces an immutable, cryptographically signed `EvidenceRecord`, which is appended to a replayable hash-chained ledger and sealed into a Merkle tree attestation.
 
@@ -26,40 +26,38 @@ pip install -e ".[all]"
 start doctor
 ```
 
-### 2. Run Deterministic Institutional Review
+### 2. Run Deterministic Workflows
 
 ```bash
-# Run full institutional Market & Portfolio review (Terminal Wizard)
-start review --domain market --mode deterministic
-
-# Run Predictive & Deep Learning review with PyTorch architecture inspection
+# Run Predictive & Deep Learning development/review workflows
 start review --domain predictive --mode deterministic
 
-# Launch the Institutional Web Workstation (React + FastAPI + WebLLM)
+# Run Market & Portfolio analytical workflows
+start review --domain market --mode deterministic
+
+# Launch the local StART Web Workstation
 python -m uvicorn start.web.app:app --port 8000
-# Open http://localhost:8000 in any modern browser with WebGPU support
+
+# Open http://localhost:8000 in a modern browser
 ```
 
 ---
 
-## StART v4.5 Institutional Workstation & WebLLM
+## StART Institutional Workstation & Browser AI
 
-The **StART v4.5 Institutional Workstation** delivers an evidence-native interface designed for enterprise risk committees, model validators, and quantitative researchers.
+The **StART Institutional Workstation** delivers an evidence-native interface designed for ML/AI engineering, software/technology teams in financial institutions, model development, independent review, quantitative analysis, and risk/governance.
 
-* **Full Institutional Workstation Layout**:
-  - **Left Navigation**: Switch between 3 product modes (*Live Institutional Demo*, *Browser Private Reviewer*, *Local Full StART*), select analytical domains (Market Risk & HERC, Credit Risk, Deep Learning), and browse audit surfaces.
-  - **Central Review Workspace**: High-density interactive metric grids with TanStack Table (sort, filter, pin, copy cell, CSV export, Evidence ID drill-down) and real-time **React Flow** runtime execution DAG reflecting canonical `RuntimeEvent` transitions.
-  - **Right Artifact Inspector**: Resizable split pane (25/75, 50/50, 75/25 presets, fullscreen toggle) with interactive **ECharts** (efficient frontiers, risk contributions, factor attributions), high-resolution vector SVGs, deterministic PDF reports, and sandboxed HTML exports.
+* **Agentic Engineering Workspace Layout**:
+  - **Task-Oriented Composer**: Initiate workflows across Predictive ML, Deep Learning, Calibration, Robustness, Explainability, Hyperparameter Tuning, Model Comparison, and Quantitative Finance.
+  - **Live Execution & Findings**: Real-time structured progress tracking, runtime execution graphs, and evidence-grounded findings with contextual iterative actions (*Explain with AI*, *Challenge*, *Run deeper test*, *Compare candidates*, *Re-run*).
+  - **Interactive Evidence & Artifact Inspector**: Dynamic React Flow evidence decision graphs, interactive charts (ROC curves, calibration distributions, SHAP attributions, efficient frontiers), deterministic PDF reports, and provenance JSON.
 
-* **Client-Side WebLLM Reviewer (Zero-Cost WebGPU AI)**:
-  - Executes local small language models (certified model: `SmolLM2-1.7B-Instruct-q4f16_1-MLC`) **directly inside the user's browser via WebGPU**.
+* **Client-Side WebLLM Reviewer (WebGPU Client Inference)**:
+  - Executes local small language models (pinned model: `SmolLM2-1.7B-Instruct-q4f16_1-MLC`) **directly inside the user's browser via WebGPU** without blocking deterministic engine execution.
   - **Server-Side Hydration Protocol**: The browser LLM only cites Evidence IDs (`[EV-xxxx]`); the backend server rejects any client-supplied numbers, hydrates exact numerical metrics directly from immutable `EvidenceRecord`s, evaluates authentic **OPA** Rego policies, and generates the final Merkle attestation root.
 
-* **Zero-Cost Production Deployment ($0.00 / month)**:
+* **Public Application**:
   - **Primary Public Workstation**: [https://start-mrt-gateway.sapman.workers.dev](https://start-mrt-gateway.sapman.workers.dev)
-  - **Hugging Face Space**: [https://huggingface.co/spaces/sapman/start-mrt](https://huggingface.co/spaces/sapman/start-mrt)
-  - **Direct Static Application**: [https://sapman-start-mrt.static.hf.space/index.html](https://sapman-start-mrt.static.hf.space/index.html)
-  - **Oracle Cloud ARM64 Origin**: `https://137.23.61.219.sslip.io` (`VM.Standard.A1.Flex` Always Free, Let's Encrypt TLS, HMAC origin authentication)
 
 ---
 

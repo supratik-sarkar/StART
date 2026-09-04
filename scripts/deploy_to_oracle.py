@@ -144,18 +144,15 @@ server {{
 
     # 8. Configure & Start systemd service
     print("\n--- 8. Configuring & Starting start_web.service ---")
-    service_content = f"""[Unit]
-Description=StART v4.5 Institutional Model Validation Web Service
+    service_content = """[Unit]
+Description=StART v4.6 Agentic Engineering Workbench Web Service
 After=network.target
 
 [Service]
 Type=simple
 User=ubuntu
 WorkingDirectory=/opt/start
-Environment="PATH=/opt/start/.venv-start/bin:/usr/local/bin:/usr/bin"
-Environment="START_ORACLE_DEPLOYMENT=true"
-Environment="START_REQUIRE_ORIGIN_AUTH=true"
-Environment="START_ORIGIN_SECRET={ORIGIN_SECRET}"
+EnvironmentFile=/etc/start/start.env
 ExecStart=/opt/start/.venv-start/bin/uvicorn start.web.app:app --host 127.0.0.1 --port 8000 --workers 1 --log-level info
 Restart=always
 RestartSec=5

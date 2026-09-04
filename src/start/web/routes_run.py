@@ -28,12 +28,14 @@ router = APIRouter(prefix="/api/v1/runs", tags=["runs"])
 
 def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
     """Execute canonical StART deterministic review in an isolated background thread/task."""
+    start_time = time.time()
     try:
         GLOBAL_QUEUE.mark_running(run_id)
 
         # Import canonical review executor and architecture models
         from start.review.architecture import (
             LLMReviewConfig,
+            PredictiveTechnology,
             ReviewContextBundle,
             ReviewDomain,
             ReviewGroundingMode,
@@ -42,13 +44,47 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         )
         from start.review.executor import run_unified_review
 
-        # Map domain and generate synthetic environment
-        if request.domain == "market":
+        # 1. Map domain and technology
+        is_dl = request.domain == "deep_learning" or request.synthetic_profile == "deep_learning_v1" or request.workflow == "deep_learning"
+        is_market = request.domain == "market" or request.synthetic_profile == "institutional_market_v1" or request.workflow == "quantitative_finance"
+
+        seed = request.seed or 42
+
+        # Emit Step 1: Initialization & Discovery
+        GLOBAL_QUEUE.append_event(
+            run_id,
+            {
+                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
+                "timestamp": time.time(),
+                "event_type": "agent_transition",
+                "source_agent": "Director",
+                "target_agent": "Specialist",
+                "stage": "PLANNING",
+                "action": f"initialize_{request.domain}_review",
+                "status": "RUNNING",
+                "metadata": {
+                    "workflow": request.workflow,
+                    "synthetic_profile": request.synthetic_profile,
+                    "seed": seed,
+                    "parent_run_id": request.parent_run_id,
+                    "intervention": request.intervention,
+                },
+                "phase": "Planning & Discovery",
+                "step": 1,
+                "completed": 1,
+                "total": 5,
+                "percent": 20.0,
+                "elapsed_seconds": round(time.time() - start_time, 2),
+                "message": f"Initialized {request.domain} engineering review context",
+            },
+        )
+
+        if is_market:
             domains = (ReviewDomain.MARKET,)
+            technology = None
             from start.data.synthetic_market import generate_market_world
             from start.registry.market_contexts import MarketContext, PortfolioSpec
 
-            seed = request.seed or 42
             world = generate_market_world(
                 n_assets=50,
                 n_periods=1000,
@@ -80,6 +116,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
             bundle = ReviewContextBundle(
                 mode=ReviewMode.SINGLE_DOMAIN,
                 domains=domains,
+                technology=technology,
                 materiality=request.materiality,
                 lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
                 market=market_ctx,
@@ -89,10 +126,12 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
             )
         else:
             domains = (ReviewDomain.PREDICTIVE,)
+            technology = (
+                PredictiveTechnology.DEEP_LEARNING if is_dl else PredictiveTechnology.TRADITIONAL_ML
+            )
             from start.data.synthetic_dl import generate_dl_world
             from start.registry import TestContext
 
-            seed = request.seed or 42
             dl_res = generate_dl_world(n_samples=500, n_features=8, seed=seed)
             train_df = dl_res["train_df"]
             test_df = dl_res["test_df"]
@@ -100,6 +139,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
             bundle = ReviewContextBundle(
                 mode=ReviewMode.SINGLE_DOMAIN,
                 domains=domains,
+                technology=technology,
                 materiality=request.materiality,
                 lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
                 tabular=tab_ctx,
@@ -107,19 +147,26 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 grounding_mode=ReviewGroundingMode.STRUCTURED,
             )
 
-        # Emit initial planning event
+        # Emit Step 2: Context Building & Pre-flight Diagnostics
         GLOBAL_QUEUE.append_event(
             run_id,
             {
                 "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
                 "timestamp": time.time(),
-                "event_type": "agent_transition",
-                "source_agent": "Director",
-                "target_agent": "Specialist",
-                "stage": "DISCOVERY",
-                "action": f"initialize_{request.domain}_review",
+                "event_type": "tool_execution",
+                "source_agent": "Specialist",
+                "target_agent": "DeterministicEngine",
+                "stage": "EXECUTION",
+                "action": "build_context_and_preflight",
                 "status": "RUNNING",
-                "metadata": {"synthetic_profile": request.synthetic_profile, "seed": request.seed},
+                "metadata": {"technology": str(technology) if technology else "MARKET"},
+                "phase": "Context & Pre-flight Diagnostics",
+                "step": 2,
+                "completed": 2,
+                "total": 5,
+                "percent": 40.0,
+                "elapsed_seconds": round(time.time() - start_time, 2),
+                "message": "Building analytical dataset context and verifying integrity",
             },
         )
 
@@ -138,7 +185,32 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
             elif isinstance(presentation_model, dict) and "artifacts" in presentation_model:
                 artifacts_dict = presentation_model["artifacts"]
 
-        events = res.get("orchestration_events", [])
+        tracer = res.get("tracer")
+        events = [e.to_dict() if hasattr(e, "to_dict") else e for e in tracer.events] if tracer else res.get("orchestration_events", [])
+
+        # Emit Step 3 & 4: Analytical Surfaces & Governance
+        GLOBAL_QUEUE.append_event(
+            run_id,
+            {
+                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
+                "timestamp": time.time(),
+                "event_type": "evidence_commit",
+                "source_agent": "DeterministicEngine",
+                "target_agent": "EvidenceLedger",
+                "stage": "CHECKPOINTS",
+                "action": "commit_evidence_records",
+                "status": "SUCCESS",
+                "metadata": {"evidence_count": len(records)},
+                "evidence_refs": [r.evidence_id for r in records[:8]],
+                "phase": "Deterministic Analytical Execution",
+                "step": 4,
+                "completed": 4,
+                "total": 5,
+                "percent": 85.0,
+                "elapsed_seconds": round(time.time() - start_time, 2),
+                "message": f"Computed {len(records)} deterministic evidence surfaces and statistical checkpoints",
+            },
+        )
 
         # Transfer execution events
         for evt in events:
@@ -167,6 +239,29 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         else:
             pres_dict["run_id"] = run_id
 
+        # Emit Final Step 5: Completed Seal
+        GLOBAL_QUEUE.append_event(
+            run_id,
+            {
+                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
+                "timestamp": time.time(),
+                "event_type": "governance_seal",
+                "source_agent": "ModelGovernanceAgent",
+                "target_agent": "AttestationRegistry",
+                "stage": "GOVERNANCE",
+                "action": "seal_attestation_merkle_root",
+                "status": "SUCCESS",
+                "metadata": {"merkle_root": pres_dict.get("attestation_seal_merkle_root", "")},
+                "phase": "Attestation & Evidence Seal",
+                "step": 5,
+                "completed": 5,
+                "total": 5,
+                "percent": 100.0,
+                "elapsed_seconds": round(time.time() - start_time, 2),
+                "message": "Governance disposition attested and Merkle tree sealed",
+            },
+        )
+
         GLOBAL_QUEUE.mark_completed(
             run_id=run_id,
             presentation=pres_dict,
@@ -185,38 +280,67 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
 async def start_run(
     request: RunRequest,
     x_forwarded_for: str | None = Header(None),
-) -> APIResponseEnvelope:
+) -> Response:
     """Submit a deterministic analytical review run."""
     # 1. Server-side Turnstile verification
     if not verify_turnstile_token(request.turnstile_token, remote_ip=x_forwarded_for):
-        raise HTTPException(status_code=400, detail="Turnstile challenge verification failed")
-
-    # 2. Assign unique run ID
-    run_id = f"RUN-WEB-{uuid.uuid4().hex[:10]}"
-
-    # 3. Submit to analytical queue
-    accepted, status_msg = GLOBAL_QUEUE.submit_run(run_id, request)
-    if not accepted:
-        return APIResponseEnvelope(
-            success=False,
-            run_id=run_id,
-            error=status_msg,
-            data={"engine_status": "BUSY", "retry_after_seconds": 15},
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Turnstile challenge verification failed. Please complete the verification challenge.",
+                "error_code": "TURNSTILE_FAILED",
+                "data": {},
+            },
         )
 
-    # 4. Launch background execution task
+    # 2. Canonical Synthetic Profile Validation
+    valid_profiles = {"institutional_credit_v1", "deep_learning_v1", "institutional_market_v1"}
+    if request.synthetic_profile not in valid_profiles:
+        # Fallback/remap common requests
+        if request.domain == "deep_learning":
+            request.synthetic_profile = "deep_learning_v1"
+        elif request.domain == "market":
+            request.synthetic_profile = "institutional_market_v1"
+        else:
+            request.synthetic_profile = "institutional_credit_v1"
+
+    # 3. Assign unique run ID
+    run_id = f"RUN-WEB-{uuid.uuid4().hex[:10]}"
+
+    # 4. Submit to analytical queue
+    accepted, status_msg = GLOBAL_QUEUE.submit_run(run_id, request)
+    if not accepted:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "success": False,
+                "run_id": run_id,
+                "error": status_msg,
+                "error_code": "ENGINE_BUSY",
+                "data": {"engine_status": "BUSY", "retry_after_seconds": 15},
+            },
+        )
+
+    # 5. Launch background execution task
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _execute_run_in_background, run_id, request)
 
-    return APIResponseEnvelope(
-        success=True,
-        run_id=run_id,
-        data={
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "schema_version": START_SCHEMA_VERSION,
             "run_id": run_id,
-            "session_id": request.session_id,
-            "status": "QUEUED",
-            "domain": request.domain,
-            "synthetic_profile": request.synthetic_profile,
+            "timestamp": time.time(),
+            "data": {
+                "run_id": run_id,
+                "session_id": request.session_id,
+                "status": "QUEUED",
+                "domain": request.domain,
+                "workflow": request.workflow,
+                "synthetic_profile": request.synthetic_profile,
+            },
         },
     )
 

@@ -24,16 +24,31 @@ export async function fetchZeroCostAttestation(): Promise<ZeroCostAttestation> {
   return json.data as ZeroCostAttestation;
 }
 
-export async function startAnalyticalRun(req: RunRequest): Promise<{ run_id: string; session_id: string }> {
+export async function startAnalyticalRun(
+  req: RunRequest
+): Promise<{ run_id: string; session_id: string }> {
   const resp = await fetch(`${API_BASE}/api/v1/runs/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
-  const json: APIResponseEnvelope = await resp.json();
-  if (!json.success || !json.run_id) {
-    throw new Error(json.error || "Failed to start analytical run");
+
+  let json: APIResponseEnvelope;
+  try {
+    json = await resp.json();
+  } catch {
+    throw new Error(`Server returned HTTP ${resp.status}`);
   }
+
+  if (!resp.ok || !json.success || !json.run_id) {
+    if (json.error_code === "TURNSTILE_FAILED") {
+      throw new Error("Turnstile security challenge verification failed. Please complete the verification box.");
+    } else if (json.error_code === "ENGINE_BUSY") {
+      throw new Error("Server compute is currently busy. Your analytical run has been queued.");
+    }
+    throw new Error(json.error || `Run failed to start (HTTP ${resp.status})`);
+  }
+
   return { run_id: json.run_id, session_id: json.data?.session_id || req.session_id || "" };
 }
 
@@ -70,11 +85,15 @@ export async function submitReviewerForHydration(
 export function subscribeRunEvents(
   runId: string,
   sessionId?: string,
+  lastEventId?: string,
   onEvent?: (envelope: SSEEnvelope) => void,
   onComplete?: () => void,
   onError?: (err: any) => void
 ): () => void {
-  const url = `${API_BASE}/api/v1/runs/${runId}/stream${sessionId ? `?session_id=${sessionId}` : ""}`;
+  const queryParams = new URLSearchParams();
+  if (sessionId) queryParams.set("session_id", sessionId);
+
+  const url = `${API_BASE}/api/v1/runs/${runId}/stream?${queryParams.toString()}`;
   const es = new EventSource(url);
 
   es.onmessage = (event) => {
@@ -96,7 +115,6 @@ export function subscribeRunEvents(
     es.close();
   });
 
-  // Return cancel function
   return () => {
     es.close();
   };

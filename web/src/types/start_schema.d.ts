@@ -22,6 +22,7 @@ export interface APIResponseEnvelope {
   timestamp?: number;
   data?: Record<string, any>;
   error?: string | null;
+  error_code?: string | null;
 }
 
 export interface SSEEnvelope {
@@ -41,10 +42,18 @@ export interface SSEEnvelope {
   artifact_refs?: string[];
   policy_decision?: string;
   payload?: Record<string, any>;
+  phase?: string;
+  step?: number;
+  completed?: number;
+  total?: number;
+  percent?: number;
+  elapsed_seconds?: number;
+  estimated_remaining_seconds?: number | null;
+  message?: string;
 }
 
 export interface RunRequest {
-  domain?: "market" | "predictive" | "deep_learning";
+  domain?: "predictive" | "deep_learning" | "market";
   mode?: "deterministic" | "llm";
   materiality?: "low" | "medium" | "high";
   lifecycle?: "pre_implementation" | "validation" | "annual_review" | "monitoring";
@@ -53,12 +62,16 @@ export interface RunRequest {
   seed?: number;
   turnstile_token?: string | null;
   session_id?: string;
+  workflow?: string;
+  parameters?: Record<string, any>;
+  parent_run_id?: string | null;
+  intervention?: string | null;
 }
 
 export interface RunStatusResponse {
   run_id: string;
   session_id: string;
-  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "BUSY";
+  status: "CONFIGURING" | "VALIDATING" | "QUEUED" | "INITIALIZING" | "RUNNING" | "PARTIAL" | "COMPLETED" | "RECOVERABLE_FAILURE" | "FAILED" | "BUSY";
   domain: string;
   synthetic_profile: string;
   created_at: number;
@@ -67,6 +80,14 @@ export interface RunStatusResponse {
   evidence_count?: number;
   artifact_count?: number;
   error_message?: string | null;
+  error_code?: string | null;
+  queue_position?: number;
+  phase?: string;
+  step?: number;
+  completed?: number;
+  total?: number;
+  percent?: number;
+  elapsed_seconds?: number;
 }
 
 export interface MetricRowView {
