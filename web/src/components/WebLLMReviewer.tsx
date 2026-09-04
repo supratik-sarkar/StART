@@ -28,6 +28,7 @@ export const WebLLMReviewer: React.FC<WebLLMReviewerProps> = ({
   const [isReviewing, setIsReviewing] = useState(false);
   const [streamedText, setStreamedText] = useState("");
   const [submission, setSubmission] = useState<WebReviewerSubmission | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const [isHydrating, setIsHydrating] = useState(false);
   const [hydrationResult, setHydrationResult] = useState<ReviewerHydrationResponse | null>(null);
@@ -63,6 +64,7 @@ export const WebLLMReviewer: React.FC<WebLLMReviewerProps> = ({
     setIsReviewing(true);
     setStreamedText("");
     setSubmission(null);
+    setReviewError(null);
     setHydrationResult(null);
 
     try {
@@ -78,6 +80,7 @@ export const WebLLMReviewer: React.FC<WebLLMReviewerProps> = ({
       setSubmission(result);
     } catch (err: any) {
       console.warn("Review generation notice:", err);
+      setReviewError(err.message || "Failed to generate structured qualitative review.");
     } finally {
       setIsReviewing(false);
     }
@@ -175,6 +178,25 @@ export const WebLLMReviewer: React.FC<WebLLMReviewerProps> = ({
       {isReviewing && (
         <div className="bg-[#FBFBFA] border border-[#E5E5E2] rounded-lg p-3 font-mono text-xs text-stone-800 max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
           {streamedText || "Generating structured assessment over permitted evidence records..."}
+        </div>
+      )}
+
+      {/* Parse Error Notice (No fake findings fabricated) */}
+      {reviewError && (
+        <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-800 flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">Review Parse Notice:</span>
+            <span className="font-mono text-[11px]">{reviewError}</span>
+            <span className="text-[11px] text-rose-600">
+              Deterministic StART results remain verified and available. You may retry structured inference.
+            </span>
+          </div>
+          <button
+            onClick={handleRunReview}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded text-xs shrink-0 cursor-pointer shadow-xs"
+          >
+            Retry Review
+          </button>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -14,6 +14,8 @@ import {
   Activity,
   Shield,
   HelpCircle,
+  GitBranch,
+  X,
 } from "lucide-react";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { RunRequest } from "../types/start_schema";
@@ -98,17 +100,17 @@ export const WORKFLOWS: WorkflowOption[] = [
     category: "ml_dl",
     domain: "predictive",
     syntheticProfile: "institutional_credit_v1",
-    description: "Deep dive into residual structures, confusion metrics, and error slices.",
-    defaultArchitecture: "Gradient Boosted Trees",
+    description: "Analyze residuals, classification errors, and confusion matrices.",
+    defaultArchitecture: "Residual & Error Suite",
     defaultPlan: [
-      "Multi-threshold confusion matrix analysis",
-      "Subgroup error disparity analysis",
-      "Residual autocorrelation & variance diagnostics",
-      "High-loss sample cluster isolation",
-      "Deterministic metrics grounding",
-      "Attestation seal verification",
+      "Residual distribution & normality tests",
+      "Error concentration in feature subspaces",
+      "Confusion matrix & threshold sensitivity",
+      "Homoscedasticity & variance stability",
+      "Subgroup disparity & fairness diagnostics",
+      "Evidence synthesis and seal generation",
     ],
-    defaultParams: { threshold_steps: 10 },
+    defaultParams: { thresholds: [0.1, 0.3, 0.5, 0.7, 0.9] },
   },
   {
     id: "calibration",
@@ -116,17 +118,17 @@ export const WORKFLOWS: WorkflowOption[] = [
     category: "ml_dl",
     domain: "predictive",
     syntheticProfile: "institutional_credit_v1",
-    description: "Assess probabilistic score reliability, ECE, and reliability curves.",
-    defaultArchitecture: "Calibrated Classifier",
+    description: "Measure expected calibration error, reliability curves, and Brier scores.",
+    defaultArchitecture: "Reliability & Scoring Engine",
     defaultPlan: [
-      "Score distribution & probability histogram",
-      "Reliability curve (Platt & Isotonic comparison)",
       "Expected Calibration Error (ECE) calculation",
-      "Brier score decomposition",
-      "Overconfidence penalty assessment",
-      "Evidence ledger sign-off",
+      "Maximum Calibration Error (MCE) assessment",
+      "Brier score decomposition (Reliability / Resolution)",
+      "Reliability diagram curve construction",
+      "Isotonic regression & Platt scaling comparison",
+      "Evidence ledger commit & seal",
     ],
-    defaultParams: { n_bins: 10 },
+    defaultParams: { n_bins: 10, strategy: "uniform" },
   },
   {
     id: "robustness",
@@ -134,17 +136,17 @@ export const WORKFLOWS: WorkflowOption[] = [
     category: "ml_dl",
     domain: "predictive",
     syntheticProfile: "institutional_credit_v1",
-    description: "Simulate feature noise, extreme values, and adversarial shifts.",
-    defaultArchitecture: "Robust Classifier Suite",
+    description: "Stress test models under adversarial noise, feature jitter, and dropout.",
+    defaultArchitecture: "Perturbation Engine",
     defaultPlan: [
-      "Gaussian feature jitter sweeps (5 levels)",
-      "Missing-at-random degradation analysis",
-      "Outlier injection stress tests",
-      "Worst-case performance boundary estimation",
-      "Robustness degradation index computation",
-      "Attestation seal commit",
+      "Gaussian noise injection sweep (std=0.01 to 0.25)",
+      "Feature dropout & missingness resilience",
+      "Adversarial direction perturbation",
+      "Boundary flip rate & margin stability",
+      "Robustness frontier chart synthesis",
+      "Attestation commit to evidence ledger",
     ],
-    defaultParams: { jitter_stds: [0.05, 0.1, 0.2, 0.5] },
+    defaultParams: { noise_levels: [0.01, 0.05, 0.1, 0.25] },
   },
   {
     id: "explainability",
@@ -222,29 +224,59 @@ export const WORKFLOWS: WorkflowOption[] = [
   },
 ];
 
+export interface IterationContext {
+  parent_run_id: string;
+  action: string;
+  evidenceId?: string;
+  title?: string;
+  parameterDelta?: Record<string, any>;
+}
+
 interface AgenticComposerProps {
   onLaunchRun: (req: RunRequest) => void;
   isRunning: boolean;
   sessionId: string;
+  iterationContext?: IterationContext | null;
+  onClearIteration?: () => void;
 }
 
 export const AgenticComposer: React.FC<AgenticComposerProps> = ({
   onLaunchRun,
   isRunning,
   sessionId,
+  iterationContext,
+  onClearIteration,
 }) => {
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("predictive_ml");
-  const [customPrompt, setCustomPrompt] = useState<string>("");
+  // Empty initial composer: selectedWorkflowId starts as null
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(() => {
+    if (iterationContext?.action) return "predictive_ml";
+    return null;
+  });
+  const [customPrompt, setCustomPrompt] = useState<string>(() => {
+    if (iterationContext?.title) {
+      return `Iterative follow-up from run ${iterationContext.parent_run_id}: ${iterationContext.action} on ${iterationContext.evidenceId || "finding"}`;
+    }
+    return "";
+  });
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  // Editable parameters
-  const selectedWorkflow =
-    WORKFLOWS.find((w) => w.id === selectedWorkflowId) || WORKFLOWS[0];
+  const selectedWorkflow = WORKFLOWS.find((w) => w.id === selectedWorkflowId) || null;
 
   const [seed, setSeed] = useState<number>(42);
   const [materiality, setMateriality] = useState<"high" | "medium" | "low">("high");
   const [trialCount, setTrialCount] = useState<number>(30);
   const [activeTab, setActiveTab] = useState<"ALL" | "ML_DL" | "QUANT">("ALL");
+
+  useEffect(() => {
+    if (iterationContext) {
+      if (!selectedWorkflowId) setSelectedWorkflowId("predictive_ml");
+      if (iterationContext.title) {
+        setCustomPrompt(
+          `Iterative follow-up on ${iterationContext.evidenceId || "finding"}: ${iterationContext.action} (${iterationContext.title})`
+        );
+      }
+    }
+  }, [iterationContext]);
 
   const filteredWorkflows = WORKFLOWS.filter((w) => {
     if (activeTab === "ML_DL") return w.category === "ml_dl";
@@ -253,6 +285,7 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
   });
 
   const handleLaunch = () => {
+    if (!selectedWorkflow) return;
     const req: RunRequest = {
       domain: selectedWorkflow.domain,
       mode: "deterministic",
@@ -263,8 +296,11 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
       session_id: sessionId,
       workflow: selectedWorkflow.id,
       turnstile_token: turnstileToken,
+      parent_run_id: iterationContext?.parent_run_id,
+      intervention: iterationContext?.action,
       parameters: {
         ...selectedWorkflow.defaultParams,
+        ...(iterationContext?.parameterDelta || {}),
         trials: trialCount,
         prompt: customPrompt,
       },
@@ -276,13 +312,12 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
     <div className="flex flex-col h-full w-full bg-[#FBFBFA] overflow-y-auto">
       {/* Top Welcome & Intent Composer */}
       <div className="max-w-5xl mx-auto w-full px-8 py-10 flex flex-col gap-8">
-        {/* Header Branding */}
+        {/* Header Branding (Clean without version tag) */}
         <div className="flex flex-col gap-2 text-left">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded text-[11px] font-mono font-medium tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-200">
               AGENTIC WORKBENCH
             </span>
-            <span className="text-xs text-stone-500 font-mono">StART v4.6.0</span>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight text-stone-900">
             What do you want to work on?
@@ -292,6 +327,34 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
             Deterministic engines compute mathematical proof; AI agents orchestrate and interpret.
           </p>
         </div>
+
+        {/* Iteration Lineage Follow-up Banner (If Active) */}
+        {iterationContext && (
+          <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-4 flex items-center justify-between text-left text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">
+                <GitBranch className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-indigo-950">
+                  Iterative Lineage: Parent Run {iterationContext.parent_run_id}
+                </span>
+                <span className="text-indigo-700 font-mono text-[11px]">
+                  Intervention: {iterationContext.action} {iterationContext.evidenceId ? `on [${iterationContext.evidenceId}]` : ""}
+                </span>
+              </div>
+            </div>
+            {onClearIteration && (
+              <button
+                onClick={onClearIteration}
+                className="px-2.5 py-1 text-xs font-medium text-indigo-800 hover:bg-indigo-100 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Clear Lineage</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Intent Description Box */}
         <div className="bg-white border border-[#E5E5E2] rounded-xl p-4 shadow-sm flex flex-col gap-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
@@ -312,7 +375,7 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
         <div className="flex items-center gap-2 border-b border-[#E5E5E2] pb-3">
           <button
             onClick={() => setActiveTab("ALL")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               activeTab === "ALL"
                 ? "bg-stone-900 text-white"
                 : "text-stone-600 hover:bg-stone-100"
@@ -322,7 +385,7 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
           </button>
           <button
             onClick={() => setActiveTab("ML_DL")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               activeTab === "ML_DL"
                 ? "bg-stone-900 text-white"
                 : "text-stone-600 hover:bg-stone-100"
@@ -332,7 +395,7 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
           </button>
           <button
             onClick={() => setActiveTab("QUANT")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               activeTab === "QUANT"
                 ? "bg-stone-900 text-white"
                 : "text-stone-600 hover:bg-stone-100"
@@ -381,109 +444,117 @@ export const AgenticComposer: React.FC<AgenticComposerProps> = ({
           })}
         </div>
 
-        {/* Bottom Configuration & Pre-Execution Agent Plan */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t border-[#E5E5E2]">
-          {/* Left 2 Cols: Agent Execution Plan Preview */}
-          <div className="lg:col-span-2 bg-white border border-[#E5E5E2] rounded-xl p-5 flex flex-col gap-4 text-left shadow-sm">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2">
-                <ListOrdered className="w-4 h-4 text-indigo-600" />
-                <span className="font-semibold text-sm text-stone-900">
-                  StART Agent Execution Plan
+        {/* Bottom Configuration & Pre-Execution Agent Plan (Rendered when selected) */}
+        {selectedWorkflow ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t border-[#E5E5E2]">
+            {/* Left 2 Cols: Agent Execution Plan Preview */}
+            <div className="lg:col-span-2 bg-white border border-[#E5E5E2] rounded-xl p-5 flex flex-col gap-4 text-left shadow-sm">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <ListOrdered className="w-4 h-4 text-indigo-600" />
+                  <span className="font-semibold text-sm text-stone-900">
+                    StART Agent Execution Plan
+                  </span>
+                </div>
+                <span className="text-xs text-stone-500 font-mono">
+                  {selectedWorkflow.defaultPlan.length} deterministic steps
                 </span>
               </div>
-              <span className="text-xs text-stone-500 font-mono">
-                {selectedWorkflow.defaultPlan.length} deterministic steps
-              </span>
-            </div>
 
-            <div className="flex flex-col gap-2">
-              {selectedWorkflow.defaultPlan.map((step, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 py-1 px-2.5 rounded-md hover:bg-stone-50 text-xs text-stone-700 font-mono"
-                >
-                  <span className="w-5 text-stone-400 font-semibold">{String(idx + 1).padStart(2, "0")}</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-stone-300" />
-                  <span className="text-stone-800 flex-1">{step}</span>
-                  <span className="text-[10px] text-stone-400">Canonical Engine</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2 text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded border border-stone-200/60 mt-1">
-              <Database className="w-3.5 h-3.5 text-stone-400" />
-              <span>
-                Execution Context: Built-in synthetic public-safe profile{" "}
-                <code className="font-mono text-stone-700 font-medium">
-                  {selectedWorkflow.syntheticProfile}
-                </code>
-              </span>
-            </div>
-          </div>
-
-          {/* Right Col: Structured Parameters & Turnstile Execution */}
-          <div className="bg-white border border-[#E5E5E2] rounded-xl p-5 flex flex-col justify-between gap-5 text-left shadow-sm">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
-                <Sliders className="w-4 h-4 text-indigo-600" />
-                <span className="font-semibold text-sm text-stone-900">Parameters</span>
-              </div>
-
-              <div className="flex flex-col gap-3 text-xs">
-                <div className="flex flex-col gap-1">
-                  <label className="text-stone-600 font-medium">Materiality Tier</label>
-                  <select
-                    value={materiality}
-                    onChange={(e: any) => setMateriality(e.target.value)}
-                    className="border border-[#E5E5E2] rounded px-2.5 py-1.5 text-stone-800 bg-stone-50/50 outline-none focus:border-indigo-500 font-mono"
+              <div className="flex flex-col gap-2">
+                {selectedWorkflow.defaultPlan.map((step, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 py-1 px-2.5 rounded-md hover:bg-stone-50 text-xs text-stone-700 font-mono"
                   >
-                    <option value="high">High Materiality (Tier 1 Model)</option>
-                    <option value="medium">Medium Materiality (Tier 2)</option>
-                    <option value="low">Low Materiality (Exploratory)</option>
-                  </select>
-                </div>
+                    <span className="w-5 text-stone-400 font-semibold">{String(idx + 1).padStart(2, "0")}</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-stone-300" />
+                    <span className="text-stone-800 flex-1">{step}</span>
+                    <span className="text-[10px] text-stone-400">Canonical Engine</span>
+                  </div>
+                ))}
+              </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-stone-600 font-medium">Trial Budget</label>
-                  <input
-                    type="number"
-                    value={trialCount}
-                    onChange={(e) => setTrialCount(Number(e.target.value))}
-                    min={5}
-                    max={100}
-                    className="border border-[#E5E5E2] rounded px-2.5 py-1.5 text-stone-800 bg-stone-50/50 outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-stone-600 font-medium">Deterministic Seed</label>
-                  <input
-                    type="number"
-                    value={seed}
-                    onChange={(e) => setSeed(Number(e.target.value))}
-                    className="border border-[#E5E5E2] rounded px-2.5 py-1.5 text-stone-800 bg-stone-50/50 outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
+              <div className="flex items-center gap-2 text-[11px] text-stone-500 bg-stone-50 p-2.5 rounded border border-stone-200/60 mt-1">
+                <Database className="w-3.5 h-3.5 text-stone-400" />
+                <span>
+                  Execution Context: Built-in synthetic public-safe profile{" "}
+                  <code className="font-mono text-stone-700 font-medium">
+                    {selectedWorkflow.syntheticProfile}
+                  </code>
+                </span>
               </div>
             </div>
 
-            {/* Turnstile Verification Widget */}
-            <div className="flex flex-col gap-3 pt-2 border-t border-stone-100">
-              <TurnstileWidget onTokenReceived={(tok) => setTurnstileToken(tok)} />
+            {/* Right Col: Structured Parameters & Turnstile Execution */}
+            <div className="bg-white border border-[#E5E5E2] rounded-xl p-5 flex flex-col justify-between gap-5 text-left shadow-sm">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
+                  <Sliders className="w-4 h-4 text-indigo-600" />
+                  <span className="font-semibold text-sm text-stone-900">Parameters</span>
+                </div>
 
-              <button
-                data-testid="run-start-workbench-button"
-                onClick={handleLaunch}
-                disabled={isRunning}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs tracking-wide shadow-sm disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                <span>Run StART Workbench</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+                <div className="flex flex-col gap-3 text-xs">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-stone-600 font-medium">Materiality Tier</label>
+                    <select
+                      value={materiality}
+                      onChange={(e: any) => setMateriality(e.target.value)}
+                      className="border border-[#E5E5E2] rounded px-2.5 py-1.5 text-stone-800 bg-stone-50/50 outline-none focus:border-indigo-500 font-mono"
+                    >
+                      <option value="high">High Materiality (Tier 1 Model)</option>
+                      <option value="medium">Medium Materiality (Tier 2)</option>
+                      <option value="low">Low Materiality (Exploratory)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-stone-600 font-medium">Trial Budget</label>
+                    <input
+                      type="number"
+                      value={trialCount}
+                      onChange={(e) => setTrialCount(Number(e.target.value))}
+                      min={5}
+                      max={100}
+                      className="border border-[#E5E5E2] rounded px-2.5 py-1.5 text-stone-800 bg-stone-50/50 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-stone-600 font-medium">Deterministic Seed</label>
+                    <input
+                      type="number"
+                      value={seed}
+                      onChange={(e) => setSeed(Number(e.target.value))}
+                      className="border border-[#E5E5E2] rounded px-2.5 py-1.5 text-stone-800 bg-stone-50/50 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Turnstile Verification Widget */}
+              <div className="flex flex-col gap-3 pt-2 border-t border-stone-100">
+                <TurnstileWidget onTokenReceived={(tok) => setTurnstileToken(tok)} />
+
+                <button
+                  data-testid="run-start-workbench-button"
+                  onClick={handleLaunch}
+                  disabled={isRunning || !turnstileToken}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs tracking-wide shadow-sm disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <span>{turnstileToken ? "Run StART Workbench" : "Awaiting Security Verification..."}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-8 rounded-xl border border-dashed border-stone-200 bg-white/50 text-center flex flex-col items-center justify-center gap-2 text-stone-500 text-xs">
+            <ListOrdered className="w-6 h-6 text-stone-300" />
+            <span className="font-medium text-stone-700">No workflow selected</span>
+            <span>Select a task card above to preview the deterministic agent plan and configure parameters.</span>
+          </div>
+        )}
       </div>
     </div>
   );

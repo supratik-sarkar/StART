@@ -125,9 +125,12 @@ def verify_turnstile_token(token: str | None, remote_ip: str | None = None) -> b
     if not token:
         return False
 
-    # Support official Cloudflare automated test token
-    if token == "XXXX.DUMMY.TOKEN.XXXX":
-        return True
+    # When secret key is present (production), always verify via Cloudflare Siteverify API.
+    # Reject dummy tokens unless running in explicit local non-oracle test environment.
+    is_prod = bool(os.environ.get("START_ORACLE_DEPLOYMENT") or os.environ.get("START_REQUIRE_ORIGIN_AUTH"))
+    if not is_prod and os.environ.get("START_ALLOW_TEST_TOKENS") == "true":
+        if token == "XXXX.DUMMY.TOKEN.XXXX":
+            return True
 
     try:
         post_data = urllib.parse.urlencode(

@@ -23,7 +23,10 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
 }) => {
   const blocks = Object.values(presentation.blocks || {});
   const allRows = blocks.flatMap((b) => b.rows || []);
-  const sampleEvidence = allRows.filter((r) => r.evidence_id).slice(0, 4);
+  const failedOrWarnRows = allRows.filter(
+    (r) => r.status === "FAIL" || r.status === "WARN" || r.status === "ERROR"
+  );
+  const sampleEvidence = allRows.filter((r) => r.evidence_id).slice(0, 6);
 
   const { nodes, edges } = useMemo(() => {
     const rawNodes: Node[] = [];
@@ -38,9 +41,9 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
           <div className="p-2 text-left">
             <div className="text-[10px] font-mono font-medium text-stone-400 uppercase">User Goal</div>
             <div className="text-xs font-semibold text-stone-900 truncate">
-              {presentation.domains?.join(" + ") || "Predictive ML"}
+              {presentation.domains?.join(" + ") || "Deterministic Workflow"}
             </div>
-            <div className="text-[10px] text-stone-500 font-mono">High Materiality</div>
+            <div className="text-[10px] text-stone-500 font-mono">Bound Protocol</div>
           </div>
         ),
       },
@@ -56,7 +59,9 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
           <div className="p-2 text-left">
             <div className="text-[10px] font-mono font-medium text-stone-400 uppercase">Agent Plan</div>
             <div className="text-xs font-semibold text-stone-900">Deterministic Suite</div>
-            <div className="text-[10px] text-stone-500 font-mono">52 Registered Surfaces</div>
+            <div className="text-[10px] text-stone-500 font-mono">
+              {allRows.length > 0 ? `${allRows.length} Executed Surfaces` : "Awaiting execution"}
+            </div>
           </div>
         ),
       },
@@ -70,9 +75,9 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
       markerEnd: { type: MarkerType.ArrowClosed },
     });
 
-    // Node 3, 4, 5: Tests & Evidence Records
+    // Node 3+: Tests & Evidence Records
     sampleEvidence.forEach((ev, i) => {
-      const yOffset = 50 + i * 80;
+      const yOffset = 40 + i * 75;
       const nodeId = `node-ev-${i}`;
       const isSelected = activeEvidenceId === ev.evidence_id;
 
@@ -83,11 +88,11 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
           label: (
             <div className="p-2 text-left">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-indigo-600 font-medium">
+                <span className="text-[10px] font-mono text-indigo-600 font-medium truncate max-w-[90px]">
                   {ev.evidence_id}
                 </span>
                 <span
-                  className={`text-[9px] px-1 rounded font-mono ${
+                  className={`text-[9px] px-1 rounded font-mono shrink-0 ${
                     ev.status === "PASS"
                       ? "bg-emerald-50 text-emerald-700"
                       : "bg-amber-50 text-amber-700"
@@ -99,8 +104,8 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
               <div className="text-xs font-medium text-stone-800 truncate mt-0.5">
                 {ev.metric || ev.test_id}
               </div>
-              <div className="text-[10px] text-stone-500 font-mono">
-                {String(ev.value).substring(0, 12)}
+              <div className="text-[10px] text-stone-500 font-mono truncate">
+                {ev.value !== undefined ? String(ev.value).substring(0, 14) : "Recorded"} {ev.unit || ""}
               </div>
             </div>
           ),
@@ -121,65 +126,95 @@ export const EvidenceDecisionGraph: React.FC<EvidenceDecisionGraphProps> = ({
       });
     });
 
-    // Node 6: Findings & Interventions
-    rawNodes.push({
-      id: "node-findings",
-      position: { x: 700, y: 120 },
-      data: {
-        label: (
-          <div className="p-2 text-left">
-            <div className="text-[10px] font-mono font-medium text-amber-600 uppercase">
-              Actionable Finding
-            </div>
-            <div className="text-xs font-semibold text-stone-900">Calibration & Jitter</div>
-            <div className="text-[10px] text-stone-500 font-mono">Recalibration Intervened</div>
-          </div>
-        ),
-      },
-      style: { border: "1px solid #F59E0B", background: "#FFFBEB", width: 170 },
-    });
+    // Node: Findings (rendered ONLY if real failed or warning evidence rows exist)
+    const hasFindings = failedOrWarnRows.length > 0;
+    if (hasFindings) {
+      const topFinding = failedOrWarnRows[0];
+      const findingTitle = topFinding.metric || topFinding.test_id || "Attention Item";
 
-    sampleEvidence.forEach((_, i) => {
-      rawEdges.push({
-        id: `e-ev-findings-${i}`,
-        source: `node-ev-${i}`,
-        target: "node-findings",
-        markerEnd: { type: MarkerType.ArrowClosed },
+      rawNodes.push({
+        id: "node-findings",
+        position: { x: 700, y: 120 },
+        data: {
+          label: (
+            <div className="p-2 text-left">
+              <div className="text-[10px] font-mono font-medium text-amber-600 uppercase">
+                Deterministic Finding
+              </div>
+              <div className="text-xs font-semibold text-stone-900 truncate">{findingTitle}</div>
+              <div className="text-[10px] text-stone-500 font-mono">
+                {failedOrWarnRows.length} flagged surface{failedOrWarnRows.length > 1 ? "s" : ""}
+              </div>
+            </div>
+          ),
+        },
+        style: { border: "1px solid #F59E0B", background: "#FFFBEB", width: 170 },
       });
-    });
 
-    // Node 7: Attestation Seal
-    rawNodes.push({
-      id: "node-seal",
-      position: { x: 930, y: 150 },
-      data: {
-        label: (
-          <div className="p-2 text-left">
-            <div className="text-[10px] font-mono font-medium text-emerald-600 uppercase">
-              Attestation Seal
-            </div>
-            <div className="text-xs font-semibold text-emerald-700">
-              {presentation.governance_disposition || "ACCEPT"}
-            </div>
-            <div className="text-[10px] text-stone-500 font-mono truncate">
-              Merkle Root Signed
-            </div>
-          </div>
-        ),
-      },
-      style: { border: "1px solid #10B981", background: "#ECFDF5", width: 170 },
-    });
+      sampleEvidence.forEach((_, i) => {
+        rawEdges.push({
+          id: `e-ev-findings-${i}`,
+          source: `node-ev-${i}`,
+          target: "node-findings",
+          markerEnd: { type: MarkerType.ArrowClosed },
+        });
+      });
+    }
 
-    rawEdges.push({
-      id: "e-findings-seal",
-      source: "node-findings",
-      target: "node-seal",
-      animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed },
-    });
+    // Node: Attestation / Governance Seal (rendered ONLY if disposition or merkle root exists)
+    const hasAttestation =
+      Boolean(presentation.governance_disposition) ||
+      Boolean(presentation.attestation_seal_merkle_root);
+
+    if (hasAttestation) {
+      const merklePreview = presentation.attestation_seal_merkle_root
+        ? `${presentation.attestation_seal_merkle_root.substring(0, 12)}...`
+        : "Evidence Sealed";
+
+      rawNodes.push({
+        id: "node-seal",
+        position: { x: hasFindings ? 930 : 700, y: 150 },
+        data: {
+          label: (
+            <div className="p-2 text-left">
+              <div className="text-[10px] font-mono font-medium text-emerald-600 uppercase">
+                Attestation Seal
+              </div>
+              <div className="text-xs font-semibold text-emerald-700 truncate">
+                {presentation.governance_disposition || "VERIFIED"}
+              </div>
+              <div className="text-[10px] text-stone-500 font-mono truncate">
+                {merklePreview}
+              </div>
+            </div>
+          ),
+        },
+        style: { border: "1px solid #10B981", background: "#ECFDF5", width: 170 },
+      });
+
+      if (hasFindings) {
+        rawEdges.push({
+          id: "e-findings-seal",
+          source: "node-findings",
+          target: "node-seal",
+          animated: true,
+          markerEnd: { type: MarkerType.ArrowClosed },
+        });
+      } else {
+        sampleEvidence.forEach((_, i) => {
+          rawEdges.push({
+            id: `e-ev-seal-${i}`,
+            source: `node-ev-${i}`,
+            target: "node-seal",
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed },
+          });
+        });
+      }
+    }
 
     return { nodes: rawNodes, edges: rawEdges };
-  }, [presentation, sampleEvidence, activeEvidenceId]);
+  }, [presentation, sampleEvidence, failedOrWarnRows, allRows.length, activeEvidenceId]);
 
   return (
     <div className="w-full h-full min-h-[350px] bg-[#FBFBFA] relative border border-[#E5E5E2] rounded-xl overflow-hidden">

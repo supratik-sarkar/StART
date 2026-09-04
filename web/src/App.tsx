@@ -11,7 +11,7 @@ import {
   Database,
   ExternalLink,
 } from "lucide-react";
-import { AgenticComposer } from "./components/AgenticComposer";
+import { AgenticComposer, IterationContext } from "./components/AgenticComposer";
 import { LiveExecutionWorkspace } from "./components/LiveExecutionWorkspace";
 import {
   fetchRunPresentation,
@@ -38,6 +38,7 @@ export function App() {
   const [events, setEvents] = useState<SSEEnvelope[]>([]);
   const [presentation, setPresentation] = useState<ReviewPresentationExport | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [iterationContext, setIterationContext] = useState<IterationContext | null>(null);
 
   // Session ID (persisted in sessionStorage for refresh reconnection)
   const [sessionId] = useState<string>(() => {
@@ -90,6 +91,7 @@ export function App() {
     setEvents([]);
     setPresentation(null);
     setErrorMessage(null);
+    setIterationContext(null);
     setCurrentView("WORKSPACE");
     setActiveDomain(req.domain || "predictive");
     setActiveWorkflow(req.workflow || "predictive_ml");
@@ -155,11 +157,19 @@ export function App() {
     setPresentation(null);
     setEvents([]);
     setErrorMessage(null);
+    setIterationContext(null);
     setCurrentView("COMPOSE");
   };
 
   const handleTriggerIterateAction = (action: string, context: Record<string, any>) => {
-    // Switch to Composer pre-filled with iteration context
+    // Switch to Composer pre-filled with real iterative lineage context
+    setIterationContext({
+      parent_run_id: activeRunId || "RUN-PREV",
+      action,
+      evidenceId: context.evidenceId,
+      title: context.finding || context.title,
+      parameterDelta: context.parameterDelta,
+    });
     setCurrentView("COMPOSE");
   };
 
@@ -277,6 +287,8 @@ export function App() {
             onLaunchRun={handleLaunchRun}
             isRunning={isRunning}
             sessionId={sessionId}
+            iterationContext={iterationContext}
+            onClearIteration={() => setIterationContext(null)}
           />
         ) : (
           <LiveExecutionWorkspace

@@ -69,9 +69,11 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
 
   // Compute truthful progress from latest event or status
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
-  const progressPercent = isRunning
-    ? Math.max(15, Math.min(95, latestEvent?.percent || (events.length / 8) * 100))
-    : 100;
+  const progressPercent = !isRunning
+    ? 100
+    : latestEvent?.percent !== undefined && latestEvent?.percent !== null
+    ? latestEvent.percent
+    : null;
   const currentPhase = isRunning
     ? latestEvent?.phase || "Deterministic Analytical Execution"
     : "Completed & Attested";
@@ -91,19 +93,40 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
-  const planSteps = [
-    { name: "01 Data Integrity & Split Diagnostics", done: events.length >= 1 },
-    { name: "02 Baseline Evaluation & ROC Envelope", done: events.length >= 2 },
-    { name: "03 Calibration & Reliability Curves", done: events.length >= 3 },
-    { name: "04 Robustness & Feature Perturbations", done: events.length >= 4 },
-    { name: "05 SHAP & Integrated Gradients", done: events.length >= 5 },
-    { name: "06 Evidence Synthesis & Ledger Sign-off", done: events.length >= 6 },
-    { name: "07 Governance Disposition Attestation", done: !isRunning },
-  ];
-
   const allRows: MetricRowView[] = Object.values(presentation?.blocks || {}).flatMap(
     (b) => b.rows || []
   );
+
+  useEffect(() => {
+    if (!selectedEvidenceId && allRows.length > 0 && allRows[0]?.evidence_id) {
+      setSelectedEvidenceId(allRows[0].evidence_id);
+    }
+  }, [allRows, selectedEvidenceId]);
+
+  const hasStage = (s: string) =>
+    events.some(
+      (e) =>
+        e.stage === s ||
+        (e.action && e.action.toLowerCase().includes(s.toLowerCase())) ||
+        (e.phase && e.phase.toLowerCase().includes(s.toLowerCase()))
+    );
+
+  const planSteps = [
+    { name: "01 Data Integrity & Split Diagnostics", done: hasStage("PLANNING") || hasStage("EXECUTION") || !isRunning },
+    { name: "02 Baseline Evaluation & Neural Suite", done: hasStage("EXECUTION") || hasStage("CHECKPOINTS") || hasStage("TUNING") || !isRunning },
+    { name: "03 Calibration & Reliability Curves", done: hasStage("CHECKPOINTS") || hasStage("GOVERNANCE") || !isRunning },
+    { name: "04 Robustness & Feature Perturbations", done: hasStage("CHECKPOINTS") || hasStage("GOVERNANCE") || !isRunning },
+    { name: "05 SHAP & Feature Attributions", done: hasStage("CHECKPOINTS") || hasStage("GOVERNANCE") || !isRunning },
+    { name: "06 Evidence Synthesis & Ledger Sign-off", done: hasStage("CHECKPOINTS") || hasStage("GOVERNANCE") || !isRunning },
+    { name: "07 Governance Disposition Attestation", done: hasStage("GOVERNANCE") || !isRunning },
+  ];
+
+  const evidenceCountLabel =
+    allRows.length > 0
+      ? `${allRows.length} Evidence Surfaces`
+      : isRunning
+      ? "Computing surfaces..."
+      : "Awaiting evidence";
 
   return (
     <div className="flex flex-col h-full w-full bg-[#FBFBFA] overflow-hidden text-left">
@@ -126,7 +149,7 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
             <div className="flex items-center gap-2 text-xs font-mono text-stone-700">
               <span className="font-semibold text-stone-900 capitalize">{workflow.replace("_", " ")}</span>
               <span className="text-stone-300">/</span>
-              <span className="text-stone-500">{runId}</span>
+              <span className="text-stone-500" data-testid="active-run-id">{runId}</span>
             </div>
           </div>
 
@@ -138,7 +161,7 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
 
             <div className="flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5 text-stone-400" />
-              <span>{allRows.length || (isRunning ? 42 : 52)} Evidence Surfaces</span>
+              <span>{evidenceCountLabel}</span>
             </div>
 
             <button
@@ -154,12 +177,16 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
         {/* Horizontal Progress Bar */}
         <div className="flex flex-col gap-1">
           <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden border border-stone-200/60">
-            <div
-              className={`h-full transition-all duration-500 ${
-                isRunning ? "bg-indigo-600" : "bg-emerald-600"
-              }`}
-              style={{ width: `${progressPercent}%` }}
-            />
+            {progressPercent !== null ? (
+              <div
+                className={`h-full transition-all duration-500 ${
+                  isRunning ? "bg-indigo-600" : "bg-emerald-600"
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            ) : (
+              <div className="h-full bg-indigo-500/70 animate-pulse w-full" />
+            )}
           </div>
 
           <div className="flex items-center justify-between text-[11px] font-mono text-stone-500">
@@ -167,7 +194,7 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
               <Activity className="w-3 h-3 text-indigo-600" />
               <span>Phase: {currentPhase}</span>
             </span>
-            <span>{progressPercent.toFixed(0)}%</span>
+            <span>{progressPercent !== null ? `${progressPercent.toFixed(0)}%` : "Progress in progress"}</span>
           </div>
         </div>
       </div>

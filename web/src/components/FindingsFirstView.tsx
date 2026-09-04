@@ -34,36 +34,25 @@ export const FindingsFirstView: React.FC<FindingsFirstViewProps> = ({
   );
   const passedRows = allRows.filter((r) => r.status === "PASS");
 
-  // Derive top attention items
-  const attentionItems = [
-    {
-      title: "Calibration Error Degradation",
-      category: "Calibration",
-      severity: "WARN",
-      summary: "Expected calibration error (ECE) elevated on tail prediction probabilities.",
-      evidenceId: failedOrWarnRows[0]?.evidence_id || "EV-CAL-001",
-      recommendation: "Run isotonic recalibration or apply temperature scaling.",
-      metricText: "ECE = 0.084 (Threshold < 0.05)",
-    },
-    {
-      title: "Perturbation Sensitivity Under Noise",
-      category: "Robustness",
-      severity: "ATTENTION",
-      summary: "Model ROC-AUC deteriorates by 8.4% when Gaussian feature jitter (std=0.10) is introduced.",
-      evidenceId: failedOrWarnRows[1]?.evidence_id || "EV-ROB-002",
-      recommendation: "Execute a deeper multi-level perturbation sweep or apply feature regularization.",
-      metricText: "Degradation Index = 0.084",
-    },
-    {
-      title: "Model Capacity & Parameter Ratio",
-      category: "Architecture",
-      severity: "INFO",
-      summary: "Layer parameter ratio indicates potential over-capacity relative to effective sample size.",
-      evidenceId: failedOrWarnRows[2]?.evidence_id || "EV-ARCH-003",
-      recommendation: "Compare against pruned or lower-complexity baseline model.",
-      metricText: "Params = 124,800 / Samples = 500",
-    },
-  ];
+  // Derive attention items strictly from actual failed/warning deterministic evidence rows
+  const attentionItems = failedOrWarnRows.map((row, idx) => {
+    const isFail = row.status === "FAIL" || row.status === "ERROR";
+    const category = row.test_id ? row.test_id.split("-")[0] : "Diagnostics";
+    const title = row.metric || row.test_id || `Evidence Flag ${idx + 1}`;
+    const metricText = `Value: ${row.value !== undefined ? String(row.value) : "N/A"} ${row.unit || ""}`.trim();
+    const summary = `${row.status || "WARN"} status recorded on deterministic test ${row.test_id || title}.`;
+    const recommendation = `Review deterministic surface ${row.test_id || title} output and verify baseline stability.`;
+
+    return {
+      title,
+      category,
+      severity: isFail ? "FAIL" : "WARN",
+      summary,
+      evidenceId: row.evidence_id || `EV-ATTN-${idx + 1}`,
+      recommendation,
+      metricText,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6 p-6 bg-white overflow-y-auto">
@@ -77,11 +66,11 @@ export const FindingsFirstView: React.FC<FindingsFirstViewProps> = ({
             <span className="font-semibold text-xs text-stone-900">
               Deterministic Governance Attestation:{" "}
               <span className="text-emerald-700 font-mono">
-                {presentation.governance_disposition || "ACCEPT_WITH_CONDITIONS"}
+                {presentation.governance_disposition || "Awaiting evaluation"}
               </span>
             </span>
             <span className="text-[11px] font-mono text-stone-500 truncate max-w-md">
-              Merkle Root: {presentation.attestation_seal_merkle_root || "b9219cb794e5e553..."}
+              Merkle Root: {presentation.attestation_seal_merkle_root || "Awaiting attestation seal"}
             </span>
           </div>
         </div>
@@ -105,7 +94,18 @@ export const FindingsFirstView: React.FC<FindingsFirstViewProps> = ({
         </div>
 
         <div className="flex flex-col gap-3">
-          {attentionItems.map((item, idx) => (
+          {attentionItems.length === 0 ? (
+            <div className="p-6 rounded-xl border border-[#E5E5E2] bg-[#FBFBFA] text-center flex flex-col items-center justify-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <span className="text-xs font-medium text-stone-700">
+                No evidence-derived attention items were identified for this run.
+              </span>
+              <span className="text-[11px] text-stone-400 font-mono">
+                All deterministic verification criteria satisfied threshold constraints.
+              </span>
+            </div>
+          ) : (
+            attentionItems.map((item, idx) => (
             <div
               key={idx}
               className="p-4 rounded-xl border border-[#E5E5E2] bg-white hover:border-stone-300 transition-all flex flex-col gap-3 shadow-xs"
@@ -203,7 +203,7 @@ export const FindingsFirstView: React.FC<FindingsFirstViewProps> = ({
                 </button>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       </div>
 
