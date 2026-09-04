@@ -334,6 +334,10 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         else:
             pres_dict["run_id"] = run_id
 
+        pres_dict["workflow"] = request.workflow
+        pres_dict["parent_run_id"] = request.parent_run_id
+        pres_dict["intervention"] = request.intervention
+
         # Emit Final Step 5: Completed Seal
         GLOBAL_QUEUE.append_event(
             run_id,
@@ -469,6 +473,23 @@ async def stream_run_events(
     """Subscribe to Server-Sent Events for a run."""
     gen = sse_event_generator(run_id=run_id, session_id=session_id, last_event_id=last_event_id)
     return EventSourceResponse(gen)
+
+
+@router.get("/{run_id}/events", response_model=APIResponseEnvelope)
+def get_run_events(
+    run_id: str,
+    session_id: str | None = Query(None),
+) -> APIResponseEnvelope:
+    """Retrieve raw event list for a run."""
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found or session access denied")
+
+    return APIResponseEnvelope(
+        success=True,
+        run_id=run_id,
+        data={"events": ctx.events, "count": len(ctx.events)},
+    )
 
 
 @router.get("/{run_id}/presentation", response_model=APIResponseEnvelope)

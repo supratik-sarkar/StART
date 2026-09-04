@@ -111,26 +111,51 @@ def verify_origin_hmac(
     return matched
 
 
+CLOUDFLARE_TEST_SECRETS = {
+    "1x0000000000000000000000000000000AA",
+    "2x0000000000000000000000000000000AA",
+    "3x0000000000000000000000000000000AA",
+}
+
+
 def verify_turnstile_token(token: str | None, remote_ip: str | None = None) -> bool:
     """Validate Turnstile token server-side via Cloudflare Siteverify API.
 
     In local/test environments with no configured secret key, dummy tokens pass.
     In production with START_TURNSTILE_SECRET_KEY configured, verifies via challenges.cloudflare.com.
+    Refuses production execution if configured with a known test secret.
     """
     turnstile_key = get_turnstile_secret_key()
+    is_prod = bool(
+        os.environ.get("START_ORACLE_DEPLOYMENT") or os.environ.get("START_REQUIRE_ORIGIN_AUTH")
+    )
+
     if not turnstile_key:
+        if is_prod:
+            logger.error(
+                "Security violation: Production running without START_TURNSTILE_SECRET_KEY. "
+                "Failing closed."
+            )
+            return False
         # Development mode or local offline run
         return True
+
+    if is_prod and turnstile_key in CLOUDFLARE_TEST_SECRETS:
+        logger.critical("FATAL: Production configured with a Cloudflare test secret key. FAILING CLOSED.")
+        return False
 
     if not token:
         return False
 
-    # When secret key is present (production), always verify via Cloudflare Siteverify API.
-    # Reject dummy tokens unless running in explicit local non-oracle test environment.
-    is_prod = bool(os.environ.get("START_ORACLE_DEPLOYMENT") or os.environ.get("START_REQUIRE_ORIGIN_AUTH"))
-    if not is_prod and os.environ.get("START_ALLOW_TEST_TOKENS") == "true":
-        if token == "XXXX.DUMMY.TOKEN.XXXX":
-            return True
+    # Reject dummy/invalid probe tokens in production
+    if is_prod and token in (
+        "INVALID.TOKEN",
+        "INVALID.NONEXISTENT.TOKEN",
+        "INVALID.PROBE.TOKEN",
+        "MALICIOUS.TOKEN",
+        "XXXX.DUMMY.TOKEN.XXXX",
+    ):
+        return False
 
     try:
         post_data = urllib.parse.urlencode(

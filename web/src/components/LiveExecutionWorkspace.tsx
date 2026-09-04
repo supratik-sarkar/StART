@@ -55,7 +55,7 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
 }) => {
   const [centerTab, setCenterTab] = useState<"findings" | "graph" | "stream" | "metrics">("findings");
   const [rightTab, setRightTab] = useState<"artifacts" | "ai_reviewer" | "decision_graph">("artifacts");
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string>("EV-PRED-001");
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string>("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Timer for execution elapsed
@@ -288,7 +288,7 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
                     : "text-stone-600 hover:bg-stone-100"
                 }`}
               >
-                Metrics Ledger ({allRows.length || (isRunning ? 42 : 52)})
+                Metrics Ledger ({allRows.length > 0 ? allRows.length : isRunning ? "Computing..." : "Awaiting evidence"})
               </button>
 
               <button
@@ -357,26 +357,20 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
 
             {centerTab === "graph" && (
               <div className="p-4 h-full">
-                <EvidenceDecisionGraph
-                  presentation={
-                    presentation || {
-                      run_id: runId,
-                      mode: "deterministic",
-                      domains: [domain],
-                      materiality: "high",
-                      lifecycle: "validation",
-                      governance_disposition: "ACCEPT",
-                      attestation_seal_merkle_root: "b9219cb794...",
-                      blocks: {},
-                      orchestration_events: events as any,
-                    }
-                  }
-                  activeEvidenceId={selectedEvidenceId}
-                  onSelectEvidence={(ev) => {
-                    setSelectedEvidenceId(ev);
-                    setRightTab("artifacts");
-                  }}
-                />
+                {presentation ? (
+                  <EvidenceDecisionGraph
+                    presentation={presentation}
+                    activeEvidenceId={selectedEvidenceId}
+                    onSelectEvidence={(ev) => {
+                      setSelectedEvidenceId(ev);
+                      setRightTab("artifacts");
+                    }}
+                  />
+                ) : (
+                  <div className="p-8 text-center text-stone-400 font-mono text-xs">
+                    Awaiting analytical run completion for evidence decision graph...
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -418,6 +412,7 @@ export const LiveExecutionWorkspace: React.FC<LiveExecutionWorkspaceProps> = ({
             {rightTab === "artifacts" && (
               <ArtifactInspector
                 selectedEvidenceId={selectedEvidenceId}
+                selectedRow={allRows.find((r) => r.evidence_id === selectedEvidenceId) || null}
                 runId={runId}
                 sessionId={sessionId}
               />

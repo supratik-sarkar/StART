@@ -40,7 +40,25 @@ class WebLLMService {
       return;
     }
 
+    const appConfig: webllm.AppConfig = {
+      model_list: [
+        {
+          model: "https://137.23.61.219.sslip.io/webllm-models/SmolLM2-1.7B-Instruct-q4f16_1-MLC",
+          model_id: this.selectedModel,
+          model_lib:
+            webllm.modelLibURLPrefix +
+            webllm.modelVersion +
+            "/SmolLM2-1.7B-Instruct-q4f16_1_cs1k-webgpu.wasm",
+          vram_required_MB: 1774.19,
+          low_resource_required: true,
+          required_features: ["shader-f16"],
+          overrides: { context_window_size: 4096 },
+        },
+      ],
+    };
+
     this.engine = await webllm.CreateMLCEngine(this.selectedModel, {
+      appConfig,
       initProgressCallback: (report) => {
         if (onProgress) {
           onProgress({ text: report.text, progress: report.progress * 100 });
@@ -154,3 +172,7 @@ Please evaluate the empirical evidence records and provide your structured engin
 }
 
 export const webLLMService = new WebLLMService();
+
+if (typeof window !== "undefined") {
+  (window as any).__stART_webLLM = webLLMService;
+}

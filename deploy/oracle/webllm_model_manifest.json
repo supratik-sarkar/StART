@@ -1,0 +1,182 @@
+{
+  "model_id": "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
+  "upstream_repository": "https://huggingface.co/mlc-ai/SmolLM2-1.7B-Instruct-q4f16_1-MLC",
+  "upstream_revision": "84f57f8580a9d8d623266b600ad4273bb9fd84c1",
+  "webllm_package_version": "0.2.84",
+  "file_count": 43,
+  "total_bytes": 1774198126,
+  "files": {
+    "params_shard_11.bin": {
+      "size": 16777216,
+      "sha256": "374e196842dc01032478b29e46d7f7ac85af0125cb1fc767c28980e5d32cdd90"
+    },
+    "params_shard_29.bin": {
+      "size": 16777216,
+      "sha256": "02424ed87af5f69d1d2b600bb44f5a4320778df3199fe0073edfe4d8dbf52127"
+    },
+    "params_shard_35.bin": {
+      "size": 16777216,
+      "sha256": "1a18e8d1c8384685212b3221b64d24a00e83e7b8cbaacd8b7a39548e12165a9f"
+    },
+    "params_shard_15.bin": {
+      "size": 30420992,
+      "sha256": "bd1746861c89cdb79afb74dda4499d39c3dc1c18d38b7c9d7b79d2ac95abf132"
+    },
+    "params_shard_34.bin": {
+      "size": 28315648,
+      "sha256": "57d8bff6cf6505f31f334c510db9587ae4f46382fab11ac5017348f01d680c7b"
+    },
+    "params_shard_22.bin": {
+      "size": 28315648,
+      "sha256": "946b4ec4c31f343a0ccaa90845a2c2bf2bc4af0947b392857361233d40853d47"
+    },
+    "params_shard_30.bin": {
+      "size": 30420992,
+      "sha256": "3f6a2c8aa692d070a176f32df8d78f31b537af6199e7d8787ccfd86b78b60907"
+    },
+    "tokenizer_config.json": {
+      "size": 3764,
+      "sha256": "a27f638bd2831f5c3dea654a75838930f2b11fbe550c4d4e1d5d7bd07157b2ee"
+    },
+    "params_shard_0.bin": {
+      "size": 50331648,
+      "sha256": "669337a7863daaa8461386d37c6a6fc93f32432a507063874a54f1e652864b50"
+    },
+    "params_shard_1.bin": {
+      "size": 32509952,
+      "sha256": "3b06106f13524cf711cd9adbbe991faf41219f8815cac6d492b1973f4a51a056"
+    },
+    "params_shard_31.bin": {
+      "size": 28315648,
+      "sha256": "7a4373d8e1b78bf2c633ff8655a2546f478ccf9d2e94424e1e347cc56cdb1dbf"
+    },
+    "params_shard_16.bin": {
+      "size": 28315648,
+      "sha256": "d48924646b7c11f658ad92b1a532b9c51b614950656ce43787622e64071ec805"
+    },
+    "tokenizer.json": {
+      "size": 2104556,
+      "sha256": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c"
+    },
+    "mlc-chat-config.json": {
+      "size": 2023,
+      "sha256": "b246a0cdcbdc65d546b320c960555f505c4f061af919df9ac7d793895f3d48e5"
+    },
+    "params_shard_5.bin": {
+      "size": 16777216,
+      "sha256": "70b337f4a1e3fc0fdcc26e4ddc1428945e7b2d14495667678cf22db9d13dbfad"
+    },
+    "params_shard_9.bin": {
+      "size": 30420992,
+      "sha256": "e3866cca4f5179828284e402340dc0e1c3f05cd73fbf7cdf7aa46ff63463f7cf"
+    },
+    "params_shard_4.bin": {
+      "size": 28315648,
+      "sha256": "990d61768f7287802cafefca8cb7c714e7d90333eef47a9234f92216a080ed15"
+    },
+    "params_shard_18.bin": {
+      "size": 30420992,
+      "sha256": "91bea1e3348d426ac9951b972a79cf942a67443e74d993ecfc7c685cfb8df35f"
+    },
+    "params_shard_25.bin": {
+      "size": 28315648,
+      "sha256": "a59e7b9cfcccbc9d560b9d91505ce10771865a80ba909264dcb1f5229e115fde"
+    },
+    "params_shard_3.bin": {
+      "size": 32522240,
+      "sha256": "1db95b8c07655b444fc14b3ec108cdf2ad1e4f3b08ca40b0554386a005090b0a"
+    },
+    "params_shard_21.bin": {
+      "size": 30420992,
+      "sha256": "269f85ea4c93255c9e44b096ceae7163f35496c97ca446bd779f19656f682d63"
+    },
+    "params_shard_2.bin": {
+      "size": 16777216,
+      "sha256": "0a3d8fb171aada94a73c3c7326e3a80ffffeef64a1df7ff225112a4b3f1c0dac"
+    },
+    "params_shard_19.bin": {
+      "size": 28315648,
+      "sha256": "c5abaa24e0c782ab866e8294e3689383743cfc61f1eba940465f4ea3a0af6352"
+    },
+    "params_shard_12.bin": {
+      "size": 30420992,
+      "sha256": "3baf0c943fcff63aba50d0949acc8e45a65fa74e5181964e5f4bf0d001c79c9c"
+    },
+    "params_shard_7.bin": {
+      "size": 28315648,
+      "sha256": "be743b234e9a4b09ff49e86f325d241a646199b820e9819969d9bf0f1c01fad0"
+    },
+    "params_shard_28.bin": {
+      "size": 28315648,
+      "sha256": "d9da814961c6569a028eecb390f9815ad25312c55ff80000ea3ac56421770133"
+    },
+    "params_shard_24.bin": {
+      "size": 30420992,
+      "sha256": "8d71924c6d5cc461b549dce61bc5eed15a0859b4a451c4085dffaba56c761eff"
+    },
+    "params_shard_26.bin": {
+      "size": 16777216,
+      "sha256": "ada169dcb95b6e0561e7ae6a2e5fbf3414c6080a7963c96dae29c37eb2f941ba"
+    },
+    "params_shard_32.bin": {
+      "size": 16777216,
+      "sha256": "557133b873d92c9f7ee02c721c9241257cc6741bd1f57a2c232a47df2793184c"
+    },
+    "params_shard_14.bin": {
+      "size": 16777216,
+      "sha256": "bbdd552b53ffd29687ab1357f05a9aff133489f44daea0f3bed49b59a94d99d0"
+    },
+    "params_shard_13.bin": {
+      "size": 28315648,
+      "sha256": "12b9152eb50a534e7ff2a2e5004a2b03fc05e1f2528b013f9bb8977e523a56cf"
+    },
+    "params_shard_17.bin": {
+      "size": 16777216,
+      "sha256": "49086928548444f9b7fb8cac54f2560cf80aeb8caedc711c5d4b4452ff420c82"
+    },
+    "ndarray-cache.json": {
+      "size": 100963,
+      "sha256": "401785d0f2954180a35ecde35c23955afd132872e47e1047519a028262bfd7f0"
+    },
+    "params_shard_23.bin": {
+      "size": 16777216,
+      "sha256": "f73d79db598fbba7620729ee579ed26af15ae008f7c1a1d411050fc07b60af47"
+    },
+    "params_shard_36.bin": {
+      "size": 30420992,
+      "sha256": "2782bf1884547d4fcc2257a5923298deb6eda885990ae69c184db1c02b24c27f"
+    },
+    "params_shard_10.bin": {
+      "size": 28315648,
+      "sha256": "dc6a1862de635042a53e39c68e70feabac6d9b5888caea15b2abe72da5ad5bc7"
+    },
+    "params_shard_33.bin": {
+      "size": 30420992,
+      "sha256": "6c85b99eb0d1cf798f39fa891f03195ccdcf8547b97e6dbec96c9e57072c6c1a"
+    },
+    "params_shard_27.bin": {
+      "size": 30420992,
+      "sha256": "f11613319a9a0dbb0369e24153c88f3f89fbfef449af6bd6d332680de8ae9240"
+    },
+    "vocab.json": {
+      "size": 800662,
+      "sha256": "82b84012e3add4d01d12ba14442026e49b8cbbaead1f79ecf3d919784f82dc79"
+    },
+    "merges.txt": {
+      "size": 466391,
+      "sha256": "0b54e8aa4e53d5383e2e4bc635a56b43f9647f7b13832d5d9ecd8f82dac4f510"
+    },
+    "params_shard_20.bin": {
+      "size": 16777216,
+      "sha256": "3863eee9b38531002df9cad67c4aae695efdac84673b4051727e5d66dc670458"
+    },
+    "params_shard_8.bin": {
+      "size": 16777216,
+      "sha256": "8e054bc56e904fd16efa8e736d2ae1d7d675d828d586aa835d04add78271c19d"
+    },
+    "params_shard_6.bin": {
+      "size": 30420992,
+      "sha256": "5a0816a9e5d17ec3c233ae0a1c1586bbfbd7aecdc8614debf87f46ef48b0e3ad"
+    }
+  }
+}

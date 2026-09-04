@@ -56,6 +56,7 @@ def main():
         "--exclude=.ruff_cache",
         "--exclude=.env",
         "--exclude=web/node_modules",
+        "--exclude=static/webllm-models",
         f"{ROOT}/",
         f"ubuntu@{public_ip}:/opt/start/"
     ]
@@ -87,13 +88,19 @@ def main():
     run_remote_ssh(public_ip, venv_cmd)
     print("Python virtual environment initialized.")
 
-    # 5. Run ARM64 dependency verification
-    print("\n--- 5. Running ARM64 Dependency Audit on VM ---")
+    # 5. Provision pinned WebLLM model static mirror
+    print("\n--- 5. Provisioning Pinned WebLLM Model Static Mirror ---")
+    prov_cmd = "cd /opt/start && .venv-start/bin/python deploy/oracle/provision_webllm_model.py"
+    res_prov = run_remote_ssh(public_ip, prov_cmd)
+    print(res_prov.stdout)
+
+    # 6. Run ARM64 dependency verification
+    print("\n--- 6. Running ARM64 Dependency Audit on VM ---")
     res_audit = run_remote_ssh(public_ip, "cd /opt/start && .venv-start/bin/python scripts/verify_arm64_dependencies.py")
     print(res_audit.stdout)
 
-    # 6. Obtain Let's Encrypt SSL certificate for sslip.io domain
-    print(f"\n--- 6. Obtaining Let's Encrypt SSL Certificate for {domain} ---")
+    # 7. Obtain Let's Encrypt SSL certificate for sslip.io domain
+    print(f"\n--- 7. Obtaining Let's Encrypt SSL Certificate for {domain} ---")
     cert_cmd = (
         "sudo systemctl stop nginx || true; "
         f"sudo certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d {domain} && "
@@ -102,45 +109,17 @@ def main():
     run_remote_ssh(public_ip, cert_cmd)
     print("Let's Encrypt certificate obtained successfully!")
 
-    # 7. Configure Nginx HTTPS reverse proxy
-    print("\n--- 7. Configuring Nginx HTTPS Reverse Proxy with Trusted TLS ---")
-    nginx_conf = f"""
-server {{
-    listen 80;
-    server_name {domain};
-    return 301 https://$host$request_uri;
-}}
-
-server {{
-    listen 443 ssl;
-    server_name {domain};
-
-    ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    location / {{
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
-        proxy_read_timeout 300s;
-    }}
-}}
-"""
+    # 8. Configure Nginx HTTPS reverse proxy with static WebLLM model mirror
+    print("\n--- 8. Configuring Nginx HTTPS Reverse Proxy & Static Model Mirror ---")
     write_nginx = (
-        f"cat << 'EOF' | sudo tee /etc/nginx/sites-available/start\n{nginx_conf}\nEOF\n"
+        "sudo cp /opt/start/deploy/oracle/nginx_start.conf /etc/nginx/sites-available/start && "
         "sudo rm -f /etc/nginx/sites-enabled/default && "
         "sudo ln -sf /etc/nginx/sites-available/start /etc/nginx/sites-enabled/start && "
         "sudo nginx -t && "
         "sudo systemctl restart nginx"
     )
     run_remote_ssh(public_ip, write_nginx)
-    print("Nginx configured with TLS and active.")
+    print("Nginx configured with TLS and static WebLLM model mirror active.")
 
     # 8. Configure & Start systemd service
     print("\n--- 8. Configuring & Starting start_web.service ---")

@@ -100,9 +100,6 @@ export const FindingsFirstView: React.FC<FindingsFirstViewProps> = ({
               <span className="text-xs font-medium text-stone-700">
                 No evidence-derived attention items were identified for this run.
               </span>
-              <span className="text-[11px] text-stone-400 font-mono">
-                All deterministic verification criteria satisfied threshold constraints.
-              </span>
             </div>
           ) : (
             attentionItems.map((item, idx) => (

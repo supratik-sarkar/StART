@@ -38,13 +38,18 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
   const [status, setStatus] = useState<"INITIALIZING" | "VERIFIED" | "ERROR">("INITIALIZING");
   const [token, setToken] = useState<string | null>(null);
 
-  // Read sitekey from environment or fallback to production sitekey
-  const siteKey =
-    (import.meta as any).env?.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAAEmVUvpWG3GKAoQc";
+  // Read sitekey strictly from environment configuration
+  const siteKey = (import.meta as any).env?.VITE_TURNSTILE_SITE_KEY || "";
 
   useEffect(() => {
     let checkInterval: any = null;
     let isMounted = true;
+
+    if (!siteKey) {
+      setStatus("ERROR");
+      if (onError) onError("VITE_TURNSTILE_SITE_KEY unconfigured");
+      return;
+    }
 
     const renderWidget = () => {
       if (!window.turnstile || !containerRef.current) return;

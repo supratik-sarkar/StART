@@ -147,7 +147,7 @@ export const WebLLMReviewer: React.FC<WebLLMReviewerProps> = ({
               <div className="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
                 <div
                   className="bg-indigo-600 h-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, Math.max(5, progressPercent))}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-[10px] font-mono text-stone-500">

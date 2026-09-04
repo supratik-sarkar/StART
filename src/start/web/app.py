@@ -31,7 +31,7 @@ def create_app() -> FastAPI:
             "Deterministic ML/DL & quantitative engineering workbench, "
             "live SSE streaming, and WebLLM reviewer hydration."
         ),
-        version="4.6.1",
+        version="4.6.2",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",

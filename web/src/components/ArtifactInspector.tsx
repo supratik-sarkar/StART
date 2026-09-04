@@ -13,8 +13,11 @@ import {
   Activity,
 } from "lucide-react";
 
+import { MetricRowView } from "../types/start_schema";
+
 interface ArtifactInspectorProps {
   selectedEvidenceId?: string;
+  selectedRow?: MetricRowView | null;
   onClose?: () => void;
   runId?: string;
   sessionId?: string;
@@ -22,6 +25,7 @@ interface ArtifactInspectorProps {
 
 export const ArtifactInspector: React.FC<ArtifactInspectorProps> = ({
   selectedEvidenceId,
+  selectedRow,
   runId,
   sessionId,
 }) => {
@@ -278,29 +282,31 @@ export const ArtifactInspector: React.FC<ArtifactInspectorProps> = ({
 
         {activeTab === "json" && (
           <div className="bg-[#FBFBFA] border border-[#E5E5E2] rounded-lg p-3 font-mono text-xs text-stone-800 max-h-72 overflow-auto">
-            <pre className="whitespace-pre-wrap">
-              {JSON.stringify(
-                {
-                  evidence_id: selectedEvidenceId || "EV-PRED-001",
-                  test_id: "predictive.supervised_benchmark",
-                  run_id: runId || "RUN-WEB-CURRENT",
-                  provenance: {
-                    engine: "start.modeling.models",
-                    grounding: "DETERMINISTIC_CANONICAL",
-                    merkle_leaf_hash: "3a8c7e2b109f...",
+            {selectedRow ? (
+              <pre className="whitespace-pre-wrap">
+                {JSON.stringify(
+                  {
+                    evidence_id: selectedRow.evidence_id || selectedEvidenceId,
+                    test_id: selectedRow.test_id,
+                    metric: selectedRow.metric,
+                    value: selectedRow.value,
+                    unit: selectedRow.unit,
+                    status: selectedRow.status,
+                    run_id: runId || "RUN-WEB-CURRENT",
+                    provenance: {
+                      engine: "start.deterministic_engine",
+                      grounding: "DETERMINISTIC_CANONICAL",
+                    },
                   },
-                  metrics: {
-                    roc_auc: 0.85,
-                    brier_score: 0.124,
-                    ece: 0.084,
-                    train_samples: 400,
-                    test_samples: 100,
-                  },
-                },
-                null,
-                2
-              )}
-            </pre>
+                  null,
+                  2
+                )}
+              </pre>
+            ) : (
+              <div className="text-center text-stone-400 py-6">
+                Select an evidence surface from the ledger to inspect provenance and metric details.
+              </div>
+            )}
           </div>
         )}
       </div>
