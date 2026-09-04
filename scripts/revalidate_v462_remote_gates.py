@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
+
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
