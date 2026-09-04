@@ -32,7 +32,7 @@ async def run_agent_evaluation_pipeline():
         
         # --- STAGE 2: CLOSED-LOOP SELF-HEALING TRACK ---
         ui.set_global_progress(40.0)
-        remediation_summary = await orchestrator.run_stage_with_healing(
+        await orchestrator.run_stage_with_healing(
             workflow_id=workflow_id,
             stage_name="Data Audit",
             execution_context={

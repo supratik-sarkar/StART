@@ -37,7 +37,7 @@ def get_info() -> APIResponseEnvelope:
     info = SystemInfo(
         start_version=START_VERSION,
         start_schema_version=START_SCHEMA_VERSION,
-        backend_build_version="4.6.2-arm64-prod",
+        backend_build_version="4.6.3-arm64-prod",
         git_sha=os.environ.get("START_GIT_SHA"),
         compute_runtime=runtime,
         max_concurrency=1,
