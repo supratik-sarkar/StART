@@ -35,22 +35,23 @@ def test_health_and_info_endpoints(client: TestClient) -> None:
     data = resp.json()
     assert data["success"] is True
     assert data["data"]["status"] == "HEALTHY"
+    assert data["data"]["version"] == START_VERSION
     assert data["data"]["schema_version"] == START_SCHEMA_VERSION
 
     info_resp = client.get("/api/v1/info")
     assert info_resp.status_code == 200
     info_data = info_resp.json()["data"]
     assert info_data["start_version"] == START_VERSION
+    assert info_data["start_schema_version"] == START_SCHEMA_VERSION
+    assert info_data["backend_build_version"] == f"{START_VERSION}-local"
     assert info_data["max_concurrency"] == 1
 
 
-def test_zero_cost_attestation_endpoint(client: TestClient) -> None:
+def test_zero_cost_attestation_removed(client: TestClient) -> None:
+    """Amendment 26 & 28: Zero-cost attestation endpoint is removed."""
     resp = client.get("/api/v1/zero-cost-attestation")
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["always_free_eligible"] is True
-    assert data["recurring_monthly_charge_usd"] == 0.0
-    assert data["attestation_status"] == "VERIFIED_ZERO_COST"
+    assert resp.status_code == 404
+
 
 
 def test_synthetic_profiles_catalog(client: TestClient) -> None:
@@ -337,17 +338,27 @@ def test_graph_lineage_and_action_validation(client: TestClient) -> None:
     findings = f_resp.json()
     assert len(findings) >= 1
     assert "EV-PARENT-001" in findings[0]["evidenceIds"]
+    assert findings[0]["sourceNodeId"] not in ("branch-a", "branch-b")
 
-    # 3. Action validation boundary
-    act_req = {
+    # 3. Action validation boundary: fail-closed on invalid parameters, accept valid parameters
+    invalid_act_req = {
         "kind": "deeper_test",
         "sourceEvidenceId": "EV-PARENT-001",
-        "parameters": {"depth": "focused", "perturbation_rate": 0.50},  # 0.50 should be clamped to 0.30 max
+        "parameters": {"depth": "focused", "perturbation_rate": 0.50},  # 0.50 is out of bounds (> 0.30)
     }
-    v_resp = client.post(f"/api/v1/runs/{run_id}/actions/validate?session_id={session_id}", json=act_req)
+    inv_resp = client.post(f"/api/v1/runs/{run_id}/actions/validate?session_id={session_id}", json=invalid_act_req)
+    assert inv_resp.status_code == 400
+    assert "out of allowed bounds" in inv_resp.json()["detail"].lower()
+
+    valid_act_req = {
+        "kind": "deeper_test",
+        "sourceEvidenceId": "EV-PARENT-001",
+        "parameters": {"depth": "focused", "perturbation_rate": 0.20},
+    }
+    v_resp = client.post(f"/api/v1/runs/{run_id}/actions/validate?session_id={session_id}", json=valid_act_req)
     assert v_resp.status_code == 200
     val_action = v_resp.json()
-    assert val_action["parameters"]["perturbation_rate"] == 0.30  # Clamped
+    assert val_action["parameters"]["perturbation_rate"] == 0.20
 
     # 4. Execute validated human action -> child run with lineage
     exec_resp = client.post(f"/api/v1/runs/{run_id}/actions?session_id={session_id}", json=val_action)

@@ -7,11 +7,11 @@ Serves as the single authoritative schema source of truth for:
 - Untrusted browser WebLLM reviewer submissions
 - Server-side hydrated findings and metric groundings
 - OPA policy decisions and Merkle attestation views
-- Zero-cost deployment attestations
 """
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
 from typing import Any, Literal
@@ -19,7 +19,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "5.0.0"
+START_VERSION: str = "5.0.1"
+
+
+def get_backend_build_version() -> str:
+    """Return runtime-driven backend build version without hardcoding ARM64."""
+    return os.environ.get("START_BACKEND_BUILD_VERSION", f"{START_VERSION}-local")
 
 
 # --------------------------------------------------------------------------- #
@@ -28,7 +33,7 @@ START_VERSION: str = "5.0.0"
 class SystemInfo(BaseModel):
     start_version: str = START_VERSION
     start_schema_version: str = START_SCHEMA_VERSION
-    backend_build_version: str = "5.0.0-arm64-prod"
+    backend_build_version: str = Field(default_factory=get_backend_build_version)
     git_sha: str | None = None
     compute_runtime: str = "local"  # "local" | "oracle_a1_arm64"
     max_concurrency: int = 1
@@ -275,23 +280,3 @@ class ReviewerHydrationResponse(BaseModel):
     attestation_seal_merkle_root: str = ""
     attestation_timestamp: float = Field(default_factory=time.time)
 
-
-# --------------------------------------------------------------------------- #
-# Zero-Cost Provisioning Attestation Schema
-# --------------------------------------------------------------------------- #
-class ZeroCostAttestation(BaseModel):
-    provider: str = "Oracle Cloud Infrastructure"
-    resource_type: str = "Compute Instance"
-    tier_shape: str = "VM.Standard.A1.Flex (2 OCPU / 12 GB RAM)"
-    oci_a1_ocpu: int = 2
-    oci_a1_memory_gb: int = 12
-    within_always_free_allowance: Literal["YES", "NO"] = "YES"
-    expected_recurring_charge: float = 0.0
-    always_free_eligible: bool = True
-    recurring_monthly_charge_usd: float = 0.0
-    storage_tier: str = "Always Free Boot Volume (50 GB)"
-    network_egress_allowance: str = "10 TB / month (Always Free)"
-    cloudflare_plan: str = "Free Tier ($0/month)"
-    huggingface_space_sdk: str = "static (Free)"
-    verification_timestamp: float = Field(default_factory=time.time)
-    attestation_status: Literal["VERIFIED_ZERO_COST", "NON_FREE_BLOCKED"] = "VERIFIED_ZERO_COST"

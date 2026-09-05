@@ -1,7 +1,7 @@
 {
   "name": "start-agentic-workbench",
   "private": true,
-  "version": "5.0.0",
+  "version": "5.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.84",
+    "@mlc-ai/web-llm": "0.2.84",
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",
     "react": "latest",

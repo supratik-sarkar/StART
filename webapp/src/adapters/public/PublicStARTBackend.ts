@@ -1,7 +1,7 @@
 import type { StartBackend, StreamSubscription } from '../../contracts/backend'
 import type { ReviewerOutput } from '../../contracts/reviewer'
 import type {
-  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, ConversationMessage, EvidenceRecord,
+  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, EvidenceRecord,
   ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction, ReviewerGateResult,
   RunRequest, RunSnapshot, RuntimeEvent
 } from '../../contracts/types'
@@ -21,6 +21,7 @@ import {
 export class PublicStARTBackend implements StartBackend {
   readonly adapterName = 'Public StART backend adapter'
   readonly adapterMode = 'public' as const
+  private activeSessionId: string | null = null
 
   constructor(private readonly baseUrl: string = '') {}
 
@@ -79,9 +80,12 @@ export class PublicStARTBackend implements StartBackend {
   }
 
   async createRun(request: RunRequest): Promise<RunSnapshot> {
+    const sessionId = (request as any).sessionId || (request as any).session_id || this.activeSessionId || `SES-${Date.now().toString(36)}`
+    this.activeSessionId = sessionId
+    const payload = { ...request, session_id: sessionId }
     const raw = await this.json<unknown>('/api/v1/runs', {
       method: 'POST',
-      body: JSON.stringify(request),
+      body: JSON.stringify(payload),
     })
     const unwrapped = this.unwrap(raw, 'run')
     return validateRunSnapshot(unwrapped)
@@ -120,7 +124,9 @@ export class PublicStARTBackend implements StartBackend {
     }
 
     return {
-      close: () => source.close(),
+      close() {
+        source.close()
+      },
     }
   }
 
@@ -132,7 +138,7 @@ export class PublicStARTBackend implements StartBackend {
 
   async getEvidence(runId: string): Promise<EvidenceRecord[]> {
     const raw = await this.json<unknown>(`/api/v1/runs/${runId}/evidence`)
-    const unwrapped = this.unwrap(raw, 'evidence_records')
+    const unwrapped = this.unwrap(raw, 'evidence')
     return validateEvidenceRecords(unwrapped)
   }
 
@@ -146,18 +152,6 @@ export class PublicStARTBackend implements StartBackend {
     const raw = await this.json<unknown>(`/api/v1/runs/${runId}/artifacts`)
     const unwrapped = this.unwrap(raw, 'artifacts')
     return validateArtifactRecords(unwrapped)
-  }
-
-  async askAgent(runId: string, message: string, contextNodeId?: string): Promise<ConversationMessage> {
-    // Browser-private architecture (Amendments 5 & 6):
-    // Server does NOT host an LLM chat endpoint. Engineering conversation is browser-private.
-    return {
-      id: `msg-${Date.now()}`,
-      role: 'agent',
-      timestamp: new Date().toISOString(),
-      text: `Contextual observation for ${contextNodeId || 'active review'}: deterministic evidence ledger verified. Quantitative claims remain strictly grounded in sealed EvidenceRecords.`,
-      contextNodeId,
-    }
   }
 
   async validateAction(runId: string, action: ProposedAction): Promise<ProposedAction> {
@@ -179,22 +173,42 @@ export class PublicStARTBackend implements StartBackend {
   }
 
   async submitReviewerOutput(runId: string, review: ReviewerOutput): Promise<ReviewerGateResult> {
+    const sevMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'> = {
+      info: 'LOW',
+      low: 'LOW',
+      attention: 'MEDIUM',
+      warn: 'MEDIUM',
+      warning: 'MEDIUM',
+      medium: 'MEDIUM',
+      high: 'HIGH',
+      critical: 'CRITICAL',
+    }
+
     const submission = {
       run_id: runId,
-      session_id: `SES-REV-${runId.slice(-8)}`,
+      session_id: this.activeSessionId || `SES-${runId.slice(-8)}`,
       model_name: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
       executive_summary: review.executiveSummary,
-      findings: review.findings.map((f) => ({
-        finding_id: f.findingId,
-        severity: 'MEDIUM',
-        title: f.title,
-        description: f.description,
-        evidence_refs: f.evidenceIds.map((id) => ({
-          evidence_id: id,
-          metric_name: 'value',
-        })),
-        recommendation: f.suggestedActions?.[0] || 'Verify with deterministic check',
-      })),
+      findings: review.findings.map((f) => {
+        const sev = f.severity ? (sevMap[f.severity.toLowerCase()] || 'MEDIUM') : 'MEDIUM'
+        const evidence_refs = (f.metricRefs && f.metricRefs.length > 0)
+          ? f.metricRefs.map((m) => ({
+              evidence_id: m.evidenceId,
+              metric_name: m.metricName,
+            }))
+          : f.evidenceIds.map((id) => ({
+              evidence_id: id,
+              metric_name: '',
+            }))
+        return {
+          finding_id: f.findingId,
+          severity: sev,
+          title: f.title,
+          description: f.description,
+          evidence_refs,
+          recommendation: f.suggestedActions?.[0] || '',
+        }
+      }),
       limitations: review.limitations || [],
       suggested_actions: review.findings.flatMap((f) => f.suggestedActions || []),
     }
@@ -209,7 +223,7 @@ export class PublicStARTBackend implements StartBackend {
       modelName: unwrapped.model_name || 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
       hydratedFindings: unwrapped.hydrated_findings || [],
       allGrounded: Boolean(unwrapped.all_grounded),
-      governanceDisposition: unwrapped.governance_disposition || 'ACCEPT',
+      governanceDisposition: unwrapped.governance_disposition,
       attestationSealMerkleRoot: unwrapped.attestation_seal_merkle_root || '',
     })
   }

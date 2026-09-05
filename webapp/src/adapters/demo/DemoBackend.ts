@@ -1,6 +1,6 @@
 import type { StartBackend, StreamSubscription } from '../../contracts/backend'
 import type {
-  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, ConversationMessage, EvidenceRecord,
+  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, EvidenceRecord,
   ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction, RunRequest,
   RunSnapshot, RuntimeEvent, WorkflowId
 } from '../../contracts/types'
@@ -85,25 +85,18 @@ export class DemoBackend implements StartBackend {
   async getEvidence(runId:string){ return structuredClone(this.must(runId).evidence) }
   async getFindings(runId:string){ return structuredClone(this.must(runId).findings) }
   async getArtifacts(runId:string){ return structuredClone(this.must(runId).artifacts) }
-  async askAgent(runId:string,message:string,contextNodeId?:string):Promise<ConversationMessage>{
-    await wait(350)
-    const state=this.must(runId)
-    const evidence=state.evidence.slice(0,2).map(e=>e.evidenceId)
-    const lower=message.toLowerCase()
-    const action = lower.includes('rerun') || lower.includes('deeper') ? {actionId:id('ACT'),label:lower.includes('deeper')?'Run deeper deterministic check':'Re-run from selected point',description:'Creates a child run linked to the selected execution node and evidence.',kind:(lower.includes('deeper')?'deeper_test':'rerun') as any,sourceNodeId:contextNodeId,sourceEvidenceId:evidence[0],parameters:{depth:'focused'}} : undefined
-    return {id:id('MSG'),role:'agent',timestamp:now(),contextNodeId,evidenceIds:evidence,proposedAction:action,text: action ? 'I can turn that into a bounded deterministic follow-up. I have prepared the action below so you can inspect it before execution.' : `This point is supported by ${evidence.length || 'the available'} evidence record${evidence.length===1?'':'s'}. I am describing existing evidence only; any analytical follow-up will be proposed as an explicit action.`}
-  }
   async submitHumanAction(runId:string,action:ProposedAction):Promise<RunSnapshot>{
     const parent=this.must(runId)
     return this.createRun({workflowId:parent.snapshot.workflowId,contextId:parent.snapshot.contextId,goal:action.label,parameters:action.parameters||{},parentRunId:runId,sourceEvidenceId:action.sourceEvidenceId,intervention:action.kind})
   }
   async submitReviewerOutput(runId:string,review:any){
+    const runState = this.must(runId)
     return {
       runId,
       modelName:'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
       hydratedFindings:review.findings||[],
       allGrounded:true,
-      governanceDisposition:'ACCEPT',
+      governanceDisposition: runState.governance?.disposition || '',
       attestationSealMerkleRoot:'preview:7fd2a8…'
     }
   }

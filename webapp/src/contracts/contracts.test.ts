@@ -185,4 +185,16 @@ describe('StART Contract & Validator Invariants', () => {
     expect(validated.allGrounded).toBe(true)
     expect(validated.attestationSealMerkleRoot).toContain('sha256:')
   })
+
+  it('preserves empty governanceDisposition without defaulting to ACCEPT', () => {
+    const gateResult = {
+      runId: 'RUN-02',
+      modelName: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
+      hydratedFindings: [],
+      allGrounded: true,
+      attestationSealMerkleRoot: 'sha256:abc…',
+    }
+    const validated = validateReviewerGateResult(gateResult)
+    expect(validated.governanceDisposition).toBe('')
+  })
 })

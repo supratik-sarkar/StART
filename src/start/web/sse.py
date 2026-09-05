@@ -84,9 +84,9 @@ async def sse_event_generator(
                 if "percent" in raw_evt or "completed" in raw_evt:
                     progress_obj = {
                         "label": raw_evt.get("phase", "Executing"),
-                        "percent": float(raw_evt.get("percent", 0.0)),
-                        "completed": int(raw_evt.get("completed", 0)),
-                        "total": int(raw_evt.get("total", 5)),
+                        "percent": float(raw_evt["percent"]) if "percent" in raw_evt else None,
+                        "completed": int(raw_evt["completed"]) if "completed" in raw_evt else None,
+                        "total": int(raw_evt["total"]) if "total" in raw_evt else None,
                         "detail": message_text,
                     }
 
@@ -99,7 +99,7 @@ async def sse_event_generator(
                     "timestamp": raw_evt.get("timestamp", time.time()),
                     "type": raw_evt.get("event_type", "agent_transition"),
                     "event_type": raw_evt.get("event_type", "agent_transition"),
-                    "nodeId": raw_evt.get("node_id") or "branch-a",
+                    "nodeId": raw_evt.get("node_id"),
                     "parentNodeId": raw_evt.get("parent_node_id"),
                     "title": action_name,
                     "message": message_text,
@@ -110,6 +110,7 @@ async def sse_event_generator(
                     "artifactIds": raw_evt.get("artifact_refs", []),
                     "artifact_refs": raw_evt.get("artifact_refs", []),
                     "metadata": raw_evt.get("metadata", {}),
+                    "payload": raw_evt.get("metadata", {}),
                     "schema_version": START_SCHEMA_VERSION,
                 }
 
@@ -151,16 +152,13 @@ async def sse_event_generator(
                     },
                     "progress": {
                         "label": "Completed" if ctx.status == "COMPLETED" else "Failed",
-                        "percent": 100.0,
-                        "completed": 5,
-                        "total": 5,
-                        "detail": "Governance disposition attested and Merkle tree sealed"
+                        "detail": "Deterministic execution completed"
                         if ctx.status == "COMPLETED"
                         else (ctx.error_message or "Execution failed"),
                     },
                 }
                 yield {
-                    "event": "message",
+                    "event": "complete" if ctx.status == "COMPLETED" else "error",
                     "id": f"EVT-SEQ-{sequence}",
                     "data": json.dumps(completion_payload, default=str),
                 }

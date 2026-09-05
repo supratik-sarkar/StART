@@ -178,21 +178,3 @@ export interface ReviewerHydrationResponse {
   attestation_seal_merkle_root?: string;
   attestation_timestamp?: number;
 }
-
-export interface ZeroCostAttestation {
-  provider?: string;
-  resource_type?: string;
-  tier_shape?: string;
-  oci_a1_ocpu?: number;
-  oci_a1_memory_gb?: number;
-  within_always_free_allowance?: "YES" | "NO";
-  expected_recurring_charge?: number;
-  always_free_eligible?: boolean;
-  recurring_monthly_charge_usd?: number;
-  storage_tier?: string;
-  network_egress_allowance?: string;
-  cloudflare_plan?: string;
-  huggingface_space_sdk?: string;
-  verification_timestamp?: number;
-  attestation_status?: "VERIFIED_ZERO_COST" | "NON_FREE_BLOCKED";
-}

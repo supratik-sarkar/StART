@@ -272,7 +272,7 @@ export function validateReviewerGateResult(data: unknown): ReviewerGateResult {
     modelName: String(o.modelName || ''),
     hydratedFindings: Array.isArray(o.hydratedFindings) ? (o.hydratedFindings as any) : [],
     allGrounded: Boolean(o.allGrounded),
-    governanceDisposition: String(o.governanceDisposition || 'ACCEPT'),
+    governanceDisposition: typeof o.governanceDisposition === 'string' ? o.governanceDisposition : '',
     attestationSealMerkleRoot: String(o.attestationSealMerkleRoot || ''),
   }
 }

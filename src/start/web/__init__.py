@@ -14,7 +14,6 @@ from start.web.schemas import (
     RunStatusResponse,
     SSEEnvelope,
     WebReviewerSubmission,
-    ZeroCostAttestation,
 )
 
 __all__ = [
@@ -27,5 +26,5 @@ __all__ = [
     "SSEEnvelope",
     "WebReviewerSubmission",
     "ReviewerHydrationResponse",
-    "ZeroCostAttestation",
 ]
+

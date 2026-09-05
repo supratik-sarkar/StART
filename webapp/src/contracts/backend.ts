@@ -1,5 +1,5 @@
 import type {
-  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, ConversationMessage, EvidenceRecord,
+  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, EvidenceRecord,
   ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction,
   ReviewerGateResult, RunRequest, RunSnapshot, RuntimeEvent
 } from './types'
@@ -20,7 +20,6 @@ export interface StartBackend {
   getEvidence(runId: string): Promise<EvidenceRecord[]>
   getFindings(runId: string): Promise<Finding[]>
   getArtifacts(runId: string): Promise<ArtifactRecord[]>
-  askAgent(runId: string, message: string, contextNodeId?: string): Promise<ConversationMessage>
   validateAction?(runId: string, action: ProposedAction): Promise<ProposedAction>
   submitHumanAction(runId: string, action: ProposedAction): Promise<RunSnapshot>
   submitReviewerOutput?(runId: string, review: ReviewerOutput): Promise<ReviewerGateResult>

@@ -16,6 +16,7 @@ import { Signoff } from '../features/governance/Signoff'
 import { FindingsPanel } from '../features/execution/FindingsPanel'
 import { ArtifactsPanel } from '../features/artifacts/ArtifactsPanel'
 
+import { demoReviewerRuntime } from '../adapters/demo/DemoReviewerRuntime'
 import { webLLMReviewer } from '../adapters/public/WebLLMReviewer'
 
 const isProd = import.meta.env.PROD
@@ -29,15 +30,17 @@ const adapter = adapterMode === 'public'
   ? new PublicStARTBackend(import.meta.env.VITE_START_API_BASE || '')
   : new DemoBackend()
 
+const reviewer = adapterMode === 'public' ? webLLMReviewer : demoReviewerRuntime
+
 export default function App(){
- const w=useWorkbench(adapter); const [centerTab,setCenterTab]=useState<'events'|'lineage'|'findings'>('events'); const [rightTab,setRightTab]=useState<'context'|'evidence'|'artifacts'|'agent'>('context');
+ const w=useWorkbench(adapter, reviewer); const [centerTab,setCenterTab]=useState<'events'|'lineage'|'findings'>('events'); const [rightTab,setRightTab]=useState<'context'|'evidence'|'artifacts'|'agent'>('context');
  const [reviewerStatus,setReviewerStatus]=useState<string>('idle');
  const [reviewerBusy,setReviewerBusy]=useState(false);
 
  const initReviewer = async () => {
    setReviewerBusy(true);
    try {
-     await webLLMReviewer.initialize((p)=>{
+     await reviewer.initialize((p)=>{
        setReviewerStatus(p.percent!=null?`${p.label} (${p.percent}%)`:p.label);
      });
    } catch (err: any) {
@@ -51,7 +54,7 @@ export default function App(){
    if(!w.run) return;
    setReviewerBusy(true);
    try {
-     const reviewOutput = await webLLMReviewer.review({
+     const reviewOutput = await reviewer.review({
        runId: w.run.runId,
        goal: w.run.goal,
        evidence: w.evidence,
@@ -59,15 +62,18 @@ export default function App(){
      });
      if (adapter.submitReviewerOutput) {
        await adapter.submitReviewerOutput(w.run.runId, reviewOutput);
-       const [freshFindings, freshGov] = await Promise.all([
+       const [freshFindings, freshGov, freshAtt] = await Promise.all([
          adapter.getFindings(w.run.runId),
-         adapter.getGovernance(w.run.runId)
+         adapter.getGovernance(w.run.runId),
+         adapter.getAttestation(w.run.runId),
        ]);
-       // Update state
+       w.setFindings(freshFindings);
+       w.setGovernance(freshGov);
+       w.setAttestation(freshAtt);
        setCenterTab('findings');
      }
    } catch(e:any){
-     //
+     w.setError(e.message || String(e));
    } finally {
      setReviewerBusy(false);
    }

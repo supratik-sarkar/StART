@@ -72,7 +72,6 @@ def generate_typescript_definitions() -> str:
         SSEEnvelope,
         SystemInfo,
         WebReviewerSubmission,
-        ZeroCostAttestation,
     )
 
     models = [
@@ -89,7 +88,6 @@ def generate_typescript_definitions() -> str:
         WebReviewerSubmission,
         HydratedFindingView,
         ReviewerHydrationResponse,
-        ZeroCostAttestation,
     ]
 
     ts_lines = [

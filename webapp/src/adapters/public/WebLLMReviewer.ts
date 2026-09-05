@@ -1,8 +1,24 @@
-import type { ReviewerProgress, ReviewerRuntime, ReviewerOutput, ReviewerRuntimeState } from '../../contracts/reviewer'
+import type {
+  ReviewerProgress,
+  ReviewerRuntime,
+  ReviewerOutput,
+  ReviewerRuntimeState,
+} from '../../contracts/reviewer'
 import type { ConversationMessage, EvidenceRecord, ProposedAction } from '../../contracts/types'
 
 export const PINNED_MODEL_ID = 'SmolLM2-1.7B-Instruct-q4f16_1-MLC'
-export const ORACLE_MODEL_MIRROR = 'https://137.23.61.219.sslip.io/webllm-models/SmolLM2-1.7B-Instruct-q4f16_1-MLC'
+
+/**
+ * Derives the model base URL dynamically from environment configuration,
+ * defaulting to the official MLC model repository.
+ */
+export function getModelBaseUrl(): string {
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_START_MODEL_BASE) {
+    const base = String((import.meta as any).env.VITE_START_MODEL_BASE).replace(/\/+$/, '')
+    return base.endsWith(PINNED_MODEL_ID) ? base : `${base}/${PINNED_MODEL_ID}`
+  }
+  return `https://huggingface.co/mlc-ai/${PINNED_MODEL_ID}/resolve/main/`
+}
 
 /**
  * Browser-Private WebLLM Reviewer & Contextual Engineering Agent.
@@ -16,6 +32,7 @@ export class WebLLMReviewer implements ReviewerRuntime {
   readonly runtimeName = 'Browser WebLLM (SmolLM2-1.7B-Instruct)'
   private engine: any = null
   private state: ReviewerRuntimeState = 'idle'
+  private listeners: Array<(state: ReviewerRuntimeState, progress?: ReviewerProgress) => void> = []
 
   async checkWebGPUSupport(): Promise<boolean> {
     if (typeof navigator === 'undefined' || !('gpu' in navigator)) {
@@ -33,34 +50,58 @@ export class WebLLMReviewer implements ReviewerRuntime {
     return this.state
   }
 
+  subscribeState(
+    listener: (state: ReviewerRuntimeState, progress?: ReviewerProgress) => void
+  ): () => void {
+    this.listeners.push(listener)
+    listener(this.state)
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== listener)
+    }
+  }
+
+  private notifyProgress(progress: ReviewerProgress): void {
+    this.state = progress.state
+    for (const listener of this.listeners) {
+      try {
+        listener(this.state, progress)
+      } catch {
+        // Listener error suppression
+      }
+    }
+  }
+
   async initialize(onProgress: (p: ReviewerProgress) => void): Promise<void> {
+    const emit = (p: ReviewerProgress) => {
+      this.notifyProgress(p)
+      onProgress(p)
+    }
+
     if (this.engine) {
-      this.state = 'ready'
-      onProgress({ state: 'ready', label: 'Engine ready' })
+      emit({ state: 'ready', label: 'Engine ready' })
       return
     }
 
     const hasWebGPU = await this.checkWebGPUSupport()
     if (!hasWebGPU) {
-      this.state = 'unavailable'
-      onProgress({
+      emit({
         state: 'unavailable',
         label: 'WebGPU not available on this browser/hardware device.',
       })
       return
     }
 
-    this.state = 'loading'
-    onProgress({ state: 'loading', label: 'Initializing WebGPU runtime...', percent: 5 })
+    emit({ state: 'loading', label: 'Initializing WebGPU runtime...', percent: 5 })
 
     try {
       // Lazy load @mlc-ai/web-llm to keep initial shell bundle ultra-lean
       const webllm = await import('@mlc-ai/web-llm')
+      const modelUrl = getModelBaseUrl()
 
       const appConfig = {
         model_list: [
           {
-            model: ORACLE_MODEL_MIRROR,
+            model: modelUrl,
             model_id: PINNED_MODEL_ID,
             model_lib:
               webllm.modelLibURLPrefix +
@@ -77,7 +118,7 @@ export class WebLLMReviewer implements ReviewerRuntime {
       this.engine = await webllm.CreateMLCEngine(PINNED_MODEL_ID, {
         appConfig,
         initProgressCallback: (report: { text: string; progress: number }) => {
-          onProgress({
+          emit({
             state: 'loading',
             label: report.text || 'Loading model weights...',
             percent: Math.round((report.progress || 0) * 100),
@@ -85,11 +126,9 @@ export class WebLLMReviewer implements ReviewerRuntime {
         },
       })
 
-      this.state = 'ready'
-      onProgress({ state: 'ready', label: 'SmolLM2-1.7B ready' })
+      emit({ state: 'ready', label: 'SmolLM2-1.7B ready' })
     } catch (err: any) {
-      this.state = 'error'
-      onProgress({
+      emit({
         state: 'error',
         label: `WebLLM initialization failed: ${err.message || String(err)}`,
       })
@@ -102,6 +141,12 @@ export class WebLLMReviewer implements ReviewerRuntime {
     evidence: EvidenceRecord[]
     contextNodeId?: string
   }): Promise<ConversationMessage> {
+    if (!this.engine) {
+      throw new Error(
+        'WebLLM reviewer runtime is not initialized. Initialize the runtime before requesting an analysis.'
+      )
+    }
+
     const evidenceUniverse = args.evidence
       .slice(0, 8)
       .map(
@@ -134,23 +179,6 @@ export class WebLLMReviewer implements ReviewerRuntime {
         sourceNodeId: args.contextNodeId,
         sourceEvidenceId: args.evidence[0]?.evidenceId,
         parameters: { depth: 'focused' },
-      }
-    }
-
-    if (!this.engine) {
-      // Offline fallback when WebLLM is not loaded yet
-      const evCount = args.evidence.length
-      const citedIds = args.evidence.slice(0, 2).map((e) => e.evidenceId)
-      return {
-        id: `msg-${Date.now()}`,
-        role: 'agent',
-        timestamp: new Date().toISOString(),
-        text: action
-          ? 'I can turn that into a bounded deterministic follow-up. I have prepared the action below for your approval.'
-          : `Grounded in ${evCount} active evidence records. Any numerical claim is verified against immutable evidence.`,
-        contextNodeId: args.contextNodeId,
-        evidenceIds: citedIds,
-        proposedAction: action,
       }
     }
 
@@ -197,26 +225,9 @@ Invariants:
     onChunk?: (chunk: string) => void
   ): Promise<ReviewerOutput> {
     if (!this.engine) {
-      // Deterministic synthetic fallback if model not loaded
-      const attentionEv = args.evidence.find((e) => e.status === 'ATTENTION')
-      const targetEv = attentionEv || args.evidence[0]
-      return {
-        executiveSummary: `Evidence review synthesized for run ${args.runId}. ${args.evidence.length} deterministic records evaluated.`,
-        findings: targetEv
-          ? [
-              {
-                findingId: `F-${targetEv.evidenceId}`,
-                title: `${targetEv.title} evaluation`,
-                description: `Deterministic surface ${targetEv.testId} yielded status ${targetEv.status}.`,
-                evidenceIds: [targetEv.evidenceId],
-                limitations: ['Evaluated against deterministic test bounds.'],
-                suggestedActions: ['Inspect residual evidence before sign-off.'],
-              },
-            ]
-          : [],
-        limitations: ['Local qualitative reviewer running in browser.'],
-        evidenceIds: args.evidence.map((e) => e.evidenceId),
-      }
+      throw new Error(
+        'WebLLM reviewer runtime is not initialized. Initialize the runtime before requesting a review.'
+      )
     }
 
     const evidenceUniverse = args.evidence
@@ -292,6 +303,13 @@ Please evaluate the empirical evidence and output your review strictly as JSON.`
               evidenceIds: Array.isArray(f.evidence_ids) ? f.evidence_ids : [],
               limitations: Array.isArray(f.limitations) ? f.limitations : [],
               suggestedActions: Array.isArray(f.suggested_actions) ? f.suggested_actions : [],
+              metricRefs: Array.isArray(f.metric_refs)
+                ? f.metric_refs.map((m: any) => ({
+                    evidenceId: String(m.evidence_id || m.evidenceId || ''),
+                    metricName: String(m.metric_name || m.metricName || ''),
+                    value: m.value,
+                  }))
+                : undefined,
             }))
           : [],
         limitations: Array.isArray(parsed.limitations) ? parsed.limitations : [],
@@ -313,11 +331,11 @@ Please evaluate the empirical evidence and output your review strictly as JSON.`
       try {
         await this.engine.unload()
       } catch {
-        // ignore
+        // Unload suppression
       }
       this.engine = null
     }
-    this.state = 'idle'
+    this.notifyProgress({ state: 'idle', label: 'Idle' })
   }
 }
 

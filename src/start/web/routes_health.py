@@ -1,4 +1,4 @@
-"""Health, Info, and Zero-Cost Attestation Routes for StART v4.5 Web Transport."""
+"""Health and Info Routes for StART Web Transport."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from start.web.schemas import (
     START_VERSION,
     APIResponseEnvelope,
     SystemInfo,
-    ZeroCostAttestation,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
@@ -37,7 +36,6 @@ def get_info() -> APIResponseEnvelope:
     info = SystemInfo(
         start_version=START_VERSION,
         start_schema_version=START_SCHEMA_VERSION,
-        backend_build_version="4.6.3-arm64-prod",
         git_sha=os.environ.get("START_GIT_SHA"),
         compute_runtime=runtime,
         max_concurrency=1,
@@ -48,15 +46,6 @@ def get_info() -> APIResponseEnvelope:
         data=info.model_dump(),
     )
 
-
-@router.get("/zero-cost-attestation", response_model=APIResponseEnvelope)
-def get_zero_cost_attestation() -> APIResponseEnvelope:
-    """Retrieve verified zero-cost provisioning attestation."""
-    attestation = ZeroCostAttestation()
-    return APIResponseEnvelope(
-        success=True,
-        data=attestation.model_dump(),
-    )
 
 
 @router.get("/profiles", response_model=APIResponseEnvelope)

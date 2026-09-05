@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StartBackend } from '../contracts/backend'
+import type { ReviewerRuntime } from '../contracts/reviewer'
 import type {
   AgentPlanPreview, ArtifactRecord, AttestationState, Capability, ConversationMessage,
   EvidenceRecord, ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction,
   RunRequest, RunSnapshot, RuntimeEvent, WorkflowId
 } from '../contracts/types'
 
-export function useWorkbench(backend: StartBackend) {
+export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) {
   const [capabilities, setCapabilities] = useState<Capability[]>([])
   const [contexts, setContexts] = useState<ExecutionContext[]>([])
   const [selectedWorkflow, _setSelectedWorkflow] = useState<WorkflowId | null>(null)
@@ -121,13 +122,13 @@ export function useWorkbench(backend: StartBackend) {
                 ...curr,
                 phase: 'completed',
                 statusLabel: 'Run signed off',
-                progress: ev.progress || curr.progress || {
+                progress: ev.progress || curr.progress || (curr.plan.length > 0 ? {
                   label: 'Completed',
                   percent: 100,
-                  completed: 5,
-                  total: 5,
+                  completed: curr.plan.length,
+                  total: curr.plan.length,
                   detail: 'Deterministic verification sealed',
-                },
+                } : undefined),
               }
             : curr
         )
@@ -233,13 +234,21 @@ export function useWorkbench(backend: StartBackend) {
       }
       setMessages((m) => [...m, human])
       try {
-        const reply = await backend.askAgent(run.runId, text, selectedNodeId || undefined)
+        if (!reviewer) {
+          throw new Error('Reviewer runtime is not available for engineering conversation.')
+        }
+        const reply = await reviewer.ask({
+          runId: run.runId,
+          text,
+          evidence,
+          contextNodeId: selectedNodeId || undefined,
+        })
         setMessages((m) => [...m, reply])
       } catch (e) {
         setError((e as Error).message)
       }
     },
-    [backend, run, selectedNodeId, selectedEvidenceId]
+    [run, reviewer, evidence, selectedNodeId, selectedEvidenceId]
   )
 
   const attachRun = useCallback(
@@ -334,9 +343,12 @@ export function useWorkbench(backend: StartBackend) {
     graph,
     evidence,
     findings,
+    setFindings,
     artifacts,
     governance,
+    setGovernance,
     attestation,
+    setAttestation,
     messages,
     selectedNodeId,
     setSelectedNodeId,
@@ -345,6 +357,8 @@ export function useWorkbench(backend: StartBackend) {
     selectedEvidence,
     busy,
     error,
+    setError,
+    refreshRunData,
     previewPlan,
     startRun,
     askAgent,
