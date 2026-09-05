@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-TS_OUT_PATH = ROOT / "web" / "src" / "types" / "start_schema.d.ts"
+TS_OUT_PATH = ROOT / "webapp" / "src" / "types" / "start_schema.d.ts"
 OPENAPI_OUT_PATH = ROOT / "src" / "start" / "web" / "openapi.json"
 
 

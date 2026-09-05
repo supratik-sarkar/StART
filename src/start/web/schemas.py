@@ -18,8 +18,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-START_SCHEMA_VERSION: str = "4.6.0"
-START_VERSION: str = "4.6.3"
+START_SCHEMA_VERSION: str = "5.0.0"
+START_VERSION: str = "5.0.0"
 
 
 # --------------------------------------------------------------------------- #
@@ -28,7 +28,7 @@ START_VERSION: str = "4.6.3"
 class SystemInfo(BaseModel):
     start_version: str = START_VERSION
     start_schema_version: str = START_SCHEMA_VERSION
-    backend_build_version: str = "4.6.0-arm64-prod"
+    backend_build_version: str = "5.0.0-arm64-prod"
     git_sha: str | None = None
     compute_runtime: str = "local"  # "local" | "oracle_a1_arm64"
     max_concurrency: int = 1
@@ -102,9 +102,45 @@ class RunRequest(BaseModel):
     turnstile_token: str | None = None
     session_id: str = Field(default_factory=lambda: f"SES-{uuid.uuid4().hex[:12]}")
     workflow: str = "predictive_ml"
+    workflowId: str | None = None
+    contextId: str | None = None
+    goal: str | None = None
+    sourceEvidenceId: str | None = None
+    parentRunId: str | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
     parent_run_id: str | None = None
     intervention: str | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.workflowId and not self.workflow:
+            self.workflow = self.workflowId
+        elif self.workflowId:
+            self.workflow = self.workflowId
+
+        if self.contextId and not self.synthetic_profile:
+            self.synthetic_profile = self.contextId
+        elif self.contextId:
+            self.synthetic_profile = self.contextId
+
+        if self.parentRunId and not self.parent_run_id:
+            self.parent_run_id = self.parentRunId
+
+        # Automatically map domain from workflow
+        if self.workflow == "deep_learning":
+            self.domain = "deep_learning"
+            if not self.contextId:
+                self.synthetic_profile = "deep_learning_v1"
+        elif self.workflow == "quantitative_finance":
+            self.domain = "market"
+            if not self.contextId:
+                self.synthetic_profile = "institutional_market_v1"
+        else:
+            self.domain = "predictive"
+            if not self.contextId and self.synthetic_profile not in (
+                "deep_learning_v1",
+                "institutional_market_v1",
+            ):
+                self.synthetic_profile = "institutional_credit_v1"
 
 
 class RunStatusResponse(BaseModel):

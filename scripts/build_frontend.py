@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WEB_DIR = ROOT / "web"
+WEB_DIR = ROOT / "webapp"
 CONFIG_PATH = ROOT / "deploy" / "cloudflare" / "public_frontend_config.json"
 
 

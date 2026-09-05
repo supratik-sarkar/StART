@@ -126,15 +126,12 @@ def verify_turnstile_token(token: str | None, remote_ip: str | None = None) -> b
     Refuses production execution if configured with a known test secret.
     """
     turnstile_key = get_turnstile_secret_key()
-    is_prod = bool(
-        os.environ.get("START_ORACLE_DEPLOYMENT") or os.environ.get("START_REQUIRE_ORIGIN_AUTH")
-    )
+    is_prod = bool(os.environ.get("START_ORACLE_DEPLOYMENT") or os.environ.get("START_REQUIRE_ORIGIN_AUTH"))
 
     if not turnstile_key:
         if is_prod:
             logger.error(
-                "Security violation: Production running without START_TURNSTILE_SECRET_KEY. "
-                "Failing closed."
+                "Security violation: Production running without START_TURNSTILE_SECRET_KEY. Failing closed."
             )
             return False
         # Development mode or local offline run

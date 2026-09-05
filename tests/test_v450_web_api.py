@@ -220,3 +220,163 @@ def test_pdf_generation_endpoint(client: TestClient) -> None:
     assert pdf_resp.status_code == 200
     assert pdf_resp.headers["Content-Type"] == "application/pdf"
     assert pdf_resp.content.startswith(b"%PDF-1.4")
+
+
+def test_fastapi_route_uniqueness(client: TestClient) -> None:
+    """Amendment 2: Assert ZERO ambiguous or duplicate FastAPI path+method registrations."""
+    all_endpoints = []
+    app = client.app
+    for r in app.router.routes:
+        if hasattr(r, "original_router"):
+            prefix = r.include_context.prefix if hasattr(r, "include_context") else ""
+            for sub in r.original_router.routes:
+                sub_path = getattr(sub, "path", "")
+                full_path = f"{prefix}{sub_path}".replace("//", "/")
+                for m in getattr(sub, "methods", ["ALL"]):
+                    all_endpoints.append((m, full_path))
+        elif hasattr(r, "methods") and hasattr(r, "path"):
+            for m in r.methods:
+                all_endpoints.append((m, r.path))
+
+    from collections import Counter
+    counts = Counter(all_endpoints)
+    duplicates = [k for k, v in counts.items() if v > 1]
+    assert len(duplicates) == 0, f"Found duplicate route registrations: {duplicates}"
+
+
+def test_capabilities_truthful_catalog(client: TestClient) -> None:
+    """Amendment 1: Capabilities must not hardcode all 10 as enabled; model_comparison disabled with reason."""
+    resp = client.get("/api/v1/capabilities")
+    assert resp.status_code == 200
+    caps = resp.json()
+    assert isinstance(caps, list)
+    assert len(caps) == 10
+
+    by_id = {c["id"]: c for c in caps}
+    assert by_id["predictive_ml"]["enabled"] is True
+    assert by_id["deep_learning"]["enabled"] is True
+    assert by_id["quantitative_finance"]["enabled"] is True
+
+    # model_comparison must be disabled with machine-readable reason
+    mc = by_id["model_comparison"]
+    assert mc["enabled"] is False
+    assert "disabledReason" in mc
+    assert len(mc["disabledReason"]) > 10
+
+
+def test_execution_contexts_catalog(client: TestClient) -> None:
+    """Amendment 19: Real execution context catalog returns public-safe contexts."""
+    resp = client.get("/api/v1/execution-contexts")
+    assert resp.status_code == 200
+    contexts = resp.json()
+    assert isinstance(contexts, list)
+    assert len(contexts) >= 3
+    ctx_ids = {c["id"] for c in contexts}
+    assert "institutional_credit_v1" in ctx_ids
+    assert "deep_learning_v1" in ctx_ids
+    assert "institutional_market_v1" in ctx_ids
+
+
+def test_create_agent_plan_no_fake_run_id(client: TestClient) -> None:
+    """Amendment 3 & 4: createPlan must return AgentPlanPreview without inventing runId."""
+    plan_req = {
+        "workflowId": "predictive_ml",
+        "contextId": "institutional_credit_v1",
+        "goal": "Verify credit default model calibration",
+    }
+    resp = client.post("/api/v1/plans", json=plan_req)
+    assert resp.status_code == 200
+    plan_data = resp.json()
+
+    # Must NOT have runId, startedAt, or elapsedMs
+    assert "runId" not in plan_data
+    assert "startedAt" not in plan_data
+    assert "elapsedMs" not in plan_data
+
+    # Must have AgentPlanPreview shape
+    assert plan_data["workflowId"] == "predictive_ml"
+    assert plan_data["contextId"] == "institutional_credit_v1"
+    assert "plan" in plan_data
+    assert len(plan_data["plan"]) >= 5
+    assert plan_data["plan"][0]["kind"] in ("context", "test", "agent", "tool", "evidence", "governance")
+
+
+def test_graph_lineage_and_action_validation(client: TestClient) -> None:
+    """Amendment 7, 15, 32: Graph distinction, action validation boundary, and child lineage."""
+    run_id = "RUN-PARENT-01"
+    session_id = "SES-PARENT-01"
+    req = RunRequest(session_id=session_id, workflow="predictive_ml", synthetic_profile="institutional_credit_v1")
+    GLOBAL_QUEUE.submit_run(run_id, req)
+
+    rec = EvidenceRecord(
+        evidence_id="EV-PARENT-001",
+        test_id="calibration.brier_score",
+        test_name="Brier Score",
+        model_id="MOD-01",
+        dataset_id="DS-01",
+        run_id=run_id,
+        status=Status.WARN,
+        metrics={"brier_score": 0.28},
+    )
+    GLOBAL_QUEUE.mark_completed(
+        run_id=run_id,
+        evidence_records=[rec],
+        presentation={"run_id": run_id, "domains": ["predictive"], "blocks": {}},
+    )
+
+    # 1. Graph returns nodes with planned vs completed states
+    g_resp = client.get(f"/api/v1/runs/{run_id}/graph?session_id={session_id}")
+    assert g_resp.status_code == 200
+    graph = g_resp.json()
+    assert len(graph["nodes"]) >= 5
+    assert len(graph["edges"]) >= 4
+
+    # 2. Findings derived from ATTENTION record
+    f_resp = client.get(f"/api/v1/runs/{run_id}/findings?session_id={session_id}")
+    assert f_resp.status_code == 200
+    findings = f_resp.json()
+    assert len(findings) >= 1
+    assert "EV-PARENT-001" in findings[0]["evidenceIds"]
+
+    # 3. Action validation boundary
+    act_req = {
+        "kind": "deeper_test",
+        "sourceEvidenceId": "EV-PARENT-001",
+        "parameters": {"depth": "focused", "perturbation_rate": 0.50},  # 0.50 should be clamped to 0.30 max
+    }
+    v_resp = client.post(f"/api/v1/runs/{run_id}/actions/validate?session_id={session_id}", json=act_req)
+    assert v_resp.status_code == 200
+    val_action = v_resp.json()
+    assert val_action["parameters"]["perturbation_rate"] == 0.30  # Clamped
+
+    # 4. Execute validated human action -> child run with lineage
+    exec_resp = client.post(f"/api/v1/runs/{run_id}/actions?session_id={session_id}", json=val_action)
+    assert exec_resp.status_code == 200
+    child_snapshot = exec_resp.json()
+    assert child_snapshot["runId"] != run_id
+    assert child_snapshot["parentRunId"] == run_id
+
+    # 5. Child graph includes parent lineage
+    child_run_id = child_snapshot["runId"]
+    cg_resp = client.get(f"/api/v1/runs/{child_run_id}/graph?session_id={session_id}")
+    assert cg_resp.status_code == 200
+    c_graph = cg_resp.json()
+    node_ids = {n["id"] for n in c_graph["nodes"]}
+    assert "parent-run" in node_ids
+
+
+def test_idor_cross_session_isolation(client: TestClient) -> None:
+    """Amendment 23: Run endpoints must enforce session isolation."""
+    run_id = "RUN-ISOLATED-01"
+    session_owner = "SES-OWNER"
+    req = RunRequest(session_id=session_owner, workflow="predictive_ml")
+    GLOBAL_QUEUE.submit_run(run_id, req)
+
+    # Owner can access
+    resp = client.get(f"/api/v1/runs/{run_id}/status?session_id={session_owner}")
+    assert resp.status_code == 200
+
+    # Attacker session denied (404 / access denied)
+    bad_resp = client.get(f"/api/v1/runs/{run_id}/status?session_id=SES-ATTACKER")
+    assert bad_resp.status_code == 404
+

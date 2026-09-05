@@ -9,6 +9,7 @@ Configures:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
@@ -18,9 +19,11 @@ from fastapi.staticfiles import StaticFiles
 from start.web.routes_health import router as health_router
 from start.web.routes_reviewer import router as reviewer_router
 from start.web.routes_run import router as run_router
+from start.web.routes_workbench import router as workbench_router
 from start.web.security import verify_origin_hmac
 
-DIST_DIR = Path(__file__).resolve().parent.parent.parent.parent / "web" / "dist"
+DEFAULT_DIST = Path(__file__).resolve().parent.parent.parent.parent / "webapp" / "dist"
+DIST_DIR = Path(os.environ.get("START_WEBAPP_DIST", str(DEFAULT_DIST)))
 
 
 def create_app() -> FastAPI:
@@ -79,7 +82,7 @@ def create_app() -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
-        response.headers["X-StART-Schema-Version"] = "4.6.0"
+        response.headers["X-StART-Schema-Version"] = "5.0.0"
 
         # Content Security Policy (allows WebAssembly & WebGPU compilation for WebLLM)
         csp = (
@@ -99,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(run_router)
     app.include_router(reviewer_router)
+    app.include_router(workbench_router)
 
     # 4. Mount Frontend Static Assets if built
     if DIST_DIR.exists() and (DIST_DIR / "index.html").exists():

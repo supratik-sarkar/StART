@@ -12,11 +12,11 @@ ROOT = Path(__file__).resolve().parent.parent
 def test_schema_version_consistency() -> None:
     from start.web.schemas import START_SCHEMA_VERSION, START_VERSION, SystemInfo
 
-    assert START_SCHEMA_VERSION.startswith("4.")
-    assert START_VERSION.startswith("4.")
+    assert START_SCHEMA_VERSION.startswith(("4.", "5."))
+    assert START_VERSION.startswith(("4.", "5."))
     info = SystemInfo()
-    assert info.start_version.startswith("4.")
-    assert info.start_schema_version.startswith("4.")
+    assert info.start_version.startswith(("4.", "5."))
+    assert info.start_schema_version.startswith(("4.", "5."))
 
 
 def test_typescript_definitions_in_sync() -> None:

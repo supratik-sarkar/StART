@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from start.web.app import create_app
 
-DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
+DIST_DIR = Path(__file__).resolve().parent.parent / "webapp" / "dist"
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def client() -> TestClient:
 
 
 def test_index_html_delivery(client: TestClient) -> None:
-    assert DIST_DIR.exists(), "web/dist must be built"
+    assert DIST_DIR.exists(), "webapp/dist must be built"
     resp = client.get("/")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["Content-Type"]

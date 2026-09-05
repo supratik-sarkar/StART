@@ -59,7 +59,7 @@ def main():
     if not os.path.exists(ssh_key):
         print(f"WARNING: SSH key {ssh_key} does not exist locally. SSH operations may fail.", file=sys.stderr)
 
-    print("=== DEPLOYING StART v4.6.3 BACKEND TO ORACLE LINUX ARM64 ===")
+    print("=== DEPLOYING StART v5.0.0 BACKEND TO ORACLE LINUX ARM64 ===")
     print(f"Target VM IP: {public_ip}")
     print(f"Target Domain: {domain}")
     print(f"SSH Key: {ssh_key}")
@@ -80,6 +80,7 @@ def main():
         "--exclude=.ruff_cache",
         "--exclude=.env",
         "--exclude=web/node_modules",
+        "--exclude=webapp/node_modules",
         "--exclude=static/webllm-models",
         f"{ROOT}/",
         f"ubuntu@{public_ip}:/opt/start/"
@@ -148,7 +149,7 @@ def main():
     # 9. Configure & Start systemd service
     print("\n--- 9. Configuring & Starting start_web.service ---")
     service_content = """[Unit]
-Description=StART v4.6 Agentic Engineering Workbench Web Service
+Description=StART v5.0 Agentic Engineering Workbench Web Service
 After=network.target
 
 [Service]

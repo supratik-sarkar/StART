@@ -5,7 +5,7 @@ account_id = "ce0ed251afb1110fd68281f824baceea"
 
 # Route static assets directly to Cloudflare Static Assets (bypasses worker execution to preserve free-tier quota)
 [assets]
-directory = "../../web/dist"
+directory = "../../webapp/dist"
 binding = "ASSETS"
 
 # Non-sensitive public environment variables

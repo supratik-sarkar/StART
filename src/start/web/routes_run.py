@@ -8,7 +8,7 @@ import logging
 import time
 import uuid
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -134,9 +134,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
             )
         else:
             domains = (ReviewDomain.PREDICTIVE,)
-            technology = (
-                PredictiveTechnology.DEEP_LEARNING if is_dl else PredictiveTechnology.TRADITIONAL_ML
-            )
+            technology = PredictiveTechnology.DEEP_LEARNING if is_dl else PredictiveTechnology.TRADITIONAL_ML
             from start.data.synthetic_dl import generate_dl_world
             from start.registry import TestContext
 
@@ -183,9 +181,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
             from start.modeling.tuning_run import run_tuning
 
             trials_count = (
-                min(30, max(5, int(request.parameters.get("trials", 10))))
-                if request.parameters
-                else 10
+                min(30, max(5, int(request.parameters.get("trials", 10)))) if request.parameters else 10
             )
             tuning_res = run_tuning(
                 train_df,
@@ -230,9 +226,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                     )
         elif is_dl:
             epochs_count = (
-                min(20, max(3, int(request.parameters.get("epochs", 10))))
-                if request.parameters
-                else 10
+                min(20, max(3, int(request.parameters.get("epochs", 10)))) if request.parameters else 10
             )
             for ep in range(1, epochs_count + 1):
                 ep_pct = round((ep / epochs_count) * 80.0, 1)
@@ -427,6 +421,11 @@ async def start_run(
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _execute_run_in_background, run_id, request)
 
+    ctx = GLOBAL_QUEUE.get_run(run_id)
+    from start.web.routes_workbench import serialize_run_snapshot
+
+    snapshot = serialize_run_snapshot(ctx) if ctx else {}
+
     return JSONResponse(
         status_code=200,
         content={
@@ -435,6 +434,8 @@ async def start_run(
             "run_id": run_id,
             "timestamp": time.time(),
             "data": {
+                **snapshot,
+                "run": snapshot,
                 "run_id": run_id,
                 "session_id": request.session_id,
                 "status": "QUEUED",
@@ -453,14 +454,22 @@ def get_run_status(
     session_id: str | None = Query(None),
 ) -> APIResponseEnvelope:
     """Query current run status and metrics."""
-    status_resp = GLOBAL_QUEUE.get_status(run_id, session_id)
-    if not status_resp:
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found or session access denied")
+
+    status_resp = GLOBAL_QUEUE.get_status(run_id, session_id)
+    from start.web.routes_workbench import serialize_run_snapshot
+
+    snapshot = serialize_run_snapshot(ctx)
+    data = status_resp.model_dump() if status_resp else {}
+    data.update(snapshot)
+    data["run"] = snapshot
 
     return APIResponseEnvelope(
         success=True,
         run_id=run_id,
-        data=status_resp.model_dump(),
+        data=data,
     )
 
 
@@ -475,12 +484,19 @@ async def stream_run_events(
     return EventSourceResponse(gen)
 
 
-@router.get("/{run_id}/events", response_model=APIResponseEnvelope)
-def get_run_events(
+@router.get("/{run_id}/events")
+async def get_run_events(
+    request: Request,
     run_id: str,
     session_id: str | None = Query(None),
-) -> APIResponseEnvelope:
-    """Retrieve raw event list for a run."""
+    last_event_id: str | None = Header(None, alias="Last-Event-ID"),
+):
+    """Retrieve event stream (SSE) or raw event list for a run."""
+    accept = request.headers.get("accept", "")
+    if "text/event-stream" in accept:
+        gen = sse_event_generator(run_id=run_id, session_id=session_id, last_event_id=last_event_id)
+        return EventSourceResponse(gen)
+
     ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
     if not ctx:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found or session access denied")
