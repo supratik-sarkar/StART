@@ -25,6 +25,9 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
+pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
+
 from start.core.schemas import EvidenceRecord, Status, TestResult
 from start.data.synthetic_dl import generate_dl_world
 from start.web.queue import GLOBAL_QUEUE, ActiveRunContext
