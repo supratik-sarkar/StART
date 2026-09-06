@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import ast
 import time
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pytest
@@ -32,7 +30,6 @@ from start.runtime.execution import CanonicalExecutionService
 from start.web.app import create_app
 from start.web.queue import GLOBAL_QUEUE
 from start.web.routes_workbench import get_workflow_definition, make_canonical_plan
-from start.web.schemas import RunRequest
 
 
 @pytest.fixture
@@ -49,7 +46,7 @@ def test_artifact_producer_guesses_is_zero() -> None:
     and no graph producer edge should be generated.
     """
     sink = ListEventSink()
-    result = CanonicalExecutionService.execute(
+    _ = CanonicalExecutionService.execute(
         workflow_id="predictive_ml",
         context_id="institutional_credit_v1",
         event_sink=sink,

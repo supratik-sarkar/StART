@@ -186,7 +186,7 @@ WantedBy=multi-user.target
     run_remote_ssh(public_ip, write_service, ssh_key)
 
     # Poll until uvicorn binds and responds HTTP 200 (max 15s)
-    for attempt in range(15):
+    for _attempt in range(15):
         time.sleep(1)
         res = run_remote_ssh(public_ip, "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/v1/health || true", ssh_key, check=False)
         if res.stdout.strip().endswith("200"):
