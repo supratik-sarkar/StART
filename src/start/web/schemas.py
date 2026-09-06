@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "5.0.2"
+START_VERSION: str = "5.1.0"
 
 
 def get_backend_build_version() -> str:
@@ -101,12 +101,12 @@ class RunRequest(BaseModel):
     mode: Literal["deterministic", "llm"] = "deterministic"
     materiality: Literal["low", "medium", "high"] = "high"
     lifecycle: Literal["pre_implementation", "validation", "annual_review", "monitoring"] = "validation"
-    synthetic_profile: str = "institutional_credit_v1"
+    synthetic_profile: str | None = None
     synthetic_profile_version: str = "1.0.0"
     seed: int = 42
     turnstile_token: str | None = None
     session_id: str = Field(default_factory=lambda: f"SES-{uuid.uuid4().hex[:12]}")
-    workflow: str = "predictive_ml"
+    workflow: str | None = None
     workflowId: str | None = None
     contextId: str | None = None
     goal: str | None = None
@@ -130,22 +130,31 @@ class RunRequest(BaseModel):
         if self.parentRunId and not self.parent_run_id:
             self.parent_run_id = self.parentRunId
 
-        # Automatically map domain from workflow
-        if self.workflow == "deep_learning":
-            self.domain = "deep_learning"
-            if not self.contextId:
+        # Derive workflow if not explicitly provided
+        if not self.workflow:
+            if self.domain == "market" or self.synthetic_profile == "institutional_market_v1":
+                self.workflow = "quantitative_finance"
+            elif self.domain == "deep_learning" or self.synthetic_profile == "deep_learning_v1":
+                self.workflow = "deep_learning"
+            else:
+                self.workflow = "predictive_ml"
+
+        # Set default synthetic_profile only if none was provided
+        if not self.synthetic_profile:
+            if self.workflow in ("deep_learning", "neural_diagnostics"):
                 self.synthetic_profile = "deep_learning_v1"
-        elif self.workflow == "quantitative_finance":
-            self.domain = "market"
-            if not self.contextId:
+            elif self.workflow in ("quantitative_finance", "market_risk", "portfolio_stress"):
                 self.synthetic_profile = "institutional_market_v1"
+            else:
+                self.synthetic_profile = "institutional_credit_v1"
+
+        # Align domain from workflow
+        if self.workflow in ("deep_learning", "neural_diagnostics"):
+            self.domain = "deep_learning"
+        elif self.workflow in ("quantitative_finance", "market_risk", "portfolio_stress"):
+            self.domain = "market"
         else:
             self.domain = "predictive"
-            if not self.contextId and self.synthetic_profile not in (
-                "deep_learning_v1",
-                "institutional_market_v1",
-            ):
-                self.synthetic_profile = "institutional_credit_v1"
 
 
 class RunStatusResponse(BaseModel):

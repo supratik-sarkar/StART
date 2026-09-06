@@ -16,16 +16,23 @@ from start.web.schemas import (
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
 
+def get_health_payload() -> dict[str, str]:
+    """Authoritative health and version payload."""
+    backend_build = os.environ.get("START_BACKEND_BUILD_VERSION", f"{START_VERSION}-local")
+    return {
+        "status": "HEALTHY",
+        "version": START_VERSION,
+        "schema_version": START_SCHEMA_VERSION,
+        "backend_build_version": backend_build,
+    }
+
+
 @router.get("/health", response_model=APIResponseEnvelope)
 def get_health() -> APIResponseEnvelope:
     """Lightweight readiness and liveness probe."""
     return APIResponseEnvelope(
         success=True,
-        data={
-            "status": "HEALTHY",
-            "version": START_VERSION,
-            "schema_version": START_SCHEMA_VERSION,
-        },
+        data=get_health_payload(),
     )
 
 

@@ -16,10 +16,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from start.web.routes_health import router as health_router
+from start.web.routes_health import get_health, router as health_router
 from start.web.routes_reviewer import router as reviewer_router
 from start.web.routes_run import router as run_router
 from start.web.routes_workbench import router as workbench_router
+from start.web.schemas import APIResponseEnvelope, START_VERSION
 from start.web.security import verify_origin_hmac
 
 DEFAULT_DIST = Path(__file__).resolve().parent.parent.parent.parent / "webapp" / "dist"
@@ -34,7 +35,7 @@ def create_app() -> FastAPI:
             "Deterministic ML/DL & quantitative engineering workbench, "
             "live SSE streaming, and WebLLM reviewer hydration."
         ),
-        version="4.6.3",
+        version=START_VERSION,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
@@ -103,6 +104,11 @@ def create_app() -> FastAPI:
     app.include_router(run_router)
     app.include_router(reviewer_router)
     app.include_router(workbench_router)
+
+    # Root health probe delegating directly to canonical get_health()
+    @app.get("/health", response_model=APIResponseEnvelope, tags=["health"])
+    def root_health() -> APIResponseEnvelope:
+        return get_health()
 
     # 4. Mount Frontend Static Assets if built
     if DIST_DIR.exists() and (DIST_DIR / "index.html").exists():

@@ -161,5 +161,23 @@ class AnalyticalQueue:
         return len(to_purge)
 
 
+
+class QueueEventSink:
+    """EventSink adapter that pushes typed RuntimeEvents to AnalyticalQueue."""
+
+    def __init__(self, arg1: Any, arg2: Any = None, *args: Any, **kwargs: Any) -> None:
+        if isinstance(arg1, str):
+            self.run_id = arg1
+            self.queue = arg2 or GLOBAL_QUEUE
+        else:
+            self.queue = arg1 or GLOBAL_QUEUE
+            self.run_id = arg2 or ""
+
+    def emit(self, event: Any) -> None:
+        payload = event.to_dict() if hasattr(event, "to_dict") else event
+        self.queue.append_event(self.run_id, payload)
+
+
 # Global singleton queue instance for the process
 GLOBAL_QUEUE = AnalyticalQueue(max_concurrency=1, max_queue_size=10, session_ttl_seconds=3600)
+

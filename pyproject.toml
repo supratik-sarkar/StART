@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "5.0.2"
+version = "5.1.0"
 description = "StART: risk-stripe-agnostic agentic review platform — deterministic engines compute, agents reason, evidence proves, seals attest."
 readme = "README.md"
 requires-python = ">=3.12"

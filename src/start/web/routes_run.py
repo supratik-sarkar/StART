@@ -1,4 +1,4 @@
-"""Run Lifecycle, SSE Streaming, Presentation & Logical Artifact Routes for StART v4.5."""
+"""Run Lifecycle, SSE Streaming, Presentation & Logical Artifact Routes for StART v5.1.0."""
 
 from __future__ import annotations
 
@@ -12,8 +12,13 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
+from start.runtime import (
+    CanonicalExecutionService,
+    resolve_context_spec,
+    resolve_workflow,
+)
 from start.web.pdf import generate_institutional_pdf
-from start.web.queue import GLOBAL_QUEUE
+from start.web.queue import GLOBAL_QUEUE, QueueEventSink
 from start.web.schemas import (
     START_SCHEMA_VERSION,
     APIResponseEnvelope,
@@ -27,399 +32,65 @@ router = APIRouter(prefix="/api/v1/runs", tags=["runs"])
 
 
 def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
-    """Execute canonical StART deterministic review in an isolated background thread/task."""
-    start_time = time.time()
+    """Execute canonical StART deterministic review via shared non-web execution service."""
     try:
         GLOBAL_QUEUE.mark_running(run_id)
 
-        # Import canonical review executor and architecture models
-        from start.review.architecture import (
-            LLMReviewConfig,
-            PredictiveTechnology,
-            ReviewContextBundle,
-            ReviewDomain,
-            ReviewGroundingMode,
-            ReviewLifecycle,
-            ReviewMode,
-        )
-        from start.review.executor import run_unified_review
+        workflow_id = getattr(request, "workflowId", None) or request.workflow
+        if not workflow_id:
+            if request.domain == "deep_learning":
+                workflow_id = "deep_learning"
+            elif request.domain == "market":
+                workflow_id = "quantitative_finance"
+            else:
+                workflow_id = "predictive_ml"
 
-        # 1. Map domain and technology
-        is_dl = (
-            request.domain == "deep_learning"
-            or request.synthetic_profile == "deep_learning_v1"
-            or request.workflow == "deep_learning"
-        )
-        is_market = (
-            request.domain == "market"
-            or request.synthetic_profile == "institutional_market_v1"
-            or request.workflow == "quantitative_finance"
-        )
+        context_id = getattr(request, "contextId", None) or request.synthetic_profile
+        if not context_id:
+            if workflow_id == "deep_learning":
+                context_id = "deep_learning_v1"
+            elif workflow_id == "quantitative_finance":
+                context_id = "institutional_market_v1"
+            else:
+                context_id = "institutional_credit_v1"
 
-        seed = request.seed or 42
+        seed = request.seed if request.seed is not None else 42
+        sink = QueueEventSink(run_id, GLOBAL_QUEUE)
 
-        # Emit Step 1: Initialization & Discovery
-        GLOBAL_QUEUE.append_event(
-            run_id,
-            {
-                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
-                "timestamp": time.time(),
-                "event_type": "agent_transition",
-                "source_agent": "Director",
-                "target_agent": "Specialist",
-                "stage": "PLANNING",
-                "action": f"initialize_{request.domain}_review",
-                "status": "COMPLETED",
-                "node_id": "step-context",
-                "metadata": {
-                    "workflow": request.workflow,
-                    "synthetic_profile": request.synthetic_profile,
-                    "seed": seed,
-                    "parent_run_id": request.parent_run_id,
-                    "intervention": request.intervention,
-                },
-                "phase": "Planning & Discovery",
-                "step": 1,
-                "elapsed_seconds": round(time.time() - start_time, 2),
-                "message": f"Initialized {request.domain} engineering review context",
-            },
+        res = CanonicalExecutionService.execute(
+            workflow_id=workflow_id,
+            context_id=context_id,
+            request_params=request.parameters,
+            seed=seed,
+            event_sink=sink,
+            materiality=request.materiality,
+            run_id=run_id,
+            parent_run_id=request.parent_run_id,
+            intervention=request.intervention,
         )
 
-        if is_market:
-            domains = (ReviewDomain.MARKET,)
-            technology = None
-            from start.data.synthetic_market import generate_market_world
-            from start.registry.market_contexts import MarketContext, PortfolioSpec
-
-            world = generate_market_world(
-                n_assets=50,
-                n_periods=1000,
-                n_factors=5,
-                periods_per_year=252,
-                seed=seed,
-                include_short_rate=True,
-                missing_rate=0.15,
-            )
-            renamed = {old: f"ASSET_{i + 1:03d}" for i, old in enumerate(world.returns.columns)}
-            market_ctx = MarketContext(
-                returns=world.returns.rename(columns=renamed),
-                prices=world.prices.rename(columns=renamed),
-                periods_per_year=world.periods_per_year,
-                risk_free_rate=0.02,
-                risk_free_frequency="annual",
-                factor_returns=world.factor_returns,
-                factor_exposures=world.factor_exposures.rename(index=renamed),
-                pnl=world.pnl,
-                hypothetical_pnl=world.hypothetical_pnl,
-                var_series=world.var_series,
-                var_confidence=world.var_confidence,
-                portfolio=PortfolioSpec(
-                    weights=world.weights.rename(renamed),
-                    benchmark_weights=world.benchmark_weights.rename(renamed),
-                ),
-                seed=seed,
-            )
-            bundle = ReviewContextBundle(
-                mode=ReviewMode.SINGLE_DOMAIN,
-                domains=domains,
-                technology=technology,
-                materiality=request.materiality,
-                lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
-                market=market_ctx,
-                short_rate=world.short_rate,
-                llm_config=LLMReviewConfig(provider="none"),
-                grounding_mode=ReviewGroundingMode.STRUCTURED,
-            )
-        else:
-            domains = (ReviewDomain.PREDICTIVE,)
-            technology = PredictiveTechnology.DEEP_LEARNING if is_dl else PredictiveTechnology.TRADITIONAL_ML
-            from start.data.synthetic_dl import generate_dl_world
-            from start.registry import TestContext
-
-            dl_res = generate_dl_world(n_samples=500, n_features=8, seed=seed)
-            train_df = dl_res["train_df"]
-            test_df = dl_res["test_df"]
-            tab_ctx = TestContext(train=train_df, test=test_df, target_column="target")
-            bundle = ReviewContextBundle(
-                mode=ReviewMode.SINGLE_DOMAIN,
-                domains=domains,
-                technology=technology,
-                materiality=request.materiality,
-                lifecycle=ReviewLifecycle.INITIAL_VALIDATION,
-                tabular=tab_ctx,
-                llm_config=LLMReviewConfig(provider="none"),
-                grounding_mode=ReviewGroundingMode.STRUCTURED,
-            )
-
-        # Emit Step 2: Context Building & Pre-flight Diagnostics
-        GLOBAL_QUEUE.append_event(
-            run_id,
-            {
-                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
-                "timestamp": time.time(),
-                "event_type": "tool_execution",
-                "source_agent": "Specialist",
-                "target_agent": "DeterministicEngine",
-                "stage": "EXECUTION",
-                "action": "build_context_and_preflight",
-                "status": "COMPLETED",
-                "node_id": "step-preflight",
-                "parent_node_id": "step-context",
-                "metadata": {"technology": str(technology) if technology else "MARKET"},
-                "phase": "Context & Pre-flight Diagnostics",
-                "step": 2,
-                "elapsed_seconds": round(time.time() - start_time, 2),
-                "message": "Building analytical dataset context and verifying integrity",
-            },
+        pres_dict = (
+            res.presentation_model.to_dict()
+            if res.presentation_model and hasattr(res.presentation_model, "to_dict")
+            else (res.presentation_model or {})
         )
-
-        # Execute Task-Specific Workflows (e.g. Tuning, DL Epochs)
-        if request.workflow == "hyperparameter_tuning" and not is_market:
-            from start.modeling.tuning_run import run_tuning
-
-            trials_count = (
-                min(30, max(5, int(request.parameters.get("trials", 10)))) if request.parameters else 10
-            )
-            tuning_res = run_tuning(
-                train_df,
-                target="target",
-                features=[c for c in train_df.columns if c != "target"],
-                n_trials=trials_count,
-                strategy="bounded_random_search",
-                seed=seed,
-                run_id=run_id,
-            )
-            if tuning_res and tuning_res.trials:
-                for idx, t in enumerate(tuning_res.trials):
-                    trial_pct = round(((idx + 1) / trials_count) * 100, 1)
-                    GLOBAL_QUEUE.append_event(
-                        run_id,
-                        {
-                            "event_id": f"EVT-TUNE-{idx + 1}",
-                            "timestamp": time.time(),
-                            "event_type": "tuning_trial",
-                            "source_agent": "OptimizationAgent",
-                            "target_agent": "EvidenceLedger",
-                            "stage": "TUNING",
-                            "action": f"trial_{idx + 1}",
-                            "status": t.status.upper(),
-                            "metadata": {
-                                "trial": t.trial,
-                                "params": t.params,
-                                "validation_metric": t.validation_metric,
-                                "best_metric": tuning_res.best_metric,
-                            },
-                            "phase": "Hyperparameter Optimization",
-                            "step": idx + 1,
-                            "completed": idx + 1,
-                            "total": trials_count,
-                            "percent": trial_pct,
-                            "elapsed_seconds": round(time.time() - start_time, 2),
-                            "message": (
-                                f"Trial {idx + 1}/{trials_count}: "
-                                f"metric={t.validation_metric:.4f} status={t.status}"
-                            ),
-                        },
-                    )
-        elif is_dl:
-            epochs_count = (
-                min(20, max(3, int(request.parameters.get("epochs", 10)))) if request.parameters else 10
-            )
-            for ep in range(1, epochs_count + 1):
-                ep_pct = round((ep / epochs_count) * 80.0, 1)
-                GLOBAL_QUEUE.append_event(
-                    run_id,
-                    {
-                        "event_id": f"EVT-DL-EP-{ep}",
-                        "timestamp": time.time(),
-                        "event_type": "training_epoch",
-                        "source_agent": "NeuralEngine",
-                        "target_agent": "EvidenceLedger",
-                        "stage": "TRAINING",
-                        "action": f"epoch_{ep}",
-                        "status": "RUNNING",
-                        "metadata": {"epoch": ep, "total_epochs": epochs_count},
-                        "phase": "Neural Architecture Training & Weight Diagnostics",
-                        "step": ep,
-                        "completed": ep,
-                        "total": epochs_count,
-                        "percent": ep_pct,
-                        "elapsed_seconds": round(time.time() - start_time, 2),
-                        "message": (
-                            f"Epoch {ep}/{epochs_count} completed: loss converged, gradients monitored"
-                        ),
-                    },
-                )
-            GLOBAL_QUEUE.append_event(
-                run_id,
-                {
-                    "event_id": "EVT-STEP-step-training",
-                    "timestamp": time.time(),
-                    "event_type": "step_execution",
-                    "source_agent": "NeuralEngine",
-                    "target_agent": "EvidenceLedger",
-                    "stage": "TRAINING",
-                    "action": "complete_training",
-                    "status": "COMPLETED",
-                    "node_id": "step-training",
-                    "parent_node_id": "step-context",
-                    "phase": "Neural Architecture Training",
-                    "step": "step-training",
-                    "elapsed_seconds": round(time.time() - start_time, 2),
-                    "message": "Neural architecture training completed",
-                },
-            )
-
-        # Run canonical StART review
-        res = run_unified_review(
-            bundle=bundle,
-            interactive=False,
-        )
-
-        records = res.get("records", [])
-        presentation_model = res.get("presentation_model")
-        artifacts_dict = res.get("artifacts", {})
-        if not artifacts_dict and presentation_model:
-            if hasattr(presentation_model, "artifacts") and presentation_model.artifacts:
-                artifacts_dict = presentation_model.artifacts
-            elif isinstance(presentation_model, dict) and "artifacts" in presentation_model:
-                artifacts_dict = presentation_model["artifacts"]
-
-        tracer = res.get("tracer")
-        if tracer:
-            events = [e.to_dict() if hasattr(e, "to_dict") else e for e in tracer.events]
-        else:
-            events = res.get("orchestration_events", [])
-
-        # Emit Step RuntimeEvents with stable node_id and observed lineage
-        from start.web.routes_workbench import get_workflow_definition
-
-        workflow_id = request.workflow or "predictive_ml"
-        wdef = get_workflow_definition(workflow_id)
-        executed_test_ids = {getattr(r, "test_id", "") for r in records}
-
-        prev_node_id = "step-context"
-        preflight_spec = next((s for s in wdef.step_specs if s[0] == "step-preflight"), None)
-        if preflight_spec and any(t in executed_test_ids for t in preflight_spec[4]):
-            prev_node_id = "step-preflight"
-        elif is_dl:
-            prev_node_id = "step-training"
-
-        for step_id, label, kind, _desc, test_ids in wdef.step_specs:
-            if kind == "test" and step_id != "step-preflight":
-                step_recs = [r for r in records if getattr(r, "test_id", None) in test_ids]
-                if step_recs:
-                    GLOBAL_QUEUE.append_event(
-                        run_id,
-                        {
-                            "event_id": f"EVT-STEP-{step_id}",
-                            "timestamp": time.time(),
-                            "event_type": "step_execution",
-                            "source_agent": "DeterministicEngine",
-                            "target_agent": "EvidenceLedger",
-                            "stage": "EXECUTION",
-                            "action": f"execute_{step_id}",
-                            "status": "COMPLETED",
-                            "node_id": step_id,
-                            "parent_node_id": prev_node_id,
-                            "evidence_refs": [getattr(r, "evidence_id", "") for r in step_recs],
-                            "artifact_refs": [],
-                            "metadata": {"test_ids": [getattr(r, "test_id", "") for r in step_recs]},
-                            "phase": label,
-                            "step": step_id,
-                            "elapsed_seconds": round(time.time() - start_time, 2),
-                            "message": f"Completed {label} ({len(step_recs)} tests executed)",
-                        },
-                    )
-                    prev_node_id = step_id
-
-        # Emit Step 3 & 4: Analytical Surfaces & Governance
-        GLOBAL_QUEUE.append_event(
-            run_id,
-            {
-                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
-                "timestamp": time.time(),
-                "event_type": "evidence_commit",
-                "source_agent": "DeterministicEngine",
-                "target_agent": "EvidenceLedger",
-                "stage": "CHECKPOINTS",
-                "action": "commit_evidence_records",
-                "status": "COMPLETED",
-                "node_id": "step-evidence",
-                "parent_node_id": prev_node_id,
-                "metadata": {"evidence_count": len(records)},
-                "evidence_refs": [r.evidence_id for r in records[:8]],
-                "phase": "Deterministic Analytical Execution",
-                "step": 4,
-                "elapsed_seconds": round(time.time() - start_time, 2),
-                "message": (
-                    f"Computed {len(records)} deterministic evidence surfaces and statistical checkpoints"
-                ),
-            },
-        )
-
-        # Transfer execution events
-        for evt in events:
-            if isinstance(evt, dict):
-                GLOBAL_QUEUE.append_event(run_id, evt)
-            elif hasattr(evt, "to_dict"):
-                GLOBAL_QUEUE.append_event(run_id, evt.to_dict())
-
-        # Serialize presentation model
-        if presentation_model and hasattr(presentation_model, "to_dict"):
-            pres_dict = presentation_model.to_dict()
-        else:
+        if not isinstance(pres_dict, dict):
             pres_dict = {}
-        if not pres_dict:
-            pres_dict = {
-                "run_id": run_id,
-                "mode": request.mode,
-                "domains": [request.domain],
-                "materiality": request.materiality,
-                "lifecycle": request.lifecycle,
-                "governance_disposition": res.get("governance_disposition"),
-                "attestation_seal_merkle_root": res.get("merkle_root"),
-                "blocks": {},
-                "orchestration_events": [e if isinstance(e, dict) else e.to_dict() for e in events],
-            }
-        else:
-            pres_dict["run_id"] = run_id
 
-        pres_dict["workflow"] = request.workflow
+        pres_dict["run_id"] = run_id
+        pres_dict["workflow"] = workflow_id
         pres_dict["parent_run_id"] = request.parent_run_id
         pres_dict["intervention"] = request.intervention
-
-        # Emit Final Step 5: Completed Seal only if workflow contains governance step
-        has_governance_step = any(s[0] == "step-governance" for s in wdef.step_specs)
-        if has_governance_step:
-            GLOBAL_QUEUE.append_event(
-                run_id,
-                {
-                    "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
-                    "timestamp": time.time(),
-                    "event_type": "governance_seal",
-                    "source_agent": "ModelGovernanceAgent",
-                    "target_agent": "AttestationRegistry",
-                    "stage": "GOVERNANCE",
-                    "action": "seal_attestation_merkle_root",
-                    "status": "COMPLETED",
-                    "node_id": "step-governance",
-                    "parent_node_id": "step-evidence",
-                    "metadata": {"merkle_root": pres_dict.get("attestation_seal_merkle_root", "")},
-                    "phase": "Attestation & Evidence Seal",
-                    "step": 5,
-                    "elapsed_seconds": round(time.time() - start_time, 2),
-                    "message": "Deterministic execution completed",
-                },
-            )
+        pres_dict["governance_disposition"] = res.governance_disposition
+        pres_dict["attestation_seal_merkle_root"] = res.merkle_root
 
         GLOBAL_QUEUE.mark_completed(
             run_id=run_id,
             presentation=pres_dict,
-            artifacts=artifacts_dict,
-            evidence_records=records,
+            artifacts=res.artifacts,
+            evidence_records=res.records,
         )
-        logger.info("Run '%s' completed successfully with %d evidence records", run_id, len(records))
+        logger.info("Run '%s' completed successfully with %d evidence records", run_id, len(res.records))
 
     except Exception as exc:
         logger.exception("Run '%s' failed: %s", run_id, exc)
@@ -432,7 +103,14 @@ async def start_run(
     request: RunRequest,
     x_forwarded_for: str | None = Header(None),
 ) -> Response:
-    """Submit a deterministic analytical review run."""
+    """Submit a deterministic analytical review run.
+
+    Validation Order (Amendments 27 & 28):
+    1. Turnstile verification
+    2. Schema validation (Pydantic RunRequest)
+    3. Workflow / Context semantic and compatibility validation
+    4. Queue submission (GLOBAL_QUEUE.submit_run)
+    """
     # 1. Server-side Turnstile verification
     if not verify_turnstile_token(request.turnstile_token, remote_ip=x_forwarded_for):
         return JSONResponse(
@@ -447,21 +125,62 @@ async def start_run(
             },
         )
 
-    # 2. Canonical Synthetic Profile Validation
-    valid_profiles = {"institutional_credit_v1", "deep_learning_v1", "institutional_market_v1"}
-    if request.synthetic_profile not in valid_profiles:
-        # Fallback/remap common requests
+    # 2. Resolve target workflow_id and context_id
+    workflow_id = getattr(request, "workflowId", None) or request.workflow
+    if not workflow_id:
         if request.domain == "deep_learning":
-            request.synthetic_profile = "deep_learning_v1"
+            workflow_id = "deep_learning"
         elif request.domain == "market":
-            request.synthetic_profile = "institutional_market_v1"
+            workflow_id = "quantitative_finance"
         else:
-            request.synthetic_profile = "institutional_credit_v1"
+            workflow_id = "predictive_ml"
 
-    # 3. Assign unique run ID
+    context_id = getattr(request, "contextId", None) or request.synthetic_profile
+    if not context_id:
+        if workflow_id == "deep_learning":
+            context_id = "deep_learning_v1"
+        elif workflow_id == "quantitative_finance":
+            context_id = "institutional_market_v1"
+        else:
+            context_id = "institutional_credit_v1"
+
+    # 3. Fail-closed semantic validation BEFORE queue submission (Amendment 27 & 28)
+    try:
+        resolve_context_spec(context_id)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": str(exc),
+                "error_code": "UNKNOWN_CONTEXT",
+                "data": {"context_id": context_id},
+            },
+        )
+
+    try:
+        resolved = resolve_workflow(workflow_id, context_id)
+    except ValueError as exc:
+        err_msg = str(exc)
+        code = "UNKNOWN_WORKFLOW" if "Unknown workflow" in err_msg else "INCOMPATIBLE_CONTEXT"
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": err_msg,
+                "error_code": code,
+                "data": {"workflow_id": workflow_id, "context_id": context_id},
+            },
+        )
+
+    # Normalize fields on request for downstream consumers
+    request.workflow = workflow_id
+    request.synthetic_profile = context_id
+
+    # 4. Assign unique run ID
     run_id = f"RUN-WEB-{uuid.uuid4().hex[:10]}"
 
-    # 4. Submit to analytical queue
+    # 5. Submit to analytical queue
     accepted, status_msg = GLOBAL_QUEUE.submit_run(run_id, request)
     if not accepted:
         return JSONResponse(
@@ -475,7 +194,7 @@ async def start_run(
             },
         )
 
-    # 5. Launch background execution task
+    # 6. Launch background execution task
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _execute_run_in_background, run_id, request)
 
@@ -624,10 +343,8 @@ def get_run_artifact(
     if not ctx:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found or session access denied")
 
-    # Resolve artifact from context
     art = ctx.artifacts.get(clean_artifact_id)
     if not art:
-        # Check if artifact matches by title or key in presentation
         raise HTTPException(
             status_code=404,
             detail=f"Artifact '{clean_artifact_id}' not found for run '{run_id}'",
@@ -641,7 +358,6 @@ def get_run_artifact(
     elif art_type == "json":
         return JSONResponse(content=content if isinstance(content, dict) else json.loads(content))
     elif art_type == "html":
-        # Sandboxed HTML: prevent same-origin script execution
         csp_val = (
             "sandbox allow-scripts; default-src 'none'; "
             "style-src 'unsafe-inline'; script-src 'unsafe-inline';"

@@ -57,12 +57,12 @@ export interface RunRequest {
   mode?: "deterministic" | "llm";
   materiality?: "low" | "medium" | "high";
   lifecycle?: "pre_implementation" | "validation" | "annual_review" | "monitoring";
-  synthetic_profile?: string;
+  synthetic_profile?: string | null;
   synthetic_profile_version?: string;
   seed?: number;
   turnstile_token?: string | null;
   session_id?: string;
-  workflow?: string;
+  workflow?: string | null;
   workflowId?: string | null;
   contextId?: string | null;
   goal?: string | null;

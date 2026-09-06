@@ -32,508 +32,37 @@ router = APIRouter(prefix="/api/v1", tags=["workbench"])
 
 
 # --------------------------------------------------------------------------- #
-# Canonical Workflow Capability Resolver
+# Canonical Workflow Capability Resolver (Projected from start.runtime)
 # --------------------------------------------------------------------------- #
-@dataclass(frozen=True)
-class WorkflowDefinition:
-    workflow_id: str
-    label: str
-    category: str  # "ml" | "quant"
-    enabled: bool
-    disabled_reason: str | None
-    compatible_contexts: list[str]
-    supported_actions: list[str]
-    # Each group: (step_id, label, kind, description, canonical_test_ids_or_filter)
-    step_specs: list[tuple[str, str, str, str, tuple[str, ...]]]
+from start.runtime import (
+    WorkflowExecutionSpec,
+    get_canonical_context_specs,
+    get_canonical_workflow_specs,
+    resolve_context_spec,
+    resolve_workflow,
+)
+
+# Backward-compatible alias for existing callers
+WorkflowDefinition = WorkflowExecutionSpec
 
 
 def _get_registered_test_ids() -> set[str]:
     return {t.test_id for t in list_tests()}
 
 
-def _build_workflow_definitions() -> dict[str, WorkflowDefinition]:
-    all_tests = list_tests()
-    all_test_ids = {t.test_id for t in all_tests}
+def _build_workflow_definitions() -> dict[str, WorkflowExecutionSpec]:
+    return get_canonical_workflow_specs()
 
-    pred_eda_prep = tuple(t.test_id for t in all_tests if t.family in ("eda", "preprocessing"))
-    pred_fe = tuple(t.test_id for t in all_tests if t.family == "feature_engineering")
-    pred_sup = tuple(t.test_id for t in all_tests if t.family == "supervised")
-    pred_xai = tuple(t.test_id for t in all_tests if t.family in ("xai", "genai"))
 
-    market_portfolio = tuple(t.test_id for t in all_tests if t.family == "portfolio")
-    market_attr = tuple(t.test_id for t in all_tests if t.family == "attribution")
-    market_cov = tuple(t.test_id for t in all_tests if t.family == "covariance")
-    market_risk = tuple(
-        t.test_id
-        for t in all_tests
-        if t.family == "traded_risk"
-        and ("var" in t.test_id or t.test_id == "traded_risk.brownian_bridge_barrier")
-    )
-
-    dl_tests = tuple(
-        tid
-        for tid in (
-            "xai.integrated_gradients",
-            "xai.global_importance",
-            "xai.feature_sensitivity",
-            "xai.importance_stability",
-            "supervised.classification_metrics",
-            "supervised.calibration",
-            "supervised.discrimination",
-        )
-        if tid in all_test_ids
-    )
-
-    model_diag_tests = tuple(
-        tid
-        for tid in (
-            "supervised.classification_metrics",
-            "supervised.discrimination",
-            "supervised.cohort_metrics_comparison",
-            "supervised.top_decile_lift",
-            "supervised.calibration",
-        )
-        if tid in all_test_ids
-    )
-
-    calib_tests = tuple(
-        tid
-        for tid in (
-            "supervised.calibration",
-            "supervised.classification_metrics",
-            "supervised.discrimination",
-        )
-        if tid in all_test_ids
-    )
-
-    robust_tests = tuple(
-        tid
-        for tid in (
-            "preprocessing.feature_drift",
-            "preprocessing.categorical_drift",
-            "xai.feature_sensitivity",
-            "xai.importance_stability",
-        )
-        if tid in all_test_ids
-    )
-
-    xai_tests = tuple(
-        tid
-        for tid in (
-            "xai.global_importance",
-            "xai.feature_sensitivity",
-            "xai.importance_stability",
-            "xai.integrated_gradients",
-            "genai.citation_coverage",
-        )
-        if tid in all_test_ids
-    )
-
-    tuning_tests = tuple(
-        tid
-        for tid in (
-            "supervised.classification_metrics",
-            "supervised.discrimination",
-            "supervised.calibration",
-        )
-        if tid in all_test_ids
-    )
-
-    return {
-        "predictive_ml": WorkflowDefinition(
-            workflow_id="predictive_ml",
-            label="Predictive ML",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1"],
-            supported_actions=["rerun", "change_parameter", "deeper_test"],
-            step_specs=[
-                ("step-context", "Load execution context", "context", "Load seeded tabular benchmark", ()),
-                (
-                    "step-preflight",
-                    "Data contract & integrity diagnostics",
-                    "test",
-                    "Schema, missingness, drift, and leakage checks",
-                    pred_eda_prep,
-                ),
-                (
-                    "step-features",
-                    "Feature engineering verification",
-                    "test",
-                    "Transformation, monotonic binning, and interaction surfaces",
-                    pred_fe,
-                ),
-                (
-                    "step-supervised",
-                    "Supervised classification evaluation",
-                    "test",
-                    "Classification metrics, discrimination, and lift",
-                    pred_sup,
-                ),
-                (
-                    "step-xai",
-                    "Feature attribution & explainability",
-                    "test",
-                    "SHAP, feature sensitivity, and citation coverage",
-                    pred_xai,
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit immutable EvidenceRecords",
-                    (),
-                ),
-                (
-                    "step-governance",
-                    "Governance & attestation seal",
-                    "governance",
-                    "Governance / sign-off stage",
-                    (),
-                ),
-            ],
-        ),
-        "deep_learning": WorkflowDefinition(
-            workflow_id="deep_learning",
-            label="Deep Learning",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["deep_learning_v1"],
-            supported_actions=["rerun", "change_parameter"],
-            step_specs=[
-                (
-                    "step-context",
-                    "Load execution context",
-                    "context",
-                    "Load high-dimensional neural embedding world",
-                    (),
-                ),
-                (
-                    "step-training",
-                    "Neural architecture training",
-                    "tool",
-                    "Monitor epoch loss convergence and gradient dynamics",
-                    (),
-                ),
-                (
-                    "step-performance",
-                    "Neural decision surfaces",
-                    "test",
-                    "Classification metrics and calibration on latent embeddings",
-                    dl_tests[:3],
-                ),
-                (
-                    "step-attribution",
-                    "Integrated gradients attribution",
-                    "test",
-                    "Layer attributions, feature sensitivity, and gradient tensors",
-                    dl_tests[3:],
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit immutable EvidenceRecords",
-                    (),
-                ),
-                (
-                    "step-governance",
-                    "Governance & attestation seal",
-                    "governance",
-                    "Governance / sign-off stage",
-                    (),
-                ),
-            ],
-        ),
-        "data_diagnostics": WorkflowDefinition(
-            workflow_id="data_diagnostics",
-            label="Data Diagnostics",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1"],
-            supported_actions=["rerun"],
-            step_specs=[
-                ("step-context", "Load execution context", "context", "Load tabular dataset context", ()),
-                (
-                    "step-eda",
-                    "Exploratory data analysis",
-                    "test",
-                    "Distributions, correlation structure, and collinearity",
-                    tuple(t for t in pred_eda_prep if t.startswith("eda.")),
-                ),
-                (
-                    "step-preprocessing",
-                    "Preprocessing & leakage screening",
-                    "test",
-                    "Missingness, outliers, drift, and leakage detection",
-                    tuple(t for t in pred_eda_prep if t.startswith("preprocessing.")),
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit diagnostic EvidenceRecords",
-                    (),
-                ),
-                ("step-governance", "Sign-off", "governance", "Deterministic integrity sign-off", ()),
-            ],
-        ),
-        "model_diagnostics": WorkflowDefinition(
-            workflow_id="model_diagnostics",
-            label="Model Diagnostics",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1"],
-            supported_actions=["rerun", "deeper_test"],
-            step_specs=[
-                ("step-context", "Load model context", "context", "Load trained model artifact context", ()),
-                (
-                    "step-metrics",
-                    "Classification performance metrics",
-                    "test",
-                    "Thresholded metrics, discrimination AUC, and lift",
-                    model_diag_tests[:4],
-                ),
-                (
-                    "step-calibration",
-                    "Probabilistic calibration checks",
-                    "test",
-                    "Brier score and reliability curves",
-                    model_diag_tests[4:],
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit diagnostic EvidenceRecords",
-                    (),
-                ),
-                ("step-governance", "Sign-off", "governance", "Diagnostic sign-off", ()),
-            ],
-        ),
-        "calibration": WorkflowDefinition(
-            workflow_id="calibration",
-            label="Calibration",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1"],
-            supported_actions=["rerun", "change_parameter"],
-            step_specs=[
-                (
-                    "step-context",
-                    "Load execution context",
-                    "context",
-                    "Load predicted probabilities context",
-                    (),
-                ),
-                (
-                    "step-calibration-tests",
-                    "Measure calibration & reliability",
-                    "test",
-                    "Expected Calibration Error (ECE) and Brier score",
-                    calib_tests,
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit calibration EvidenceRecords",
-                    (),
-                ),
-                (
-                    "step-governance",
-                    "Review & sign-off",
-                    "governance",
-                    "Attest probabilistic reliability",
-                    (),
-                ),
-            ],
-        ),
-        "robustness": WorkflowDefinition(
-            workflow_id="robustness",
-            label="Robustness",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1"],
-            supported_actions=["rerun", "change_parameter"],
-            step_specs=[
-                ("step-context", "Load execution context", "context", "Load benchmark context", ()),
-                (
-                    "step-drift",
-                    "Distributional drift stress",
-                    "test",
-                    "Feature and categorical drift under perturbation",
-                    robust_tests[:2],
-                ),
-                (
-                    "step-sensitivity",
-                    "Feature perturbation sensitivity",
-                    "test",
-                    "Top-feature shock sensitivity and stability",
-                    robust_tests[2:],
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit robustness EvidenceRecords",
-                    (),
-                ),
-                ("step-governance", "Review & sign-off", "governance", "Attest perturbation robustness", ()),
-            ],
-        ),
-        "explainability": WorkflowDefinition(
-            workflow_id="explainability",
-            label="Explainability",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1", "deep_learning_v1"],
-            supported_actions=["rerun"],
-            step_specs=[
-                ("step-context", "Load execution context", "context", "Load feature evaluation context", ()),
-                (
-                    "step-attribution-tests",
-                    "Feature attribution & stability",
-                    "test",
-                    "SHAP importance, permutation stability, and citation coverage",
-                    xai_tests,
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit explainability EvidenceRecords",
-                    (),
-                ),
-                ("step-governance", "Review & sign-off", "governance", "Attest explainability artifacts", ()),
-            ],
-        ),
-        "hyperparameter_tuning": WorkflowDefinition(
-            workflow_id="hyperparameter_tuning",
-            label="Tune a Model",
-            category="ml",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_credit_v1"],
-            supported_actions=["rerun", "change_parameter"],
-            step_specs=[
-                ("step-context", "Load execution context", "context", "Load dataset context", ()),
-                (
-                    "step-tuning",
-                    "Execute bounded trials",
-                    "tool",
-                    "Run bounded search with trial progress",
-                    (),
-                ),
-                (
-                    "step-validation",
-                    "Validate optimal candidate",
-                    "test",
-                    "Validate candidate metrics and calibration",
-                    tuning_tests,
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit optimal trial EvidenceRecords",
-                    (),
-                ),
-                (
-                    "step-governance",
-                    "Review & sign-off",
-                    "governance",
-                    "Attest hyperparameter optimization",
-                    (),
-                ),
-            ],
-        ),
-        "model_comparison": WorkflowDefinition(
-            workflow_id="model_comparison",
-            label="Compare Models",
-            category="ml",
-            enabled=False,
-            disabled_reason=(
-                "Multi-model candidate comparison workflow requires multi-candidate input protocol "
-                "not yet enabled in the canonical web review interface."
-            ),
-            compatible_contexts=[],
-            supported_actions=[],
-            step_specs=[],
-        ),
-        "quantitative_finance": WorkflowDefinition(
-            workflow_id="quantitative_finance",
-            label="Quantitative Finance",
-            category="quant",
-            enabled=True,
-            disabled_reason=None,
-            compatible_contexts=["institutional_market_v1"],
-            supported_actions=["rerun", "change_parameter"],
-            step_specs=[
-                (
-                    "step-context",
-                    "Load market world",
-                    "context",
-                    "Generate synthetic multi-asset market returns",
-                    (),
-                ),
-                (
-                    "step-portfolio",
-                    "Portfolio risk & optimization",
-                    "test",
-                    "Risk statistics, historical returns, Mean-Variance, and HRP",
-                    market_portfolio,
-                ),
-                (
-                    "step-factor",
-                    "Factor modeling & attribution",
-                    "test",
-                    "Factor exposures, return attribution, and risk decomposition",
-                    market_attr,
-                ),
-                (
-                    "step-covariance",
-                    "Covariance matrix conditioning",
-                    "test",
-                    "Empirical, Ledoit-Wolf, and regularized EM covariance",
-                    market_cov,
-                ),
-                (
-                    "step-var",
-                    "Traded risk & VaR backtesting",
-                    "test",
-                    "Kupiec POF, Christoffersen coverage, and exception tests",
-                    market_risk,
-                ),
-                (
-                    "step-evidence",
-                    "Create evidence bundle",
-                    "evidence",
-                    "Commit financial EvidenceRecords",
-                    (),
-                ),
-                (
-                    "step-governance",
-                    "Governance & attestation seal",
-                    "governance",
-                    "Financial model risk governance & Merkle seal",
-                    (),
-                ),
-            ],
-        ),
+def get_workflow_definition(workflow_id: str) -> WorkflowExecutionSpec:
+    defs = get_canonical_workflow_specs()
+    alias_map = {
+        "calibration_refinement": "calibration",
+        "stress_testing": "robustness",
+        "explainability_audit": "explainability",
     }
-
-
-def get_workflow_definition(workflow_id: str) -> WorkflowDefinition:
-    defs = _build_workflow_definitions()
-    return defs.get(workflow_id, defs["predictive_ml"])
+    norm_id = alias_map.get(workflow_id, workflow_id)
+    return defs.get(norm_id, defs["predictive_ml"])
 
 
 def get_workflow_test_ids(workflow_id: str) -> set[str]:
@@ -547,30 +76,37 @@ def get_workflow_test_ids(workflow_id: str) -> set[str]:
 # --------------------------------------------------------------------------- #
 # Canonical Plan Builder
 # --------------------------------------------------------------------------- #
-def make_canonical_plan(workflow_id: str) -> list[dict[str, Any]]:
+def make_canonical_plan(workflow_id: str, context_id: str | None = None) -> list[dict[str, Any]]:
     """Build canonical agent orchestration plan steps matching registered engines.
 
     Human-readable labels serve strictly as presentation metadata.
-    Plan steps exist only if their underlying registered test group or operation is present.
+    Initial plan has zero completed nodes (all future, observed=False).
     """
-    wdef = get_workflow_definition(workflow_id)
-    all_registered = _get_registered_test_ids()
+    cid = context_id or (
+        "institutional_market_v1"
+        if workflow_id == "quantitative_finance"
+        else ("deep_learning_v1" if workflow_id == "deep_learning" else "institutional_credit_v1")
+    )
+
+    try:
+        resolved = resolve_workflow(workflow_id, cid)
+        step_specs = resolved.step_specs
+    except Exception:
+        wdef = get_workflow_definition(workflow_id)
+        step_specs = wdef.step_specs if wdef else []
 
     plan: list[dict[str, Any]] = []
     prev_id: str | None = None
 
-    for step_id, label, kind, desc, test_ids in wdef.step_specs:
-        # If the step declares test IDs, ensure at least one test actually exists in registry
-        if test_ids and not any(t in all_registered for t in test_ids):
-            continue
-
+    for step_id, label, kind, desc, test_ids in step_specs:
         plan.append(
             {
                 "id": step_id,
                 "label": label,
                 "description": desc,
                 "kind": kind,
-                "status": "completed" if len(plan) == 0 else "queued",
+                "status": "future",
+                "observed": False,
                 "parentId": prev_id,
             }
         )
@@ -612,9 +148,9 @@ def serialize_run_snapshot(ctx: ActiveRunContext) -> dict[str, Any]:
             elif "percent" in ev or "completed" in ev:
                 progress = {
                     "label": ev.get("phase", "Analytical execution"),
-                    "percent": float(ev["percent"]) if "percent" in ev else None,
-                    "completed": int(ev["completed"]) if "completed" in ev else None,
-                    "total": int(ev["total"]) if "total" in ev else None,
+                    "percent": float(ev["percent"]) if ev.get("percent") is not None else None,
+                    "completed": int(ev["completed"]) if ev.get("completed") is not None else None,
+                    "total": int(ev["total"]) if ev.get("total") is not None else None,
                     "detail": ev.get("message", ""),
                 }
                 break
@@ -630,7 +166,7 @@ def serialize_run_snapshot(ctx: ActiveRunContext) -> dict[str, Any]:
             progress = {"label": "Planning"}
 
     # Derive plan step status from real runtime events
-    plan = make_canonical_plan(workflow_id)
+    plan = make_canonical_plan(workflow_id, context_id)
     event_node_ids = {ev.get("node_id") for ev in ctx.events if ev.get("node_id")}
     completed_node_ids = {
         ev.get("node_id")
@@ -653,6 +189,11 @@ def serialize_run_snapshot(ctx: ActiveRunContext) -> dict[str, Any]:
             p["status"] = "future"
             p["observed"] = False
 
+    context_event = next(
+        (e for e in ctx.events if e.get("event_type") == "context_ready"), None
+    )
+    context_meta = context_event.get("metadata", {}) if context_event else {}
+
     started_iso = datetime.datetime.fromtimestamp(
         ctx.started_at or ctx.created_at, tz=datetime.UTC
     ).isoformat()
@@ -674,6 +215,15 @@ def serialize_run_snapshot(ctx: ActiveRunContext) -> dict[str, Any]:
         "elapsedMs": max(0, elapsed_ms),
         "progress": progress,
         "plan": plan,
+        "runtimeContext": {
+            "spec_id": context_meta.get("spec_id", context_id),
+            "actual_samples": context_meta.get("actual_samples"),
+            "actual_features": context_meta.get("actual_features"),
+            "actual_assets": context_meta.get("actual_assets"),
+            "actual_periods": context_meta.get("actual_periods"),
+            "actual_target": context_meta.get("actual_target"),
+            "actual_seed": context_meta.get("actual_seed"),
+        },
         "parentRunId": getattr(req, "parent_run_id", None) or getattr(req, "parentRunId", None),
         "sourceEvidenceId": getattr(req, "source_evidence_id", None)
         or getattr(req, "sourceEvidenceId", None),
@@ -874,46 +424,7 @@ def get_capabilities() -> list[dict[str, Any]]:
 @router.get("/execution-contexts")
 def get_execution_contexts() -> list[dict[str, Any]]:
     """Return versioned public-safe execution contexts."""
-    return [
-        {
-            "id": "institutional_credit_v1",
-            "label": "Synthetic Credit Classification",
-            "kind": "dataset",
-            "description": (
-                "Seeded public-safe tabular binary classification context for ML & diagnostic engineering."
-            ),
-            "provenance": "Built-in deterministic synthetic generator",
-            "shape": "12,000 × 31",
-            "target": "default_flag",
-            "seed": 42,
-            "badges": ["public-safe", "seeded", "binary", "credit"],
-        },
-        {
-            "id": "deep_learning_v1",
-            "label": "Synthetic Vision Embeddings",
-            "kind": "dataset",
-            "description": (
-                "Seeded embedding classification context for deep neural architecture diagnostics."
-            ),
-            "provenance": "Built-in deterministic synthetic generator",
-            "shape": "8,000 × 128",
-            "target": "class_id",
-            "seed": 17,
-            "badges": ["public-safe", "deep-learning", "embeddings"],
-        },
-        {
-            "id": "institutional_market_v1",
-            "label": "Synthetic Multi-Asset Market World",
-            "kind": "synthetic-world",
-            "description": (
-                "Seeded multi-asset scenario context for traded risk, VaR backtests, and portfolio workflows."
-            ),
-            "provenance": "Built-in deterministic synthetic market generator",
-            "shape": "24 assets × 1,500 observations",
-            "seed": 7,
-            "badges": ["public-safe", "quantitative", "var-backtest"],
-        },
-    ]
+    return [s.to_dict() for s in get_canonical_context_specs()]
 
 
 @router.post("/plans")
@@ -925,7 +436,7 @@ def create_agent_plan(request: RunRequest) -> dict[str, Any]:
     )
     goal = getattr(request, "goal", "") or f"Evaluate {workflow_id} on {context_id}"
 
-    plan = make_canonical_plan(workflow_id)
+    plan = make_canonical_plan(workflow_id, context_id)
 
     warnings: list[str] = []
     if workflow_id == "model_comparison":

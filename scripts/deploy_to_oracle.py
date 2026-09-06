@@ -148,8 +148,18 @@ def main():
 
     # 9. Configure & Start systemd service
     print("\n--- 9. Configuring & Starting start_web.service ---")
+    update_env = (
+        "sudo mkdir -p /etc/start && "
+        "if sudo grep -q 'START_BACKEND_BUILD_VERSION' /etc/start/start.env; then "
+        "  sudo sed -i 's/START_BACKEND_BUILD_VERSION=.*/START_BACKEND_BUILD_VERSION=5.1.0-arm64-prod/' /etc/start/start.env; "
+        "else "
+        "  echo 'START_BACKEND_BUILD_VERSION=5.1.0-arm64-prod' | sudo tee -a /etc/start/start.env; "
+        "fi"
+    )
+    run_remote_ssh(public_ip, update_env, ssh_key)
+
     service_content = """[Unit]
-Description=StART v5.0 Agentic Engineering Workbench Web Service
+Description=StART v5.1 Agentic Engineering Workbench Web Service
 After=network.target
 
 [Service]

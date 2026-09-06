@@ -41,6 +41,11 @@ def build_frontend() -> None:
     env = os.environ.copy()
     env["VITE_TURNSTILE_SITE_KEY"] = site_key
     
+    model_base = os.environ.get("VITE_START_MODEL_BASE") or config.get("model_base_url")
+    if model_base:
+        print(f"Public Model Base URL configured: {model_base}")
+        env["VITE_START_MODEL_BASE"] = model_base
+    
     # 1. Install dependencies if needed / ensure node_modules exists
     if not (WEB_DIR / "node_modules").exists():
         print("Installing frontend dependencies via npm ci...")

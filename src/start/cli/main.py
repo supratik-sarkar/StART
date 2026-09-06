@@ -187,10 +187,6 @@ def list_tests_cmd(family: str = typer.Option(None, help="Filter by family.")) -
     print(json.dumps(payload, indent=2))  # plain stdout: pipeable JSON
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command("propensity-demo")
 def propensity_demo(
     non_interactive: bool = typer.Option(
@@ -893,6 +889,45 @@ def review_propensity_demo(
     run_propensity_demo(opts)
 
 
+@app.command("workflow")
+@review_app.command("run-workflow")
+def review_run_workflow_cmd(
+    workflow: str = typer.Argument(
+        "predictive_ml", help="Workflow ID (predictive_ml, deep_learning, quantitative_finance, etc.)"
+    ),
+    context: str = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Context ID (institutional_credit_v1, deep_learning_v1, institutional_market_v1)",
+    ),
+    seed: int = typer.Option(42, "--seed", help="Deterministic random seed"),
+    output_root: str = typer.Option("start_output", "--output-root", help="Output directory root"),
+) -> None:
+    """Execute a canonical StART workflow using the shared execution service."""
+    from start.runtime import CanonicalExecutionService
+
+    context_id = context or (
+        "institutional_market_v1"
+        if workflow == "quantitative_finance"
+        else ("deep_learning_v1" if workflow == "deep_learning" else "institutional_credit_v1")
+    )
+
+    console.print(
+        f"[bold cyan]Executing Canonical Workflow '{workflow}' on Context '{context_id}' (seed={seed})...[/bold cyan]"
+    )
+    res = CanonicalExecutionService.execute(
+        workflow_id=workflow,
+        context_id=context_id,
+        seed=seed,
+        output_root=output_root,
+    )
+    console.print(f"[green]Workflow '{workflow}' completed successfully -> {res.output_path}[/green]")
+    console.print(
+        f"Records: {len(res.records)} | Governance: {res.governance_disposition} | Merkle: {str(res.merkle_root)[:16]}"
+    )
+
+
 @review_app.command("agent-review")
 def review_agent_review_cmd(
     config: str = _AGENT_OPTS["config"],
@@ -1159,3 +1194,7 @@ def verify_live_agents(
         f"\n[bold green]RELEASE GATE VERIFICATION PASSED for "
         f"{provider.upper()} ({selected_model})[/bold green]"
     )
+
+
+if __name__ == "__main__":
+    app()

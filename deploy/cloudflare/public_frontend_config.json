@@ -1,3 +1,4 @@
 {
-  "turnstile_site_key": "0x4AAAAAAEmVUvpWG3GKAoQc"
+  "turnstile_site_key": "0x4AAAAAAEmVUvpWG3GKAoQc",
+  "model_base_url": "https://137.23.61.219.sslip.io/webllm-models/SmolLM2-1.7B-Instruct-q4f16_1-MLC"
 }
