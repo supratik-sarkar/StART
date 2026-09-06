@@ -21,8 +21,8 @@ import builtins
 import time
 from typing import Any
 from unittest.mock import patch
+
 import pytest
-import torch
 from pydantic import ValidationError
 
 from start.core.schemas import EvidenceRecord, Status, TestResult
@@ -429,19 +429,16 @@ def test_optuna_metadata_truthfulness():
 
 def test_optuna_failure_truthfulness():
     """When optuna study execution fails, tuning_status is FAILED, trials_completed = 0."""
-    try:
-        import optuna
+    pytest.importorskip("optuna")
 
-        with patch("optuna.create_study", side_effect=RuntimeError("Study memory exhausted")):
-            world = generate_dl_world(n_samples=100, n_features=4, seed=42)
-            tuning = world["tuning_metadata"]
+    with patch("optuna.create_study", side_effect=RuntimeError("Study memory exhausted")):
+        world = generate_dl_world(n_samples=100, n_features=4, seed=42)
+        tuning = world["tuning_metadata"]
 
-            assert tuning["tuning_status"] == "FAILED"
-            assert tuning["trials_completed"] == 0
-            assert tuning["best_trial_idx"] is None
-            assert tuning["best_hyperparameters"] is None
-    except ImportError:
-        pytest.skip("Optuna not installed in this environment")
+        assert tuning["tuning_status"] == "FAILED"
+        assert tuning["trials_completed"] == 0
+        assert tuning["best_trial_idx"] is None
+        assert tuning["best_hyperparameters"] is None
 
 
 # --------------------------------------------------------------------------- #
@@ -590,6 +587,7 @@ def test_evidence_with_test_id_but_no_event_ref_has_no_producer_edge():
     Result: evidence node exists, NO observed producer edge.
     """
     from fastapi.testclient import TestClient
+
     from start.web.app import create_app
     from start.web.queue import GLOBAL_QUEUE
 
@@ -660,6 +658,7 @@ def test_event_evidence_refs_produces_observed_edge():
     to that evidence ID.
     """
     from fastapi.testclient import TestClient
+
     from start.web.app import create_app
     from start.web.queue import GLOBAL_QUEUE
 
@@ -727,6 +726,7 @@ def test_parent_run_produces_lineage_edge_not_observed():
     The edge should be edgeKind='lineage' instead.
     """
     from fastapi.testclient import TestClient
+
     from start.web.app import create_app
     from start.web.queue import GLOBAL_QUEUE
 

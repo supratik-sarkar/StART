@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -106,7 +105,9 @@ def hydrate_and_gate_reviewer_submission(
                         canonical_value=None,
                         server_hydrated_value=None,
                         grounding_status="UNGROUNDED_METRIC_PATH",
-                        grounding_reason=f"Metric '{metric_name}' not found in EvidenceRecord '{ev_id}' metrics",
+                        grounding_reason=(
+                            f"Metric '{metric_name}' not found in EvidenceRecord '{ev_id}' metrics"
+                        ),
                         test_id=rec.test_id,
                         record_status=str(rec.status),
                     )
@@ -117,8 +118,14 @@ def hydrate_and_gate_reviewer_submission(
             canonical_val = rec.metrics[metric_name]
 
             # If client claimed a numeric value, verify the canonical metric is numeric
-            if client_val is not None and isinstance(client_val, (int, float)) and not isinstance(client_val, bool):
-                is_canonical_numeric = isinstance(canonical_val, (int, float)) and not isinstance(canonical_val, bool)
+            if (
+                client_val is not None
+                and isinstance(client_val, (int, float))
+                and not isinstance(client_val, bool)
+            ):
+                is_canonical_numeric = (
+                    isinstance(canonical_val, (int, float)) and not isinstance(canonical_val, bool)
+                )
                 if not is_canonical_numeric:
                     logger.warning(
                         "Client claimed numeric value %s on non-numeric metric '%s' (%s)",
@@ -138,7 +145,8 @@ def hydrate_and_gate_reviewer_submission(
                             grounding_status="NON_NUMERIC_METRIC_CLAIM",
                             grounding_reason=(
                                 f"Client claimed numeric value {client_val}, "
-                                f"but canonical metric '{metric_name}' is non-numeric ({type(canonical_val).__name__})"
+                                f"but canonical metric '{metric_name}' is non-numeric "
+                                f"({type(canonical_val).__name__})"
                             ),
                             test_id=rec.test_id,
                             record_status=str(rec.status),
@@ -212,6 +220,7 @@ def hydrate_and_gate_reviewer_submission(
     if all_grounded and opa_decision == "ALLOW" and records:
         try:
             import hashlib
+
             from start.attestation.seal import merkle_root as compute_merkle_root
 
             leaf_hashes = [

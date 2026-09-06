@@ -53,7 +53,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import numpy as np
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -360,13 +359,15 @@ def gate_04_artifact_producer_guesses() -> None:
 def gate_05_local_reviewer_negative_tests() -> None:
     """Requirements 1, 2, 4, 7, 8, 9, 10, 11, 12, 13, 14, 18, 34."""
     print("\n--- Gate 05: Local Reviewer Negative & Server Fail-Closed Tests ---")
+    from unittest.mock import patch
+
     from starlette.testclient import TestClient
+
+    from start.runtime.events import ListEventSink
+    from start.runtime.execution import CanonicalExecutionService
     from start.web.app import create_app
     from start.web.queue import GLOBAL_QUEUE
     from start.web.schemas import RunRequest
-    from start.runtime.events import ListEventSink
-    from start.runtime.execution import CanonicalExecutionService
-    from unittest.mock import patch
 
     # Execute a run in the server's global queue
     sink = ListEventSink()

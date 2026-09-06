@@ -239,7 +239,10 @@ class LogicalArtifactMetadata(BaseModel):
 # Untrusted Browser Reviewer Request & Server Hydration Response Schemas
 # --------------------------------------------------------------------------- #
 class EvidenceCitationRequest(BaseModel):
-    """Untrusted client citation request citing an EvidenceRecord with optional metric name and claimed value."""
+    """Untrusted client citation request citing an EvidenceRecord.
+
+    Includes optional metric name and claimed value.
+    """
 
     model_config = {"extra": "forbid"}
 
@@ -296,7 +299,8 @@ class HydratedEvidenceCitation(BaseModel):
     client_claimed_value: Any = None
     canonical_value: Any = None
     server_hydrated_value: Any = None  # alias for canonical_value
-    grounding_status: str  # GROUNDED | UNGROUNDED_EVIDENCE_ID | UNGROUNDED_METRIC_PATH | NON_NUMERIC_METRIC_CLAIM
+    # GROUNDED | UNGROUNDED_EVIDENCE_ID | UNGROUNDED_METRIC_PATH | NON_NUMERIC_METRIC_CLAIM
+    grounding_status: str
     grounding_reason: str | None = None
     test_id: str | None = None
     record_status: str | None = None
