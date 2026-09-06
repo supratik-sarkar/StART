@@ -72,7 +72,14 @@ export default {
         redirect: "follow",
       });
 
-      return fetch(originReq);
+      const originResp = await fetch(originReq);
+      const respHeaders = new Headers(originResp.headers);
+      respHeaders.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      return new Response(originResp.body, {
+        status: originResp.status,
+        statusText: originResp.statusText,
+        headers: respHeaders,
+      });
     }
 
     // 2. Static Assets fallback (served directly from Cloudflare Static Assets binding)

@@ -30,10 +30,19 @@ const adapter = adapterMode === 'public'
   ? new PublicStARTBackend(import.meta.env.VITE_START_API_BASE || '')
   : new DemoBackend()
 
-const reviewer = adapterMode === 'public' ? webLLMReviewer : demoReviewerRuntime
+const reviewer = adapterMode === 'public' ? webLLMReviewer : demoReviewerRuntime;
+
+if (typeof window !== 'undefined') {
+  ;(window as any).__start_reviewer = reviewer;
+  ;(window as any).__start_adapter = adapter;
+}
 
 export default function App(){
- const w=useWorkbench(adapter, reviewer); const [centerTab,setCenterTab]=useState<'events'|'lineage'|'findings'>('events'); const [rightTab,setRightTab]=useState<'context'|'evidence'|'artifacts'|'agent'>('context');
+ const w=useWorkbench(adapter, reviewer);
+ if (typeof window !== 'undefined') {
+   ;(window as any).__start_workbench = w;
+ }
+ const [centerTab,setCenterTab]=useState<'events'|'lineage'|'findings'>('events'); const [rightTab,setRightTab]=useState<'context'|'evidence'|'artifacts'|'agent'>('context');
  const [reviewerStatus,setReviewerStatus]=useState<string>('idle');
  const [reviewerBusy,setReviewerBusy]=useState(false);
 

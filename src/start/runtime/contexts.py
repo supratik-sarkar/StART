@@ -98,17 +98,17 @@ class ExecutionContextInstance:
 _CANONICAL_CONTEXT_SPECS: dict[str, ExecutionContextSpec] = {
     "institutional_credit_v1": ExecutionContextSpec(
         id="institutional_credit_v1",
-        label="Synthetic Credit Classification Benchmark",
+        label="Synthetic Binary Classification Benchmark",
         kind="dataset",
         description=(
-            "Seeded tabular binary classification benchmark for credit default "
-            "and predictive risk model validation."
+            "Seeded tabular binary classification benchmark for "
+            "predictive risk model validation."
         ),
         provenance="Built-in deterministic synthetic generator",
         shape="500 × 8",
         target="target",
         seed=42,
-        badges=["public-safe", "seeded", "binary", "credit"],
+        badges=["public-safe", "seeded", "binary", "benchmark"],
         configured_samples=500,
         configured_features=8,
     ),

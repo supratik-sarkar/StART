@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "5.1.0"
+START_VERSION: str = "5.1.1"
 
 
 def get_backend_build_version() -> str:
@@ -282,6 +282,7 @@ class ReviewerHydrationResponse(BaseModel):
     schema_version: str = START_SCHEMA_VERSION
     model_name: str
     is_grounded: bool
+    all_grounded: bool = True
     hydrated_findings: list[HydratedFindingView] = Field(default_factory=list)
     opa_policy_decision: Literal["ALLOW", "WARN", "BLOCK", "DENY"] = "ALLOW"
     opa_reasons: list[str] = Field(default_factory=list)

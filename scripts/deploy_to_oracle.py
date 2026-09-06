@@ -71,7 +71,7 @@ def main():
     # 2. Sync codebase
     print("\n--- 2. Syncing canonical non-Git codebase to /opt/start ---")
     rsync_cmd = [
-        "rsync", "-avz", "--delete",
+        "rsync", "-avz",
         "-e", f"ssh -o StrictHostKeyChecking=no -i {ssh_key}",
         "--exclude=.venv-start",
         "--exclude=.git",
@@ -151,9 +151,9 @@ def main():
     update_env = (
         "sudo mkdir -p /etc/start && "
         "if sudo grep -q 'START_BACKEND_BUILD_VERSION' /etc/start/start.env; then "
-        "  sudo sed -i 's/START_BACKEND_BUILD_VERSION=.*/START_BACKEND_BUILD_VERSION=5.1.0-arm64-prod/' /etc/start/start.env; "
+        "  sudo sed -i 's/START_BACKEND_BUILD_VERSION=.*/START_BACKEND_BUILD_VERSION=5.1.1-arm64-prod/' /etc/start/start.env; "
         "else "
-        "  echo 'START_BACKEND_BUILD_VERSION=5.1.0-arm64-prod' | sudo tee -a /etc/start/start.env; "
+        "  echo 'START_BACKEND_BUILD_VERSION=5.1.1-arm64-prod' | sudo tee -a /etc/start/start.env; "
         "fi"
     )
     run_remote_ssh(public_ip, update_env, ssh_key)
@@ -184,7 +184,13 @@ WantedBy=multi-user.target
         "sudo systemctl restart start_web.service"
     )
     run_remote_ssh(public_ip, write_service, ssh_key)
-    time.sleep(3)
+
+    # Poll until uvicorn binds and responds HTTP 200 (max 15s)
+    for attempt in range(15):
+        time.sleep(1)
+        res = run_remote_ssh(public_ip, "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/v1/health || true", ssh_key, check=False)
+        if res.stdout.strip().endswith("200"):
+            break
 
     # 10. Health & TLS verification
     print("\n--- 10. Verifying Local and Remote HTTPS Health Endpoints ---")

@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-__version__ = "5.1.0"
+__version__ = "5.1.1"
 
 if TYPE_CHECKING:  # pragma: no cover - static analysers only
     from start.core.config import StartConfig, load_config, load_policy

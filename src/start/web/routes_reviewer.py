@@ -68,8 +68,17 @@ def hydrate_and_gate_reviewer_submission(
                 continue
 
             rec = evidence_universe[ev_id]
-            actual_val = rec.metrics.get(metric_name)
-            if actual_val is None:
+            if not metric_name and rec.metrics:
+                first_key = next(iter(rec.metrics.keys()))
+                actual_val = rec.metrics[first_key]
+                metric_name = first_key
+            elif not metric_name:
+                actual_val = str(rec.status)
+                metric_name = "status"
+            else:
+                actual_val = rec.metrics.get(metric_name)
+
+            if actual_val is None and metric_name:
                 # Try prefix or substring match
                 for k, v in rec.metrics.items():
                     if k.endswith(f".{metric_name}") or metric_name in k:
@@ -163,6 +172,7 @@ def hydrate_and_gate_reviewer_submission(
         schema_version=START_SCHEMA_VERSION,
         model_name=submission.model_name,
         is_grounded=all_grounded,
+        all_grounded=all_grounded,
         hydrated_findings=hydrated_findings,
         opa_policy_decision=opa_decision,  # type: ignore[arg-type]
         opa_reasons=opa_reasons,

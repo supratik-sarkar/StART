@@ -588,11 +588,12 @@ class CanonicalExecutionService:
         all_arts_list = [art for arts in artifacts_by_checkpoint.values() for art in arts]
         for art in all_arts_list:
             art_id = getattr(art, "artifact_id", "ART")
+            producing_step = getattr(art, "producing_step_id", None) or getattr(art, "node_id", None)
             artifacts_dict[art_id] = {
                 "id": art_id,
                 "name": getattr(art, "title", art_id),
                 "artifact_type": getattr(art, "artifact_type", "table"),
-                "producing_step_id": prev_node_id,
+                "producing_step_id": producing_step,
             }
             evt_art = RuntimeEvent(
                 run_id=run_id,
@@ -602,7 +603,7 @@ class CanonicalExecutionService:
                 target_agent="StructuredReviewer",
                 stage="ARTIFACT_GENERATION",
                 action="generate_artifact",
-                node_id=prev_node_id,
+                node_id=producing_step,
                 artifact_refs=[art_id],
                 elapsed_seconds=round(time.time() - start_time, 2),
                 message=f"Created review artifact {art_id}",

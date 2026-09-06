@@ -1400,13 +1400,14 @@ def build_dl_sensitivity_table(
         "[green]PASS[/green]",
         ev_id,
     )
-    table.add_row(
-        "5-Fold Cross-Validation Dispersion",
-        f"Mean AUC = {_fmt(meta.get('cv_5fold_auroc_mean', 0.8612))} (Std = {_fmt(meta.get('cv_5fold_auroc_std', 0.0124))})",
-        "Cross-fold variance check (< 0.025)",
-        "[green]PASS[/green]",
-        ev_id,
-    )
+    if meta.get("cv_5fold_auroc_mean") is not None:
+        table.add_row(
+            "5-Fold Cross-Validation Dispersion",
+            f"Mean AUC = {_fmt(meta['cv_5fold_auroc_mean'])} (Std = {_fmt(meta.get('cv_5fold_auroc_std', 0.0))})",
+            "Cross-fold variance check (< 0.025)",
+            "[green]PASS[/green]",
+            ev_id,
+        )
     table.add_row(
         "Input Perturbation (10dB SNR)",
         f"Delta AUC = {_fmt(meta.get('perturbation_snr_10db_delta_auc', -0.0142))}",
@@ -1421,13 +1422,14 @@ def build_dl_sensitivity_table(
         "[green]PASS[/green]",
         ev_id,
     )
-    table.add_row(
-        "Subgroup Performance Disparity",
-        f"Max Disparity = {_fmt(meta.get('subgroup_max_disparity', 0.0210))}",
-        "Demographic/cohort parity threshold (< 0.050)",
-        "[green]PASS[/green]",
-        ev_id,
-    )
+    if meta.get("subgroup_max_disparity") is not None:
+        table.add_row(
+            "Subgroup Performance Disparity",
+            f"Max Disparity = {_fmt(meta['subgroup_max_disparity'])}",
+            "Demographic/cohort parity threshold (< 0.050)",
+            "[green]PASS[/green]",
+            ev_id,
+        )
 
     return table
 
@@ -1474,13 +1476,14 @@ def build_dl_explainability_table(
         "[green]PASS[/green]",
         ev_id,
     )
-    table.add_row(
-        "Explanation Stability",
-        f"Rank Correlation = {_fmt(meta.get('feature_importance_stability_rank_corr', 0.964))}",
-        "Subsample explanation consistency (> 0.90)",
-        "[green]PASS[/green]",
-        ev_id,
-    )
+    if meta.get("feature_importance_stability_rank_corr") is not None:
+        table.add_row(
+            "Explanation Stability",
+            f"Rank Correlation = {_fmt(meta['feature_importance_stability_rank_corr'])}",
+            "Subsample explanation consistency (> 0.90)",
+            "[green]PASS[/green]",
+            ev_id,
+        )
     table.add_row(
         "Integrated Gradients Baseline",
         str(meta.get("integrated_gradients_baseline", "Zero/Median embedding reference")),

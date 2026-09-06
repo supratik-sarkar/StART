@@ -88,15 +88,14 @@ def generate_dl_world(
     actual_prauc = float(average_precision_score(y_test, test_preds_proba))
     actual_brier = float(brier_score_loss(y_test, test_preds_proba))
 
-    # Real Loss Convergence from Model
-    hist = getattr(clf, "history_", None) or {
-        "train_loss": [0.65, 0.45],
-        "val_loss": [0.66, 0.46],
-        "epochs": list(range(1, 9)),
-    }
+    # Real Loss Convergence from Model (Strictly Computed from Training History)
+    hist = clf.history_
+    if not hist or not hist.get("train_loss") or not hist.get("val_loss"):
+        raise RuntimeError("Model training did not yield valid loss history.")
     train_loss_final = float(hist["train_loss"][-1])
     val_loss_final = float(hist["val_loss"][-1])
     gen_gap = abs(val_loss_final - train_loss_final)
+    best_epoch = int(np.argmin(hist["val_loss"]) + 1)
 
     # 3. Real Optuna Study Execution
     tuning_metadata: dict[str, Any] = {
@@ -222,26 +221,23 @@ def generate_dl_world(
         "loss_function": "BCEWithLogitsLoss",
         "batch_size": 64,
         "epochs_requested": 8,
-        "epochs_completed": len(hist.get("train_loss", [8])),
-        "early_stopping": "Patience=3 (best_epoch=7)",
+        "epochs_completed": len(hist["train_loss"]),
+        "best_epoch": best_epoch,
+        "early_stopping": f"Patience=3 (best_epoch={best_epoch})",
         "seed": seed,
     }
 
-    # Sensitivity / Robustness metadata
+    # Sensitivity / Robustness metadata (Strictly Computed Metrics Only)
     sensitivity_metadata = {
         "seed_dispersion_std": seed_dispersion_std,
-        "cv_5fold_auroc_mean": actual_auroc,
-        "cv_5fold_auroc_std": seed_dispersion_std * 1.2,
         "perturbation_snr_10db_delta_auc": delta_auc_perturb,
         "missingness_stress_20pct_delta_auc": delta_auc_miss,
-        "subgroup_max_disparity": 0.0210,
     }
 
-    # Explainability metadata
+    # Explainability metadata (Strictly Computed Attribution Only)
     explainability_metadata = {
-        "method": "Tree/Deep SHAP & Permutation Attribution",
+        "method": "Permutation Attribution & Feature Sensitivity",
         "top_features": top_feats,
-        "feature_importance_stability_rank_corr": 0.964,
         "integrated_gradients_baseline": "Zero/Median embedding reference",
     }
 

@@ -171,6 +171,7 @@ export interface ReviewerHydrationResponse {
   schema_version?: string;
   model_name: string;
   is_grounded: boolean;
+  all_grounded?: boolean;
   hydrated_findings?: HydratedFindingView[];
   opa_policy_decision?: "ALLOW" | "WARN" | "BLOCK" | "DENY";
   opa_reasons?: string[];
