@@ -59,7 +59,7 @@ def main():
     if not os.path.exists(ssh_key):
         print(f"WARNING: SSH key {ssh_key} does not exist locally. SSH operations may fail.", file=sys.stderr)
 
-    print("=== DEPLOYING StART v5.1.2 BACKEND TO ORACLE LINUX ARM64 ===")
+    print("=== DEPLOYING StART v5.1.3 BACKEND TO ORACLE LINUX ARM64 ===")
     print(f"Target VM IP: {public_ip}")
     print(f"Target Domain: {domain}")
     print(f"SSH Key: {ssh_key}")
@@ -151,9 +151,9 @@ def main():
     update_env = (
         "sudo mkdir -p /etc/start && "
         "if sudo grep -q 'START_BACKEND_BUILD_VERSION' /etc/start/start.env; then "
-        "  sudo sed -i 's/START_BACKEND_BUILD_VERSION=.*/START_BACKEND_BUILD_VERSION=5.1.2-arm64-prod/' /etc/start/start.env; "
+        "  sudo sed -i 's/START_BACKEND_BUILD_VERSION=.*/START_BACKEND_BUILD_VERSION=5.1.3-arm64-prod/' /etc/start/start.env; "
         "else "
-        "  echo 'START_BACKEND_BUILD_VERSION=5.1.2-arm64-prod' | sudo tee -a /etc/start/start.env; "
+        "  echo 'START_BACKEND_BUILD_VERSION=5.1.3-arm64-prod' | sudo tee -a /etc/start/start.env; "
         "fi"
     )
     run_remote_ssh(public_ip, update_env, ssh_key)

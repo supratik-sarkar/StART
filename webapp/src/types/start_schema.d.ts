@@ -197,7 +197,7 @@ export interface ReviewerHydrationResponse {
   hydrated_findings?: HydratedFindingView[];
   opa_policy_decision?: "ALLOW" | "WARN" | "BLOCK" | "DENY" | "ERROR" | null;
   opa_reasons?: string[];
-  governance_disposition?: "ACCEPT" | "CONDITIONAL_ACCEPT" | "REJECT" | null;
+  governance_disposition?: "ACCEPT" | "ACCEPT_WITH_CONDITIONS" | "REMEDIATION_REQUIRED" | "REJECT" | null;
   attestation_seal_merkle_root?: string | null;
   attestation_timestamp?: number;
 }

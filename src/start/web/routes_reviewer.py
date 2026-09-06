@@ -182,55 +182,54 @@ def hydrate_and_gate_reviewer_submission(
             )
         )
 
-    # Grounding Stage: derived solely from citation grounding
+    # 1. Grounding Stage: derived solely from citation grounding
     all_grounded = all_citations_grounded and all(f.grounded for f in hydrated_findings)
     is_grounded = all_grounded
 
-    # 2. Server-side OPA policy evaluation stage (OPA failure does NOT mutate grounding)
+    # 2. Canonical Governance Extraction (Authoritative run state only)
+    governance_disp = None
+    canonical_merkle_root = None
+    if isinstance(ctx.presentation, dict):
+        governance_disp = ctx.presentation.get("governance_disposition")
+        canonical_merkle_root = ctx.presentation.get("attestation_seal_merkle_root")
+
+    # 3. Server-side OPA policy evaluation stage (OPA failure does NOT mutate grounding)
     opa_decision: str | None = None
     opa_reasons: list[str] = []
-    try:
-        from start.policies.opa_policy_plane import OPAPolicyPlane
 
-        policy_plane = OPAPolicyPlane()
-        n_ungrounded = sum(1 for f in hydrated_findings if not f.grounded)
-        n_failures = sum(1 for r in records if r.status.value == "fail")
-        disp_candidate = "ACCEPT" if n_failures == 0 else "CONDITIONAL_ACCEPT"
-
-        pol_dec = policy_plane.evaluate_governance_attestation(
-            n_ungrounded_claims=n_ungrounded,
-            n_validation_failures=n_failures,
-            committee_disposition=disp_candidate,
-            run_id=run_id,
+    if governance_disp is None:
+        opa_decision = "DENY"
+        opa_reasons.append(
+            "Canonical governance disposition unavailable; reviewer attestation gating denied."
         )
-        opa_decision = pol_dec.decision
-        opa_reasons.append(pol_dec.reason)
-    except Exception as exc:
-        logger.warning("OPA policy plane evaluation failed (failing closed): %s", exc)
-        opa_decision = "ERROR"
-        opa_reasons.append(f"OPA policy evaluation failed: {exc}")
-
-    # 3. Canonical Governance Stage (Reviewer route does not own governance semantics)
-    governance_disp = None
-    if getattr(ctx, "governance", None) and getattr(ctx.governance, "disposition", None):
-        governance_disp = ctx.governance.disposition
-
-    # 4. Canonical Attestation Stage (Zero synthetic fallback)
-    merkle_root: str | None = None
-    if all_grounded and opa_decision == "ALLOW" and records:
+    else:
         try:
-            import hashlib
+            from start.policies.opa_policy_plane import OPAPolicyPlane
 
-            from start.attestation.seal import merkle_root as compute_merkle_root
+            policy_plane = OPAPolicyPlane()
+            n_ungrounded = sum(1 for f in hydrated_findings if not f.grounded)
+            n_failures = sum(1 for r in records if r.status.value == "fail")
 
-            leaf_hashes = [
-                hashlib.sha256(r.model_dump_json().encode("utf-8")).hexdigest()
-                for r in records
-            ]
-            merkle_root = compute_merkle_root(leaf_hashes)
+            pol_dec = policy_plane.evaluate_governance_attestation(
+                n_ungrounded_claims=n_ungrounded,
+                n_validation_failures=n_failures,
+                committee_disposition=governance_disp,
+                run_id=run_id,
+            )
+            opa_decision = pol_dec.decision
+            opa_reasons.append(pol_dec.reason)
         except Exception as exc:
-            logger.warning("Canonical Merkle root computation failed: %s", exc)
-            merkle_root = None
+            logger.warning("OPA policy plane evaluation failed (failing closed): %s", exc)
+            opa_decision = "ERROR"
+            opa_reasons.append(f"OPA policy evaluation failed: {exc}")
+
+    # 4. Canonical Attestation Stage (Expose canonical root and disposition only if grounded and allowed)
+    attestation_root: str | None = None
+    response_gov_disp: str | None = None
+    if all_grounded and opa_decision == "ALLOW":
+        response_gov_disp = governance_disp
+        if canonical_merkle_root:
+            attestation_root = canonical_merkle_root
 
     # 5. Overall Gate Status
     if opa_decision == "ERROR":
@@ -250,8 +249,8 @@ def hydrate_and_gate_reviewer_submission(
         hydrated_findings=hydrated_findings,
         opa_policy_decision=opa_decision,  # type: ignore[arg-type]
         opa_reasons=opa_reasons,
-        governance_disposition=governance_disp,  # type: ignore[arg-type]
-        attestation_seal_merkle_root=merkle_root,
+        governance_disposition=response_gov_disp,  # type: ignore[arg-type]
+        attestation_seal_merkle_root=attestation_root,
         attestation_timestamp=time.time(),
     )
 

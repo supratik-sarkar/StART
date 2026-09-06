@@ -293,6 +293,10 @@ def test_opa_failure_fails_closed_without_mutating_grounding(run_context_with_ev
 
     OPA exception produces ERROR/BLOCKED, but all_grounded remains True based on citation truth.
     """
+    run_context_with_evidence.presentation = {
+        "governance_disposition": "ACCEPT",
+        "attestation_seal_merkle_root": "MERKLE-PRE-OPA-001",
+    }
     sub = WebReviewerSubmission(
         run_id=run_context_with_evidence.run_id,
         session_id=run_context_with_evidence.session_id,
@@ -927,4 +931,238 @@ def test_attestation_graph_node_canonical_source():
     nodes_with, edges_with = build_independent_graph_oracle(events_with)
     assert "attest" in nodes_with
     assert "edge-step-governance-attest" in edges_with
+
+
+# --------------------------------------------------------------------------- #
+# 17. StART v5.1.3 Surgical Governance Authority Closure Tests (Requirement 10)
+# --------------------------------------------------------------------------- #
+def test_v513_no_canonical_governance_fails_closed(run_context_with_evidence):
+    """Case A: ctx.presentation has no governance_disposition -> OPA != ALLOW, root is None."""
+    run_context_with_evidence.presentation = None
+
+    sub = WebReviewerSubmission(
+        run_id=run_context_with_evidence.run_id,
+        session_id=run_context_with_evidence.session_id,
+        executive_summary="Review summary",
+        findings=[
+            QualitativeFinding(
+                title="Valid grounded finding",
+                description="Valid citation",
+                evidence_refs=[EvidenceCitationRequest(evidence_id="EV-TEST-001", metric_name="auroc")],
+            )
+        ],
+    )
+    resp = hydrate_and_gate_reviewer_submission(run_context_with_evidence.run_id, sub)
+    data = resp.data
+
+    assert data["all_grounded"] is True
+    assert data["opa_policy_decision"] == "DENY"
+    assert data["governance_disposition"] is None
+    assert data["attestation_seal_merkle_root"] is None
+    assert data["gate_status"] == "BLOCKED"
+
+
+def test_v513_unconditional_accept_with_failures_denied(run_context_with_evidence):
+    """Case B: governance=ACCEPT with n_validation_failures > 0 -> DENY."""
+    fail_rec = EvidenceRecord(
+        evidence_id="EV-TEST-FAIL-01",
+        run_id=run_context_with_evidence.run_id,
+        test_id="test_accuracy",
+        test_name="Accuracy",
+        model_id="MOD-TEST-01",
+        dataset_id="DS-TEST-01",
+        status=Status.FAIL,
+        metrics={"accuracy": 0.45},
+    )
+    run_context_with_evidence.evidence_records.append(fail_rec)
+    run_context_with_evidence.presentation = {
+        "governance_disposition": "ACCEPT",
+        "attestation_seal_merkle_root": "MERKLE-CANONICAL-ROOT-XYZ",
+    }
+
+    sub = WebReviewerSubmission(
+        run_id=run_context_with_evidence.run_id,
+        session_id=run_context_with_evidence.session_id,
+        executive_summary="Review summary",
+        findings=[
+            QualitativeFinding(
+                title="Valid citation",
+                description="Valid",
+                evidence_refs=[EvidenceCitationRequest(evidence_id="EV-TEST-001", metric_name="auroc")],
+            )
+        ],
+    )
+    resp = hydrate_and_gate_reviewer_submission(run_context_with_evidence.run_id, sub)
+    data = resp.data
+
+    assert data["opa_policy_decision"] == "DENY"
+    assert data["governance_disposition"] is None
+    assert data["attestation_seal_merkle_root"] is None
+    assert data["gate_status"] == "BLOCKED"
+
+
+def test_v513_accept_with_conditions_allowed(run_context_with_evidence):
+    """Case C: governance=ACCEPT_WITH_CONDITIONS with 0 ungrounded claims -> ALLOW."""
+    canonical_root = "MERKLE-CANONICAL-ROOT-AWC-12345"
+    run_context_with_evidence.presentation = {
+        "governance_disposition": "ACCEPT_WITH_CONDITIONS",
+        "attestation_seal_merkle_root": canonical_root,
+    }
+
+    sub = WebReviewerSubmission(
+        run_id=run_context_with_evidence.run_id,
+        session_id=run_context_with_evidence.session_id,
+        executive_summary="Review summary",
+        findings=[
+            QualitativeFinding(
+                title="Valid citation",
+                description="Valid",
+                evidence_refs=[EvidenceCitationRequest(evidence_id="EV-TEST-001", metric_name="auroc")],
+            )
+        ],
+    )
+    resp = hydrate_and_gate_reviewer_submission(run_context_with_evidence.run_id, sub)
+    data = resp.data
+
+    assert data["all_grounded"] is True
+    assert data["opa_policy_decision"] == "ALLOW"
+    assert data["governance_disposition"] == "ACCEPT_WITH_CONDITIONS"
+    assert data["attestation_seal_merkle_root"] == canonical_root
+    assert data["gate_status"] == "ACCEPTED"
+
+
+def test_v513_remediation_required_allowed(run_context_with_evidence):
+    """Case D: governance=REMEDIATION_REQUIRED with 0 ungrounded claims -> ALLOW."""
+    canonical_root = "MERKLE-CANONICAL-ROOT-REM-67890"
+    run_context_with_evidence.presentation = {
+        "governance_disposition": "REMEDIATION_REQUIRED",
+        "attestation_seal_merkle_root": canonical_root,
+    }
+
+    sub = WebReviewerSubmission(
+        run_id=run_context_with_evidence.run_id,
+        session_id=run_context_with_evidence.session_id,
+        executive_summary="Review summary",
+        findings=[
+            QualitativeFinding(
+                title="Valid citation",
+                description="Valid",
+                evidence_refs=[EvidenceCitationRequest(evidence_id="EV-TEST-001", metric_name="auroc")],
+            )
+        ],
+    )
+    resp = hydrate_and_gate_reviewer_submission(run_context_with_evidence.run_id, sub)
+    data = resp.data
+
+    assert data["all_grounded"] is True
+    assert data["opa_policy_decision"] == "ALLOW"
+    assert data["governance_disposition"] == "REMEDIATION_REQUIRED"
+    assert data["attestation_seal_merkle_root"] == canonical_root
+    assert data["gate_status"] == "ACCEPTED"
+
+
+def test_v513_noncanonical_conditional_accept_denied(run_context_with_evidence):
+    """Case E: non-canonical CONDITIONAL_ACCEPT -> DENY."""
+    run_context_with_evidence.presentation = {
+        "governance_disposition": "CONDITIONAL_ACCEPT",
+        "attestation_seal_merkle_root": "MERKLE-SHOULD-NOT-BE-RETURNED",
+    }
+
+    sub = WebReviewerSubmission(
+        run_id=run_context_with_evidence.run_id,
+        session_id=run_context_with_evidence.session_id,
+        executive_summary="Review summary",
+        findings=[
+            QualitativeFinding(
+                title="Valid citation",
+                description="Valid",
+                evidence_refs=[EvidenceCitationRequest(evidence_id="EV-TEST-001", metric_name="auroc")],
+            )
+        ],
+    )
+    resp = hydrate_and_gate_reviewer_submission(run_context_with_evidence.run_id, sub)
+    data = resp.data
+
+    assert data["opa_policy_decision"] == "DENY"
+    assert data["governance_disposition"] is None
+    assert data["attestation_seal_merkle_root"] is None
+    assert data["gate_status"] == "BLOCKED"
+
+
+def test_v513_canonical_attestation_identity(run_context_with_evidence):
+    """Case F: reviewer route exposes exact canonical root X, does not generate its own."""
+    exact_root = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    run_context_with_evidence.presentation = {
+        "governance_disposition": "ACCEPT",
+        "attestation_seal_merkle_root": exact_root,
+    }
+
+    sub = WebReviewerSubmission(
+        run_id=run_context_with_evidence.run_id,
+        session_id=run_context_with_evidence.session_id,
+        executive_summary="Review summary",
+        findings=[
+            QualitativeFinding(
+                title="Valid citation",
+                description="Valid",
+                evidence_refs=[EvidenceCitationRequest(evidence_id="EV-TEST-001", metric_name="auroc")],
+            )
+        ],
+    )
+    resp = hydrate_and_gate_reviewer_submission(run_context_with_evidence.run_id, sub)
+    data = resp.data
+
+    assert data["opa_policy_decision"] == "ALLOW"
+    assert data["attestation_seal_merkle_root"] == exact_root
+
+
+def test_v513_opa_fallback_parity():
+    """Case G: Force use of Python fallback and prove exact match to Rego truth table."""
+    from start.policies.opa_policy_plane import OPAPolicyPlane
+
+    plane = OPAPolicyPlane()
+
+    with patch("subprocess.run", side_effect=Exception("No OPA CLI available")):
+        # 1. ungrounded=0, failures=0, disp=ACCEPT -> ALLOW
+        d1 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=0, n_validation_failures=0, committee_disposition="ACCEPT"
+        )
+        assert d1.decision == "ALLOW"
+
+        # 2. ungrounded=0, failures=1, disp=ACCEPT -> DENY (unconditional accept with failures)
+        d2 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=0, n_validation_failures=1, committee_disposition="ACCEPT"
+        )
+        assert d2.decision == "DENY"
+
+        # 3. ungrounded=0, failures=2, disp=ACCEPT_WITH_CONDITIONS -> ALLOW
+        d3 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=0, n_validation_failures=2, committee_disposition="ACCEPT_WITH_CONDITIONS"
+        )
+        assert d3.decision == "ALLOW"
+
+        # 4. ungrounded=0, failures=0, disp=REMEDIATION_REQUIRED -> ALLOW
+        d4 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=0, n_validation_failures=0, committee_disposition="REMEDIATION_REQUIRED"
+        )
+        assert d4.decision == "ALLOW"
+
+        # 5. ungrounded=0, failures=0, disp=CONDITIONAL_ACCEPT -> DENY (non-canonical disposition)
+        d5 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=0, n_validation_failures=0, committee_disposition="CONDITIONAL_ACCEPT"
+        )
+        assert d5.decision == "DENY"
+
+        # 6. ungrounded=0, failures=0, disp=None -> DENY
+        d6 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=0, n_validation_failures=0, committee_disposition=None  # type: ignore[arg-type]
+        )
+        assert d6.decision == "DENY"
+
+        # 7. ungrounded=1, failures=0, disp=ACCEPT -> DENY (ungrounded claims exist)
+        d7 = plane.evaluate_governance_attestation(
+            n_ungrounded_claims=1, n_validation_failures=0, committee_disposition="ACCEPT"
+        )
+        assert d7.decision == "DENY"
+
 

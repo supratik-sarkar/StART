@@ -124,8 +124,20 @@ class OPAPolicyPlane:
         elif package_name == "start.governance.attestation_rules":
             ungrounded = input_data.get("n_ungrounded_claims", 0)
             failures = input_data.get("n_validation_failures", 0)
-            disp = input_data.get("committee_disposition", "ACCEPT")
-            if ungrounded == 0 and not (failures > 0 and disp == "ACCEPT"):
+            disp = input_data.get("committee_disposition")
+
+            valid_dispositions = {
+                "ACCEPT",
+                "ACCEPT_WITH_CONDITIONS",
+                "REMEDIATION_REQUIRED",
+            }
+
+            allow = (
+                ungrounded == 0
+                and disp in valid_dispositions
+                and not (failures > 0 and disp == "ACCEPT")
+            )
+            if allow:
                 return True, f"Governance attestation criteria satisfied (disposition: {disp})."
             return False, "Governance attestation denied: ungrounded claims or invalid unconditional accept."
 
