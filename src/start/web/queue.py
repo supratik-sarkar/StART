@@ -80,6 +80,11 @@ class AnalyticalQueue:
                 return None
             return ctx
 
+    def list_runs(self) -> list[ActiveRunContext]:
+        """Return snapshot list of all known run contexts."""
+        with self._lock:
+            return list(self._runs.values())
+
     def get_status(self, run_id: str, session_id: str | None = None) -> RunStatusResponse | None:
         ctx = self.get_run(run_id, session_id)
         if not ctx:

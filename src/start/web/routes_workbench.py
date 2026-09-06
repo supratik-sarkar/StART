@@ -466,7 +466,6 @@ def get_execution_graph(
 
     req = ctx.request
     workflow_id = getattr(req, "workflowId", None) or getattr(req, "workflow", "predictive_ml")
-    wdef = get_workflow_definition(workflow_id)
 
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
@@ -494,20 +493,13 @@ def get_execution_graph(
         if ev.get("node_id") and str(ev.get("status", "")).upper() in ("COMPLETED", "SUCCESS")
     }
 
-    # Map test_id to plan step ID
-    test_to_step: dict[str, str] = {}
-    for step_id, _, _, _, test_ids in wdef.step_specs:
-        for tid in test_ids:
-            test_to_step[tid] = step_id
-
-    # Group evidence IDs by producing step
+    # Group evidence IDs by producing step using actual runtime event evidence_refs
     evidence_by_step: dict[str, list[str]] = {}
-    for r in ctx.evidence_records:
-        ev_id = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
-        test_id = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
-        step_id = test_to_step.get(test_id)
-        if ev_id and step_id:
-            evidence_by_step.setdefault(step_id, []).append(ev_id)
+    for ev in ctx.events:
+        nid = ev.get("node_id")
+        for eid in ev.get("evidence_refs", []):
+            if nid and eid:
+                evidence_by_step.setdefault(nid, []).append(eid)
 
     prev_step_id: str | None = None
     observed_step_ids: set[str] = set()
@@ -557,7 +549,7 @@ def get_execution_graph(
 
         prev_step_id = sid
 
-    # Observed execution edges derived strictly from runtime events
+    # Parent-child run lineage edge (NOT an observed runtime event edge)
     seen_obs_edges: set[tuple[str, str]] = set()
     if parent_run_id and observed_step_ids:
         first_obs = next((s["id"] for s in plan if s["id"] in observed_step_ids), None)
@@ -568,7 +560,7 @@ def get_execution_graph(
                     "source": "parent-run",
                     "target": first_obs,
                     "relation": "rerun",
-                    "edgeKind": "observed",
+                    "edgeKind": "lineage",
                 }
             )
 
@@ -593,10 +585,18 @@ def get_execution_graph(
                     }
                 )
 
-    # 3. Evidence record nodes: linked to actual producers; no fallback
+    # 3. Evidence record nodes: producer provenance from RuntimeEvent.evidence_refs ONLY
+    # Build evidence_id → producing node_id map from actual runtime events
+    evidence_producer: dict[str, str] = {}
+    for ev in ctx.events:
+        nid = ev.get("node_id")
+        if nid:
+            for eid in ev.get("evidence_refs", []):
+                if eid and eid not in evidence_producer:
+                    evidence_producer[eid] = nid
+
     for r in ctx.evidence_records:
         ev_id = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
-        test_id = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
         if not ev_id:
             continue
 
@@ -604,7 +604,7 @@ def get_execution_graph(
         ev_status = (
             "attention" if any(s in raw_status for s in ("ATTENTION", "WARN", "FAIL")) else "completed"
         )
-        producer_id = test_to_step.get(test_id)
+        producer_id = evidence_producer.get(ev_id)
 
         nodes.append(
             {
@@ -614,13 +614,13 @@ def get_execution_graph(
                 "kind": "evidence",
                 "status": ev_status,
                 "parentId": producer_id,
-                "subtitle": test_id if producer_id else "Producer lineage unavailable",
+                "subtitle": f"Producer: {producer_id}" if producer_id else "Producer lineage unavailable",
                 "observed": True,
             }
         )
 
-        # Edge from producing step to evidence record only if producer is known and observed
-        if producer_id and producer_id in observed_step_ids:
+        # Edge from producing step to evidence record only if canonical event references it
+        if producer_id and any(n["id"] == producer_id for n in nodes):
             edges.append(
                 {
                     "id": f"edge-{producer_id}-{ev_id}",

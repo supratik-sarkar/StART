@@ -137,12 +137,19 @@ export interface LogicalArtifactMetadata {
   sha256?: string;
 }
 
+export interface EvidenceCitationRequest {
+  evidence_id: string;
+  metric_name?: string | null;
+  client_claimed_value?: any;
+}
+
 export interface QualitativeFinding {
   finding_id?: string;
-  severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  client_proposed_severity?: string | null;
+  severity?: string | null;
   title: string;
   description: string;
-  evidence_refs?: EvidenceMetricRef[];
+  evidence_refs?: EvidenceCitationRequest[];
   recommendation?: string;
 }
 
@@ -156,13 +163,27 @@ export interface WebReviewerSubmission {
   suggested_actions?: string[];
 }
 
+export interface HydratedEvidenceCitation {
+  evidence_id: string;
+  metric_name?: string | null;
+  client_claimed_value?: any;
+  canonical_value?: any;
+  server_hydrated_value?: any;
+  grounding_status: string;
+  grounding_reason?: string | null;
+  test_id?: string | null;
+  record_status?: string | null;
+}
+
 export interface HydratedFindingView {
   finding_id: string;
-  severity: string;
+  canonical_severity?: string | null;
+  client_proposed_severity?: string | null;
+  severity?: string | null;
   title: string;
   description: string;
   grounded: boolean;
-  evidence_refs?: Record<string, any>[];
+  evidence_refs?: HydratedEvidenceCitation | Record<string, any>[];
   recommendation?: string;
 }
 
@@ -170,12 +191,13 @@ export interface ReviewerHydrationResponse {
   run_id: string;
   schema_version?: string;
   model_name: string;
-  is_grounded: boolean;
+  gate_status?: "ACCEPTED" | "BLOCKED" | "ERROR";
+  is_grounded?: boolean;
   all_grounded?: boolean;
   hydrated_findings?: HydratedFindingView[];
-  opa_policy_decision?: "ALLOW" | "WARN" | "BLOCK" | "DENY";
+  opa_policy_decision?: "ALLOW" | "WARN" | "BLOCK" | "DENY" | "ERROR" | null;
   opa_reasons?: string[];
-  governance_disposition?: "ACCEPT" | "CONDITIONAL_ACCEPT" | "REJECT";
-  attestation_seal_merkle_root?: string;
+  governance_disposition?: "ACCEPT" | "CONDITIONAL_ACCEPT" | "REJECT" | null;
+  attestation_seal_merkle_root?: string | null;
   attestation_timestamp?: number;
 }

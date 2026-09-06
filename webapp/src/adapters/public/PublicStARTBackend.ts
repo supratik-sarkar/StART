@@ -178,36 +178,28 @@ export class PublicStARTBackend implements StartBackend {
   }
 
   async submitReviewerOutput(runId: string, review: ReviewerOutput): Promise<ReviewerGateResult> {
-    const sevMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'> = {
-      info: 'LOW',
-      low: 'LOW',
-      attention: 'MEDIUM',
-      warn: 'MEDIUM',
-      warning: 'MEDIUM',
-      medium: 'MEDIUM',
-      high: 'HIGH',
-      critical: 'CRITICAL',
+    if (!this.activeSessionId) {
+      throw new Error('Active session binding required for reviewer submission (FABRICATED_REVIEW_SESSION_ID = 0)')
     }
 
     const submission = {
       run_id: runId,
-      session_id: this.activeSessionId || `SES-${runId.slice(-8)}`,
+      session_id: this.activeSessionId,
       model_name: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
       executive_summary: review.executiveSummary,
       findings: review.findings.map((f) => {
-        const sev = f.severity ? (sevMap[f.severity.toLowerCase()] || 'MEDIUM') : 'MEDIUM'
         const evidence_refs = (f.metricRefs && f.metricRefs.length > 0)
           ? f.metricRefs.map((m) => ({
               evidence_id: m.evidenceId,
-              metric_name: m.metricName,
+              metric_name: m.metricName || undefined,
+              client_claimed_value: m.value !== undefined ? m.value : undefined,
             }))
           : f.evidenceIds.map((id) => ({
               evidence_id: id,
-              metric_name: '',
             }))
         return {
           finding_id: f.findingId,
-          severity: sev,
+          client_proposed_severity: f.severity || undefined,
           title: f.title,
           description: f.description,
           evidence_refs,

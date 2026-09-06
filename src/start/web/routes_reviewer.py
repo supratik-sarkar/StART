@@ -12,6 +12,7 @@ from start.web.queue import GLOBAL_QUEUE
 from start.web.schemas import (
     START_SCHEMA_VERSION,
     APIResponseEnvelope,
+    HydratedEvidenceCitation,
     HydratedFindingView,
     ReviewerHydrationResponse,
     WebReviewerSubmission,
@@ -36,84 +37,135 @@ def hydrate_and_gate_reviewer_submission(
     """
     ctx = GLOBAL_QUEUE.get_run(run_id, submission.session_id)
     if not ctx:
-        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found or session access denied")
+        if any(r.run_id == run_id for r in GLOBAL_QUEUE.list_runs()):
+            raise HTTPException(status_code=403, detail=f"Session access denied for run '{run_id}'")
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
 
     records = ctx.evidence_records
     evidence_universe = {r.evidence_id: r for r in records}
 
     hydrated_findings: list[HydratedFindingView] = []
-    all_grounded = True
+    all_citations_grounded = True
 
     # 1. Process and hydrate each qualitative finding
     for finding in submission.findings:
         finding_grounded = True
-        hydrated_refs: list[dict[str, Any]] = []
+        hydrated_refs: list[HydratedEvidenceCitation] = []
 
         for ref in finding.evidence_refs:
             ev_id = ref.evidence_id.strip("[]")
-            metric_name = ref.metric_name
+            metric_name = ref.metric_name if ref.metric_name else None
+            client_val = ref.client_claimed_value
 
             if ev_id not in evidence_universe:
                 logger.warning("Unknown Evidence ID '%s' rejected during server hydration", ev_id)
                 finding_grounded = False
-                all_grounded = False
+                all_citations_grounded = False
                 hydrated_refs.append(
-                    {
-                        "evidence_id": ev_id,
-                        "metric_name": metric_name,
-                        "status": "UNGROUNDED_EVIDENCE_ID",
-                        "hydrated_value": None,
-                    }
+                    HydratedEvidenceCitation(
+                        evidence_id=ev_id,
+                        metric_name=metric_name,
+                        client_claimed_value=client_val,
+                        canonical_value=None,
+                        server_hydrated_value=None,
+                        grounding_status="UNGROUNDED_EVIDENCE_ID",
+                        grounding_reason=f"Evidence ID '{ev_id}' not in active run evidence universe",
+                    )
                 )
                 continue
 
             rec = evidence_universe[ev_id]
-            if not metric_name and rec.metrics:
-                first_key = next(iter(rec.metrics.keys()))
-                actual_val = rec.metrics[first_key]
-                metric_name = first_key
-            elif not metric_name:
-                actual_val = str(rec.status)
-                metric_name = "status"
-            else:
-                actual_val = rec.metrics.get(metric_name)
 
-            if actual_val is None and metric_name:
-                # Try prefix or substring match
-                for k, v in rec.metrics.items():
-                    if k.endswith(f".{metric_name}") or metric_name in k:
-                        actual_val = v
-                        metric_name = k
-                        break
+            # Case A: Evidence-level citation (no metric claimed)
+            if not metric_name:
+                hydrated_refs.append(
+                    HydratedEvidenceCitation(
+                        evidence_id=ev_id,
+                        metric_name=None,
+                        client_claimed_value=client_val,
+                        canonical_value=None,
+                        server_hydrated_value=None,
+                        grounding_status="GROUNDED",
+                        grounding_reason="Evidence-level citation grounded against immutable EvidenceRecord",
+                        test_id=rec.test_id,
+                        record_status=str(rec.status),
+                    )
+                )
+                continue
 
-            if actual_val is None:
+            # Case B: Metric-level citation (requires exact canonical match; zero fuzzy repair)
+            if metric_name not in rec.metrics:
                 logger.warning("Metric '%s' not found in EvidenceRecord '%s'", metric_name, ev_id)
                 finding_grounded = False
-                all_grounded = False
+                all_citations_grounded = False
                 hydrated_refs.append(
-                    {
-                        "evidence_id": ev_id,
-                        "metric_name": metric_name,
-                        "status": "UNGROUNDED_METRIC_PATH",
-                        "hydrated_value": None,
-                    }
+                    HydratedEvidenceCitation(
+                        evidence_id=ev_id,
+                        metric_name=metric_name,
+                        client_claimed_value=client_val,
+                        canonical_value=None,
+                        server_hydrated_value=None,
+                        grounding_status="UNGROUNDED_METRIC_PATH",
+                        grounding_reason=f"Metric '{metric_name}' not found in EvidenceRecord '{ev_id}' metrics",
+                        test_id=rec.test_id,
+                        record_status=str(rec.status),
+                    )
                 )
-            else:
-                hydrated_refs.append(
-                    {
-                        "evidence_id": ev_id,
-                        "metric_name": metric_name,
-                        "status": "GROUNDED",
-                        "hydrated_value": actual_val,
-                        "test_id": rec.test_id,
-                        "record_status": str(rec.status),
-                    }
+                continue
+
+            # Case C: Exact metric found
+            canonical_val = rec.metrics[metric_name]
+
+            # If client claimed a numeric value, verify the canonical metric is numeric
+            if client_val is not None and isinstance(client_val, (int, float)) and not isinstance(client_val, bool):
+                is_canonical_numeric = isinstance(canonical_val, (int, float)) and not isinstance(canonical_val, bool)
+                if not is_canonical_numeric:
+                    logger.warning(
+                        "Client claimed numeric value %s on non-numeric metric '%s' (%s)",
+                        client_val,
+                        metric_name,
+                        type(canonical_val).__name__,
+                    )
+                    finding_grounded = False
+                    all_citations_grounded = False
+                    hydrated_refs.append(
+                        HydratedEvidenceCitation(
+                            evidence_id=ev_id,
+                            metric_name=metric_name,
+                            client_claimed_value=client_val,
+                            canonical_value=canonical_val,
+                            server_hydrated_value=canonical_val,
+                            grounding_status="NON_NUMERIC_METRIC_CLAIM",
+                            grounding_reason=(
+                                f"Client claimed numeric value {client_val}, "
+                                f"but canonical metric '{metric_name}' is non-numeric ({type(canonical_val).__name__})"
+                            ),
+                            test_id=rec.test_id,
+                            record_status=str(rec.status),
+                        )
+                    )
+                    continue
+
+            # Hydrate exact canonical value (client numeric claim is untrusted)
+            hydrated_refs.append(
+                HydratedEvidenceCitation(
+                    evidence_id=ev_id,
+                    metric_name=metric_name,
+                    client_claimed_value=client_val,
+                    canonical_value=canonical_val,
+                    server_hydrated_value=canonical_val,
+                    grounding_status="GROUNDED",
+                    test_id=rec.test_id,
+                    record_status=str(rec.status),
                 )
+            )
 
         hydrated_findings.append(
             HydratedFindingView(
                 finding_id=finding.finding_id,
-                severity=finding.severity,
+                canonical_severity=None,  # server-owned authoritative severity only
+                client_proposed_severity=finding.client_proposed_severity,
+                severity=None,
                 title=finding.title,
                 description=finding.description,
                 grounded=finding_grounded,
@@ -122,8 +174,12 @@ def hydrate_and_gate_reviewer_submission(
             )
         )
 
-    # 2. Server-side OPA policy evaluation
-    opa_decision = "ALLOW"
+    # Grounding Stage: derived solely from citation grounding
+    all_grounded = all_citations_grounded and all(f.grounded for f in hydrated_findings)
+    is_grounded = all_grounded
+
+    # 2. Server-side OPA policy evaluation stage (OPA failure does NOT mutate grounding)
+    opa_decision: str | None = None
     opa_reasons: list[str] = []
     try:
         from start.policies.opa_policy_plane import OPAPolicyPlane
@@ -142,36 +198,45 @@ def hydrate_and_gate_reviewer_submission(
         opa_decision = pol_dec.decision
         opa_reasons.append(pol_dec.reason)
     except Exception as exc:
-        logger.warning("OPA policy plane evaluation fallback: %s", exc)
-        has_fail = any(r.status.value == "fail" for r in records)
-        opa_decision = "WARN" if has_fail else "ALLOW"
-        if has_fail:
-            opa_reasons.append("One or more deterministic tests produced FAIL status")
+        logger.warning("OPA policy plane evaluation failed (failing closed): %s", exc)
+        opa_decision = "ERROR"
+        opa_reasons.append(f"OPA policy evaluation failed: {exc}")
 
-    # 3. Server-side governance disposition
-    governance_disp = "ACCEPT"
-    if opa_decision == "BLOCK":
-        governance_disp = "REJECT"
-    elif not all_grounded or opa_decision == "WARN":
-        governance_disp = "CONDITIONAL_ACCEPT"
+    # 3. Canonical Governance Stage (Reviewer route does not own governance semantics)
+    governance_disp = None
+    if getattr(ctx, "governance", None) and getattr(ctx.governance, "disposition", None):
+        governance_disp = ctx.governance.disposition
 
-    # 4. Merkle attestation seal
-    merkle_root = ""
-    try:
-        from start.attestation.merkle_ledger import MerkleLedger
+    # 4. Canonical Attestation Stage (Zero synthetic fallback)
+    merkle_root: str | None = None
+    if all_grounded and opa_decision == "ALLOW" and records:
+        try:
+            import hashlib
+            from start.attestation.seal import merkle_root as compute_merkle_root
 
-        ledger = MerkleLedger()
-        for r in records:
-            ledger.append_record(r)
-        merkle_root = ledger.get_root_hash()
-    except Exception:
-        merkle_root = f"SEAL-HASH-{time.time():.0f}"
+            leaf_hashes = [
+                hashlib.sha256(r.model_dump_json().encode("utf-8")).hexdigest()
+                for r in records
+            ]
+            merkle_root = compute_merkle_root(leaf_hashes)
+        except Exception as exc:
+            logger.warning("Canonical Merkle root computation failed: %s", exc)
+            merkle_root = None
+
+    # 5. Overall Gate Status
+    if opa_decision == "ERROR":
+        gate_status = "ERROR"
+    elif all_grounded and opa_decision == "ALLOW":
+        gate_status = "ACCEPTED"
+    else:
+        gate_status = "BLOCKED"
 
     resp = ReviewerHydrationResponse(
         run_id=run_id,
         schema_version=START_SCHEMA_VERSION,
         model_name=submission.model_name,
-        is_grounded=all_grounded,
+        gate_status=gate_status,
+        is_grounded=is_grounded,
         all_grounded=all_grounded,
         hydrated_findings=hydrated_findings,
         opa_policy_decision=opa_decision,  # type: ignore[arg-type]

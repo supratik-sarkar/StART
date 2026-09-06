@@ -130,18 +130,25 @@ def test_untrusted_reviewer_hydration_and_opa_gate(client: TestClient) -> None:
         findings=[
             QualitativeFinding(
                 finding_id="F-01",
-                severity="LOW",
+                client_proposed_severity="LOW",
                 title="VaR Exceedances Acceptable",
                 description="Kupiec test indicates failure rate is within nominal coverage.",
                 evidence_refs=[
-                    EvidenceMetricRef(evidence_id="EV-TEST-001", metric_name="empirical_exceptions"),
-                    EvidenceMetricRef(evidence_id="EV-TEST-001", metric_name="p_value"),
+                    EvidenceMetricRef(
+                        evidence_id="EV-TEST-001",
+                        metric_name="empirical_exceptions",
+                        client_claimed_value=99999.0,
+                    ),
+                    EvidenceMetricRef(
+                        evidence_id="EV-TEST-001",
+                        metric_name="p_value",
+                    ),
                 ],
                 recommendation="Maintain current VaR window.",
             ),
             QualitativeFinding(
                 finding_id="F-02",
-                severity="MEDIUM",
+                client_proposed_severity="MEDIUM",
                 title="Ungrounded Finding Test",
                 description="Claim references nonexistent evidence.",
                 evidence_refs=[
@@ -161,20 +168,35 @@ def test_untrusted_reviewer_hydration_and_opa_gate(client: TestClient) -> None:
     findings = data["hydrated_findings"]
     assert len(findings) == 2
 
-    # F-01 was fully grounded
+    # F-01 was fully grounded: client numeric claim is untrusted; server hydrates canonical value
     f1 = findings[0]
     assert f1["grounded"] is True
-    assert f1["evidence_refs"][0]["hydrated_value"] == 3
-    assert f1["evidence_refs"][1]["hydrated_value"] == 0.42
+    # CLIENT_NUMERIC_VALUE_TRUSTED = NO & SERVER_HYDRATED_VALUE = CANONICAL_EVIDENCE_VALUE
+    assert f1["evidence_refs"][0]["client_claimed_value"] == 99999.0
+    assert f1["evidence_refs"][0]["server_hydrated_value"] == 3
+    assert f1["evidence_refs"][0]["canonical_value"] == 3
+    assert f1["evidence_refs"][0]["grounding_status"] == "GROUNDED"
+
+    assert f1["evidence_refs"][1]["server_hydrated_value"] == 0.42
+    assert f1["evidence_refs"][1]["canonical_value"] == 0.42
+    assert f1["evidence_refs"][1]["grounding_status"] == "GROUNDED"
 
     # F-02 had ungrounded evidence
     f2 = findings[1]
     assert f2["grounded"] is False
-    assert f2["evidence_refs"][0]["status"] == "UNGROUNDED_EVIDENCE_ID"
+    assert f2["evidence_refs"][0]["grounding_status"] == "UNGROUNDED_EVIDENCE_ID"
+    assert f2["evidence_refs"][0]["server_hydrated_value"] is None
 
-    # Governance disposition evaluated server-side
-    assert data["governance_disposition"] in ("ACCEPT", "CONDITIONAL_ACCEPT")
-    assert len(data["attestation_seal_merkle_root"]) > 0
+    # Overall grounding reflects ungrounded F-02 citation
+    assert data["all_grounded"] is False
+    assert data["gate_status"] == "BLOCKED"
+
+    # REVIEW_GATE_DEFAULT_ACCEPT = 0 & REVIEWER_ROUTE_OWNS_GOVERNANCE_SEMANTICS = NO:
+    # Reviewer route does not fabricate an ACCEPT governance disposition
+    assert data["governance_disposition"] is None
+
+    # SYNTHETIC_ATTESTATION_FALLBACK = 0: No fake Merkle root emitted on ungrounded/unverified review
+    assert data["attestation_seal_merkle_root"] is None
 
 
 def test_artifact_id_sanitization_and_security() -> None:

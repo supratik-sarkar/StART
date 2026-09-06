@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "5.1.1"
+START_VERSION: str = "5.1.2"
 
 
 def get_backend_build_version() -> str:
@@ -236,44 +236,81 @@ class LogicalArtifactMetadata(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# Untrusted Browser Reviewer & Server Hydration Schemas
+# Untrusted Browser Reviewer Request & Server Hydration Response Schemas
 # --------------------------------------------------------------------------- #
-class EvidenceMetricRef(BaseModel):
+class EvidenceCitationRequest(BaseModel):
+    """Untrusted client citation request citing an EvidenceRecord with optional metric name and claimed value."""
+
+    model_config = {"extra": "forbid"}
+
     evidence_id: str
-    metric_name: str
-    # Note: Client may propose finding text, but authoritative numeric value is hydrated server-side.
+    metric_name: str | None = None
     client_claimed_value: Any = None
-    server_hydrated_value: Any = None
+
+
+# Compatibility alias for code referencing EvidenceMetricRef in web context
+class EvidenceMetricRef(EvidenceCitationRequest):
+    pass
 
 
 class QualitativeFinding(BaseModel):
+    """Untrusted qualitative finding submitted by browser WebLLM.
+
+    Client severity is audit-only metadata. The client cannot set canonical_severity.
+    """
+
+    model_config = {"extra": "forbid"}
+
     finding_id: str = Field(default_factory=lambda: f"FND-{uuid.uuid4().hex[:6]}")
-    severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "MEDIUM"
+    client_proposed_severity: str | None = None
+    severity: str | None = None  # optional legacy alias for client_proposed_severity
     title: str
     description: str
-    evidence_refs: list[EvidenceMetricRef] = Field(default_factory=list)
+    evidence_refs: list[EvidenceCitationRequest] = Field(default_factory=list)
     recommendation: str = ""
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.severity and not self.client_proposed_severity:
+            self.client_proposed_severity = self.severity
 
 
 class WebReviewerSubmission(BaseModel):
     """Untrusted payload submitted by browser WebLLM."""
 
+    model_config = {"extra": "forbid"}
+
     run_id: str
     session_id: str
-    model_name: str = "Llama-3.2-1B-Instruct-q4f32_1-MLC"
+    model_name: str = "SmolLM2-1.7B-Instruct-q4f16_1-MLC"
     executive_summary: str = ""
     findings: list[QualitativeFinding] = Field(default_factory=list, max_length=20)
     limitations: list[str] = Field(default_factory=list, max_length=20)
     suggested_actions: list[str] = Field(default_factory=list, max_length=20)
 
 
+class HydratedEvidenceCitation(BaseModel):
+    """Server-hydrated authoritative evidence citation."""
+
+    evidence_id: str
+    metric_name: str | None = None
+    client_claimed_value: Any = None
+    canonical_value: Any = None
+    server_hydrated_value: Any = None  # alias for canonical_value
+    grounding_status: str  # GROUNDED | UNGROUNDED_EVIDENCE_ID | UNGROUNDED_METRIC_PATH | NON_NUMERIC_METRIC_CLAIM
+    grounding_reason: str | None = None
+    test_id: str | None = None
+    record_status: str | None = None
+
+
 class HydratedFindingView(BaseModel):
     finding_id: str
-    severity: str
+    canonical_severity: str | None = None
+    client_proposed_severity: str | None = None
+    severity: str | None = None  # matches canonical_severity; None if no server severity exists
     title: str
     description: str
     grounded: bool
-    evidence_refs: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_refs: list[HydratedEvidenceCitation | dict[str, Any]] = Field(default_factory=list)
     recommendation: str = ""
 
 
@@ -281,12 +318,13 @@ class ReviewerHydrationResponse(BaseModel):
     run_id: str
     schema_version: str = START_SCHEMA_VERSION
     model_name: str
-    is_grounded: bool
-    all_grounded: bool = True
+    gate_status: Literal["ACCEPTED", "BLOCKED", "ERROR"] = "BLOCKED"
+    is_grounded: bool = False
+    all_grounded: bool = False
     hydrated_findings: list[HydratedFindingView] = Field(default_factory=list)
-    opa_policy_decision: Literal["ALLOW", "WARN", "BLOCK", "DENY"] = "ALLOW"
+    opa_policy_decision: Literal["ALLOW", "WARN", "BLOCK", "DENY", "ERROR"] | None = None
     opa_reasons: list[str] = Field(default_factory=list)
-    governance_disposition: Literal["ACCEPT", "CONDITIONAL_ACCEPT", "REJECT"] = "ACCEPT"
-    attestation_seal_merkle_root: str = ""
+    governance_disposition: Literal["ACCEPT", "CONDITIONAL_ACCEPT", "REJECT"] | None = None
+    attestation_seal_merkle_root: str | None = None
     attestation_timestamp: float = Field(default_factory=time.time)
 

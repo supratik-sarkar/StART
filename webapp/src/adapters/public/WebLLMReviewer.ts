@@ -4,6 +4,8 @@ import type {
   ReviewerRuntime,
   ReviewerOutput,
   ReviewerRuntimeState,
+  ReviewerFinding,
+  ReviewerMetricRef,
 } from '../../contracts/reviewer'
 import type { ConversationMessage, EvidenceRecord, ProposedAction, RunSnapshot } from '../../contracts/types'
 
@@ -391,128 +393,93 @@ Please evaluate the empirical evidence and output your review strictly as JSON.`
       jsonCandidate = cleaned.substring(firstBrace, lastBrace + 1)
     }
 
-    const tryParseJson = (str: string): any => {
-      try {
-        return JSON.parse(str)
-      } catch {}
-      try {
-        // Remove trailing commas before } or ]
-        const noTrailing = str.replace(/,\s*([\]}])/g, '$1')
-        return JSON.parse(noTrailing)
-      } catch {}
-      try {
-        // Auto-close open braces/brackets
-        let openBraces = 0
-        let openBrackets = 0
-        let inString = false
-        let escape = false
-        for (let i = 0; i < str.length; i++) {
-          const c = str[i]
-          if (escape) {
-            escape = false
-            continue
-          }
-          if (c === '\\') {
-            escape = true
-            continue
-          }
-          if (c === '"') {
-            inString = !inString
-            continue
-          }
-          if (!inString) {
-            if (c === '{') openBraces++
-            else if (c === '}') openBraces = Math.max(0, openBraces - 1)
-            else if (c === '[') openBrackets++
-            else if (c === ']') openBrackets = Math.max(0, openBrackets - 1)
-          }
-        }
-        let fixed = str.trim().replace(/,\s*$/, '')
-        while (openBrackets > 0) {
-          fixed += ']'
-          openBrackets--
-        }
-        while (openBraces > 0) {
-          fixed += '}'
-          openBraces--
-        }
-        return JSON.parse(fixed.replace(/,\s*([\]}])/g, '$1'))
-      } catch {}
-      return null
+    let parsed: any
+    try {
+      parsed = JSON.parse(jsonCandidate)
+    } catch {
+      throw new Error('REVIEW_PARSE_FAILED')
     }
 
-    let parsed = tryParseJson(jsonCandidate)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('REVIEW_PARSE_FAILED')
+    }
 
-    // Fallback: If JSON string parsing failed, extract key fields from generated text directly
-    if (!parsed || typeof parsed !== 'object') {
-      const titleMatch = cleaned.match(/"title"\s*:\s*"([^"]+)"/)
-      const descMatch = cleaned.match(/"description"\s*:\s*"([^"]+)"/)
-      const evMatches = Array.from(cleaned.matchAll(/EV-[A-Za-z0-9_-]+/g)).map((m) => m[0])
-      if (titleMatch || evMatches.length > 0) {
-        const foundEv = Array.from(
-          new Set(evMatches.filter((id) => permittedEvidence.some((e) => e.evidenceId === id)))
-        )
-        const targetEv = foundEv.length > 0 ? foundEv : [firstEvId]
-        parsed = {
-          executive_summary: 'Review synthesized from observed empirical evidence.',
-          findings: [
-            {
-              finding_id: 'F-01',
-              title: titleMatch ? titleMatch[1] : 'Empirical Observation',
-              description: descMatch ? descMatch[1] : 'Observation grounded in active evidence records.',
-              evidence_ids: targetEv,
-              limitations: [],
-              suggested_actions: [],
-            },
-          ],
-          limitations: [],
-          evidence_ids: targetEv,
-        }
+    const rawSummary = parsed.executive_summary ?? parsed.executiveSummary
+    const rawFindings = parsed.findings
+    const rawEvidenceIds = parsed.evidence_ids ?? parsed.evidenceIds
+
+    if (typeof rawSummary !== 'string' || !Array.isArray(rawFindings) || !Array.isArray(rawEvidenceIds)) {
+      throw new Error('REVIEW_PARSE_FAILED')
+    }
+
+    const citedIds = new Set<string>()
+    rawEvidenceIds.forEach((id: any) => {
+      if (typeof id === 'string' && id.trim()) {
+        citedIds.add(id.trim())
       }
-    }
+    })
 
-    if (parsed && typeof parsed === 'object') {
-      const citedIds = new Set<string>()
-      const parsedFindings = Array.isArray(parsed.findings)
-        ? parsed.findings.map((f: any) => {
-            const evIds = Array.isArray(f.evidence_ids) ? f.evidence_ids.map((id: any) => String(id)) : []
-            evIds.forEach((id: string) => citedIds.add(id))
-            return {
-              findingId: f.finding_id || 'F-01',
-              title: f.title || 'Observation',
-              description: f.description || '',
-              evidenceIds: evIds,
-              limitations: Array.isArray(f.limitations) ? f.limitations : [],
-              suggestedActions: Array.isArray(f.suggested_actions) ? f.suggested_actions : [],
-              metricRefs: Array.isArray(f.metric_refs)
-                ? f.metric_refs.map((m: any) => ({
-                    evidenceId: String(m.evidence_id || m.evidenceId || ''),
-                    metricName: String(m.metric_name || m.metricName || ''),
-                    value: m.value,
-                  }))
-                : undefined,
-            }
-          })
+    const parsedFindings: ReviewerFinding[] = []
+    for (const f of rawFindings) {
+      if (!f || typeof f !== 'object' || Array.isArray(f)) {
+        throw new Error('REVIEW_PARSE_FAILED')
+      }
+      const title = f.title
+      const description = f.description
+      if (typeof title !== 'string' || typeof description !== 'string') {
+        throw new Error('REVIEW_PARSE_FAILED')
+      }
+
+      const fEvIds = Array.isArray(f.evidence_ids)
+        ? f.evidence_ids.map(String)
+        : Array.isArray(f.evidenceIds)
+        ? f.evidenceIds.map(String)
         : []
+      fEvIds.forEach((id: string) => citedIds.add(id))
 
-      if (Array.isArray(parsed.evidence_ids)) {
-        parsed.evidence_ids.forEach((id: any) => citedIds.add(String(id)))
+      let metricRefs: ReviewerMetricRef[] | undefined = undefined
+      const rawRefs = f.metric_refs ?? f.metricRefs
+      if (rawRefs !== undefined) {
+        if (!Array.isArray(rawRefs)) {
+          throw new Error('REVIEW_PARSE_FAILED')
+        }
+        metricRefs = rawRefs.map((m: any) => {
+          if (!m || typeof m !== 'object') {
+            throw new Error('REVIEW_PARSE_FAILED')
+          }
+          const mEvId = String(m.evidence_id ?? m.evidenceId ?? '').trim()
+          const mName = String(m.metric_name ?? m.metricName ?? '').trim()
+          if (!mEvId || !mName) {
+            throw new Error('REVIEW_PARSE_FAILED')
+          }
+          return {
+            evidenceId: mEvId,
+            metricName: mName,
+            value: m.value,
+          }
+        })
       }
 
-      return {
-        executiveSummary: parsed.executive_summary || 'Qualitative engineering review synthesized.',
-        findings: parsedFindings,
-        limitations: Array.isArray(parsed.limitations) ? parsed.limitations : [],
-        evidenceIds: Array.from(citedIds),
-        rawStructuredOutput: parsed,
-      }
+      parsedFindings.push({
+        findingId: String(f.finding_id ?? f.findingId ?? `FND-${parsedFindings.length + 1}`),
+        title,
+        description,
+        evidenceIds: fEvIds,
+        metricRefs,
+        severity: f.severity ? String(f.severity) : undefined,
+        limitations: Array.isArray(f.limitations) ? f.limitations.map(String) : [],
+        suggestedActions: Array.isArray(f.suggested_actions ?? f.suggestedActions)
+          ? (f.suggested_actions ?? f.suggestedActions).map(String)
+          : [],
+      })
     }
 
     return {
-      executiveSummary: 'Qualitative engineering review synthesized from evidence records.',
-      findings: [],
-      limitations: ['JSON parsing fallback applied.'],
-      evidenceIds: args.evidence.map((e) => e.evidenceId),
+      executiveSummary: rawSummary,
+      findings: parsedFindings,
+      limitations: Array.isArray(parsed.limitations) ? parsed.limitations.map(String) : [],
+      evidenceIds: Array.from(citedIds),
+      rawStructuredOutput: parsed,
     }
   }
 

@@ -101,34 +101,46 @@ def generate_dl_world(
     tuning_metadata: dict[str, Any] = {
         "tuning_method": "Optuna Bayesian Tree-structured Parzen Estimator (TPE)",
         "search_space": {
-            "hidden_dims": ["(64, 32)", "(128, 64)"],
-            "learning_rate": [1e-3, 5e-3],
+            "learning_rate": [1e-3, 1e-2],
         },
-        "trials_completed": 5,
-        "best_trial_idx": 3,
-        "best_hyperparameters": {"hidden_dims": "(64, 32)", "learning_rate": 0.005},
+        "tuning_status": "NOT_RUN",
+        "trials_completed": 0,
+        "best_trial_idx": None,
+        "best_hyperparameters": None,
+        "best_value": None,
         "train_val_generalization_gap": gen_gap,
         "overfitting_diagnostic": "CONTROLLED (gap < 0.05)" if gen_gap < 0.05 else "MODERATE",
     }
     try:
         import optuna
+    except ImportError:
+        tuning_metadata["tuning_status"] = "NOT_AVAILABLE"
+        tuning_metadata["tuning_error"] = "optuna package not installed"
+    else:
+        try:
+            optuna.logging.set_verbosity(optuna.logging.WARNING)
+            study = optuna.create_study(direction="minimize")
 
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
-        study = optuna.create_study(direction="minimize")
+            def objective(trial: optuna.Trial) -> float:
+                lr = trial.suggest_float("lr", 1e-3, 1e-2, log=True)
+                t_clf = TabularDLClassifier(epochs=3, batch_size=64, learning_rate=lr, random_state=seed)
+                t_clf.fit(train_df[feature_names], y_train)
+                v_probs = t_clf.predict_proba(val_df[feature_names])[:, 1]
+                return float(brier_score_loss(y_val, v_probs))
 
-        def objective(trial: optuna.Trial) -> float:
-            lr = trial.suggest_float("lr", 1e-3, 1e-2, log=True)
-            t_clf = TabularDLClassifier(epochs=3, batch_size=64, learning_rate=lr, random_state=seed)
-            t_clf.fit(train_df[feature_names], y_train)
-            v_probs = t_clf.predict_proba(val_df[feature_names])[:, 1]
-            return float(brier_score_loss(y_val, v_probs))
-
-        study.optimize(objective, n_trials=5)
-        tuning_metadata["trials_completed"] = len(study.trials)
-        tuning_metadata["best_trial_idx"] = study.best_trial.number
-        tuning_metadata["best_hyperparameters"] = study.best_params
-    except Exception:
-        pass
+            study.optimize(objective, n_trials=5)
+            tuning_metadata["tuning_status"] = "COMPLETED"
+            tuning_metadata["trials_completed"] = len(study.trials)
+            tuning_metadata["best_trial_idx"] = study.best_trial.number
+            tuning_metadata["best_hyperparameters"] = study.best_params
+            tuning_metadata["best_value"] = float(study.best_value)
+        except Exception as exc:
+            tuning_metadata["tuning_status"] = "FAILED"
+            tuning_metadata["tuning_error"] = str(exc)
+            tuning_metadata["trials_completed"] = 0
+            tuning_metadata["best_trial_idx"] = None
+            tuning_metadata["best_hyperparameters"] = None
+            tuning_metadata["best_value"] = None
 
     # 4. Real Multi-Seed Sensitivity & Perturbation Computation
     seed_aucs = [actual_auroc]
@@ -178,21 +190,21 @@ def generate_dl_world(
         "feature_names": feature_names,
         "target_column": "target",
         "class_imbalance_ratio": float(np.mean(y_train)),
-        "missing_rate_feat_04": 0.05,
-        "scaling": "standard_robust_zscore",
-        "imputation": "median_with_indicator",
-        "encoding": "one_hot_drop_first",
-        "data_leakage_check": "PASSED (0 overlap)",
-        "split_strategy": "stratified_holdout_temporal",
+        "missing_rate_feat_04": float(train_df["feat_04"].isna().mean()),
+        "scaling": "zscore_standardization",
+        "imputation": "median",
+        "encoding": "none_continuous_features",
+        "data_leakage_check": "PASSED (disjoint index split)",
+        "split_strategy": "holdout_split",
     }
 
     # Model architecture metadata
     n_params = (
-        sum(p.numel() for p in clf.model_.parameters()) if hasattr(clf, "model_") and clf.model_ else 2849
+        sum(p.numel() for p in clf._net.parameters()) if hasattr(clf, "_net") and clf._net else 2849
     )
     architecture_metadata = {
         "framework": "PyTorch 2.x",
-        "family": "Tabular Residual MLP",
+        "family": "Tabular MLP",
         "device": getattr(clf, "_device_used", "cpu"),
         "layers": [
             {"name": "input_norm", "dim": f"({n_features},)"},
@@ -214,10 +226,10 @@ def generate_dl_world(
         ],
         "trainable_parameters": n_params,
         "non_trainable_parameters": 0,
-        "optimizer": "AdamW",
+        "optimizer": "Adam",
         "learning_rate": 0.005,
-        "weight_decay": 0.01,
-        "scheduler": "CosineAnnealingLR (T_max=8)",
+        "weight_decay": 0.0,
+        "scheduler": "None",
         "loss_function": "BCEWithLogitsLoss",
         "batch_size": 64,
         "epochs_requested": 8,
@@ -238,7 +250,6 @@ def generate_dl_world(
     explainability_metadata = {
         "method": "Permutation Attribution & Feature Sensitivity",
         "top_features": top_feats,
-        "integrated_gradients_baseline": "Zero/Median embedding reference",
     }
 
     test_context = TestContext(

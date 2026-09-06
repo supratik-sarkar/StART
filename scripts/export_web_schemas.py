@@ -60,6 +60,8 @@ def generate_typescript_definitions() -> str:
     """Generate clean TypeScript interfaces from start.web.schemas Pydantic models."""
     from start.web.schemas import (
         APIResponseEnvelope,
+        EvidenceCitationRequest,
+        HydratedEvidenceCitation,
         HydratedFindingView,
         LogicalArtifactMetadata,
         MetricRowView,
@@ -84,8 +86,10 @@ def generate_typescript_definitions() -> str:
         PresentationBlockView,
         ReviewPresentationExport,
         LogicalArtifactMetadata,
+        EvidenceCitationRequest,
         QualitativeFinding,
         WebReviewerSubmission,
+        HydratedEvidenceCitation,
         HydratedFindingView,
         ReviewerHydrationResponse,
     ]

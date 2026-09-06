@@ -86,6 +86,10 @@ def create_app() -> FastAPI:
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-StART-Schema-Version"] = "5.0.0"
 
+        # Explicit fail-closed cache control for dynamic routes
+        if request.url.path.startswith("/api/") or request.url.path == "/health":
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+
         # Content Security Policy (allows WebAssembly & WebGPU compilation for WebLLM)
         csp = (
             "default-src 'self'; "
