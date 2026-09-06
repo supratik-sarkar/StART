@@ -18,29 +18,22 @@ import logging
 import threading
 import time
 import uuid
-from dataclasses import dataclass
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 from start.registry import list_tests
+from start.runtime import (
+    WorkflowExecutionSpec,
+    get_canonical_context_specs,
+    get_canonical_workflow_specs,
+    resolve_workflow,
+)
 from start.web.queue import GLOBAL_QUEUE, ActiveRunContext
 from start.web.schemas import RunRequest
 
 logger = logging.getLogger("start.web.routes_workbench")
 router = APIRouter(prefix="/api/v1", tags=["workbench"])
-
-
-# --------------------------------------------------------------------------- #
-# Canonical Workflow Capability Resolver (Projected from start.runtime)
-# --------------------------------------------------------------------------- #
-from start.runtime import (
-    WorkflowExecutionSpec,
-    get_canonical_context_specs,
-    get_canonical_workflow_specs,
-    resolve_context_spec,
-    resolve_workflow,
-)
 
 # Backward-compatible alias for existing callers
 WorkflowDefinition = WorkflowExecutionSpec
@@ -98,7 +91,7 @@ def make_canonical_plan(workflow_id: str, context_id: str | None = None) -> list
     plan: list[dict[str, Any]] = []
     prev_id: str | None = None
 
-    for step_id, label, kind, desc, test_ids in step_specs:
+    for step_id, label, kind, desc, _test_ids in step_specs:
         plan.append(
             {
                 "id": step_id,

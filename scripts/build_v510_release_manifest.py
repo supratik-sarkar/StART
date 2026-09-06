@@ -8,6 +8,7 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "start_output" / "v510_release"
@@ -28,7 +29,7 @@ def compute_tree_digest(files: list[dict[str, Any]], prefix: str = "") -> str:
     matching.sort(key=lambda x: x["path"])
     h = hashlib.sha256()
     for m in matching:
-        h.update(f"{m['path']}:{m['sha256']}".encode("utf-8"))
+        h.update(f"{m['path']}:{m['sha256']}".encode())
     return h.hexdigest()
 
 

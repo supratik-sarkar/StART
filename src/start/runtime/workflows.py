@@ -18,14 +18,14 @@ Strict Invariants:
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from start.registry import list_tests
 from start.runtime.contexts import ExecutionContextInstance, resolve_context_spec
 
 
-class EngineKind(str, Enum):
+class EngineKind(StrEnum):
     PREDICTIVE_SUBSET = "predictive_subset"
     MARKET_SUBSET = "market_subset"
     TUNING = "tuning"
@@ -110,7 +110,9 @@ def _build_canonical_workflow_specs() -> dict[str, WorkflowExecutionSpec]:
         sorted(
             t.test_id
             for t in all_tests
-            if t.family == "traded_risk" and not t.test_id.startswith("traded_risk.cev_") and not t.test_id.startswith("traded_risk.stanton_")
+            if t.family == "traded_risk"
+            and not t.test_id.startswith("traded_risk.cev_")
+            and not t.test_id.startswith("traded_risk.stanton_")
         )
     )
     # 25 market tests (portfolio 10 + attribution 6 + covariance 3 + market traded_risk 6)
@@ -323,18 +325,34 @@ def _build_canonical_workflow_specs() -> dict[str, WorkflowExecutionSpec]:
             supported_actions=["rerun", "change_parameter"],
             engine_kind=EngineKind.PREDICTIVE_SUBSET,
             candidate_test_ids=tuple(
-                t for t in ("supervised.calibration", "supervised.classification_metrics", "supervised.discrimination")
+                t
+                for t in (
+                    "supervised.calibration",
+                    "supervised.classification_metrics",
+                    "supervised.discrimination",
+                )
                 if t in all_test_ids
             ),
             step_specs=[
-                ("step-context", "Load prediction scores", "context", "Load validation split predictions", ()),
+                (
+                    "step-context",
+                    "Load prediction scores",
+                    "context",
+                    "Load validation split predictions",
+                    (),
+                ),
                 (
                     "step-calibration",
                     "Calibration curves and discrimination",
                     "test",
                     "Brier score, calibration curve, and ROC discrimination",
                     tuple(
-                        t for t in ("supervised.calibration", "supervised.classification_metrics", "supervised.discrimination")
+                        t
+                        for t in (
+                            "supervised.calibration",
+                            "supervised.classification_metrics",
+                            "supervised.discrimination",
+                        )
                         if t in all_test_ids
                     ),
                 ),
@@ -460,7 +478,13 @@ def _build_canonical_workflow_specs() -> dict[str, WorkflowExecutionSpec]:
             engine_kind=EngineKind.TUNING,
             candidate_test_ids=tuning_validation_tests,
             step_specs=[
-                ("step-context", "Load dataset context", "context", "Load training split for hyperparameter search", ()),
+                (
+                    "step-context",
+                    "Load dataset context",
+                    "context",
+                    "Load training split for hyperparameter search",
+                    (),
+                ),
                 (
                     "step-tuning",
                     "Parameter space optimization",
@@ -496,7 +520,13 @@ def _build_canonical_workflow_specs() -> dict[str, WorkflowExecutionSpec]:
             engine_kind=EngineKind.MARKET_SUBSET,
             candidate_test_ids=market_25,
             step_specs=[
-                ("step-context", "Load market returns", "context", "Load multi-asset return history and factor world", ()),
+                (
+                    "step-context",
+                    "Load market returns",
+                    "context",
+                    "Load multi-asset return history and factor world",
+                    (),
+                ),
                 (
                     "step-portfolio",
                     "Portfolio optimization & risk",
@@ -540,7 +570,10 @@ def _build_canonical_workflow_specs() -> dict[str, WorkflowExecutionSpec]:
             label="Model Comparison",
             category="ml",
             enabled=False,
-            disabled_reason="Model comparison requires side-by-side candidate evaluation not configured in single-model demo mode.",
+            disabled_reason=(
+                "Model comparison requires side-by-side candidate evaluation "
+                "not configured in single-model demo mode."
+            ),
             compatible_contexts=["institutional_credit_v1"],
             supported_actions=[],
             engine_kind=EngineKind.PREDICTIVE_SUBSET,

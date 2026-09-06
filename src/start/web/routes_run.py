@@ -159,7 +159,7 @@ async def start_run(
         )
 
     try:
-        resolved = resolve_workflow(workflow_id, context_id)
+        _ = resolve_workflow(workflow_id, context_id)
     except ValueError as exc:
         err_msg = str(exc)
         code = "UNKNOWN_WORKFLOW" if "Unknown workflow" in err_msg else "INCOMPATIBLE_CONTEXT"

@@ -20,8 +20,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from playwright.sync_api import sync_playwright
 
@@ -195,7 +196,7 @@ def verify_deployment_and_hashes() -> None:
     with open(manifest_file, encoding="utf-8") as f:
         manifest = json.load(f)
     frozen_backend_digest = manifest["backend_digest"]
-    frozen_frontend_dist_digest = manifest["frontend_dist_digest"]
+    _frozen_frontend_dist_digest = manifest["frontend_dist_digest"]
 
     # Probe remote Oracle backend digest
     ssh_key = os.path.expanduser("~/.ssh/id_ed25519_start_oci")

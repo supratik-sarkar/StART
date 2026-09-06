@@ -82,11 +82,14 @@ async def sse_event_generator(
 
                 progress_obj = None
                 if raw_evt.get("percent") is not None or raw_evt.get("completed") is not None:
+                    percent_val = raw_evt.get("percent")
+                    comp_val = raw_evt.get("completed")
+                    tot_val = raw_evt.get("total")
                     progress_obj = {
                         "label": raw_evt.get("phase", "Executing"),
-                        "percent": float(raw_evt["percent"]) if raw_evt.get("percent") is not None else None,
-                        "completed": int(raw_evt["completed"]) if raw_evt.get("completed") is not None else None,
-                        "total": int(raw_evt["total"]) if raw_evt.get("total") is not None else None,
+                        "percent": float(percent_val) if percent_val is not None else None,
+                        "completed": int(comp_val) if comp_val is not None else None,
+                        "total": int(tot_val) if tot_val is not None else None,
                         "detail": message_text,
                     }
 

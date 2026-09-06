@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 
 @dataclass
@@ -24,7 +25,9 @@ class RuntimeEvent:
     event_id: str = field(default_factory=lambda: f"EVT-{uuid.uuid4().hex[:8]}")
     timestamp: float = field(default_factory=time.time)
     run_id: str = ""
-    event_type: str = "agent_transition"  # context_ready, test_started, test_completed, tuning_trial, evidence_committed, artifact_created, governance_decided, attestation_created, workflow_completed, error
+    event_type: str = "agent_transition"
+    # context_ready, test_started, test_completed, tuning_trial, evidence_committed,
+    # artifact_created, governance_decided, attestation_created, workflow_completed, error
     status: str = "SUCCESS"  # PENDING, RUNNING, SUCCESS, COMPLETED, WARN, FAIL, ERROR, SKIPPED
     source_agent: str = "Director"
     target_agent: str = "Specialist"

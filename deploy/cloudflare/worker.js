@@ -33,7 +33,7 @@ export default {
     const url = new URL(request.url);
 
     // 1. Dynamic API routes: forward to Oracle backend with origin authentication
-    if (url.pathname.startsWith("/api/")) {
+    if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
       const secret = env.START_ORIGIN_SECRET;
       if (!secret || secret === "start-dev-origin-secret-local-only") {
         if (env.ENVIRONMENT === "production") {

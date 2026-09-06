@@ -140,7 +140,8 @@ class CanonicalExecutionService:
                 elapsed_seconds=round(time.time() - start_time, 2),
                 message=(
                     f"Resolved workflow '{workflow_id}': {len(resolved.applicable_test_ids)} applicable, "
-                    f"{len(resolved.skipped_test_ids)} skipped out of {len(resolved.candidate_test_ids)} candidate tests"
+                    f"{len(resolved.skipped_test_ids)} skipped out of "
+                    f"{len(resolved.candidate_test_ids)} candidate tests"
                 ),
                 metadata={
                     "candidate_test_ids": list(resolved.candidate_test_ids),
@@ -207,7 +208,10 @@ class CanonicalExecutionService:
                         completed=idx + 1,
                         total=trials_requested,
                         percent=trial_pct,
-                        message=f"Trial {idx + 1}/{trials_requested}: metric={t.validation_metric:.4f} status={t.status}",
+                        message=(
+                            f"Trial {idx + 1}/{trials_requested}: "
+                            f"metric={t.validation_metric:.4f} status={t.status}"
+                        ),
                         metadata={
                             "trial": t.trial,
                             "params": t.params,
@@ -233,7 +237,10 @@ class CanonicalExecutionService:
                 node_id="step-tuning",
                 parent_node_id="step-context",
                 elapsed_seconds=round(time.time() - start_time, 2),
-                message=f"Completed hyperparameter search ({completed_trials}/{trials_requested} trials finished)",
+                message=(
+                    f"Completed hyperparameter search "
+                    f"({completed_trials}/{trials_requested} trials finished)"
+                ),
                 metadata={
                     "requested_trials": trials_requested,
                     "attempted_trials": completed_trials,
@@ -627,7 +634,9 @@ class CanonicalExecutionService:
         )
 
         # Emit governance event ONLY when governance actually evaluated
-        has_governance_step = any(s[0] == "step-governance" or s[2] == "governance" for s in resolved.step_specs)
+        has_governance_step = any(
+            s[0] == "step-governance" or s[2] == "governance" for s in resolved.step_specs
+        )
         if has_governance_step and final_gov_disposition is not None:
             evt_gov = RuntimeEvent(
                 run_id=run_id,

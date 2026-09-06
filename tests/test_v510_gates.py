@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -34,13 +33,11 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
-from start.core.schemas import EvidenceRecord, Status
 from start.runtime.contexts import (
     get_canonical_context_specs,
     instantiate_context,
-    resolve_context_spec,
 )
-from start.runtime.events import CallableEventSink, ListEventSink, RuntimeEvent
+from start.runtime.events import ListEventSink, RuntimeEvent
 from start.runtime.execution import CanonicalExecutionService
 from start.runtime.workflows import (
     WORKFLOW_SPECS,
@@ -50,7 +47,7 @@ from start.runtime.workflows import (
 )
 from start.web.app import create_app
 from start.web.queue import GLOBAL_QUEUE, QueueEventSink
-from start.web.schemas import START_VERSION, RunRequest
+from start.web.schemas import RunRequest
 
 
 @pytest.fixture
