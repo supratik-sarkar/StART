@@ -69,7 +69,7 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 "target_agent": "Specialist",
                 "stage": "PLANNING",
                 "action": f"initialize_{request.domain}_review",
-                "status": "RUNNING",
+                "status": "COMPLETED",
                 "node_id": "step-context",
                 "metadata": {
                     "workflow": request.workflow,
@@ -162,8 +162,9 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 "target_agent": "DeterministicEngine",
                 "stage": "EXECUTION",
                 "action": "build_context_and_preflight",
-                "status": "RUNNING",
+                "status": "COMPLETED",
                 "node_id": "step-preflight",
+                "parent_node_id": "step-context",
                 "metadata": {"technology": str(technology) if technology else "MARKET"},
                 "phase": "Context & Pre-flight Diagnostics",
                 "step": 2,
@@ -249,6 +250,25 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                         ),
                     },
                 )
+            GLOBAL_QUEUE.append_event(
+                run_id,
+                {
+                    "event_id": "EVT-STEP-step-training",
+                    "timestamp": time.time(),
+                    "event_type": "step_execution",
+                    "source_agent": "NeuralEngine",
+                    "target_agent": "EvidenceLedger",
+                    "stage": "TRAINING",
+                    "action": "complete_training",
+                    "status": "COMPLETED",
+                    "node_id": "step-training",
+                    "parent_node_id": "step-context",
+                    "phase": "Neural Architecture Training",
+                    "step": "step-training",
+                    "elapsed_seconds": round(time.time() - start_time, 2),
+                    "message": "Neural architecture training completed",
+                },
+            )
 
         # Run canonical StART review
         res = run_unified_review(
@@ -271,6 +291,48 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         else:
             events = res.get("orchestration_events", [])
 
+        # Emit Step RuntimeEvents with stable node_id and observed lineage
+        from start.web.routes_workbench import get_workflow_definition
+
+        workflow_id = request.workflow or "predictive_ml"
+        wdef = get_workflow_definition(workflow_id)
+        executed_test_ids = {getattr(r, "test_id", "") for r in records}
+
+        prev_node_id = "step-context"
+        preflight_spec = next((s for s in wdef.step_specs if s[0] == "step-preflight"), None)
+        if preflight_spec and any(t in executed_test_ids for t in preflight_spec[4]):
+            prev_node_id = "step-preflight"
+        elif is_dl:
+            prev_node_id = "step-training"
+
+        for step_id, label, kind, _desc, test_ids in wdef.step_specs:
+            if kind == "test" and step_id != "step-preflight":
+                step_recs = [r for r in records if getattr(r, "test_id", None) in test_ids]
+                if step_recs:
+                    GLOBAL_QUEUE.append_event(
+                        run_id,
+                        {
+                            "event_id": f"EVT-STEP-{step_id}",
+                            "timestamp": time.time(),
+                            "event_type": "step_execution",
+                            "source_agent": "DeterministicEngine",
+                            "target_agent": "EvidenceLedger",
+                            "stage": "EXECUTION",
+                            "action": f"execute_{step_id}",
+                            "status": "COMPLETED",
+                            "node_id": step_id,
+                            "parent_node_id": prev_node_id,
+                            "evidence_refs": [getattr(r, "evidence_id", "") for r in step_recs],
+                            "artifact_refs": [],
+                            "metadata": {"test_ids": [getattr(r, "test_id", "") for r in step_recs]},
+                            "phase": label,
+                            "step": step_id,
+                            "elapsed_seconds": round(time.time() - start_time, 2),
+                            "message": f"Completed {label} ({len(step_recs)} tests executed)",
+                        },
+                    )
+                    prev_node_id = step_id
+
         # Emit Step 3 & 4: Analytical Surfaces & Governance
         GLOBAL_QUEUE.append_event(
             run_id,
@@ -282,8 +344,9 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
                 "target_agent": "EvidenceLedger",
                 "stage": "CHECKPOINTS",
                 "action": "commit_evidence_records",
-                "status": "SUCCESS",
+                "status": "COMPLETED",
                 "node_id": "step-evidence",
+                "parent_node_id": prev_node_id,
                 "metadata": {"evidence_count": len(records)},
                 "evidence_refs": [r.evidence_id for r in records[:8]],
                 "phase": "Deterministic Analytical Execution",
@@ -326,26 +389,29 @@ def _execute_run_in_background(run_id: str, request: RunRequest) -> None:
         pres_dict["parent_run_id"] = request.parent_run_id
         pres_dict["intervention"] = request.intervention
 
-        # Emit Final Step 5: Completed Seal
-        GLOBAL_QUEUE.append_event(
-            run_id,
-            {
-                "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
-                "timestamp": time.time(),
-                "event_type": "governance_seal",
-                "source_agent": "ModelGovernanceAgent",
-                "target_agent": "AttestationRegistry",
-                "stage": "GOVERNANCE",
-                "action": "seal_attestation_merkle_root",
-                "status": "SUCCESS",
-                "node_id": "step-governance",
-                "metadata": {"merkle_root": pres_dict.get("attestation_seal_merkle_root", "")},
-                "phase": "Attestation & Evidence Seal",
-                "step": 5,
-                "elapsed_seconds": round(time.time() - start_time, 2),
-                "message": "Deterministic execution completed",
-            },
-        )
+        # Emit Final Step 5: Completed Seal only if workflow contains governance step
+        has_governance_step = any(s[0] == "step-governance" for s in wdef.step_specs)
+        if has_governance_step:
+            GLOBAL_QUEUE.append_event(
+                run_id,
+                {
+                    "event_id": f"EVT-{uuid.uuid4().hex[:8]}",
+                    "timestamp": time.time(),
+                    "event_type": "governance_seal",
+                    "source_agent": "ModelGovernanceAgent",
+                    "target_agent": "AttestationRegistry",
+                    "stage": "GOVERNANCE",
+                    "action": "seal_attestation_merkle_root",
+                    "status": "COMPLETED",
+                    "node_id": "step-governance",
+                    "parent_node_id": "step-evidence",
+                    "metadata": {"merkle_root": pres_dict.get("attestation_seal_merkle_root", "")},
+                    "phase": "Attestation & Evidence Seal",
+                    "step": 5,
+                    "elapsed_seconds": round(time.time() - start_time, 2),
+                    "message": "Deterministic execution completed",
+                },
+            )
 
         GLOBAL_QUEUE.mark_completed(
             run_id=run_id,
@@ -542,7 +608,7 @@ def get_run_evidence(
     return APIResponseEnvelope(
         success=True,
         run_id=run_id,
-        data={"evidence_records": records, "count": len(records)},
+        data={"evidence_records": records, "evidence": records, "count": len(records)},
     )
 
 

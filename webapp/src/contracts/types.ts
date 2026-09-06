@@ -177,6 +177,7 @@ export interface ExecutionGraphNode {
   evidenceIds?: string[]
   artifactIds?: string[]
   durationMs?: number
+  observed?: boolean
 }
 
 export interface ExecutionGraphEdge {
@@ -184,6 +185,7 @@ export interface ExecutionGraphEdge {
   source: string
   target: string
   relation: 'next' | 'branch' | 'creates' | 'supports' | 'challenges' | 'rerun'
+  edgeKind?: 'planned' | 'observed'
 }
 
 export interface ExecutionGraph {

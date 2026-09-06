@@ -50,8 +50,10 @@ export class PublicStARTBackend implements StartBackend {
 
   private unwrap<T>(res: any, key?: string): unknown {
     if (res && typeof res === 'object' && 'success' in res && 'data' in res) {
-      if (key && res.data && typeof res.data === 'object' && key in res.data) {
-        return res.data[key]
+      if (key && res.data && typeof res.data === 'object') {
+        if (key in res.data) return res.data[key]
+        if (key === 'evidence' && 'evidence_records' in res.data) return res.data.evidence_records
+        if (key === 'artifacts' && 'artifacts' in res.data) return res.data.artifacts
       }
       return res.data
     }
@@ -105,7 +107,7 @@ export class PublicStARTBackend implements StartBackend {
     const url = `${this.baseUrl}/api/v1/runs/${runId}/events`
     const source = new EventSource(url)
 
-    source.onmessage = (e) => {
+    const handleMsg = (e: MessageEvent) => {
       try {
         const parsed = JSON.parse(e.data)
         const validated = validateRuntimeEvent(parsed)
@@ -114,6 +116,9 @@ export class PublicStARTBackend implements StartBackend {
         onError?.(err as Error)
       }
     }
+
+    source.onmessage = handleMsg
+    source.addEventListener('complete', handleMsg as EventListener)
 
     source.onerror = () => {
       if (source.readyState === 2) {

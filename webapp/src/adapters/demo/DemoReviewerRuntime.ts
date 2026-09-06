@@ -1,10 +1,11 @@
 import type {
+  ReviewerContext,
   ReviewerProgress,
   ReviewerRuntime,
   ReviewerOutput,
   ReviewerRuntimeState,
 } from '../../contracts/reviewer'
-import type { ConversationMessage, EvidenceRecord, ProposedAction } from '../../contracts/types'
+import type { ConversationMessage, EvidenceRecord, ProposedAction, RunSnapshot } from '../../contracts/types'
 
 const id = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 
@@ -43,48 +44,62 @@ export class DemoReviewerRuntime implements ReviewerRuntime {
     onProgress({ state: 'ready', label: 'Demo reviewer runtime ready (development simulation)' })
   }
 
-  async ask(args: {
-    runId: string
-    text: string
-    evidence: EvidenceRecord[]
-    contextNodeId?: string
-  }): Promise<ConversationMessage> {
-    const evidenceIds = args.evidence.slice(0, 2).map((e) => e.evidenceId)
-    const lower = args.text.toLowerCase()
+  async ask(
+    context: ReviewerContext,
+    args: {
+      text: string
+      evidence: EvidenceRecord[]
+      runSnapshot?: RunSnapshot
+    }
+  ): Promise<ConversationMessage> {
+    // Validate selectedEvidenceId strictly against active run evidence universe (Amendments 8, 9)
+    const isContextEvidenceValid = Boolean(
+      context.selectedEvidenceId &&
+        args.evidence.some((e) => e.evidenceId === context.selectedEvidenceId)
+    )
+    const activeEvidenceId = isContextEvidenceValid ? context.selectedEvidenceId : undefined
+    const evidenceIds = activeEvidenceId
+      ? [activeEvidenceId]
+      : args.evidence.slice(0, 2).map((e) => e.evidenceId)
 
+    // Parse structured proposal if provided as JSON; NO keyword detection (Amendment 10)
     let action: ProposedAction | undefined = undefined
-    if (lower.includes('rerun') || lower.includes('deeper') || lower.includes('challenge')) {
-      const kind = lower.includes('challenge')
-        ? 'challenge'
-        : lower.includes('deeper')
-        ? 'deeper_test'
-        : 'rerun'
-
-      action = {
-        actionId: id('ACT'),
-        label: lower.includes('deeper')
-          ? 'Run deeper deterministic verification'
-          : lower.includes('challenge')
-          ? 'Challenge finding with stress perturbation'
-          : 'Re-run from selected execution point',
-        description: 'Creates a child run linked to the selected execution node and evidence.',
-        kind,
-        sourceNodeId: args.contextNodeId,
-        sourceEvidenceId: evidenceIds[0],
-        parameters: { depth: 'focused' },
+    try {
+      const trimmed = args.text.trim()
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        const parsed = JSON.parse(trimmed)
+        if (parsed.proposedAction && typeof parsed.proposedAction === 'object') {
+          const kind = parsed.proposedAction.kind
+          if (['rerun', 'change_parameter', 'deeper_test', 'challenge'].includes(kind)) {
+            action = {
+              actionId: id('ACT'),
+              label: parsed.proposedAction.rationale || `Proposed ${kind}`,
+              description:
+                parsed.proposedAction.rationale || 'Creates a child run linked to selected context.',
+              kind,
+              sourceNodeId: context.selectedNodeId,
+              sourceEvidenceId: activeEvidenceId,
+              parameters: parsed.proposedAction.parameters || { depth: 'focused' },
+            }
+          }
+        }
       }
+    } catch {
+      // Conversational response only
     }
 
     return {
       id: id('MSG'),
       role: 'agent',
       timestamp: new Date().toISOString(),
-      contextNodeId: args.contextNodeId,
+      contextNodeId: context.selectedNodeId,
       evidenceIds,
       proposedAction: action,
       text: action
-        ? 'I can turn that into a bounded deterministic follow-up. I have prepared the action below for your approval.'
-        : `Deterministic review notes: ${args.contextNodeId || 'active run'} evaluated with bounded evidence ledger (${args.evidence.length} records available). All observations remain grounded in verified evidence.`,
+        ? 'I have parsed your structured follow-up proposal. The deterministic action is prepared below for approval.'
+        : `Deterministic review notes: ${
+            activeEvidenceId ? `Evidence [${activeEvidenceId}]` : context.selectedNodeId || 'active run'
+          } evaluated with bounded evidence ledger (${args.evidence.length} records available). All observations remain grounded in verified evidence.`,
     }
   }
 

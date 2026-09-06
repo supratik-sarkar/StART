@@ -189,7 +189,7 @@ def _build_workflow_definitions() -> dict[str, WorkflowDefinition]:
                     "step-governance",
                     "Governance & attestation seal",
                     "governance",
-                    "Policy evaluation & cryptographic Merkle seal",
+                    "Governance / sign-off stage",
                     (),
                 ),
             ],
@@ -242,7 +242,7 @@ def _build_workflow_definitions() -> dict[str, WorkflowDefinition]:
                     "step-governance",
                     "Governance & attestation seal",
                     "governance",
-                    "Policy evaluation & cryptographic Merkle seal",
+                    "Governance / sign-off stage",
                     (),
                 ),
             ],
@@ -640,16 +640,18 @@ def serialize_run_snapshot(ctx: ActiveRunContext) -> dict[str, Any]:
 
     for p in plan:
         pid = p["id"]
-        if ctx.status == "COMPLETED":
+        if pid in completed_node_ids:
             p["status"] = "completed"
-        elif pid in completed_node_ids:
-            p["status"] = "completed"
+            p["observed"] = True
         elif pid in event_node_ids:
             p["status"] = "running"
+            p["observed"] = True
         elif ctx.status == "RUNNING":
             p["status"] = "queued"
+            p["observed"] = False
         else:
             p["status"] = "future"
+            p["observed"] = False
 
     started_iso = datetime.datetime.fromtimestamp(
         ctx.started_at or ctx.created_at, tz=datetime.UTC
@@ -769,6 +771,26 @@ def validate_action_or_raise(
                     raise HTTPException(status_code=400, detail=f"Invalid integer for '{k}': {v}") from None
             else:
                 validated_params[k] = v
+
+    parent_params = getattr(req, "parameters", {}) or {}
+    if kind == "change_parameter":
+        delta = {k: v for k, v in validated_params.items() if parent_params.get(k) != v}
+        if not delta:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Action kind 'change_parameter' requires a real parameter delta "
+                    "differing from parent parameters."
+                ),
+            )
+    elif kind == "challenge":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Action kind 'challenge' is conversational only and does not "
+                "launch an autonomous child run."
+            ),
+        )
 
     action_id = action.get("actionId") or f"ACT-{uuid.uuid4().hex[:8].upper()}"
     label = action.get("label") or f"Validated {kind.replace('_', ' ')}"
@@ -979,23 +1001,29 @@ def get_execution_graph(
     for r in ctx.evidence_records:
         ev_id = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
         test_id = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
-        step_id = test_to_step.get(test_id, "step-evidence")
-        if ev_id:
+        step_id = test_to_step.get(test_id)
+        if ev_id and step_id:
             evidence_by_step.setdefault(step_id, []).append(ev_id)
 
     prev_step_id: str | None = None
+    observed_step_ids: set[str] = set()
+
     for step in plan:
         sid = step["id"]
-        if ctx.status == "COMPLETED":
+        if sid in completed_node_ids:
             step_status = "completed"
-        elif sid in completed_node_ids:
-            step_status = "completed"
+            observed = True
+            observed_step_ids.add(sid)
         elif sid in event_node_ids:
             step_status = "running"
+            observed = True
+            observed_step_ids.add(sid)
         elif ctx.status == "RUNNING":
             step_status = "queued"
+            observed = False
         else:
             step_status = "future"
+            observed = False
 
         nodes.append(
             {
@@ -1007,31 +1035,61 @@ def get_execution_graph(
                 "parentId": prev_step_id or ("parent-run" if parent_run_id else None),
                 "subtitle": step.get("description"),
                 "evidenceIds": evidence_by_step.get(sid, []),
+                "observed": observed,
             }
         )
 
+        # Planned edges represent intended design flow
         if prev_step_id:
             edges.append(
                 {
-                    "id": f"edge-{prev_step_id}-{sid}",
+                    "id": f"edge-plan-{prev_step_id}-{sid}",
                     "source": prev_step_id,
                     "target": sid,
                     "relation": "next",
-                }
-            )
-        elif parent_run_id:
-            edges.append(
-                {
-                    "id": "edge-parent-to-first",
-                    "source": "parent-run",
-                    "target": sid,
-                    "relation": "rerun",
+                    "edgeKind": "planned",
                 }
             )
 
         prev_step_id = sid
 
-    # 3. Evidence record nodes linked to actual producers
+    # Observed execution edges derived strictly from runtime events
+    seen_obs_edges: set[tuple[str, str]] = set()
+    if parent_run_id and observed_step_ids:
+        first_obs = next((s["id"] for s in plan if s["id"] in observed_step_ids), None)
+        if first_obs:
+            edges.append(
+                {
+                    "id": "edge-parent-to-first",
+                    "source": "parent-run",
+                    "target": first_obs,
+                    "relation": "rerun",
+                    "edgeKind": "observed",
+                }
+            )
+
+    for ev in ctx.events:
+        nid = ev.get("node_id")
+        pnid = ev.get("parent_node_id")
+        if pnid and nid and pnid != nid:
+            edge_key = (pnid, nid)
+            if (
+                edge_key not in seen_obs_edges
+                and any(n["id"] == pnid for n in nodes)
+                and any(n["id"] == nid for n in nodes)
+            ):
+                seen_obs_edges.add(edge_key)
+                edges.append(
+                    {
+                        "id": f"edge-obs-{pnid}-{nid}",
+                        "source": pnid,
+                        "target": nid,
+                        "relation": "next",
+                        "edgeKind": "observed",
+                    }
+                )
+
+    # 3. Evidence record nodes: linked to actual producers; no fallback
     for r in ctx.evidence_records:
         ev_id = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
         test_id = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
@@ -1042,7 +1100,7 @@ def get_execution_graph(
         ev_status = (
             "attention" if any(s in raw_status for s in ("ATTENTION", "WARN", "FAIL")) else "completed"
         )
-        producer_id = test_to_step.get(test_id, "step-evidence")
+        producer_id = test_to_step.get(test_id)
 
         nodes.append(
             {
@@ -1052,26 +1110,39 @@ def get_execution_graph(
                 "kind": "evidence",
                 "status": ev_status,
                 "parentId": producer_id,
-                "subtitle": test_id,
+                "subtitle": test_id if producer_id else "Producer lineage unavailable",
+                "observed": True,
             }
         )
 
-        # Edge from producing step to evidence record
-        if any(n["id"] == producer_id for n in nodes):
+        # Edge from producing step to evidence record only if producer is known and observed
+        if producer_id and producer_id in observed_step_ids:
             edges.append(
                 {
                     "id": f"edge-{producer_id}-{ev_id}",
                     "source": producer_id,
                     "target": ev_id,
                     "relation": "creates",
+                    "edgeKind": "observed",
                 }
             )
 
     # 4. Artifact record nodes
+    artifact_producers: dict[str, str] = {}
+    for ev in ctx.events:
+        nid = ev.get("node_id")
+        if nid:
+            for aid in (
+                ev.get("artifact_refs", [])
+                or ev.get("artifactIds", [])
+                or ev.get("emitted_artifact_ids", [])
+            ):
+                artifact_producers[aid] = nid
+
     for art_id, art_data in ctx.artifacts.items():
         art_title = art_data.get("title", art_id)
         art_type = art_data.get("artifact_type", "table")
-        producer_id = "step-evidence"
+        producer_id = artifact_producers.get(art_id) or art_data.get("producer_node")
 
         nodes.append(
             {
@@ -1081,44 +1152,55 @@ def get_execution_graph(
                 "kind": "artifact",
                 "status": "completed",
                 "parentId": producer_id,
-                "subtitle": f"Deterministic {art_type} artifact",
+                "subtitle": (
+                    f"Deterministic {art_type} artifact" if producer_id else "Producer lineage unavailable"
+                ),
+                "observed": True,
             }
         )
 
-        if any(n["id"] == producer_id for n in nodes):
+        if producer_id and any(n["id"] == producer_id for n in nodes):
             edges.append(
                 {
                     "id": f"edge-{producer_id}-{art_id}",
                     "source": producer_id,
                     "target": art_id,
                     "relation": "creates",
+                    "edgeKind": "observed",
                 }
             )
 
     # 5. Governance node (only if canonical governance disposition exists)
     pres = ctx.presentation or {}
     gov_disp = pres.get("governance_disposition")
+    has_gov_step = any(s["id"] == "step-governance" for s in plan)
     if gov_disp:
-        last_step = prev_step_id or "step-evidence"
-        nodes.append(
-            {
-                "id": "governance",
-                "runId": run_id,
-                "label": "Governance",
-                "kind": "governance",
-                "status": "completed" if ctx.status == "COMPLETED" else "running",
-                "parentId": last_step,
-                "subtitle": f"Disposition: {gov_disp}",
-            }
-        )
-        edges.append(
-            {
-                "id": f"edge-{last_step}-governance",
-                "source": last_step,
-                "target": "governance",
-                "relation": "next",
-            }
-        )
+        if has_gov_step:
+            gov_node_id = "step-governance"
+        else:
+            gov_node_id = "governance"
+            last_step = prev_step_id or "step-evidence"
+            nodes.append(
+                {
+                    "id": "governance",
+                    "runId": run_id,
+                    "label": "Governance",
+                    "kind": "governance",
+                    "status": "completed",
+                    "parentId": last_step,
+                    "subtitle": f"Disposition: {gov_disp}",
+                    "observed": True,
+                }
+            )
+            edges.append(
+                {
+                    "id": f"edge-{last_step}-governance",
+                    "source": last_step,
+                    "target": "governance",
+                    "relation": "next",
+                    "edgeKind": "observed",
+                }
+            )
 
         # 6. Attestation node (only if canonical attestation root exists)
         merkle_root = pres.get("attestation_seal_merkle_root")
@@ -1129,17 +1211,19 @@ def get_execution_graph(
                     "runId": run_id,
                     "label": "Sign-off",
                     "kind": "attestation",
-                    "status": "completed" if ctx.status == "COMPLETED" else "future",
-                    "parentId": "governance",
+                    "status": "completed",
+                    "parentId": gov_node_id,
                     "subtitle": f"Merkle Root: {str(merkle_root)[:16]}...",
+                    "observed": True,
                 }
             )
             edges.append(
                 {
-                    "id": "edge-governance-attest",
-                    "source": "governance",
+                    "id": f"edge-{gov_node_id}-attest",
+                    "source": gov_node_id,
                     "target": "attest",
                     "relation": "next",
+                    "edgeKind": "observed",
                 }
             )
 
@@ -1191,23 +1275,17 @@ def get_run_findings(
 
             # Canonical severity: only if explicitly provided in metrics or metadata
             raw_metrics = getattr(r, "metrics", None) or (r.get("metrics") if isinstance(r, dict) else {})
-            explicit_sev = raw_metrics.get("severity") if isinstance(raw_metrics, dict) else None
+            raw_metadata = getattr(r, "metadata", None) or (r.get("metadata") if isinstance(r, dict) else {})
+            explicit_sev = (
+                (raw_metrics.get("severity") if isinstance(raw_metrics, dict) else None)
+                or (raw_metadata.get("severity") if isinstance(raw_metadata, dict) else None)
+            )
             if explicit_sev and str(explicit_sev).lower() in ("info", "attention", "critical"):
                 sev: str | None = str(explicit_sev).lower()
-            elif "ATTENTION" in r_stat or "WARN" in r_stat:
-                sev = "attention"
             else:
                 sev = None
 
             producer_node = test_to_step.get(test_id)
-            if not producer_node:
-                test_prefix = test_id.split(".")[0]
-                for step_id, _, _, _, tids in wdef.step_specs:
-                    if any(t.split(".")[0] == test_prefix for t in tids):
-                        producer_node = step_id
-                        break
-            if not producer_node:
-                producer_node = "step-evidence"
 
             finding_obj: dict[str, Any] = {
                 "findingId": f"F-ATTN-{len(findings) + 1}",
@@ -1215,6 +1293,7 @@ def get_run_findings(
                 "title": f"Attention item: {title}",
                 "summary": f"Deterministic test '{test_id}' reported status {r_stat}. Grounded in {ev_id}.",
                 "evidenceIds": [ev_id],
+                "testStatus": r_stat,
                 "limitations": ["Evaluated with deterministic synthetic context."],
                 "availableActions": list(wdef.supported_actions),
                 "sourceNodeId": producer_node,
@@ -1237,7 +1316,24 @@ def get_run_findings(
         ev_refs = [ref.get("evidence_id") for ref in pf.get("evidence_refs", []) if isinstance(ref, dict)]
         source_step = None
         if ev_refs:
-            source_step = test_to_step.get(ev_refs[0])
+            first_ev_id = ev_refs[0]
+            target_ev = next(
+                (
+                    r
+                    for r in ctx.evidence_records
+                    if (
+                        getattr(r, "evidence_id", None)
+                        or (r.get("evidence_id") if isinstance(r, dict) else "")
+                    )
+                    == first_ev_id
+                ),
+                None,
+            )
+            if target_ev:
+                tid = getattr(target_ev, "test_id", None) or (
+                    target_ev.get("test_id") if isinstance(target_ev, dict) else ""
+                )
+                source_step = test_to_step.get(tid)
 
         f_entry: dict[str, Any] = {
             "findingId": pf.get("finding_id", f"F-{len(findings) + 1}"),
@@ -1363,7 +1459,27 @@ def execute_human_action(
     if not child_ctx:
         raise HTTPException(status_code=500, detail="Failed to initialize child run context")
 
-    return serialize_run_snapshot(child_ctx)
+    wdef = get_workflow_definition(child_req.workflow or "predictive_ml")
+    resolved_test_ids = [tid for _, _, _, _, tids in wdef.step_specs for tid in tids]
+    param_delta = {
+        k: v
+        for k, v in validated["parameters"].items()
+        if getattr(parent_req, "parameters", {}).get(k) != v
+    }
+
+    snapshot = serialize_run_snapshot(child_ctx)
+    snapshot.update(
+        {
+            "child_run_id": child_run_id,
+            "parent_run_id": run_id,
+            "action_kind": validated["kind"],
+            "resolved_test_ids": resolved_test_ids,
+            "resolved_parameter_delta": param_delta,
+            "source_evidence_id": validated.get("sourceEvidenceId"),
+            "source_node_id": validated.get("sourceNodeId"),
+        }
+    )
+    return snapshot
 
 
 @router.get("/runs/{run_id}/governance")

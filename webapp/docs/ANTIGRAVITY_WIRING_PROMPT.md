@@ -2,7 +2,7 @@
 
 A new greenfield frontend package has been placed at:
 
-`/Users/supratiksarkar/Desktop/StART/webapp`
+`webapp/`
 
 It replaces the previous frontend product direction.
 

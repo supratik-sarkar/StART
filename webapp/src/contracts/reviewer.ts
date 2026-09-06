@@ -1,6 +1,14 @@
-import type { ConversationMessage, EvidenceRecord } from './types'
+import type { ConversationMessage, EvidenceRecord, RunSnapshot } from './types'
 
 export type ReviewerRuntimeState = 'idle' | 'loading' | 'ready' | 'reviewing' | 'unavailable' | 'error'
+
+export interface ReviewerContext {
+  runId: string
+  selectedNodeId?: string
+  selectedEvidenceId?: string
+  selectedFindingId?: string
+  selectedArtifactId?: string
+}
 
 export interface ReviewerProgress {
   state: ReviewerRuntimeState
@@ -41,15 +49,21 @@ export interface ReviewerRuntime {
   subscribeState?(listener: (state: ReviewerRuntimeState, progress?: ReviewerProgress) => void): () => void
   checkWebGPUSupport(): Promise<boolean>
   initialize(onProgress: (p: ReviewerProgress) => void): Promise<void>
-  ask(args: {
-    runId: string
-    text: string
-    evidence: EvidenceRecord[]
-    contextNodeId?: string
-  }): Promise<ConversationMessage>
+  ask(
+    context: ReviewerContext,
+    args: {
+      text: string
+      evidence: EvidenceRecord[]
+      runSnapshot?: RunSnapshot
+    },
+    onFirstToken?: () => void,
+    onChunk?: (chunk: string) => void
+  ): Promise<ConversationMessage>
   review(
     args: { runId: string; goal: string; evidence: EvidenceRecord[]; contextNodeId?: string },
-    onChunk?: (chunk: string) => void
+    onChunk?: (chunk: string) => void,
+    onFirstToken?: () => void
   ): Promise<ReviewerOutput>
   dispose(): Promise<void> | void
 }
+

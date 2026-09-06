@@ -189,7 +189,7 @@ export function validateFindings(data: unknown): Finding[] {
       summary: String(o.summary || ''),
       evidenceIds: Array.isArray(o.evidenceIds) ? o.evidenceIds.map(String) : [],
       sourceNodeId: o.sourceNodeId ? String(o.sourceNodeId) : undefined,
-      severity: (o.severity as any) || 'info',
+      severity: o.severity ? (o.severity as any) : undefined,
       limitations: Array.isArray(o.limitations) ? o.limitations.map(String) : [],
       availableActions: Array.isArray(o.availableActions) ? (o.availableActions as any) : ['explain', 'rerun'],
     }

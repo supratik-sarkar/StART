@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StartBackend } from '../contracts/backend'
-import type { ReviewerRuntime } from '../contracts/reviewer'
+import type { ReviewerContext, ReviewerRuntime } from '../contracts/reviewer'
 import type {
   AgentPlanPreview, ArtifactRecord, AttestationState, Capability, ConversationMessage,
   EvidenceRecord, ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction,
@@ -237,11 +237,15 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
         if (!reviewer) {
           throw new Error('Reviewer runtime is not available for engineering conversation.')
         }
-        const reply = await reviewer.ask({
+        const reviewerContext: ReviewerContext = {
           runId: run.runId,
+          selectedNodeId: selectedNodeId || undefined,
+          selectedEvidenceId: selectedEvidenceId || undefined,
+        }
+        const reply = await reviewer.ask(reviewerContext, {
           text,
           evidence,
-          contextNodeId: selectedNodeId || undefined,
+          runSnapshot: run,
         })
         setMessages((m) => [...m, reply])
       } catch (e) {
