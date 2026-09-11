@@ -1,0 +1,78 @@
+[
+  {
+    "domain": "predictive_binary",
+    "golden_dataset": "institutional_credit_v1",
+    "real_dataset": "scikit-learn/adult-census-income",
+    "real_dataset_provider": "huggingface",
+    "real_dataset_revision": "main",
+    "real_dataset_fingerprint": "ddfbd5c16c58c371be86359f92f2fed1184fb78540d56f9f5daeacb83243639d",
+    "real_dataset_executed": true,
+    "status": "REAL_DATA_CERTIFIED"
+  },
+  {
+    "domain": "deep_learning",
+    "golden_dataset": "deep_learning_v1",
+    "real_dataset": null,
+    "real_dataset_provider": null,
+    "real_dataset_revision": null,
+    "real_dataset_fingerprint": null,
+    "real_dataset_executed": false,
+    "status": "GOLDEN_KNOWN_ANSWER_CERTIFIED",
+    "note": "Multi-architecture certification verified across Tabular (MLP), Sequence (LSTM, GRU), and Vision (CNN) synthetic suites."
+  },
+  {
+    "domain": "fraud_imbalanced",
+    "golden_dataset": "synthetic_aml_imbalanced",
+    "real_dataset": null,
+    "real_dataset_provider": null,
+    "real_dataset_revision": null,
+    "real_dataset_fingerprint": null,
+    "real_dataset_executed": false,
+    "status": "GOLDEN_KNOWN_ANSWER_CERTIFIED",
+    "note": "Complete 5-model challenger matrix evaluated on golden 5.5% imbalanced transaction suite."
+  },
+  {
+    "domain": "recommender",
+    "golden_dataset": "recommender_ffm_v1",
+    "real_dataset": null,
+    "real_dataset_provider": null,
+    "real_dataset_revision": null,
+    "real_dataset_fingerprint": null,
+    "real_dataset_executed": false,
+    "status": "RECOMMENDER_REAL_DATA_CERTIFICATION = BLOCKED",
+    "blocker_reason": "Missing production-grade recommender interaction provider adapter (e.g. MovieLens / Criteo stream)."
+  },
+  {
+    "domain": "portfolio",
+    "golden_dataset": "institutional_market_v1",
+    "real_dataset": null,
+    "real_dataset_provider": null,
+    "real_dataset_revision": null,
+    "real_dataset_fingerprint": null,
+    "real_dataset_executed": false,
+    "status": "PORTFOLIO_REAL_MARKET_DATA_CERTIFICATION = BLOCKED",
+    "blocker_reason": "No production-grade live market-data provider adapter (e.g. Bloomberg, Refinitiv, Polygon)."
+  },
+  {
+    "domain": "market_risk",
+    "golden_dataset": "institutional_market_v1",
+    "real_dataset": null,
+    "real_dataset_provider": null,
+    "real_dataset_revision": null,
+    "real_dataset_fingerprint": null,
+    "real_dataset_executed": false,
+    "status": "MARKET_RISK_REAL_DATA_CERTIFICATION = BLOCKED",
+    "blocker_reason": "No production-grade live market-data provider adapter."
+  },
+  {
+    "domain": "scenario_traded_risk",
+    "golden_dataset": "institutional_market_v1",
+    "real_dataset": null,
+    "real_dataset_provider": null,
+    "real_dataset_revision": null,
+    "real_dataset_fingerprint": null,
+    "real_dataset_executed": false,
+    "status": "KNOWN_ANSWER_INVARIANT_ONLY",
+    "note": "Regulatory stress testing verified via Gate-6/Gate-6A tail shock and delta-gamma invariants."
+  }
+]

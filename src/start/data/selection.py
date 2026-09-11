@@ -257,6 +257,20 @@ def select_local_file(path: str) -> DatasetSelection:
     from start.data.loaders import load_any_tabular
 
     frame = load_any_tabular(path)
+    target_col = ""
+    if frame is not None and hasattr(frame, "columns") and len(frame.columns) > 0:
+        candidate_names = (
+            "income", "class", "target", "label", "is_fraud",
+            "is_bad_credit", "default", "churn", "fraud", "outcome", "status"
+        )
+        cols_lower = {str(c).lower(): str(c) for c in frame.columns}
+        for cand in candidate_names:
+            if cand in cols_lower:
+                target_col = cols_lower[cand]
+                break
+        if not target_col:
+            target_col = str(frame.columns[-1])
+
     return DatasetSelection(
         kind=DatasetKind.USER_SUPPLIED,
         display_name=f"Local file — {Path(path).name}",
@@ -264,7 +278,7 @@ def select_local_file(path: str) -> DatasetSelection:
         source_path=path,
         source_reference="operator-supplied local file",
         licence_note="unknown; supplied by the operator",
-        target_column="",
+        target_column=target_col,
         target_derivation="inferred by discovery",
     )
 

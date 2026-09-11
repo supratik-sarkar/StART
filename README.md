@@ -1,144 +1,213 @@
-# StART: Standardized Agentic Reusable Tests
+# StART — Standardized Agentic Reusable Tests
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python: 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](pyproject.toml)
-[![Version: v5.1.3](https://img.shields.io/badge/Version-v5.1.3-emerald.svg)](pyproject.toml)
-[![Architecture: Evidence--Native](https://img.shields.io/badge/Architecture-Evidence--Native-indigo.svg)](#architectural-invariant)
-[![Hardware: CPU / MPS / CUDA / Databricks](https://img.shields.io/badge/Hardware-CPU%20%7C%20MPS%20%7C%20CUDA%20%7C%20Databricks-darkgreen.svg)](#hardware-routing--compute-tiers)
-[![X: @SupratikSarkar_](https://img.shields.io/badge/X-@SupratikSarkar__-black.svg?logo=x&logoColor=white)](https://x.com/SupratikSarkar_)
+StART is an **evidence-native model dev/review, risk management, and governance platform** designed for institutional machine learning, deep learning, and quantitative finance.
 
-> **Evidence-native model development, independent review, risk governance, and quantitative validation platform combining autonomous agent orchestration with deterministic computational engines.**
+Unlike conventional LLM-based assistants that perform hallucination-prone arithmetic, StART enforces a strict architectural invariant: **AI agents reason and orchestrate, while deterministic mathematical engines perform all computations**. Every diagnostic produces an immutable, cryptographically signed `EvidenceRecord`, which is appended to a replayable hash-chained ledger and sealed into a Merkle tree attestation.
 
 ---
 
-## Origin & Engineering Lineage
-
-* **Classification**: `INDEPENDENT ENGINEERING / SYSTEMS PLATFORM` (Not an academic research project).
-* **Development Chronology**: StART was conceived and built independently by Supratik Sarkar as an exploratory systems engineering project to demonstrate that AI agents could orchestrate rigorous software and mathematical diagnostics without hallucinating calculations. Open-source contributors subsequently joined to expand its financial and machine-learning diagnostics. Following formal internal technical compliance and architecture reviews, the platform was adapted and imported into enterprise environments for model validation workflows. It represents practical, production-grade systems engineering.
-
----
-
-## Architectural Invariant
-
-Unlike conventional LLM-based assistants that perform hallucination-prone arithmetic, StART enforces a fundamental structural boundary:
-
-$$\mathbf{\text{AI Agents Reason and Orchestrate}} \quad\Longleftrightarrow\quad \mathbf{\text{Deterministic Engines Compute}}$$
-
-1. **Reasoning & Planning**: Large language models decompose high-level review mandates, select diagnostic methodologies, interpret statistical findings, and synthesize narrative summaries.
-2. **Deterministic Computation**: All mathematical operations, loss evaluations, statistical tests, Value-at-Risk (VaR) estimations, and SHAP calculations are executed strictly by compiled, verified numerical engines (NumPy, SciPy, PyTorch, scikit-learn).
-3. **Cryptographic Proof Chain**: Every diagnostic step produces an immutable `EvidenceRecord` carrying a unique identifier (`[EV-xxxx]`), inputs/outputs, parameter configurations, and a cryptographic SHA-256 hash. Records are appended to a hash-chained execution ledger sealed into a root Merkle attestation.
-
-```
-+-------------------------------------------------------------------------------------------------+
-|                                    StART PLATFORM ARCHITECTURE                                  |
-|                                                                                                 |
-|   [ Agent Orchestration ]         [ Deterministic Engines ]         [ Evidence & Governance ]   |
-|   • Review Task Planner           • Predictive ML & Deep Learning   • Hash-Chained Ledger       |
-|   • Finding Synthesizer    --->   • Quantitative Finance & VaR ---> • Merkle Tree Sealing       |
-|   • WebGPU Local Reviewer         • SHAP & Permutation Feature Imp  • OPA Rego Policy Evaluation|
-|                                   • Numerical Calibration / Drift   • Audit Verification Report |
-+-------------------------------------------------------------------------------------------------+
-```
+## Architectural Invariant & Orchestration
 
 ```mermaid
 flowchart TD
-    subgraph Orchestration["1. Agentic Orchestration Layer"]
-        PLANNER["Review Orchestrator & Planner\n(Task Decomposition)"]
-        CLIENT_AI["Local WebGPU Reviewer\n(Client-Side SmolLM2)"]
-    end
+    Obj["1. Engineering Objective\n(Predictive ML, Deep Learning, Quantitative Finance)"] --> LG["2. LangGraph StateGraph\n(TypedReviewState / Compiled Runtime)"]
+    LG --> State["3. Checkpointed State\n(Thread Isolation / Resumable MemorySaver)"]
+    State --> Orch["4. Agent Orchestration\n(Specialist Reasoning & Decision Boundaries)"]
+    Orch --> Dispatch["5. Capability Dispatch\n(Deterministic Allowlist Routing)"]
+    Dispatch --> Engines["6. Scientific Engines\n(Statistical, Optimization, Recommender, Neural)"]
+    Engines --> EvRec["7. Immutable EvidenceRecords\n(Cryptographic SHA-256 Hashes & Vector Artifacts)"]
+    EvRec --> Gov["8. OPA Policy & Governance\n(Fail-Closed Rego Evaluation & Merkle Seal)"]
+    Gov --> Surfaces["9. Workstation Surfaces\n(Terminal CLI, React Workstation, WebLLM Reviewer)"]
 
-    subgraph Compute["2. Deterministic Computational Engines"]
-        direction TB
-        ML["Predictive ML & Deep Learning\n(ROC, PR, Brier, Calibration)"]
-        QUANT["Quantitative Finance & Market Risk\n(VaR, CVaR, Stress Testing)"]
-        INTERP["Explainability & Robustness\n(Tree/Kernel SHAP, Perturbation)"]
+    subgraph Observability ["Cross-Cutting Observability & Control"]
+        OTel["OpenTelemetry Spans"]
+        Ledger["Resource Ledger"]
+        Capsule["Reproducibility Capsule"]
     end
-
-    subgraph Hardware["3. Compute Backends & Hardware Routing"]
-        CPU["Standard CPU Multi-threading"]
-        MPS["Apple Silicon (MPS Acceleration)"]
-        CUDA["NVIDIA CUDA (Enterprise GPU)"]
-        DBX["Databricks Distributed Clusters"]
-    end
-
-    subgraph Evidence["4. Cryptographic Evidence & Governance"]
-        REC["EvidenceRecord [EV-xxxx]\n(SHA-256 Payload Hash)"]
-        LEDGER["Hash-Chained Execution Ledger"]
-        MERKLE["Merkle Tree Root Attestation"]
-        OPA["Open Policy Agent (OPA)\n(Rego Policy Evaluation)"]
-    end
-
-    PLANNER --> Compute
-    CLIENT_AI -.->|Cites Evidence IDs Only| Compute
-    Compute --> Hardware
-    Compute --> REC --> LEDGER --> MERKLE --> OPA
+    LG -.-> Observability
+    Engines -.-> Observability
+    Gov -.-> Observability
 ```
 
----
-
-## Core Implemented Capabilities
-
-| Subsystem | Implemented Functionality | Primary Engine Reference |
-| :--- | :--- | :--- |
-| **Predictive ML Diagnostics** | Comprehensive model evaluation: ROC-AUC, PR curves, expected calibration error (ECE), Brier score, and threshold tuning | `start.engines.predictive` |
-| **Deep Learning Verification** | Gradient health tracking, weight norm stability, activation drift, and loss divergence detection | `start.engines.deeplearning` |
-| **Quantitative Finance** | Value-at-Risk (Historical, Parametric, Monte Carlo), Expected Shortfall (CVaR), volatility surfaces, and backtesting | `start.engines.market` |
-| **Model Explainability** | Exact tree and kernel SHAP attributions, permutation importance, and feature dependence surfaces | `start.engines.explainability` |
-| **Cryptographic Ledger** | Immutable append-only audit trail linking every numerical result to source parameters and git commit state | `start.core.evidence` |
-| **Policy Enforcement** | Native Open Policy Agent (OPA) Rego evaluation against institutional governance standards | `start.governance.opa` |
-| **Hardware Abstraction** | Dynamic compute dispatch targeting local CPU, Apple Silicon Metal (MPS), NVIDIA CUDA, or Databricks | `start.compute.router` |
-| **Institutional Workstation** | FastAPI backend paired with interactive React Flow DAG execution inspector and WebGPU local LLM assistance | `start.web` |
+> **Core System Tenet**:
+> * **LangGraph** orchestrates.
+> * **Agents** reason.
+> * **Deterministic engines** calculate.
+> * **EvidenceRecords** prove.
+> * **OPA** governs.
+> * **OpenTelemetry** observes.
 
 ---
 
-## Hardware Routing & Compute Tiers
+## Quick Start
 
-StART provides a unified execution router that automatically detects available accelerators and dispatches numerical workloads accordingly:
+### 1. Installation & Environment Setup
 
-* **CPU**: Vectorized NumPy/SciPy execution with configurable OpenMP thread pools.
-* **Apple Silicon (MPS)**: PyTorch MPS acceleration on macOS workstations for deep learning and matrix decompositions.
-* **NVIDIA CUDA**: Multi-GPU acceleration for intensive training audits and Monte Carlo market path simulations.
-* **Databricks Integration**: Cluster deployment hooks for large-scale distributed parquet data ingestion and model scoring.
-
----
-
-## Quick Start & Workstation
-
-### 1. Installation
-Requires Python 3.12:
 ```bash
 # Clone repository
 git clone https://github.com/supratik-sarkar/StART.git
 cd StART
 
-# Create and activate Python 3.12 environment
+# Create and activate Python virtual environment (Python >= 3.12.13 required)
 python3.12 -m venv .venv-start
 source .venv-start/bin/activate
 
-# Install core package with CLI utilities
-pip install -e .
+# Install package with core and developer dependencies
+pip install -e ".[all]"
 
-# Verify environment and accelerator detection
+# Verify environment integrity
 start doctor
 ```
 
-### 2. Command-Line Execution
-Run deterministic model reviews across supported domains:
+### 2. Run Deterministic Workflows
+
 ```bash
-# Execute predictive ML evaluation
+# Run Predictive & Deep Learning development/review workflows
 start review --domain predictive --mode deterministic
 
-# Execute market risk & portfolio quantitative diagnostics
+# Run Market & Portfolio analytical workflows
 start review --domain market --mode deterministic
+
+# Launch the local StART Web Workstation
+python -m uvicorn start.web.app:app --port 8000
+
+# Open http://localhost:8000 in a modern browser
 ```
 
-### 3. Launching the Interactive Workstation
-```bash
-# Launch the FastAPI evidence server
-start web --port 8000
+---
 
-# Access http://localhost:8000 to view execution DAGs and interactive evidence trees
+## Live Web Workstation
+
+The deployed interactive preview workstation is available at:
+**[https://start-mrt-gateway.sapman.workers.dev](https://start-mrt-gateway.sapman.workers.dev)**
+
+*Note: The deployed workstation serves as an interactive demonstration environment and preview. Because remote edge deployments may trail bleeding-edge backend releases, this repository remains the canonical authoritative source of truth.*
+
+---
+
+## StART Institutional Workstation & Browser AI
+
+The **StART Institutional Workstation** delivers an evidence-native interface designed for ML/AI engineering, software/technology teams in financial institutions, model development, independent review, quantitative analysis, and risk/governance.
+
+* **Agentic Engineering Workspace Layout**:
+  - **Task-Oriented Composer**: Initiate workflows across Predictive ML, Deep Learning, Calibration, Robustness, Explainability, Hyperparameter Tuning, Model Comparison, Recommenders, and Quantitative Finance.
+  - **Live Execution & Findings**: Real-time structured progress tracking, runtime execution graphs, and evidence-grounded findings with contextual iterative actions (*Explain with AI*, *Challenge*, *Run deeper test*, *Compare candidates*, *Re-run*).
+  - **Interactive Evidence & Artifact Inspector**: Dynamic React Flow evidence decision graphs, interactive charts (ROC curves, calibration distributions, SHAP attributions, efficient frontiers), deterministic PDF reports, and provenance JSON.
+
+* **Client-Side WebLLM Reviewer (WebGPU Client Inference)**:
+  - Executes local small language models (pinned model: `SmolLM2-1.7B-Instruct-q4f16_1-MLC`) **directly inside the user's browser via WebGPU** without blocking deterministic engine execution.
+  - **Server-Side Hydration Protocol**: The browser LLM only cites Evidence IDs (`[EV-xxxx]`); the backend server rejects any client-supplied numbers, hydrates exact numerical metrics directly from immutable `EvidenceRecord`s, evaluates authentic **OPA** Rego policies, and generates the final Merkle attestation root.
+
+---
+
+## Core Architecture Schematics
+
+### 1. End-to-End Review Orchestration Flow
+
+```mermaid
+flowchart TD
+    User["Portfolio / Model Specification"] --> Context["Review Context Bundle"]
+    Context --> StateGraph["LangGraph StateGraph Engine"]
+    StateGraph --> Specialist["Domain Specialist Agent"]
+    Specialist --> Engines["Deterministic Analytical Engines"]
+    Engines --> Ledger[("Cryptographic Evidence Ledger")]
+    Engines --> Artifacts["Vector SVG & Tabular Artifacts"]
+    Ledger --> StructRev["Structured Reviewer Graph"]
+    StructRev --> Critic["Evidence Critic & Grounding Gate"]
+    Critic --> Committee["Cross-Analytical Committee"]
+    Committee --> OPA["OPA Policy & Security Plane"]
+    OPA --> Seal["Merkle Root Attestation Seal"]
+    Seal --> UI["Terminal / Presentation Model / Dashboards"]
 ```
+
+### 2. LangGraph StateGraph & Checkpoint Persistence Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> START
+    START --> PlanNode: Initialize TypedReviewState
+    PlanNode --> ExecuteToolsNode: Discover & Dispatch Tools
+    ExecuteToolsNode --> ReviewEvidenceNode: Commit EvidenceRecords
+    ExecuteToolsNode --> ErrorRecovery: Exception / Validation Gap
+    ErrorRecovery --> ExecuteToolsNode: Resume from Checkpoint (thread_id)
+    ReviewEvidenceNode --> GenerateArtifactsNode: Render SVG / Tables
+    GenerateArtifactsNode --> GovernanceSignoffNode: Committee Disposition
+    GovernanceSignoffNode --> END: Merkle Root Attestation Seal
+    END --> [*]
+```
+
+### 3. Open Policy Agent (OPA) Decision Boundary
+
+```mermaid
+flowchart LR
+    Action["Runtime Request\n(Tool / Egress / Export / Signoff)"] --> PolicyPlane["OPA Policy Plane\n(opa eval / In-Process Engine)"]
+    PolicyPlane --> RegoEgress["network_egress.rego"]
+    PolicyPlane --> RegoTools["tool_allowlist.rego"]
+    PolicyPlane --> RegoExport["artifact_export.rego"]
+    PolicyPlane --> RegoGov["attestation.rego"]
+
+    RegoEgress --> Decision{"Policy Decision"}
+    RegoTools --> Decision
+    RegoExport --> Decision
+    RegoGov --> Decision
+
+    Decision -- ALLOW --> Execute["Proceed with Execution"]
+    Decision -- DENY --> Block["Fail-Closed Security Block"]
+```
+
+### 4. OpenTelemetry Hierarchical Span Trace
+
+```mermaid
+flowchart TD
+    Run["review.run (Trace Root)"] --> Ckpt["review.checkpoint (Checkpoint Phase)"]
+    Ckpt --> Agent["agent.execution (Specialist Agent)"]
+    Agent --> Tool["tool.execution (Deterministic Tool)"]
+    Tool --> Ev["evidence.commit (Evidence Ledger Append)"]
+    Ev --> Art["artifact.generate (SVG/Table Render)"]
+    Art --> Pol["policy.evaluate (OPA Decision)"]
+    Pol --> Gov["governance.evaluate (Committee Review)"]
+    Gov --> Seal["attestation.seal (Merkle Seal Signature)"]
+```
+
+### 5. Evidence & Attestation Lineage
+
+```mermaid
+flowchart LR
+    DetResult["Deterministic Analytical Result"] --> EvRec["EvidenceRecord (SHA-256)"]
+    EvRec --> HashChain["Append-Only Ledger Block"]
+    HashChain --> CitRef["Reviewer Finding EvidenceMetricRef"]
+    CitRef --> GraphHash["Finding Graph Merkle Leaf"]
+    GraphHash --> MerkleRoot["Cryptographic Attestation Seal"]
+```
+
+---
+
+## Key Technical Differentiators
+
+* **Deterministic Validation Surfaces**: Comprehensive coverage across Portfolio Construction (MVO, HRP, HERC, MDP, Black-Litterman, CVaR LP), Factor Modeling, Covariance Conditioning, VaR Exception Backtesting (Kupiec, Christoffersen), Scenario Stress Repricing, Short-Rate Calibration (Vasicek, CIR, Hull-White), Recommender Benchmarks, and PyTorch Tabular Deep Learning.
+* **Provider-Neutral Structured Reviewer Contract**: LLMs reason over citations (`[EV-xxxx]`), but are mathematically barred from performing numerical arithmetic or inventing values.
+* **Claim Grounding Verification**: Every numerical claim in the final review narrative is automatically validated against cited `EvidenceRecord` metrics before governance sign-off.
+* **Resumable LangGraph StateGraph Runtime**: Production-grade compiled `StateGraph[TypedReviewState]` with typed state, conditional routing, checkpointer persistence (`MemorySaver`), failure recovery, and zero duplicate evidence on resume.
+* **Open Policy Agent (OPA) Control Plane**: Strict fail-closed policy enforcement via authentic `.rego` policies for network egress, tool allowlists, agent permissions, artifact filtering, and attestation rules.
+* **OpenTelemetry Observability**: Hierarchical spans (`review.run` $\to$ `checkpoint` $\to$ `agent` $\to$ `tool` $\to$ `evidence` $\to$ `governance` $\to$ `attestation`) with automated secret and credential redaction.
+* **Hermetic Local Execution**: All core computations, graph executions, policy evaluations, and attestation seals execute locally in-process with zero network requirements; external data connectors and LLMs remain optional and explicitly configured.
+
+---
+
+## Verified Architecture Capability Registry
+
+| Component | Type | Classification | Verified Runtime Capability |
+| :--- | :--- | :---: | :--- |
+| **Deep Learning Institutional UX** | Deep Learning | `PROVEN_ADVANCED` | PyTorch tabular DL inspection, layer summaries, loss history, Optuna tuning, ECE calibration, SHAP, and SVG artifacts. |
+| **StateGraph / LangGraph Runtime** | Orchestration | `PROVEN_ADVANCED` | Compiled StateGraph with typed state, conditional edges, checkpointers, resumability, and bounded retry. |
+| **OpenTelemetry Tracing** | Telemetry | `PROVEN_ADVANCED` | Hierarchical span model with automated credential/secret redaction and in-memory export. |
+| **Open Policy Agent (OPA)** | Policy | `PROVEN_ADVANCED` | Authentic OPA Rego evaluation with fail-closed policies for egress, tools, export filtering, and governance sign-off. |
+| **NeMo Guardrails** | Security | `OPTIONAL_ADVANCED` | Real `RailsConfig`/`LLMRails` safety boundary, prompt injection defense, and EvidenceRecord immutability enforcement. |
+| **LangSmith Tracer** | Telemetry | `OPTIONAL_ADVANCED` | Optional external telemetry exporter over canonical event model with strict redaction. |
+| **MCP Server Integration** | Adapter | `OPTIONAL_ADVANCED` | Standardized Model Context Protocol adapter for tool discovery and typed capability inspection. |
+| **Garak Vulnerability Scanner** | Security | `OPTIONAL_FUNCTIONAL` | Automated LLM vulnerability probing and adversarial prompt evaluation harness. |
+| **Promptfoo / DeepEval** | Adapter | `OPTIONAL_FUNCTIONAL` | Unit-testing and regression evaluation harnesses for LLM prompt variations. |
+| **Langfuse / Phoenix** | Telemetry | `OPTIONAL_FUNCTIONAL` | Trace capture and observability adapters consuming the unified event model. |
 
 ---
 
@@ -146,32 +215,42 @@ start web --port 8000
 
 ```text
 StART/
-├── configs/            # Pre-configured review templates (Credit, Market, Fraud, NLP)
-├── deploy/             # Containerization, Helm charts, and Databricks cluster specs
-├── docs/               # Architecture design notes, compliance runbooks, and API specs
-├── examples/           # Standalone demonstration scripts across predictive & market domains
-├── src/
-│   └── start/
-│       ├── cli/            # Command-line interface definitions and commands
-│       ├── compute/        # Hardware routing (CPU, MPS, CUDA, Databricks)
-│       ├── core/           # EvidenceRecord, hash chaining, and Merkle tree engine
-│       ├── engines/        # Deterministic math engines (predictive, market, explain)
-│       ├── governance/     # Open Policy Agent (OPA) Rego compliance gatekeepers
-│       ├── orchestrator/   # Agentic review workflows and task planners
-│       └── web/            # Institutional workstation backend (FastAPI, WebSockets)
-├── tests/              # Extensive unit, regression, and hardware-conformance test suite
-├── webapp/             # Modern frontend interface for interactive DAG visualization
-├── pyproject.toml      # Build metadata (name: start-mrt v5.1.3)
-└── LICENSE             # Apache License 2.0
+├── .github/workflows/       # CI workflows (certified Python 3.12.13, exact runtime validation)
+├── configs/                 # Policy, runtime, and model configurations
+├── data/                    # Reference benchmark datasets and scientific certification bundle
+├── deploy/                  # Cloudflare, Oracle, and container deployment scripts
+├── docs/                    # Architecture contracts, specifications, and audit reports
+├── examples/                # Quickstart and integration examples
+├── notebooks/               # Interactive exploration and review workflows
+├── scripts/                 # Gate reconciliation, verification, and demo drivers
+├── src/start/               # Core scientific engines, agents, registry, runtime, and web services
+├── tests/                   # 2,317 automated regression, invariant, and integration tests
+└── webapp/                  # React/Vite evidence-native workstation and WebLLM client
 ```
 
 ---
 
-## Portfolio Navigation
+## Repository Composition
 
-Part of the **Engineering & Systems Portfolio** by [Supratik Sarkar](https://github.com/supratik-sarkar):
-* [StART](https://github.com/supratik-sarkar/StART) — Evidence-native model development and institutional review platform.
-* [agentic-ai-systems](https://github.com/supratik-sarkar/agentic-ai-systems) — Resilient agent runtimes, checkpointing, and protocol gateways.
-* [multimodal-context-systems](https://github.com/supratik-sarkar/multimodal-context-systems) — Context assembly, graph retrieval, and multimodal grounding.
-* [training-inference-systems](https://github.com/supratik-sarkar/training-inference-systems) — Accelerated training primitives and hardware-conscious inference.
-* [applied-ml-systems](https://github.com/supratik-sarkar/applied-ml-systems) — Anomaly detection, optimization, and recommendation engines.
+| File type | Typical extensions | Tracked files | Bytes | Contribution |
+| :--- | :--- | :---: | :---: | :---: |
+| **Python** | `.py` | 527 | 6,795,135 | 77.84% |
+| **TypeScript / JavaScript** | `.ts, .tsx, .js, .mjs` | 81 | 621,657 | 7.12% |
+| **Markdown / Documentation** | `.md, .txt` | 43 | 383,338 | 4.39% |
+| **Configuration** | `.json, .jsonl, .yaml, .toml, .rego` | 41 | 601,827 | 6.89% |
+| **Web styles / markup** | `.css, .html, .svg` | 7 | 166,982 | 1.91% |
+| **Shell / tooling** | `.sh` | 3 | 5,088 | 0.06% |
+| **Other tracked text** | `other text / data` | 9 | 156,051 | 1.79% |
+| **Total** | `*` | 711 | 8,730,078 | 100.00% |
+
+---
+
+## Contributors
+
+StART is developed as a collaborative open-source engineering project. Its scientific engines, agentic orchestration, validation framework, observability stack, deployment surfaces, documentation, and testing have evolved through contributions from maintainers and collaborators. Git history and the GitHub Contributors graph are the canonical attribution record for project contributions.
+
+---
+
+## License
+
+Apache-2.0. Copyright (c) 2026 StART contributors.

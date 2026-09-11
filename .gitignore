@@ -49,6 +49,8 @@ test_dl_output/
 .venv-bootstrap-test/
 bootstrap-report.json
 mlruns/
+mlflow.db
+*.db
 ledger.jsonl
 evidence_store/
 
@@ -98,3 +100,4 @@ docs/media/*.cast
 .deepeval/
 .langchain/
 .langsmith/
+.ux-audit/

@@ -14,6 +14,9 @@ import {
   validateAttestationState,
   validateProposedAction,
   validateReviewerGateResult,
+  validateRunCompareResult,
+  validateRunHistoryItems,
+  validateRunLineage,
   SchemaValidationError,
 } from './validators'
 
@@ -197,4 +200,85 @@ describe('StART Contract & Validator Invariants', () => {
     const validated = validateReviewerGateResult(gateResult)
     expect(validated.governanceDisposition).toBe('')
   })
+
+  it('validates RunHistoryItems array structure', () => {
+    const raw = [
+      {
+        run_id: 'RUN-P3-001',
+        workflow: 'predictive_ml',
+        context_id: 'institutional_credit_v1',
+        created_at: 1773000000,
+        status: 'completed',
+        evidence_count: 5,
+        artifact_count: 3,
+        governance_disposition: 'ACCEPT_WITH_CONDITIONS',
+        parent_run_id: null,
+      },
+    ]
+    const validated = validateRunHistoryItems(raw)
+    expect(validated).toHaveLength(1)
+    expect(validated[0].run_id).toBe('RUN-P3-001')
+    expect(validated[0].status).toBe('completed')
+    expect(validated[0].evidence_count).toBe(5)
+  })
+
+  it('validates RunCompareResult with deterministic deltas and compatibility', () => {
+    const raw = {
+      compatible: true,
+      runA: {
+        runId: 'RUN-A',
+        workflow: 'predictive_ml',
+        domain: 'tabular',
+        contextId: 'ctx-1',
+        status: 'completed',
+        evidenceCount: 4,
+        artifactCount: 2,
+        governanceDisposition: 'ACCEPT',
+      },
+      runB: {
+        runId: 'RUN-B',
+        workflow: 'predictive_ml',
+        domain: 'tabular',
+        contextId: 'ctx-1',
+        status: 'completed',
+        evidenceCount: 4,
+        artifactCount: 2,
+        governanceDisposition: 'ACCEPT',
+      },
+      metricComparisons: [
+        {
+          testId: 'test.model.accuracy',
+          statusA: 'PASS',
+          statusB: 'PASS',
+          statusChanged: false,
+          metrics: [
+            { metric: 'accuracy', valA: 0.85, valB: 0.90, delta: 0.05, pctChange: 5.88 },
+          ],
+          isChanged: true,
+        },
+      ],
+      findings: [],
+      artifacts: [],
+    }
+    const validated = validateRunCompareResult(raw)
+    expect(validated.compatible).toBe(true)
+    expect(validated.metricComparisons).toHaveLength(1)
+    expect(validated.metricComparisons![0].metrics[0].delta).toBe(0.05)
+  })
+
+  it('validates RunLineage hierarchy and children', () => {
+    const raw = {
+      runId: 'RUN-PARENT',
+      parentRunId: null,
+      intervention: null,
+      children: [
+        { runId: 'RUN-CHILD-1', createdAt: 1773000100, status: 'completed', intervention: 'change_parameter' },
+      ],
+    }
+    const validated = validateRunLineage(raw)
+    expect(validated.runId).toBe('RUN-PARENT')
+    expect(validated.children).toHaveLength(1)
+    expect(validated.children![0].runId).toBe('RUN-CHILD-1')
+  })
 })
+

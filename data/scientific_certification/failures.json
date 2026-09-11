@@ -1,0 +1,9 @@
+[
+  {
+    "component": "start.modeling.models.resolve_model",
+    "model": "catboost",
+    "exception": "catboost is not installed in current environment. FAIL CLOSED: silent substitution prohibited.",
+    "fail_closed_contract": "PASS",
+    "note": "CatBoost is not installed. System correctly rejected silent substitution."
+  }
+]

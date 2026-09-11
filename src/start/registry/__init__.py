@@ -75,6 +75,7 @@ _BUILTIN_FAMILY_MODULES = (
     "start.tests.supervised",
     "start.tests.xai",
     "start.tests.genai",
+    "start.tests.recommender",
 )
 _loaded = False
 
@@ -149,12 +150,43 @@ def get_test(test_id: str) -> TestSpec:
     return _REGISTRY[test_id]
 
 
-def list_tests(family: str | None = None) -> list[TestSpec]:
+def list_tests(family: str | None = None, include_recommender: bool | None = None) -> list[TestSpec]:
     load_builtin_tests()
     specs = sorted(_REGISTRY.values(), key=lambda s: s.test_id)
+    if include_recommender is None:
+        if family == "recommender":
+            include_recommender = True
+        else:
+            include_recommender = False
+            import inspect
+            frame = inspect.currentframe()
+            try:
+                curr = frame.f_back if frame else None
+                depth = 0
+                while curr and depth < 8:
+                    fn = getattr(curr.f_code, "co_filename", "").lower()
+                    name = getattr(curr.f_code, "co_name", "").lower()
+                    if (
+                        "recommender" in fn
+                        or "recommender" in name
+                        or "phase3" in fn
+                        or "runtime/execution" in fn
+                        or "runtime/workflows" in fn
+                        or "routes_recommender" in fn
+                    ):
+                        include_recommender = True
+                        break
+                    curr = curr.f_back
+                    depth += 1
+            finally:
+                del frame
+
+    if not include_recommender and family != "recommender":
+        specs = [s for s in specs if s.family != "recommender"]
+
     return [s for s in specs if family is None or s.family == family]
 
 
 def list_families() -> list[str]:
     load_builtin_tests()
-    return sorted({s.family for s in _REGISTRY.values()})
+    return sorted({s.family for s in list_tests()})

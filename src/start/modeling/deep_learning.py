@@ -58,11 +58,19 @@ def captum_available() -> bool:
 
 def resolve_torch_device() -> str:
     """CUDA -> Apple MPS -> CPU, mirroring start.providers.compute."""
+    import os
+
+    env_dev = os.environ.get("START_TORCH_DEVICE") or os.environ.get("START_DEVICE")
+    if env_dev:
+        return env_dev.lower()
+
     import torch
 
     if torch.cuda.is_available():
         return "cuda"
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        if os.environ.get("START_DISABLE_MPS", "").lower() in ("1", "true", "yes"):
+            return "cpu"
         return "mps"
     return "cpu"
 

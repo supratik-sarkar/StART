@@ -30,6 +30,7 @@ class EngineKind(StrEnum):
     MARKET_SUBSET = "market_subset"
     TUNING = "tuning"
     DEEP_LEARNING_REVIEW = "deep_learning_review"
+    RECOMMENDER_REVIEW = "recommender_review"
 
 
 @dataclass(frozen=True)
@@ -580,6 +581,115 @@ def _build_canonical_workflow_specs() -> dict[str, WorkflowExecutionSpec]:
             candidate_test_ids=(),
             step_specs=[],
         ),
+        "recommender_system": WorkflowExecutionSpec(
+            workflow_id="recommender_system",
+            label="Recommender Systems Validation",
+            category="recommender",
+            enabled=True,
+            disabled_reason=None,
+            compatible_contexts=[
+                "recommender_ratings_v1",
+                "recommender_implicit_v1",
+                "recommender_contextual_v1",
+                "recommender_ffm_v1",
+            ],
+            supported_actions=["execute", "eda"],
+            engine_kind=EngineKind.RECOMMENDER_REVIEW,
+            candidate_test_ids=(
+                "recommender.data_quality",
+                "recommender.rating_fidelity",
+                "recommender.ranking_ndcg",
+                "recommender.ranking_recall",
+                "recommender.beyond_accuracy_coverage",
+                "recommender.cold_start_robustness",
+                "recommender.sensitivity_stability",
+            ),
+            step_specs=[
+                (
+                    "step-rec-context",
+                    "Load interaction dataset",
+                    "context",
+                    "Load user-item interactions and dataset profile",
+                    (),
+                ),
+                (
+                    "step-rec-data",
+                    "Data Hygiene & Sparsity",
+                    "test",
+                    "Evaluate interaction density, missing identifiers, and catalog distributions.",
+                    ("recommender.data_quality",),
+                ),
+                (
+                    "step-rec-fidelity",
+                    "Rating & Loss Fidelity",
+                    "test",
+                    "Assess rating prediction error (RMSE, MAE, R²) on held-out interactions.",
+                    ("recommender.rating_fidelity",),
+                ),
+                (
+                    "step-rec-ranking",
+                    "Ranking Accuracy (NDCG & Recall)",
+                    "test",
+                    "Evaluate top-K ranking metrics on held-out user interactions.",
+                    ("recommender.ranking_ndcg", "recommender.ranking_recall"),
+                ),
+                (
+                    "step-rec-diversity",
+                    "Coverage & Diversity",
+                    "test",
+                    "Assess catalog coverage, intra-list diversity, and popularity bias.",
+                    ("recommender.beyond_accuracy_coverage",),
+                ),
+                (
+                    "step-rec-cold-start",
+                    "Cold-Start Generalization",
+                    "test",
+                    "Measure ranking degradation on cold users and items.",
+                    ("recommender.cold_start_robustness",),
+                ),
+                (
+                    "step-rec-sensitivity",
+                    "Robustness & Sensitivity",
+                    "test",
+                    "Measure ranking stability under interaction sparsity perturbation.",
+                    ("recommender.sensitivity_stability",),
+                ),
+                (
+                    "step-rec-evidence",
+                    "Commit Evidence Ledger",
+                    "evidence",
+                    "Append recommendation diagnostics to cryptographic evidence ledger.",
+                    (),
+                ),
+                (
+                    "step-rec-governance",
+                    "Recommender Governance Sign-off",
+                    "governance",
+                    "Sign-off against institutional recommendation validation policies.",
+                    (),
+                ),
+            ],
+        ),
+        "fraud_anomaly_aml": WorkflowExecutionSpec(
+            workflow_id="fraud_anomaly_aml",
+            label="Fraud, Anomaly & AML Monitoring",
+            category="ml",
+            enabled=True,
+            disabled_reason=None,
+            compatible_contexts=["synthetic_aml_imbalanced", "institutional_credit_v1"],
+            supported_actions=["execute", "eda", "rerun"],
+            engine_kind=EngineKind.PREDICTIVE_SUBSET,
+            candidate_test_ids=pred_eda + pred_prep + pred_sup + pred_xai,
+            step_specs=[
+                ("step-context", "Load transaction context", "context", "Load transaction monitoring context", ()),
+                ("step-eda", "Transaction anomaly screening", "test", "Class imbalance, outlier moments, and distribution skew", pred_eda),
+                ("step-preprocessing", "Imbalance & feature preprocessing", "test", "Missingness, scaling, and categorical encoding", pred_prep),
+                ("step-performance", "Imbalance classification performance", "test", "PR-AUC, ROC-AUC, and confusion matrix", pred_sup),
+                ("step-xai", "Anomaly attribution & feature drivers", "test", "Permutation importance and risk factor ranking", pred_xai),
+                ("step-evidence", "Commit evidence", "evidence", "Commit immutable fraud evaluation EvidenceRecords", ()),
+                ("step-governance", "Sign-off", "governance", "Fraud model risk governance sign-off", ()),
+            ],
+        ),
     }
 
     return specs
@@ -681,6 +791,14 @@ def _evaluate_test_applicability(
             if req == "covariance" and getattr(mkt, "returns", None) is None:
                 return False
 
+    elif context_type == "recommender":
+        rec = bundle.recommender
+        if rec is None:
+            return False
+        # If task is implicit, rating fidelity is skipped
+        if getattr(spec, "test_id", "") == "recommender.rating_fidelity" and getattr(rec, "feedback_mode", None) == "implicit":
+            return False
+
     return True
 
 
@@ -711,10 +829,17 @@ def resolve_workflow(
     wspec = _CANONICAL_WORKFLOW_SPECS[normalized_wf_id]
 
     # Verify context exists
-    resolve_context_spec(context_id)
+    cspec = resolve_context_spec(context_id)
 
     # Verify workflow-context compatibility
-    if context_id not in wspec.compatible_contexts:
+    is_canonical_compatible = context_id in wspec.compatible_contexts
+    is_live_tabular_compatible = (
+        cspec.kind == "dataset"
+        and not context_id.startswith("recommender_")
+        and not context_id.startswith("institutional_market")
+        and wspec.engine_kind in (EngineKind.PREDICTIVE_SUBSET, EngineKind.DEEP_LEARNING_REVIEW, EngineKind.TUNING)
+    )
+    if not is_canonical_compatible and not is_live_tabular_compatible:
         raise ValueError(
             f"Incompatible context '{context_id}' for workflow '{workflow_id}'. "
             f"Compatible contexts: {wspec.compatible_contexts}"

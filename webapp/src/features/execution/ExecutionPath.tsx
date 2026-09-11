@@ -1,8 +1,69 @@
-import { AlertCircle, Check, Circle, Clock3, GitBranch, LoaderCircle } from 'lucide-react'
-import type { AgentPlanStep, ExecutionGraph, NodeStatus, ProgressState } from '../../contracts/types'
-const statusIcon=(s:NodeStatus)=>s==='completed'?<Check size={13}/>:s==='running'?<LoaderCircle className="spin" size={13}/>:s==='attention'?<AlertCircle size={13}/>:s==='waiting'?<Clock3 size={13}/>:<Circle size={10}/>
-export function ExecutionPath({plan,graph,progress,selected,onSelect}:{plan:AgentPlanStep[];graph:ExecutionGraph;progress?:ProgressState;selected:string|null;onSelect:(id:string)=>void}){
-  return <section className="execution-path-panel"><div className="panel-kicker">Living execution path</div><div className="journey-header"><div><strong>{progress?.label||'Preparing execution'}</strong><span>{progress?.detail||'Runtime state will appear here.'}</span></div>{progress?.percent!=null&&<b>{Math.round(progress.percent)}%</b>}</div>{progress?.percent!=null&&<div className="run-progress"><div style={{width:`${progress.percent}%`}}/><span className="progress-orb" style={{left:`calc(${progress.percent}% - 6px)`}}/></div>}
-   <div className="journey">{plan.map((step,i)=>{const match=graph.nodes.find(n=>n.id===step.id); const status=match?.status||step.status; const id=match?.id||step.id;return <button onClick={()=>onSelect(id)} key={step.id} className={`journey-step status-${status} ${selected===id?'active':''}`}><div className="journey-rail"><span className="journey-dot">{statusIcon(status)}</span>{i<plan.length-1&&<span className={`journey-line ${status==='completed'?'done':''}`}><i/></span>}</div><div className="journey-copy"><div><strong>{step.label}</strong>{match?.kind==='test'&&<GitBranch size={13}/>}</div><span>{match?.subtitle||step.description||step.kind}</span></div></button>})}</div>
-  </section>
+import type { AgentPlanStep, ExecutionGraph, HandoffTransition, ProgressState } from '../../contracts/types'
+import { AgentStageCard } from './AgentStageCard'
+
+export function ExecutionPath({
+  plan,
+  graph,
+  progress,
+  selected,
+  handoffs,
+  onSelect,
+  onHighlightEvidence,
+}: {
+  plan: AgentPlanStep[]
+  graph: ExecutionGraph
+  progress?: ProgressState
+  selected: string | null
+  handoffs?: HandoffTransition[]
+  onSelect: (id: string) => void
+  onHighlightEvidence?: (evidenceId: string) => void
+}) {
+  const currentRunningStep = plan.find((s) => s.status === 'running') || plan.find((s) => s.status === 'completed')
+
+  return (
+    <section className="execution-path-panel" aria-label="Deterministic Stage Chronology">
+      <div className="panel-kicker">Deterministic Stage Chronology</div>
+
+      <div className="journey-header">
+        <div>
+          <strong>{progress?.label || 'Preparing deterministic execution'}</strong>
+          <span>{progress?.detail || 'Runtime events will update stage states.'}</span>
+        </div>
+        {progress?.percent != null && <b>{Math.round(progress.percent)}%</b>}
+      </div>
+
+      {progress?.percent != null && (
+        <div className="run-progress">
+          <div style={{ width: `${progress.percent}%` }} />
+          <span className="progress-orb" style={{ left: `calc(${progress.percent}% - 6px)` }} />
+        </div>
+      )}
+
+      <div className="journey-stages-container">
+        {plan.map((step) => {
+          const match = graph.nodes.find((n) => n.id === step.id)
+          const isSelected = selected === step.id
+          const isCurrent = currentRunningStep?.id === step.id
+
+          // Check if any active handoff matches this stage
+          const activeHandoff = handoffs?.find(
+            (h) => h.active && (h.stage.toLowerCase() === step.label.toLowerCase() || h.action.includes(step.id))
+          )
+
+          return (
+            <AgentStageCard
+              key={step.id}
+              step={step}
+              graphNode={match}
+              isSelected={isSelected}
+              isCurrent={isCurrent}
+              handoff={activeHandoff}
+              onSelect={onSelect}
+              onHighlightEvidence={onHighlightEvidence}
+            />
+          )
+        })}
+      </div>
+    </section>
+  )
 }

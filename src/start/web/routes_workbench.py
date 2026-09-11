@@ -14,6 +14,7 @@ the greenfield webapp contracts and canonical StART invariants:
 from __future__ import annotations
 
 import datetime
+import hashlib
 import logging
 import threading
 import time
@@ -29,6 +30,7 @@ from start.runtime import (
     get_canonical_workflow_specs,
     resolve_workflow,
 )
+from start.runtime.scenarios import compute_scenario_eda, list_scenarios
 from start.web.queue import GLOBAL_QUEUE, ActiveRunContext
 from start.web.schemas import RunRequest
 
@@ -78,7 +80,15 @@ def make_canonical_plan(workflow_id: str, context_id: str | None = None) -> list
     cid = context_id or (
         "institutional_market_v1"
         if workflow_id == "quantitative_finance"
-        else ("deep_learning_v1" if workflow_id == "deep_learning" else "institutional_credit_v1")
+        else (
+            "deep_learning_v1"
+            if workflow_id == "deep_learning"
+            else (
+                "recommender_ratings_v1"
+                if workflow_id == "recommender_system"
+                else "institutional_credit_v1"
+            )
+        )
     )
 
     try:
@@ -399,11 +409,14 @@ def get_capabilities() -> list[dict[str, Any]]:
         ),
     }
 
-    for wf_id, wdef in defs.items():
+    for wf_id, desc in descriptions.items():
+        if wf_id not in defs:
+            continue
+        wdef = defs[wf_id]
         entry: dict[str, Any] = {
             "id": wf_id,
             "label": wdef.label,
-            "description": descriptions.get(wf_id, f"Deterministic {wdef.label} workflow."),
+            "description": desc,
             "category": wdef.category,
             "enabled": wdef.enabled,
         }
@@ -414,20 +427,291 @@ def get_capabilities() -> list[dict[str, Any]]:
     return out
 
 
+@router.get("/capability-manifest")
+def get_capability_manifest() -> dict[str, Any]:
+    """Return the authoritative, dynamic capability manifest for the StART Agentic AI Engineering Workbench.
+
+    Exposes real execution modes, supported models, preprocessing options, tuning strategies,
+    sensitivity grids, recommender algorithms, deep learning architectures, and explicit deferred items.
+    """
+    from start.modeling.models import MODEL_CHOICES
+    from start.providers.keys import ensure_provider_key
+
+    key_status = ensure_provider_key("openai", interactive=False)
+
+    return {
+        "workbench": {
+            "name": "StART — Agentic AI Engineering Workbench",
+            "tagline": "Build · Tune · Stress · Explain · Compare · Govern",
+            "version": "4.0.0",
+            "default_execution_mode": "hybrid_workbench",
+            "deterministic_science_invariant": True,
+        },
+        "execution_modes": [
+            {
+                "id": "hybrid_workbench",
+                "label": "Hybrid Workbench",
+                "is_default": True,
+                "description": "Generative AI plan synthesis and reasoning combined with 100% deterministic science execution engines.",
+            },
+            {
+                "id": "agentic_session",
+                "label": "Agentic Session",
+                "is_default": False,
+                "description": "Deliberative multi-agent committee exploration (12 specialized engineering agents).",
+            },
+            {
+                "id": "deterministic_run",
+                "label": "Deterministic Run",
+                "is_default": False,
+                "description": "Direct, reproducible parameterized pipeline execution with offline determinism.",
+            },
+        ],
+        "domains": {
+            "predictive_ml": {
+                "name": "Predictive Machine Learning",
+                "supported_models": list(MODEL_CHOICES),
+                "primary_classification_models": [
+                    "xgboost",
+                    "lightgbm",
+                    "catboost",
+                    "random_forest",
+                    "gradient_boosting",
+                    "logistic_regression",
+                    "extra_trees",
+                    "mlp",
+                ],
+                "tuning_strategies": ["optuna_bayesian", "grid_search", "random_search", "none"],
+                "data_splitters": ["stratified_kfold", "kfold", "time_series_split", "train_test_split"],
+                "preprocessing_options": {
+                    "outlier_mitigation": ["iqr", "zscore", "winsorize", "none"],
+                    "missing_imputation": ["median", "mean", "most_frequent", "none"],
+                    "feature_scaling": ["standard", "minmax", "robust", "none"],
+                    "categorical_encoding": ["onehot", "target", "ordinal", "frequency", "none"],
+                },
+                "threshold_optimization": ["f1", "youden_j", "cost_sensitive", "custom"],
+                "sensitivity_analysis": {
+                    "shocks_grid": [-0.30, -0.20, -0.10, -0.05, 0.0, 0.05, 0.10, 0.20, 0.30],
+                    "modes": ["one_at_a_time", "parallel_basket", "both"],
+                    "max_features": 5,
+                    "retraining_support": True,
+                },
+                "explainability": ["tree_shap", "kernel_shap", "permutation_importance"],
+            },
+            "deep_learning": {
+                "name": "Deep Learning Diagnostics",
+                "sequence_models": ["rnn", "lstm", "gru", "bi_lstm"],
+                "vision_models": ["simple_cnn_small", "simple_cnn_medium", "simple_cnn_deep"],
+                "training_telemetry": ["loss_curves", "lr_schedulers", "early_stopping", "gradient_norms"],
+            },
+            "fraud_anomaly": {
+                "name": "Fraud, Anomaly & AML Monitoring",
+                "workflow_id": "fraud_anomaly_aml",
+                "executable_techniques": ["supervised_fraud_classification"],
+                "cost_optimization": ["financial_loss_matrix", "threshold_scanning"],
+                "supported_contexts": ["synthetic_aml_imbalanced"],
+                "deferred_techniques": [
+                    "isolation_forest",
+                    "one_class_svm",
+                    "local_outlier_factor",
+                    "autoencoder",
+                    "graph_aml",
+                ],
+            },
+            "recommender_systems": {
+                "name": "Recommender Systems",
+                "algorithms": [
+                    "matrix_factorization",
+                    "neural_collaborative_filtering",
+                    "factorization_machine",
+                    "field_aware_factorization_machine",
+                ],
+                "task_modes": ["rating_prediction", "binary_interaction", "top_k_ranking"],
+                "ranking_metrics": ["ndcg_at_10", "map_at_10", "hit_rate_at_10", "mrr", "precision_at_10", "recall_at_10"],
+            },
+            "quantitative_finance": {
+                "name": "Quantitative Finance & Portfolio Risk",
+                "scenario_shocks": ["historical_replay", "hypothetical_shift", "factor_stress", "reverse_stress"],
+                "portfolio_optimizers": ["hierarchical_risk_parity", "minimum_variance", "equal_risk_contribution"],
+                "metrics": ["sharpe_ratio", "sortino_ratio", "max_drawdown", "tracking_error"],
+            },
+            "llm_agents": {
+                "name": "LLM & Agent Engineering",
+                "committee_roster": [
+                    "Model Architect",
+                    "Hyperparameter Specialist",
+                    "Sensitivity & Robustness Engineer",
+                    "Explainability & SHAP Specialist",
+                    "Data Quality & Leakage Auditor",
+                    "Benchmark & Comparison Engineer",
+                    "Calibration & Uncertainty Specialist",
+                    "Fairness & Bias Auditor",
+                    "Stress Testing Engineer",
+                    "Production Readiness & Latency Auditor",
+                    "Compliance & Governance Officer",
+                    "Lead Synthesis Orchestrator",
+                ],
+                "active_provider": "openai",
+                "active_model": "gpt-5.1",
+                "strict_zero_substitution": True,
+            },
+            "dataset_hub": {
+                "name": "Dataset Hub",
+                "executable_sources": ["local_synthetic_benchmark", "canonical_context_generator"],
+                "contexts": [s.to_dict() for s in get_canonical_context_specs()],
+                "deferred_connectors": ["kaggle", "openml", "uci", "huggingface"],
+            },
+            "governance": {
+                "name": "Artifacts & Evidence Governance",
+                "evidence_vault": True,
+                "cryptographic_seals": True,
+                "merkle_attestation": True,
+                "sr_11_7_export": True,
+            },
+        },
+        "deferred_capabilities": [
+            {
+                "capability": "Monte Carlo VaR & Expected Shortfall with Heavy-Tailed Copulas",
+                "domain": "quantitative_finance",
+                "status": "DEFERRED",
+                "rationale": "Standard Gaussian Monte Carlo underestimates non-linear tail risk; heavy-tailed copula calibration requires high-throughput kernels not suited for single-box interactive execution.",
+                "activation_requirements": "Calibrated Student-t / Gumbel copula module and GPD extreme-value tail fitting.",
+            },
+            {
+                "capability": "Distributed Ray / Spark Cluster Training",
+                "domain": "predictive_ml",
+                "status": "DEFERRED",
+                "rationale": "Workbench prioritizes deterministic single-node workstation execution without unmanaged infrastructure dependencies.",
+                "activation_requirements": "Ray cluster client adapter and remote object store bridge.",
+            },
+            {
+                "capability": "Unsupervised Outlier Detectors & Graph AML Pipelines",
+                "domain": "fraud_anomaly",
+                "status": "DEFERRED",
+                "rationale": "Isolation Forest, One-Class SVM, LOF, deep autoencoders, and Graph AML are architectural specifications deferred for future release; supervised fraud classification with class weighting is currently supported.",
+                "activation_requirements": "Dedicated unsupervised anomaly scoring and graph network engine.",
+            },
+            {
+                "capability": "Remote Dataset Hub Connectors (Kaggle, OpenML, UCI, Hugging Face)",
+                "domain": "dataset_hub",
+                "status": "DEFERRED",
+                "rationale": "Remote dataset connectors require external API credentials and network access; currently local and canonical synthetic datasets are executable.",
+                "activation_requirements": "Authentication secrets and remote hub client integrations.",
+            },
+            {
+                "capability": "Isolation Forest Outlier Row-Filtering",
+                "domain": "predictive_ml",
+                "status": "DEFERRED",
+                "rationale": "Isolation Forest outlier removal filters/drops rows which alters sample sizes; continuous bound clipping (IQR, Z-Score, Winsorize) is supported.",
+                "activation_requirements": "Row-filtering pipeline integration with dataset shape recalculation.",
+            },
+            {
+                "capability": "Online Streaming Drift Detection & Real-Time Feature Store",
+                "domain": "monitoring",
+                "status": "DEFERRED",
+                "rationale": "Focuses on development, stress-testing, and governance rather than continuous real-time streaming telemetry.",
+                "activation_requirements": "Continuous Kafka/Flink ingestion harness and streaming Kolmogorov-Smirnov detector.",
+            },
+        ],
+        "ai_provider": {
+            "provider": "openai",
+            "model": "gpt-5.1",
+            "status": "ONLINE" if key_status.ok else "OFFLINE",
+            "source": key_status.source,
+            "strict_zero_substitution": True,
+        },
+    }
+
+
 @router.get("/execution-contexts")
 def get_execution_contexts() -> list[dict[str, Any]]:
     """Return versioned public-safe execution contexts."""
     return [s.to_dict() for s in get_canonical_context_specs()]
 
 
+@router.get("/scenarios")
+def get_scenarios() -> list[dict[str, Any]]:
+    """Return all mechanical built-in scenario specifications."""
+    return [s.to_dict() for s in list_scenarios()]
+
+
+@router.get("/scenarios/{scenario_id}/eda")
+def get_scenario_eda(scenario_id: str) -> dict[str, Any]:
+    """Compute bounded deterministic descriptive EDA for a scenario."""
+    try:
+        return compute_scenario_eda(scenario_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("EDA computation failed for scenario %s: %s", scenario_id, exc)
+        raise HTTPException(status_code=500, detail=f"EDA computation failed: {exc}")
+
+
+@router.get("/execution-contexts/{context_id}/eda")
+def get_context_eda(context_id: str) -> dict[str, Any]:
+    """Compute bounded deterministic descriptive EDA for a canonical context."""
+    try:
+        return compute_scenario_eda(context_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("EDA computation failed for context %s: %s", context_id, exc)
+        raise HTTPException(status_code=500, detail=f"EDA computation failed: {exc}")
+
+
+@router.get("/tests")
+def get_test_catalog() -> list[dict[str, Any]]:
+    """Return authoritative 79-test catalog directly from canonical registry."""
+    all_tests = list_tests()
+    out = []
+    # Canonical domain derivation from TestSpec.context_type
+    # (the review applicability contract), NOT from risk_stripes or
+    # scenario data-compatibility.
+    _CONTEXT_TO_DOMAIN = {
+        "tabular": "predictive_ml",
+        "market": "quantitative_finance",
+        "short_rate": "treasury",
+    }
+
+    for t in all_tests:
+        ctx_type = getattr(t, "context_type", "tabular")
+        domain = _CONTEXT_TO_DOMAIN.get(ctx_type, "predictive_ml")
+
+        out.append({
+            "testId": t.test_id,
+            "name": t.name,
+            "family": t.family,
+            "domain": domain,
+            "description": getattr(t, "description", ""),
+            "contextType": getattr(t, "context_type", "tabular"),
+            "riskStripes": list(getattr(t, "risk_stripes", ())),
+            "riskDimensions": list(getattr(t, "risk_dimensions", ())),
+            "requires": list(getattr(t, "requires", ())),
+            "objectKinds": list(getattr(t, "object_kinds", ())),
+        })
+    return out
+
+
 @router.post("/plans")
+@router.post("/plan/generate")
 def create_agent_plan(request: RunRequest) -> dict[str, Any]:
     """Generate dedicated AgentPlanPreview without creating a run or fabricating fake run IDs."""
-    workflow_id = getattr(request, "workflowId", None) or getattr(request, "workflow", "predictive_ml")
-    context_id = getattr(request, "contextId", None) or getattr(
-        request, "synthetic_profile", "institutional_credit_v1"
-    )
+    workflow_id = getattr(request, "workflowId", None) or getattr(request, "workflow_id", None) or getattr(request, "workflow", None)
+    if not workflow_id and request.parameters:
+        workflow_id = request.parameters.get("workflow_id") or request.parameters.get("workflowId") or request.parameters.get("workflow")
+    if not workflow_id:
+        workflow_id = "predictive_ml"
+
+    context_id = getattr(request, "contextId", None) or getattr(request, "context_id", None)
+    if not context_id and request.parameters:
+        context_id = request.parameters.get("dataset_id") or request.parameters.get("dataset") or request.parameters.get("context_id") or request.parameters.get("contextId") or request.parameters.get("context")
+    if not context_id:
+        context_id = getattr(request, "synthetic_profile", None)
+    if not context_id:
+        context_id = "institutional_credit_v1"
+
     goal = getattr(request, "goal", "") or f"Evaluate {workflow_id} on {context_id}"
+    exec_mode = getattr(request, "execution_mode", None) or getattr(request, "executionMode", "hybrid_workbench")
 
     plan = make_canonical_plan(workflow_id, context_id)
 
@@ -435,11 +719,22 @@ def create_agent_plan(request: RunRequest) -> dict[str, Any]:
     if workflow_id == "model_comparison":
         warnings.append("Workflow is marked disabled in capabilities catalog.")
 
+    agent_proposal = None
+    if exec_mode != "deterministic_run":
+        agent_proposal = {
+            "mode": exec_mode,
+            "recommended_estimator": "lightgbm" if workflow_id == "predictive_ml" else ("mlp" if workflow_id == "deep_learning" else None),
+            "rationale": f"Plan configured for {goal} under {exec_mode} mode.",
+            "tuning_recommendation": "Bayesian / Optuna 5-trial exploration" if exec_mode == "agentic_session" else None,
+        }
+
     return {
         "workflowId": workflow_id,
         "contextId": context_id,
         "goal": goal,
         "plan": plan,
+        "executionMode": exec_mode,
+        "agentProposal": agent_proposal,
         "requiredInputs": ["contextId", "workflowId"],
         "warnings": warnings,
     }
@@ -859,6 +1154,7 @@ def get_run_findings(
 
 
 @router.get("/runs/{run_id}/artifacts")
+@router.get("/workbench/runs/{run_id}/artifacts")
 def get_run_artifacts(
     run_id: str,
     session_id: str | None = Query(None),
@@ -873,11 +1169,15 @@ def get_run_artifacts(
 
     for art_id, art_data in ctx.artifacts.items():
         art_type = art_data.get("artifact_type", "json")
-        kind = "plot" if art_type == "svg" else ("table" if art_type in ("table", "json") else "report")
-        mime = "image/svg+xml" if art_type == "svg" else "application/json"
+        art_title = art_data.get("title") or art_data.get("name") or art_id
+        kind = art_data.get("kind") or ("plot" if art_type == "svg" or "plot" in art_type else ("table" if art_type in ("table", "json", "summary_table", "diagnostic_table") else "metric"))
+        mime = art_data.get("mimeType") or ("image/svg+xml" if art_type == "svg" else "application/json")
+        producer_step = art_data.get("producing_step_id") or art_data.get("producer_node")
+        content = art_data.get("content")
+        ev_ids = art_data.get("evidence_ids", [])
+        data_fp = art_data.get("data_fingerprint", "")
 
         preview = None
-        content = art_data.get("content")
         if isinstance(content, dict):
             preview = {"type": "key-value", "payload": {k: str(v) for k, v in list(content.items())[:8]}}
 
@@ -885,12 +1185,18 @@ def get_run_artifacts(
             {
                 "artifactId": art_id,
                 "runId": run_id,
-                "label": art_data.get("title", art_id),
+                "label": art_title,
+                "title": art_title,
                 "kind": kind,
+                "artifactType": art_type,
                 "mimeType": mime,
                 "createdAt": now_iso,
-                "description": f"Generated deterministic {kind} surface.",
+                "description": art_data.get("description", f"Generated deterministic {kind} surface."),
                 "preview": preview,
+                "content": content,
+                "evidenceIds": ev_ids,
+                "dataFingerprint": data_fp,
+                "producerNodeId": producer_step,
             }
         )
 
@@ -987,6 +1293,7 @@ def execute_human_action(
 
 
 @router.get("/runs/{run_id}/governance")
+@router.get("/workbench/runs/{run_id}/governance")
 def get_run_governance(
     run_id: str,
     session_id: str | None = Query(None),
@@ -1019,6 +1326,7 @@ def get_run_governance(
 
 
 @router.get("/runs/{run_id}/attestation")
+@router.get("/workbench/runs/{run_id}/attestation")
 def get_run_attestation(
     run_id: str,
     session_id: str | None = Query(None),
@@ -1046,4 +1354,804 @@ def get_run_attestation(
         "evidenceCount": len(ctx.evidence_records),
         "artifactCount": len(ctx.artifacts),
         "reproducibilityId": pres.get("reproducibility_id"),
+    }
+
+
+@router.get("/runs/{run_id}/milestones")
+@router.get("/runs/{run_id}/checkpoints")
+@router.get("/workbench/runs/{run_id}/milestones")
+@router.get("/workbench/runs/{run_id}/checkpoints")
+def get_run_checkpoints(
+    run_id: str,
+    session_id: str | None = Query(None),
+) -> list[dict[str, Any]]:
+    """Return verified checkpoints committed during the run lifecycle."""
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    if ctx.checkpoints:
+        return ctx.checkpoints
+
+    # Fallback to deriving from runtime events
+    checkpoints: list[dict[str, Any]] = []
+    seen = set()
+    for ev in ctx.events:
+        if ev.get("event_type") == "checkpoint_committed" or ev.get("checkpoint_id"):
+            cid = ev.get("checkpoint_id") or (ev.get("metadata", {}).get("checkpoint_id"))
+            if cid and cid not in seen:
+                seen.add(cid)
+                meta = ev.get("metadata", {})
+                checkpoints.append(
+                    {
+                        "checkpoint_id": cid,
+                        "name": meta.get("name", ev.get("action", cid)),
+                        "status": meta.get("status", "completed"),
+                        "producing_stage": meta.get("producing_stage", ev.get("node_id")),
+                        "agent_signature": meta.get("agent_signature", ev.get("source_agent", "DeterministicEngine")),
+                        "evidence_ids": meta.get("evidence_ids", ev.get("evidence_refs", [])),
+                        "commit_hash": meta.get("commit_hash", ""),
+                        "timestamp": meta.get("timestamp", datetime.datetime.fromtimestamp(ev.get("timestamp", time.time()), tz=datetime.UTC).isoformat()),
+                        "summary": meta.get("summary", ev.get("message", "")),
+                    }
+                )
+    return checkpoints
+
+
+@router.post("/runs/{run_id}/decisions")
+def record_human_decision(
+    run_id: str,
+    payload: dict[str, Any],
+    session_id: str | None = Query(None),
+) -> dict[str, Any]:
+    """Record a human decision with cryptographic receipt while preserving evidence immutability."""
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    action = str(payload.get("action", "")).upper()
+    valid_actions = {"ACCEPT", "QUESTION", "CHALLENGE", "OVERRIDE", "RERUN", "ESCALATE"}
+    if action not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid decision action '{action}'. Valid: {valid_actions}")
+
+    target_stage = payload.get("target_stage") or payload.get("targetStage")
+    target_checkpoint = payload.get("target_checkpoint") or payload.get("targetCheckpoint")
+    evidence_ids = payload.get("evidence_ids") or payload.get("evidenceIds") or []
+    rationale = payload.get("rationale") or payload.get("message") or f"Human action {action} recorded."
+    override_value = payload.get("override_value") or payload.get("overrideValue")
+    author = payload.get("author") or "Risk Officer"
+
+    receipt_id = f"REC-{uuid.uuid4().hex[:8].upper()}"
+    timestamp_str = datetime.datetime.fromtimestamp(time.time(), tz=datetime.UTC).isoformat()
+
+    # Cryptographic hash of receipt preserving immutable audit chain
+    hash_material = f"{receipt_id}:{run_id}:{action}:{target_stage}:{target_checkpoint}:{','.join(str(e) for e in evidence_ids)}:{rationale}:{timestamp_str}"
+    decision_hash = hashlib.sha256(hash_material.encode("utf-8")).hexdigest()
+
+    receipt = {
+        "receipt_id": receipt_id,
+        "receiptId": receipt_id,
+        "run_id": run_id,
+        "runId": run_id,
+        "action": action,
+        "target_stage": target_stage,
+        "targetStage": target_stage,
+        "target_checkpoint": target_checkpoint,
+        "targetCheckpoint": target_checkpoint,
+        "evidence_ids": evidence_ids,
+        "evidenceIds": evidence_ids,
+        "rationale": rationale,
+        "override_value": override_value,
+        "overrideValue": override_value,
+        "author": author,
+        "decision_hash": decision_hash,
+        "decisionHash": decision_hash,
+        "timestamp": timestamp_str,
+        "status": "RECORDED",
+        "immutable_evidence_preserved": True,
+    }
+
+    ctx.decisions.append(receipt)
+
+    # Update canonical governance disposition in presentation model if applicable
+    if isinstance(ctx.presentation, dict):
+        if action == "ACCEPT":
+            ctx.presentation["governance_disposition"] = "APPROVED"
+        elif action == "ESCALATE":
+            ctx.presentation["governance_disposition"] = "ESCALATED"
+        elif action == "CHALLENGE":
+            ctx.presentation["governance_disposition"] = "CHALLENGED_PENDING_REVIEW"
+
+    # Emit human_decision event into run event log
+    evt = {
+        "event_id": f"EVT-{receipt_id}",
+        "run_id": run_id,
+        "event_type": "human_decision",
+        "status": "COMPLETED",
+        "source_agent": "HumanReviewer",
+        "target_agent": "ModelGovernance",
+        "stage": "HUMAN_CONTROL",
+        "action": f"decision_{action.lower()}",
+        "node_id": target_stage or "human-control",
+        "timestamp": time.time(),
+        "elapsed_seconds": round(time.time() - (ctx.started_at or ctx.created_at), 2),
+        "message": f"Human {action} recorded: {rationale[:60]}... (Receipt {receipt_id})",
+        "evidence_refs": evidence_ids,
+        "metadata": receipt,
+    }
+    ctx.events.append(evt)
+
+    return receipt
+
+
+@router.post("/runs/{run_id}/question")
+def ask_evidence_question(
+    run_id: str,
+    payload: dict[str, Any],
+    session_id: str | None = Query(None),
+) -> dict[str, Any]:
+    """Answer evidence-grounded questions using genuine EvidenceRecords and the OpenAI provider."""
+    import os
+    import re
+
+    from start.core.config import LLMConfig, load_config
+    from start.providers.keys import ensure_provider_key
+    from start.providers.llm import get_llm_provider
+
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    question = payload.get("question", "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Missing question text")
+
+    target_stage = payload.get("target_stage") or payload.get("targetStage")
+    target_evidence_id = payload.get("evidence_id") or payload.get("evidenceId")
+
+    matched_records: list[Any] = []
+    if target_evidence_id:
+        for r in ctx.evidence_records:
+            eid = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
+            if eid == target_evidence_id:
+                matched_records.append(r)
+                break
+
+    if not matched_records and target_stage:
+        wdef = get_workflow_definition(getattr(ctx.request, "workflowId", None) or getattr(ctx.request, "workflow", "predictive_ml"))
+        stage_test_ids = set()
+        for sid, _, _, _, tids in wdef.step_specs:
+            if sid == target_stage:
+                stage_test_ids.update(tids)
+        for r in ctx.evidence_records:
+            tid = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
+            if tid in stage_test_ids:
+                matched_records.append(r)
+
+    # 1. Build authoritative evidence context strictly from immutable EvidenceRecords
+    evidence_lines: list[str] = []
+    evidence_map: dict[str, Any] = {}
+    for r in ctx.evidence_records:
+        eid = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
+        tid = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
+        stat = str(getattr(r, "status", "") or (r.get("status") if isinstance(r, dict) else "UNKNOWN")).upper()
+        metrics = getattr(r, "metrics", {}) or (r.get("metrics") if isinstance(r, dict) else {})
+        interp = getattr(r, "interpretation", "") or (r.get("interpretation") if isinstance(r, dict) else "")
+        stage = getattr(r, "parent_node_id", None) or (r.get("parent_node_id") if isinstance(r, dict) else "")
+        if eid:
+            evidence_map[eid] = r
+            metric_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in list(metrics.items())[:6])
+            evidence_lines.append(
+                f"- [{eid}] (Test: {tid}, Stage: {stage or 'N/A'}, Status: {stat})\n"
+                f"  Metrics: {metric_str}\n"
+                f"  Interpretation: {interp or 'None'}"
+            )
+
+    evidence_context = "\n".join(evidence_lines)
+
+    system_prompt = (
+        "You are the StART (Scientific Testing, Attestation, and Review Topology) Evidence Reviewer. "
+        "Your mandate is to provide rigorous, evidence-grounded review of empirical validation results. "
+        "\n\nSTRICT GOVERNANCE INVARIANTS:"
+        "\n1. Rely strictly and exclusively on the provided EvidenceRecord universe."
+        "\n2. You must NEVER invent, calculate, extrapolate, or estimate any new numerical values, metrics, thresholds, or conclusions."
+        "\n3. All numerical values must come verbatim from the supplied EvidenceRecords."
+        "\n4. You MUST cite the exact Evidence ID in brackets (e.g. [EV-01-...]) for every finding, assertion, or observation."
+        "\n5. Explicitly identify and distinguish negative or conditional findings (status FAIL or WARN) from passing tests (PASS)."
+        "\n6. If challenging a finding, evaluate whether conclusions are supported by cited records without inventing criteria."
+    )
+
+    user_prompt = (
+        f"RUN IDENTIFIER: {run_id}\n"
+        f"FOCUSED EVIDENCE: {target_evidence_id or 'None (Whole-Run Context)'}\n"
+        f"FOCUSED STAGE: {target_stage or 'None'}\n\n"
+        f"AVAILABLE IMMUTABLE EVIDENCERECORDS ({len(ctx.evidence_records)} total):\n"
+        f"{evidence_context}\n\n"
+        f"REVIEWER INSTRUCTION / QUERY:\n"
+        f"{question}"
+    )
+
+    # 2. Resolve credentials safely without exposing key
+    key_status = ensure_provider_key("openai", interactive=False)
+
+    # 3. Resolve LLM provider with configured model
+    cfg = load_config()
+    raw_prov = os.environ.get("START_LLM__PROVIDER")
+    provider_name = raw_prov if raw_prov is not None else (cfg.llm.provider or "openai")
+    if not provider_name:
+        provider_name = "openai"
+    model_name = os.environ.get("START_LLM__MODEL") or (cfg.llm.model if cfg.llm.model and cfg.llm.model not in ("gpt-5-mini", "none") else "gpt-5.1")
+
+    prov_cfg = LLMConfig(provider=provider_name, model=model_name)
+    provider = get_llm_provider(prov_cfg)
+
+    # 4. Fail closed if provider unavailable
+    if not provider.available or provider.name == "none":
+        logger.error("OpenAI provider unavailable (key status source: %s)", key_status.source)
+        raise HTTPException(
+            status_code=503,
+            detail=f"OpenAI provider unavailable: credential missing or provider not ready (source: {key_status.source})",
+        )
+
+    # 5. Execute live OpenAI Responses API call
+    try:
+        res = provider.complete_result(system=system_prompt, user=user_prompt, output_token_budget=2048)
+    except Exception as exc:
+        logger.error("OpenAI request failed: %s", exc)
+        raise HTTPException(status_code=502, detail=f"OpenAI request failed: {exc}")
+
+    if res.status == "error":
+        logger.error("OpenAI returned error: %s (%s)", res.error_type, res.error_message)
+        raise HTTPException(status_code=502, detail=f"OpenAI error: {res.error_message or res.error_type}")
+
+    if not res.text or not res.text.strip():
+        logger.error("OpenAI returned empty text (refusal=%s)", res.refusal)
+        raise HTTPException(status_code=502, detail="OpenAI returned empty text response")
+
+    full_answer = res.text.strip()
+    logger.info(
+        "OpenAI completion success: response_id=%s, model=%s, latency=%.2fs",
+        res.response_id,
+        res.model,
+        res.latency_seconds,
+    )
+
+    # 6. Extract cited evidence IDs from response and match to canonical universe
+    found_eids = set(re.findall(r"EV-[A-Za-z0-9_-]+", full_answer))
+    if target_evidence_id:
+        found_eids.add(target_evidence_id)
+
+    citations: list[dict[str, Any]] = []
+    for eid in sorted(found_eids):
+        if eid in evidence_map:
+            r = evidence_map[eid]
+            tid = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "test")
+            stat = str(getattr(r, "status", "") or (r.get("status") if isinstance(r, dict) else "UNKNOWN")).upper()
+            metrics = getattr(r, "metrics", {}) or (r.get("metrics") if isinstance(r, dict) else {})
+            interp = getattr(r, "interpretation", "") or (r.get("interpretation") if isinstance(r, dict) else "")
+            citations.append({
+                "evidence_id": eid,
+                "evidenceId": eid,
+                "test_id": tid,
+                "testId": tid,
+                "status": stat,
+                "metrics": metrics,
+                "snippet": f"{tid} reported {stat}. {interp}",
+            })
+
+    if not citations and matched_records:
+        for r in matched_records[:3]:
+            eid = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "EV")
+            tid = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "test")
+            stat = str(getattr(r, "status", "") or (r.get("status") if isinstance(r, dict) else "UNKNOWN")).upper()
+            metrics = getattr(r, "metrics", {}) or (r.get("metrics") if isinstance(r, dict) else {})
+            interp = getattr(r, "interpretation", "") or (r.get("interpretation") if isinstance(r, dict) else "")
+            citations.append({
+                "evidence_id": eid,
+                "evidenceId": eid,
+                "test_id": tid,
+                "testId": tid,
+                "status": stat,
+                "metrics": metrics,
+                "snippet": f"{tid} reported {stat}. {interp}",
+            })
+
+    # 7. Record decision receipt in audit trail
+    receipt_id = f"REC-Q-{uuid.uuid4().hex[:6].upper()}"
+    timestamp_str = datetime.datetime.fromtimestamp(time.time(), tz=datetime.UTC).isoformat()
+    action_type = "CHALLENGE" if "challenge" in question.lower() else "QUESTION"
+    receipt = {
+        "receipt_id": receipt_id,
+        "receiptId": receipt_id,
+        "run_id": run_id,
+        "runId": run_id,
+        "action": action_type,
+        "target_stage": target_stage,
+        "targetStage": target_stage,
+        "evidence_ids": [c["evidence_id"] for c in citations],
+        "evidenceIds": [c["evidence_id"] for c in citations],
+        "rationale": question,
+        "author": "Risk Officer",
+        "timestamp": timestamp_str,
+        "status": "ANSWERED",
+        "provider": "OpenAI",
+        "model": res.model or model_name,
+        "response_id": res.response_id,
+    }
+    ctx.decisions.append(receipt)
+
+    return {
+        "question": question,
+        "answer": full_answer,
+        "citations": citations,
+        "targetStage": target_stage,
+        "targetEvidenceId": target_evidence_id,
+        "receipt": receipt,
+        "timestamp": timestamp_str,
+        "provider": "OpenAI",
+        "model": res.model or model_name,
+        "response_id": res.response_id,
+        "responseId": res.response_id,
+        "latency_seconds": res.latency_seconds,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Phase 3: History, Compare, Lineage, and Search Endpoints
+# --------------------------------------------------------------------------- #
+@router.get("/workbench/runs")
+def list_workbench_runs_history(
+    workflow: str | None = Query(None),
+    status: str | None = Query(None),
+    domain: str | None = Query(None),
+) -> list[dict[str, Any]]:
+    """Return historical runs summary list for workbench history browser."""
+    history = GLOBAL_QUEUE.get_run_history()
+    if workflow:
+        history = [h for h in history if h.get("workflow") == workflow]
+    if status:
+        history = [h for h in history if h.get("status") == status.lower()]
+    if domain:
+        history = [h for h in history if h.get("domain") == domain]
+    return history
+
+
+@router.get("/runs/{run_id}/lineage")
+@router.get("/workbench/runs/{run_id}/lineage")
+def get_run_lineage(
+    run_id: str,
+    session_id: str | None = Query(None),
+) -> dict[str, Any]:
+    """Return parent/child run lineage and parameter override delta."""
+    ctx = GLOBAL_QUEUE.get_run(run_id, session_id)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    req = ctx.request
+    parent_run_id = getattr(req, "parent_run_id", None) or getattr(req, "parentRunId", None)
+    intervention = getattr(req, "intervention", None)
+    params = getattr(req, "parameters", {}) or {}
+
+    # Find children
+    all_runs = GLOBAL_QUEUE.list_runs()
+    children = []
+    for r in all_runs:
+        r_parent = getattr(r.request, "parent_run_id", None) or getattr(r.request, "parentRunId", None)
+        if r_parent == run_id:
+            children.append(
+                {
+                    "runId": r.run_id,
+                    "createdAt": r.created_at,
+                    "status": r.status.lower(),
+                    "intervention": getattr(r.request, "intervention", None),
+                    "parameters": getattr(r.request, "parameters", {}) or {},
+                }
+            )
+
+    param_delta = {}
+    if parent_run_id:
+        parent_ctx = GLOBAL_QUEUE.get_run(parent_run_id)
+        if parent_ctx:
+            parent_params = getattr(parent_ctx.request, "parameters", {}) or {}
+            for k, v in params.items():
+                if parent_params.get(k) != v:
+                    param_delta[k] = {"parent": parent_params.get(k), "child": v}
+
+    return {
+        "runId": run_id,
+        "parentRunId": parent_run_id,
+        "intervention": intervention,
+        "parameterDelta": param_delta,
+        "children": children,
+    }
+
+
+@router.get("/compare")
+@router.get("/workbench/compare")
+def compare_runs(
+    run_a: str | None = Query(None, alias="run_a"),
+    run_b: str | None = Query(None, alias="run_b"),
+    runA: str | None = Query(None, alias="runA"),
+    runB: str | None = Query(None, alias="runB"),
+    session_id: str | None = Query(None),
+) -> dict[str, Any]:
+    """Authoritative deterministic comparison of two execution runs."""
+    target_a = run_a or runA
+    target_b = run_b or runB
+    if not target_a or not target_b:
+        raise HTTPException(status_code=422, detail="Both run_a (runA) and run_b (runB) are required")
+    run_a = target_a
+    run_b = target_b
+
+    ctx_a = GLOBAL_QUEUE.get_run(run_a, session_id)
+    if not ctx_a:
+        raise HTTPException(status_code=404, detail=f"Run '{run_a}' not found")
+
+    ctx_b = GLOBAL_QUEUE.get_run(run_b, session_id)
+    if not ctx_b:
+        raise HTTPException(status_code=404, detail=f"Run '{run_b}' not found")
+
+    req_a = ctx_a.request
+    req_b = ctx_b.request
+
+    wf_a = getattr(req_a, "workflowId", None) or getattr(req_a, "workflow", "predictive_ml")
+    wf_b = getattr(req_b, "workflowId", None) or getattr(req_b, "workflow", "predictive_ml")
+    dom_a = getattr(req_a, "domain", "predictive")
+    dom_b = getattr(req_b, "domain", "predictive")
+    ctx_id_a = getattr(req_a, "contextId", None) or getattr(req_a, "synthetic_profile", "")
+    ctx_id_b = getattr(req_b, "contextId", None) or getattr(req_b, "synthetic_profile", "")
+
+    # Scientific Compatibility Enforcement
+    if wf_a != wf_b:
+        return {
+            "compatible": False,
+            "incompatibleReason": f"Incompatible workflows: Cannot compare '{wf_a}' ({dom_a}) with '{wf_b}' ({dom_b}).",
+            "runA": {"runId": run_a, "workflow": wf_a, "domain": dom_a, "contextId": ctx_id_a},
+            "runB": {"runId": run_b, "workflow": wf_b, "domain": dom_b, "contextId": ctx_id_b},
+        }
+
+    if dom_a != dom_b:
+        return {
+            "compatible": False,
+            "incompatibleReason": f"Incompatible domains: Cannot compare domain '{dom_a}' with '{dom_b}'.",
+            "runA": {"runId": run_a, "workflow": wf_a, "domain": dom_a, "contextId": ctx_id_a},
+            "runB": {"runId": run_b, "workflow": wf_b, "domain": dom_b, "contextId": ctx_id_b},
+        }
+
+    if ctx_id_a and ctx_id_b and ctx_id_a != ctx_id_b:
+        return {
+            "compatible": False,
+            "incompatibleReason": f"Incompatible execution contexts: Cannot compare context '{ctx_id_a}' with '{ctx_id_b}'.",
+            "runA": {"runId": run_a, "workflow": wf_a, "domain": dom_a, "contextId": ctx_id_a},
+            "runB": {"runId": run_b, "workflow": wf_b, "domain": dom_b, "contextId": ctx_id_b},
+        }
+
+    # Metadata & Parameter comparison
+    params_a = getattr(req_a, "parameters", {}) or {}
+    params_b = getattr(req_b, "parameters", {}) or {}
+    all_param_keys = sorted(set(params_a.keys()) | set(params_b.keys()))
+    param_diffs = []
+    for k in all_param_keys:
+        va = params_a.get(k)
+        vb = params_b.get(k)
+        param_diffs.append({
+            "param": k,
+            "valA": va,
+            "valB": vb,
+            "changed": va != vb,
+        })
+
+    is_lineage = (
+        getattr(req_b, "parent_run_id", None) == run_a
+        or getattr(req_a, "parent_run_id", None) == run_b
+    )
+
+    # Data fingerprint comparison
+    def get_fp(ctx: ActiveRunContext) -> str:
+        for ev in ctx.events:
+            if ev.get("event_type") == "context_ready":
+                fp = (ev.get("metadata") or {}).get("data_fingerprint")
+                if fp:
+                    return str(fp)
+        for art in ctx.artifacts.values():
+            fp = art.get("data_fingerprint")
+            if fp:
+                return str(fp)
+        return ""
+
+    fp_a = get_fp(ctx_a)
+    fp_b = get_fp(ctx_b)
+
+    # Test & Evidence Outcomes matrix
+    def extract_evidence(ctx: ActiveRunContext) -> dict[str, dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
+        for r in ctx.evidence_records:
+            eid = getattr(r, "evidence_id", None) or (r.get("evidence_id") if isinstance(r, dict) else "")
+            tid = getattr(r, "test_id", None) or (r.get("test_id") if isinstance(r, dict) else "")
+            stat = getattr(r, "status", None) or (r.get("status") if isinstance(r, dict) else "UNKNOWN")
+            m = getattr(r, "metrics", None) or (r.get("metrics") if isinstance(r, dict) else {})
+            if hasattr(m, "to_dict"):
+                m = m.to_dict()
+            elif not isinstance(m, dict):
+                m = {}
+            if tid:
+                out[tid] = {
+                    "evidenceId": eid,
+                    "testId": tid,
+                    "status": str(stat).upper(),
+                    "metrics": m,
+                }
+        return out
+
+    ev_a = extract_evidence(ctx_a)
+    ev_b = extract_evidence(ctx_b)
+
+    common_tids = sorted(set(ev_a.keys()) & set(ev_b.keys()))
+    only_in_a_tids = sorted(set(ev_a.keys()) - set(ev_b.keys()))
+    only_in_b_tids = sorted(set(ev_b.keys()) - set(ev_a.keys()))
+
+    metric_comparisons = []
+    changed_count = 0
+    unchanged_count = 0
+
+    for tid in common_tids:
+        ea = ev_a[tid]
+        eb = ev_b[tid]
+        stat_a = ea["status"]
+        stat_b = eb["status"]
+        stat_changed = stat_a != stat_b
+
+        ma = ea["metrics"]
+        mb = eb["metrics"]
+        all_metrics = sorted(set(ma.keys()) | set(mb.keys()))
+
+        metric_deltas = []
+        any_metric_changed = False
+
+        for mk in all_metrics:
+            val_a = ma.get(mk)
+            val_b = mb.get(mk)
+            delta = None
+            pct_change = None
+
+            if isinstance(val_a, (int, float)) and isinstance(val_b, (int, float)):
+                delta = round(float(val_b) - float(val_a), 6)
+                pct_change = round(((float(val_b) - float(val_a)) / abs(float(val_a))) * 100, 2) if float(val_a) != 0 else 0.0
+                if delta != 0.0:
+                    any_metric_changed = True
+
+            metric_deltas.append({
+                "metric": mk,
+                "valA": val_a,
+                "valB": val_b,
+                "delta": delta,
+                "pctChange": pct_change,
+            })
+
+        is_changed = stat_changed or any_metric_changed
+        if is_changed:
+            changed_count += 1
+        else:
+            unchanged_count += 1
+
+        metric_comparisons.append({
+            "testId": tid,
+            "statusA": stat_a,
+            "statusB": stat_b,
+            "statusChanged": stat_changed,
+            "evidenceIdA": ea["evidenceId"],
+            "evidenceIdB": eb["evidenceId"],
+            "metrics": metric_deltas,
+            "isChanged": is_changed,
+        })
+
+    # Findings diff
+    def extract_findings(ctx: ActiveRunContext) -> list[dict[str, Any]]:
+        try:
+            return get_run_findings(ctx.run_id)
+        except Exception:
+            return []
+
+    findings_a = extract_findings(ctx_a)
+    findings_b = extract_findings(ctx_b)
+
+    f_map_a = {f.get("title") or f.get("findingId"): f for f in findings_a}
+    f_map_b = {f.get("title") or f.get("findingId"): f for f in findings_b}
+
+    all_f_keys = sorted(set(f_map_a.keys()) | set(f_map_b.keys()))
+    findings_diff = []
+    for fk in all_f_keys:
+        fa = f_map_a.get(fk)
+        fb = f_map_b.get(fk)
+        findings_diff.append({
+            "title": fk,
+            "presentInA": fa is not None,
+            "presentInB": fb is not None,
+            "severityA": fa.get("severity") if fa else None,
+            "severityB": fb.get("severity") if fb else None,
+            "severityChanged": (fa.get("severity") if fa else None) != (fb.get("severity") if fb else None),
+            "evidenceIdsA": fa.get("evidenceIds", []) if fa else [],
+            "evidenceIdsB": fb.get("evidenceIds", []) if fb else [],
+        })
+
+    # Artifacts diff
+    arts_a = ctx_a.artifacts
+    arts_b = ctx_b.artifacts
+    all_art_keys = sorted(set(arts_a.keys()) | set(arts_b.keys()))
+    artifacts_diff = []
+    for ak in all_art_keys:
+        aa = arts_a.get(ak)
+        ab = arts_b.get(ak)
+        fp_art_a = aa.get("data_fingerprint") if aa else None
+        fp_art_b = ab.get("data_fingerprint") if ab else None
+        artifacts_diff.append({
+            "artifactId": ak,
+            "title": (ab or aa or {}).get("title", ak),
+            "presentInA": aa is not None,
+            "presentInB": ab is not None,
+            "fingerprintA": fp_art_a,
+            "fingerprintB": fp_art_b,
+            "fingerprintChanged": fp_art_a != fp_art_b,
+        })
+
+    gov_a = (ctx_a.presentation or {}).get("governance_disposition") or "REVIEW_REQUIRED"
+    gov_b = (ctx_b.presentation or {}).get("governance_disposition") or "REVIEW_REQUIRED"
+
+    return {
+        "compatible": True,
+        "runA": {
+            "runId": run_a,
+            "workflow": wf_a,
+            "domain": dom_a,
+            "contextId": ctx_id_a,
+            "status": ctx_a.status.lower(),
+            "createdAt": ctx_a.created_at,
+            "completedAt": ctx_a.completed_at,
+            "evidenceCount": len(ctx_a.evidence_records),
+            "artifactCount": len(ctx_a.artifacts),
+            "governanceDisposition": gov_a,
+        },
+        "runB": {
+            "runId": run_b,
+            "workflow": wf_b,
+            "domain": dom_b,
+            "contextId": ctx_id_b,
+            "status": ctx_b.status.lower(),
+            "createdAt": ctx_b.created_at,
+            "completedAt": ctx_b.completed_at,
+            "evidenceCount": len(ctx_b.evidence_records),
+            "artifactCount": len(ctx_b.artifacts),
+            "governanceDisposition": gov_b,
+        },
+        "lineage": {
+            "isLineage": is_lineage,
+            "relation": "parent_child" if is_lineage else "peers",
+            "parentRunId": getattr(req_b, "parent_run_id", None) or getattr(req_a, "parent_run_id", None),
+        },
+        "parameters": param_diffs,
+        "fingerprints": {
+            "fingerprintA": fp_a,
+            "fingerprintB": fp_b,
+            "matched": fp_a == fp_b,
+        },
+        "metricsSummary": {
+            "totalCommonTests": len(common_tids),
+            "changedTestsCount": changed_count,
+            "unchangedTestsCount": unchanged_count,
+            "onlyInACount": len(only_in_a_tids),
+            "onlyInBCount": len(only_in_b_tids),
+        },
+        "metricComparisons": metric_comparisons,
+        "onlyInA": [{"testId": tid, "status": ev_a[tid]["status"], "evidenceId": ev_a[tid]["evidenceId"]} for tid in only_in_a_tids],
+        "onlyInB": [{"testId": tid, "status": ev_b[tid]["status"], "evidenceId": ev_b[tid]["evidenceId"]} for tid in only_in_b_tids],
+        "findings": findings_diff,
+        "artifacts": artifacts_diff,
+        "governance": {
+            "dispositionA": gov_a,
+            "dispositionB": gov_b,
+            "changed": gov_a != gov_b,
+        },
+    }
+
+
+@router.get("/search")
+@router.get("/workbench/search")
+def search_workbench(
+    q: str = Query(..., min_length=1),
+    session_id: str | None = Query(None),
+) -> dict[str, Any]:
+    """Search only genuine indexed entities (runs, tests, scenarios, contexts)."""
+    q_lower = q.lower().strip()
+    results = []
+
+    # 1. Runs
+    for h in GLOBAL_QUEUE.get_run_history():
+        if q_lower in h["run_id"].lower() or q_lower in h["workflow"].lower() or q_lower in h["context_id"].lower():
+            results.append({
+                "category": "run",
+                "id": h["run_id"],
+                "title": f"Run {h['run_id']}",
+                "subtitle": f"{h['workflow']} ({h['context_id']}) • {h['status'].upper()}",
+                "data": h,
+            })
+
+    # 2. Tests (from 79-test catalog)
+    for t in list_tests():
+        tid = t.test_id
+        name = t.name
+        desc = getattr(t, "description", "")
+        if q_lower in tid.lower() or q_lower in name.lower() or q_lower in desc.lower():
+            results.append({
+                "category": "test",
+                "id": tid,
+                "title": f"Test: {tid}",
+                "subtitle": name,
+                "data": {"testId": tid, "name": name, "family": t.family},
+            })
+
+    # 3. Scenarios
+    for sc in list_scenarios():
+        sc_dict = sc.to_dict() if hasattr(sc, "to_dict") else sc
+        sc_id = sc_dict.get("id", "")
+        title = sc_dict.get("title", "")
+        if q_lower in sc_id.lower() or q_lower in title.lower():
+            results.append({
+                "category": "scenario",
+                "id": sc_id,
+                "title": f"Scenario: {title}",
+                "subtitle": sc_dict.get("description", ""),
+                "data": sc_dict,
+            })
+
+    # 4. Evidence (from persisted runs' evidence records)
+    for ctx in GLOBAL_QUEUE.list_runs():
+        for ev in (ctx.evidence_records or []):
+            eid = ev.get("evidence_id", "") if isinstance(ev, dict) else getattr(ev, "evidence_id", "")
+            tid = ev.get("test_id", "") if isinstance(ev, dict) else getattr(ev, "test_id", "")
+            if q_lower in eid.lower() or q_lower in tid.lower():
+                results.append({
+                    "category": "evidence",
+                    "id": eid,
+                    "title": f"Evidence: {eid}",
+                    "subtitle": f"Test {tid} • Run {ctx.run_id}",
+                    "data": {"evidenceId": eid, "testId": tid, "runId": ctx.run_id},
+                })
+
+    # 5. Execution contexts
+    for cspec in get_canonical_context_specs():
+        cd = cspec.to_dict()
+        cid = cd.get("id", "")
+        clabel = cd.get("label", cd.get("title", ""))
+        if q_lower in cid.lower() or q_lower in clabel.lower():
+            results.append({
+                "category": "context",
+                "id": cid,
+                "title": f"Context: {clabel}",
+                "subtitle": cid,
+                "data": cd,
+            })
+
+    # 6. Artifacts (from persisted runs' artifacts)
+    for ctx in GLOBAL_QUEUE.list_runs():
+        arts = ctx.artifacts or {}
+        if isinstance(arts, dict):
+            for art_id, art_data in arts.items():
+                title = ""
+                if isinstance(art_data, dict):
+                    title = art_data.get("title", art_data.get("name", art_id))
+                else:
+                    title = getattr(art_data, "title", str(art_id))
+                if q_lower in art_id.lower() or (title and q_lower in title.lower()):
+                    results.append({
+                        "category": "artifact",
+                        "id": art_id,
+                        "title": f"Artifact: {title or art_id}",
+                        "subtitle": f"Run {ctx.run_id}",
+                        "data": {"artifactId": art_id, "title": title, "runId": ctx.run_id},
+                    })
+
+    return {
+        "query": q,
+        "results": results[:50],
+        "count": len(results),
     }

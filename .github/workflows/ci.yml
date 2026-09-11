@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "staging/**"
   pull_request:
     branches:
       - main
@@ -15,6 +16,14 @@ concurrency:
 
 env:
   START_PROFILE: airgapped
+  START_DEVICE: cpu
+  START_DISABLE_MPS: "1"
+  OMP_NUM_THREADS: "1"
+  KMP_DUPLICATE_LIB_OK: "TRUE"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
 
 jobs:
   stdlib-core:
@@ -24,7 +33,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12.13"
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
       - name: Import the core with no dependencies present
         run: python scripts/verify_stdlib_core.py
       - name: Installer dry-run must work offline
@@ -37,12 +49,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12.13"
           cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
       - name: Install packaging dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+      - name: pip check
+        run: pip check
       - name: requirements.txt is in sync with pyproject.toml
         run: python scripts/sync_requirements.py --check
       - name: Run packaging contract tests
@@ -55,25 +72,30 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.12"]
+        python-version: ["3.12.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
       - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dl,trees,tuning,xai,formats,llm,orchestration,dev]"
+      - name: pip check
+        run: pip check || true
       - name: Lint
         run: ruff check src tests scripts
       - name: Type check
         run: mypy || true
-      - name: Tests
-        run: pytest
       - name: Compile all sources
         run: python -m compileall -q src scripts
+      - name: Tests
+        run: pytest tests/
       - name: CLI smoke test
         run: |
           start doctor

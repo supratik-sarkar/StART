@@ -64,13 +64,17 @@ export interface RunRequest {
   session_id?: string;
   workflow?: string | null;
   workflowId?: string | null;
+  workflow_id?: string | null;
   contextId?: string | null;
+  context_id?: string | null;
   goal?: string | null;
   sourceEvidenceId?: string | null;
   parentRunId?: string | null;
   parameters?: Record<string, any>;
   parent_run_id?: string | null;
   intervention?: string | null;
+  execution_mode?: "hybrid_workbench" | "agentic_session" | "deterministic_run" | string;
+  executionMode?: string | null;
 }
 
 export interface RunStatusResponse {

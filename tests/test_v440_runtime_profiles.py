@@ -21,8 +21,11 @@ from start.runtime_profile import (
 )
 
 
-def test_compute_router_priority():
+def test_compute_router_priority(monkeypatch):
     """Verify compute router evaluates CUDA -> MPS -> CPU priority deterministically with mocks."""
+    monkeypatch.delenv("START_DEVICE", raising=False)
+    monkeypatch.delenv("START_COMPUTE_DEVICE", raising=False)
+    monkeypatch.delenv("START_DISABLE_MPS", raising=False)
     # 1. CUDA available
     with patch("torch.cuda.is_available", return_value=True):
         dev = detect_device()

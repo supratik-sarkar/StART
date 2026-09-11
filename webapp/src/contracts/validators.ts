@@ -1,7 +1,7 @@
 import type {
   AgentPlanPreview, ArtifactRecord, AttestationState, Capability, EvidenceRecord,
   ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction,
-  ReviewerGateResult, RunSnapshot, RuntimeEvent
+  ReviewerGateResult, RunCompareResult, RunHistoryItem, RunLineage, RunSnapshot, RuntimeEvent
 } from './types'
 
 export class SchemaValidationError extends Error {
@@ -71,6 +71,8 @@ export function validateAgentPlanPreview(data: unknown): AgentPlanPreview {
   if (typeof o.contextId !== 'string') throw new SchemaValidationError('AgentPlanPreview', 'Missing contextId')
   if (!Array.isArray(o.plan)) throw new SchemaValidationError('AgentPlanPreview', 'Missing plan array')
   return {
+    executionMode: o.executionMode as any,
+    agentProposal: o.agentProposal && typeof o.agentProposal === 'object' ? o.agentProposal as Record<string, unknown> : null,
     workflowId: o.workflowId as any,
     contextId: o.contextId,
     goal: String(o.goal || ''),
@@ -136,7 +138,12 @@ export function validateRuntimeEvent(data: unknown): RuntimeEvent {
     evidenceIds: Array.isArray(o.evidenceIds) ? o.evidenceIds.map(String) : (Array.isArray(o.evidence_refs) ? o.evidence_refs.map(String) : []),
     artifactIds: Array.isArray(o.artifactIds) ? o.artifactIds.map(String) : (Array.isArray(o.artifact_refs) ? o.artifact_refs.map(String) : []),
     metadata: o.metadata && typeof o.metadata === 'object' ? (o.metadata as Record<string, unknown>) : (o.payload && typeof o.payload === 'object' ? (o.payload as Record<string, unknown>) : {}),
-  }
+    sourceAgent: o.sourceAgent ? String(o.sourceAgent) : (o.metadata && (o.metadata as any).source_agent ? String((o.metadata as any).source_agent) : undefined),
+    targetAgent: o.targetAgent ? String(o.targetAgent) : (o.metadata && (o.metadata as any).target_agent ? String((o.metadata as any).target_agent) : undefined),
+    stage: o.stage ? String(o.stage) : undefined,
+    action: o.action ? String(o.action) : undefined,
+    checkpointId: o.checkpointId ? String(o.checkpointId) : (o.checkpoint_id ? String(o.checkpoint_id) : undefined),
+  } as any
 }
 
 export function validateEvidenceRecords(data: unknown): EvidenceRecord[] {
@@ -204,11 +211,19 @@ export function validateArtifactRecords(data: unknown): ArtifactRecord[] {
       artifactId: String(o.artifactId || `ART-${idx + 1}`),
       runId: String(o.runId || ''),
       label: String(o.label || 'Artifact'),
+      title: o.title ? String(o.title) : undefined,
       kind: (o.kind as any) || 'table',
+      artifactType: o.artifactType ? String(o.artifactType) : undefined,
       mimeType: String(o.mimeType || 'application/json'),
       createdAt: String(o.createdAt || new Date().toISOString()),
       description: o.description ? String(o.description) : undefined,
       preview: o.preview && typeof o.preview === 'object' ? (o.preview as any) : undefined,
+      content: (o as any).content !== undefined ? (o as any).content : undefined,
+      evidenceIds: Array.isArray((o as any).evidenceIds)
+        ? (o as any).evidenceIds.map(String)
+        : (Array.isArray((o as any).evidence_ids) ? (o as any).evidence_ids.map(String) : []),
+      dataFingerprint: (o as any).dataFingerprint ? String((o as any).dataFingerprint) : ((o as any).data_fingerprint ? String((o as any).data_fingerprint) : undefined),
+      producerNodeId: (o as any).producerNodeId ? String((o as any).producerNodeId) : ((o as any).producing_step_id ? String((o as any).producing_step_id) : undefined),
     }
   })
 }
@@ -276,3 +291,77 @@ export function validateReviewerGateResult(data: unknown): ReviewerGateResult {
     attestationSealMerkleRoot: String(o.attestationSealMerkleRoot || ''),
   }
 }
+
+export function validateRunHistoryItems(data: unknown): RunHistoryItem[] {
+  let list: unknown[]
+  if (Array.isArray(data)) {
+    list = data
+  } else if (data && typeof data === 'object' && Array.isArray((data as any).runs)) {
+    list = (data as any).runs
+  } else {
+    throw new SchemaValidationError('RunHistory', 'Expected array or { runs: [] }')
+  }
+
+  return list.map((item, idx) => {
+    const o = assertObject(item, `RunHistoryItem[${idx}]`)
+    const run_id = String(o.run_id || o.runId || '')
+    if (!run_id) throw new SchemaValidationError(`RunHistoryItem[${idx}]`, 'Missing run_id')
+    return {
+      run_id,
+      session_id: o.session_id ? String(o.session_id) : undefined,
+      workflow: String(o.workflow || 'predictive_ml'),
+      domain: String(o.domain || 'tabular'),
+      context_id: String(o.context_id || o.contextId || ''),
+      created_at: Number(o.created_at || 0),
+      started_at: o.started_at !== undefined ? Number(o.started_at) : undefined,
+      completed_at: o.completed_at !== undefined ? Number(o.completed_at) : undefined,
+      status: (o.status as any) || 'queued',
+      evidence_count: Number(o.evidence_count ?? o.evidenceCount ?? 0),
+      artifact_count: Number(o.artifact_count ?? o.artifactCount ?? 0),
+      governance_disposition: String(o.governance_disposition ?? o.governanceDisposition ?? ''),
+      parent_run_id: o.parent_run_id ? String(o.parent_run_id) : null,
+      intervention: o.intervention ? String(o.intervention) : null,
+      goal: o.goal ? String(o.goal) : undefined,
+    }
+  })
+}
+
+export function validateRunCompareResult(data: unknown): RunCompareResult {
+  const o = assertObject(data, 'RunCompareResult')
+  return {
+    compatible: Boolean(o.compatible),
+    incompatibleReason: o.incompatibleReason ? String(o.incompatibleReason) : (o.incompatible_reason ? String(o.incompatible_reason) : undefined),
+    runA: o.runA ? assertObject(o.runA, 'RunA') as any : (o.run_a ? assertObject(o.run_a, 'RunA') as any : undefined),
+    runB: o.runB ? assertObject(o.runB, 'RunB') as any : (o.run_b ? assertObject(o.run_b, 'RunB') as any : undefined),
+    lineage: o.lineage ? assertObject(o.lineage, 'Lineage') as any : undefined,
+    parameters: Array.isArray(o.parameters) ? o.parameters : undefined,
+    fingerprints: o.fingerprints ? assertObject(o.fingerprints, 'Fingerprints') as any : undefined,
+    metricsSummary: o.metricsSummary ? assertObject(o.metricsSummary, 'MetricsSummary') as any : (o.metrics_summary ? assertObject(o.metrics_summary, 'MetricsSummary') as any : undefined),
+    metricComparisons: Array.isArray(o.metricComparisons) ? o.metricComparisons : (Array.isArray(o.metric_comparisons) ? o.metric_comparisons : []),
+    onlyInA: Array.isArray(o.onlyInA) ? o.onlyInA : (Array.isArray(o.only_in_a) ? o.only_in_a : []),
+    onlyInB: Array.isArray(o.onlyInB) ? o.onlyInB : (Array.isArray(o.only_in_b) ? o.only_in_b : []),
+    findings: Array.isArray(o.findings) ? o.findings : [],
+    artifacts: Array.isArray(o.artifacts) ? o.artifacts : [],
+    governance: o.governance ? assertObject(o.governance, 'Governance') as any : undefined,
+  }
+}
+
+export function validateRunLineage(data: unknown): RunLineage {
+  const o = assertObject(data, 'RunLineage')
+  const runId = String(o.runId || o.run_id || '')
+  if (!runId) throw new SchemaValidationError('RunLineage', 'Missing runId')
+  return {
+    runId,
+    parentRunId: o.parentRunId ? String(o.parentRunId) : (o.parent_run_id ? String(o.parent_run_id) : null),
+    intervention: o.intervention ? String(o.intervention) : null,
+    parameterDelta: (o.parameterDelta || o.parameter_delta) as any,
+    children: Array.isArray(o.children) ? o.children.map((c: any) => ({
+      runId: String(c.runId || c.run_id),
+      createdAt: c.createdAt || c.created_at,
+      status: String(c.status || 'completed'),
+      intervention: c.intervention ? String(c.intervention) : null,
+      parameters: c.parameters,
+    })) : [],
+  }
+}
+

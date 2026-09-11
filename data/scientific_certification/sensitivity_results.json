@@ -1,0 +1,54 @@
+[
+  {
+    "run_id": "sens_gradient_boosting_oat",
+    "model": "gradient_boosting",
+    "mode": "one_at_a_time",
+    "top_features": [
+      "capital.loss",
+      "education.num",
+      "age",
+      "fnlwgt",
+      "capital.gain"
+    ],
+    "shock_grid": [
+      -0.3,
+      -0.2,
+      -0.1,
+      -0.05,
+      0.0,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "baseline_zero_delta": 0.0,
+    "finite_metrics": true,
+    "status": "PASS"
+  },
+  {
+    "run_id": "sens_gradient_boosting_parallel_basket",
+    "model": "gradient_boosting",
+    "mode": "parallel_basket",
+    "top_features": [
+      "capital.loss",
+      "education.num",
+      "age",
+      "fnlwgt",
+      "capital.gain"
+    ],
+    "shock_grid": [
+      -0.3,
+      -0.2,
+      -0.1,
+      -0.05,
+      0.0,
+      0.05,
+      0.1,
+      0.2,
+      0.3
+    ],
+    "baseline_zero_delta": 0.0,
+    "finite_metrics": true,
+    "status": "PASS"
+  }
+]

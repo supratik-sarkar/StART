@@ -18,6 +18,8 @@ MODEL_CHOICES = (
     "distributed_random_forest",
     "extra_trees",
     "random_rotation_forest",
+    "logistic_regression",
+    "gradient_boosting",
     "rnn",
     "lstm",
     "gru",
@@ -32,6 +34,20 @@ MODEL_CHOICES = (
 # the user in interactive mode; "grid" lists feed grid search, low/high feed
 # random search and Bayesian optimization).
 HYPERPARAM_SPACES: dict[str, dict[str, dict[str, Any]]] = {
+    "logistic_regression": {
+        "C": {"type": "float", "grid": [0.01, 0.1, 1.0, 10.0], "low": 0.001, "high": 100.0, "log": True},
+        "penalty": {"type": "cat", "grid": ["l2", None], "choices": ["l2", None]},
+        "solver": {"type": "cat", "grid": ["lbfgs"], "choices": ["lbfgs"]},
+        "max_iter": {"type": "int", "grid": [100, 200, 500], "low": 100, "high": 1000, "step": 100},
+        "tol": {"type": "float", "grid": [1e-4, 1e-3], "low": 1e-5, "high": 1e-2, "log": True},
+    },
+    "gradient_boosting": {
+        "n_estimators": {"type": "int", "grid": [100, 200, 400], "low": 100, "high": 600, "step": 50},
+        "max_depth": {"type": "int", "grid": [3, 5, 8], "low": 2, "high": 12, "step": 1},
+        "learning_rate": {"type": "float", "grid": [0.03, 0.1, 0.3], "low": 0.01, "high": 0.3, "log": True},
+        "subsample": {"type": "float", "grid": [0.7, 0.85, 1.0], "low": 0.5, "high": 1.0},
+        "min_samples_split": {"type": "int", "grid": [2, 5, 10], "low": 2, "high": 20, "step": 1},
+    },
     "random_forest": {
         "n_estimators": {"type": "int", "grid": [100, 200, 400], "low": 100, "high": 600, "step": 50},
         "max_depth": {"type": "int", "grid": [4, 8, 16], "low": 3, "high": 24, "step": 1},
@@ -223,11 +239,26 @@ def _make_random_forest(seed: int) -> Any:
     return RandomForestClassifier(n_estimators=200, random_state=seed, n_jobs=-1)
 
 
-def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
-    """Return (estimator, resolved_name, note). Degrades to Random Forest
-    with an explicit note when an optional backend is unavailable."""
+def resolve_model(name: str, seed: int = 42, fail_closed: bool = True, **kwargs: Any) -> tuple[Any, str, str]:
+    """Return (estimator, resolved_name, note).
+    Enforces FAIL CLOSED contract when fail_closed=True: never silently substitutes an uninstalled estimator."""
     name = name.lower().strip()
+    if name in ("tabulardlclassifier", "tabulardl", "torch_mlp", "torchmlp", "neural_net", "neural_network"):
+        name = "mlp"
+    elif name in ("logisticregression", "lr", "logistic"):
+        name = "logistic_regression"
+    elif name in ("randomforest", "randomforestclassifier", "rf"):
+        name = "random_forest"
+    elif name in ("gradientboosting", "gradientboostingclassifier", "gb"):
+        name = "gradient_boosting"
+    elif name in ("lgbm", "lightgbmclassifier"):
+        name = "lightgbm"
+    elif name in ("xgb", "xgboostclassifier"):
+        name = "xgboost"
+
     if name not in MODEL_CHOICES:
+        if fail_closed:
+            raise ValueError(f"Unknown model '{name}'. Supported choices: {MODEL_CHOICES}")
         return (
             _make_random_forest(seed),
             "random_forest",
@@ -235,50 +266,69 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
         )
     if name == "xgboost":
         if not xgboost_available():
+            if fail_closed:
+                raise ValueError('xgboost is not installed (pip install -e ".[tree-models]"). FAIL CLOSED: silent substitution prohibited.')
             return (
                 _make_random_forest(seed),
                 "random_forest",
                 'xgboost is not installed (pip install -e ".[tree-models]"); falling back to Random Forest.',
             )
+        import sys
+
         from xgboost import XGBClassifier
 
-        return (
-            XGBClassifier(
-                n_estimators=200,
-                random_state=seed,
-                eval_metric="logloss",
-                tree_method="hist",
-                n_jobs=-1,
-            ),
-            "xgboost",
-            "",
-        )
+        n_jobs = 1 if sys.platform == "darwin" else -1
+        params = {
+            "n_estimators": 200,
+            "random_state": seed,
+            "eval_metric": "logloss",
+            "tree_method": "hist",
+            "n_jobs": n_jobs,
+        }
+        params.update(kwargs)
+        if sys.platform == "darwin" and params.get("n_jobs") == -1:
+            params["n_jobs"] = 1
+        return XGBClassifier(**params), "xgboost", ""
+
     if name == "lightgbm":
         if not lightgbm_available():
+            if fail_closed:
+                raise ValueError('lightgbm is not installed (pip install -e ".[tree-models]"). FAIL CLOSED: silent substitution prohibited.')
             return (
                 _make_random_forest(seed),
                 "random_forest",
                 'lightgbm is not installed (pip install -e ".[tree-models]"); falling back to Random Forest.',
             )
+        import sys
+
         from lightgbm import LGBMClassifier
 
-        return (
-            LGBMClassifier(n_estimators=200, random_state=seed, verbose=-1, n_jobs=-1),
-            "lightgbm",
-            "",
-        )
+        n_jobs = 1 if sys.platform == "darwin" else -1
+        params = {"n_estimators": 200, "random_state": seed, "verbose": -1, "n_jobs": n_jobs}
+        params.update(kwargs)
+        if sys.platform == "darwin" and params.get("n_jobs") == -1:
+            params["n_jobs"] = 1
+        return LGBMClassifier(**params), "lightgbm", ""
+
     if name == "mlp":
         from start.modeling.deep_learning import TorchMLPClassifier, torch_available
 
         if not torch_available():
+            if fail_closed:
+                raise ValueError('torch is not installed. FAIL CLOSED: silent substitution prohibited.')
             return (
                 _make_random_forest(seed),
                 "random_forest",
                 'torch is not installed (pip install -e ".[torch]"); falling back to Random Forest.',
             )
-        return TorchMLPClassifier(random_state=seed), "mlp", ""
+        params = {"random_state": seed}
+        params.update(kwargs)
+        return TorchMLPClassifier(**params), "mlp", ""
+
     if name == "catboost":
         if not catboost_available():
+            if fail_closed:
+                raise ValueError("catboost is not installed in current environment. FAIL CLOSED: silent substitution prohibited.")
             return (
                 _make_random_forest(seed),
                 "random_forest",
@@ -286,28 +336,49 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
             )
         from catboost import CatBoostClassifier
 
-        return (
-            CatBoostClassifier(iterations=200, random_seed=seed, verbose=0),
-            "catboost",
-            "",
-        )
-    if name == "distributed_random_forest":
+        params = {"iterations": 200, "random_seed": seed, "verbose": 0}
+        params.update(kwargs)
+        return CatBoostClassifier(**params), "catboost", ""
+
+    if name in ("random_forest", "rf"):
+        import sys
+
         from sklearn.ensemble import RandomForestClassifier
 
-        return (
-            RandomForestClassifier(n_estimators=200, random_state=seed, n_jobs=-1),
-            "distributed_random_forest",
-            "",
-        )
+        n_jobs = 1 if sys.platform == "darwin" else -1
+        params = {"n_estimators": 200, "random_state": seed, "n_jobs": n_jobs}
+        params.update(kwargs)
+        if sys.platform == "darwin" and params.get("n_jobs") == -1:
+            params["n_jobs"] = 1
+        return RandomForestClassifier(**params), "random_forest", ""
+
+    if name == "distributed_random_forest":
+        import sys
+
+        from sklearn.ensemble import RandomForestClassifier
+
+        n_jobs = 1 if sys.platform == "darwin" else -1
+        params = {"n_estimators": 200, "random_state": seed, "n_jobs": n_jobs}
+        params.update(kwargs)
+        if sys.platform == "darwin" and params.get("n_jobs") == -1:
+            params["n_jobs"] = 1
+        return RandomForestClassifier(**params), "distributed_random_forest", ""
+
     if name == "extra_trees":
+        import sys
+
         from sklearn.ensemble import ExtraTreesClassifier
 
-        return (
-            ExtraTreesClassifier(n_estimators=200, random_state=seed, n_jobs=-1),
-            "extra_trees",
-            "",
-        )
+        n_jobs = 1 if sys.platform == "darwin" else -1
+        params = {"n_estimators": 200, "random_state": seed, "n_jobs": n_jobs}
+        params.update(kwargs)
+        if sys.platform == "darwin" and params.get("n_jobs") == -1:
+            params["n_jobs"] = 1
+        return ExtraTreesClassifier(**params), "extra_trees", ""
+
     if name == "random_rotation_forest":
+        if fail_closed:
+            raise ValueError("random_rotation_forest is not available in current environment. FAIL CLOSED.")
         return (
             _make_random_forest(seed),
             "random_forest",
@@ -317,6 +388,8 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
         from start.modeling.deep_learning import torch_available
 
         if not torch_available():
+            if fail_closed:
+                raise ValueError(f"torch is not installed for {name}. FAIL CLOSED.")
             return (
                 _make_random_forest(seed),
                 "random_forest",
@@ -324,11 +397,16 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
             )
         from start.modeling.sequence_dl import SequenceClassifier
 
-        return SequenceClassifier(family=name, random_state=seed), name, ""
+        params = {"family": name, "random_state": seed}
+        params.update(kwargs)
+        return SequenceClassifier(**params), name, ""
+
     if name in ("cnn", "simple_cnn_small", "simple_cnn_medium", "simple_cnn_deep"):
         from start.modeling.deep_learning import torch_available
 
         if not torch_available():
+            if fail_closed:
+                raise ValueError(f"torch is not installed for {name}. FAIL CLOSED.")
             return (
                 _make_random_forest(seed),
                 "random_forest",
@@ -337,5 +415,25 @@ def resolve_model(name: str, seed: int = 42) -> tuple[Any, str, str]:
         from start.modeling.vision_dl import VisionCNNClassifier
 
         arch = "simple_cnn_small" if name == "cnn" else name
-        return VisionCNNClassifier(architecture=arch, random_state=seed), name, ""
-    return _make_random_forest(seed), "random_forest", ""
+        params = {"architecture": arch, "random_state": seed}
+        params.update(kwargs)
+        return VisionCNNClassifier(**params), name, ""
+
+    if name in ("logistic_regression", "logistic"):
+        from sklearn.linear_model import LogisticRegression
+
+        params = {"random_state": seed, "max_iter": 500}
+        params.update(kwargs)
+        return LogisticRegression(**params), "logistic_regression", ""
+
+    if name in ("gradient_boosting", "gb"):
+        from sklearn.ensemble import GradientBoostingClassifier
+
+        params = {"n_estimators": 200, "random_state": seed}
+        params.update(kwargs)
+        return GradientBoostingClassifier(**params), "gradient_boosting", ""
+
+    params = {"n_estimators": 200, "random_state": seed, "n_jobs": -1}
+    params.update(kwargs)
+    from sklearn.ensemble import RandomForestClassifier
+    return RandomForestClassifier(**params), "random_forest", ""

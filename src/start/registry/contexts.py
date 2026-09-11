@@ -60,6 +60,7 @@ class ContextKind(StrEnum):
     TABULAR = "tabular"
     MARKET = "market"
     SHORT_RATE = "short_rate"
+    RECOMMENDER = "recommender"
 
 
 class ContextMismatch(TypeError):

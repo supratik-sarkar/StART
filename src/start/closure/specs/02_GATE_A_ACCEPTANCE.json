@@ -1,0 +1,74 @@
+{
+  "gate": "A",
+  "name": "Backend Scientific Harness Closure",
+  "hard_predicates": {
+    "environment": {
+      "project_root": "StART",
+      "venv": ".venv-start",
+      "venv_verified": true,
+      "python_in_venv": true,
+      "pip_in_venv": true,
+      "start_cli_in_venv": true
+    },
+    "interactive_agentic": {
+      "real_cli_used": true,
+      "provider": "openai",
+      "model": "gpt-5.1",
+      "question_grounded_in_evidence": true,
+      "challenge_grounded_in_evidence": true,
+      "decision_receipt_resolves": true,
+      "llm_numeric_authority": 0,
+      "secret_exposure": 0
+    },
+    "coverage": {
+      "all_runtime_executable_model_classes_have_successful_demo": true,
+      "all_runnable_connectors_have_successful_execution": true,
+      "all_major_executable_workflow_families_have_successful_execution": true,
+      "all_major_bound_control_families_proven_end_to_end": true
+    },
+    "integrity": {
+      "automatic_llm_calls_in_deterministic": 0,
+      "silent_model_substitution": 0,
+      "silent_workflow_substitution": 0,
+      "silent_dataset_substitution": 0,
+      "silent_control_drop": 0,
+      "hand_written_fake_feature_schema_for_real_demo": 0,
+      "target_leakage": 0,
+      "test_set_preprocessing_leakage": 0,
+      "unresolved_evidence": 0
+    },
+    "scientific_validity": {
+      "required_runs_with_invalid_science": 0,
+      "required_runs_with_nonfinite_required_metrics": 0,
+      "required_runs_with_broken_metric_domains": 0,
+      "required_runs_with_architecture_data_mismatch": 0,
+      "required_runs_with_failed_domain_invariants": 0
+    },
+    "performance_sanity": {
+      "classification_real_demo_beats_or_matches_task_appropriate_naive_baseline": true,
+      "fraud_demo_beats_random_prevalence_baseline_when_pr_auc_is_primary": true,
+      "recommender_demo_beats_task_appropriate_random_or_naive_ranking_baseline_when_available": true,
+      "deep_learning_demo_has_finite_training_and_non_degenerate_predictions": true,
+      "portfolio_demo_satisfies_optimizer_specific_objective_and_constraints": true,
+      "market_risk_demo_satisfies_var_es_and_backtest_semantics": true,
+      "scenario_demo_satisfies_zero_shock_and_monotonicity_where_applicable": true
+    },
+    "artifacts": {
+      "capability_census_exists": true,
+      "model_dataset_plan_exists": true,
+      "model_class_results_exists": true,
+      "connector_results_exists": true,
+      "workflow_results_exists": true,
+      "scientific_acceptability_exists": true,
+      "evidence_audit_exists": true,
+      "summary_json_exists": true,
+      "report_exists": true
+    }
+  },
+  "allowed_nonblocking_states": {
+    "optional_dependency_unavailable_if_not_advertised_as_executable": true,
+    "external_connector_deferred_if_credentials_or_external_runtime_missing": true,
+    "valid_but_weak_model": "Allowed only if scientifically valid, non-degenerate, accurately reported, and the model class has at least one defensible demonstration."
+  },
+  "close_logic": "Gate A closes only when every hard predicate is true. Expected exclusions leave the executable denominator only when runtime truth supports that exclusion. A user-visible runnable capability may not be reclassified as unavailable merely to avoid fixing it."
+}
