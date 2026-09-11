@@ -97,6 +97,11 @@ jobs:
           [ -f "$TC_DIR/bin/python3" ] && [ ! -f "$TC_DIR/bin/python" ] && ln -sf "$TC_DIR/bin/python3" "$TC_DIR/bin/python"
           touch "${RUNNER_TOOL_CACHE}/Python/3.12.13/${ARCH}.complete"
 
+      - name: Install macOS runtime dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install libomp
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
