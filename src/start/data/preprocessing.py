@@ -31,7 +31,7 @@ def apply_preprocessing_pipeline(
     X_te = X_test.copy()
 
     # Identify numeric and categorical columns
-    cat_cols = [c for c in X_tr.columns if X_tr[c].dtype == object or str(X_tr[c].dtype) == "category"]
+    cat_cols = [c for c in X_tr.columns if not pd.api.types.is_numeric_dtype(X_tr[c]) or str(X_tr[c].dtype) == "category"]
     num_cols = [c for c in X_tr.columns if c not in cat_cols]
 
     # 1. Categorical Encoding (if categorical columns exist)

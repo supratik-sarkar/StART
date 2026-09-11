@@ -180,7 +180,7 @@ def split_recommender_dataset(
     elif protocol_str == SplitProtocol.USER_STRATIFIED:
         # For each user, hold out test_ratio interactions
         for _, group in df.groupby(user_col):
-            g_idx = group.index.to_numpy()
+            g_idx = group.index.to_numpy().copy()
             if len(g_idx) < 3:
                 # If too small, keep in train
                 train_indices.extend(g_idx)

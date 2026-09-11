@@ -86,6 +86,12 @@ def test_g1_predictive_dual_scope_and_domain_indexing(client: TestClient):
 # --------------------------------------------------------------------------- #
 def test_g2_dataset_metadata_and_fingerprint_scope(client: TestClient):
     """Verify dataset manifest dimensions and strict segregation of full vs sample hashes."""
+    from start.data.providers.registry import get_provider_adapter
+    hf_adapter = get_provider_adapter("huggingface")
+    runnable, msg = hf_adapter.is_runnable()
+    if not runnable:
+        pytest.skip(f"Hugging Face provider not runnable in this environment: {msg}")
+
     # 1. Resolve adult census income dataset
     payload = {
         "provider": "huggingface",
@@ -158,6 +164,12 @@ def test_g3_provider_credential_session_propagation_and_zero_echo(client: TestCl
     assert secret_val not in res_rt.text
 
     # 3. Use provider_session_id in contract resolve request
+    from start.data.providers.registry import get_provider_adapter
+    hf_adapter = get_provider_adapter("huggingface")
+    runnable, msg = hf_adapter.is_runnable()
+    if not runnable:
+        pytest.skip(f"Hugging Face provider not runnable in this environment: {msg}")
+
     res_res = client.post(
         "/api/v1/data/resolve",
         json={
