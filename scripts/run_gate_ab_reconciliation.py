@@ -898,14 +898,20 @@ def main():
     local_export_valid = True
 
     # 2. Authentic OPA evaluation
-    proc_opa = subprocess.run(["/opt/homebrew/bin/opa", "version"], capture_output=True, text=True)
+    from start.policies.opa_policy_plane import find_opa_binary
+
+    opa_bin = find_opa_binary() or "/opt/homebrew/bin/opa"
+    proc_opa = subprocess.run([opa_bin, "version"], capture_output=True, text=True)
     opa_version = "1.17.1" if proc_opa.returncode == 0 else "UNKNOWN"
-    
+
     direct_opa_proc = subprocess.run(
         [
-            "/opt/homebrew/bin/opa", "eval",
-            "--data", str(ROOT / "src/start/policies/rego/attestation.rego"),
-            "-I", "data.start.governance.attestation_rules"
+            opa_bin,
+            "eval",
+            "--data",
+            str(ROOT / "src/start/policies/rego/attestation.rego"),
+            "-I",
+            "data.start.governance.attestation_rules",
         ],
         input=json.dumps({"n_ungrounded_claims": 0, "committee_disposition": "ACCEPT", "n_validation_failures": 0}),
         capture_output=True,
