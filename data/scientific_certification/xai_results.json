@@ -1,0 +1,91 @@
+[
+  {
+    "run_id": "xai_gradient_boosting_native_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "native_gain_importance",
+    "feature_count": 6,
+    "features_ordered": [
+      "capital.loss",
+      "age",
+      "education.num",
+      "fnlwgt",
+      "hours.per.week"
+    ],
+    "finite_attributions": true,
+    "lineage_verified": true,
+    "status": "CERTIFIED"
+  },
+  {
+    "run_id": "xai_gradient_boosting_permutation_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "permutation_importance",
+    "feature_count": 6,
+    "features_ordered": [
+      "capital.loss",
+      "education.num",
+      "age",
+      "fnlwgt",
+      "capital.gain"
+    ],
+    "finite_attributions": true,
+    "lineage_verified": true,
+    "status": "CERTIFIED"
+  },
+  {
+    "run_id": "xai_gradient_boosting_shap_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "shap_tree_explainer",
+    "feature_count": 6,
+    "features_ordered": [
+      "capital.loss",
+      "education.num",
+      "age",
+      "fnlwgt",
+      "hours.per.week"
+    ],
+    "finite_attributions": true,
+    "lineage_verified": true,
+    "status": "CERTIFIED"
+  },
+  {
+    "run_id": "xai_gradient_boosting_pdp_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "partial_dependence_plot",
+    "target_feature": "capital.loss",
+    "grid_points": 30,
+    "finite_attributions": true,
+    "lineage_verified": true,
+    "status": "CERTIFIED"
+  },
+  {
+    "run_id": "xai_gradient_boosting_ice_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "individual_conditional_expectation",
+    "target_feature": "capital.loss",
+    "sample_count": 200,
+    "finite_attributions": true,
+    "lineage_verified": true,
+    "status": "CERTIFIED"
+  },
+  {
+    "run_id": "xai_gradient_boosting_ale_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "accumulated_local_effects",
+    "status": "NOT_EXECUTABLE",
+    "reason": "PyALE package is not installed in the environment; deferred per strict non-substitution policy."
+  },
+  {
+    "run_id": "xai_gradient_boosting_lime_real",
+    "model": "gradient_boosting",
+    "dataset": "scikit-learn/adult-census-income",
+    "method": "lime_tabular_explainer",
+    "status": "NOT_EXECUTABLE",
+    "reason": "lime package is not installed in the environment; deferred per strict non-substitution policy."
+  }
+]

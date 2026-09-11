@@ -230,9 +230,21 @@ class SplitPlanner:
         if n_oos == 0 or n_test == 0:
             status = Status.WARN
         if target_column and target_column in plan.train.columns:
+            import pandas as pd
             for name, frame in (("train", plan.train), ("test", plan.test), ("oos", plan.oos)):
                 if len(frame):
-                    metrics[f"{name}_pos_rate"] = round(float(frame[target_column].mean()), 4)
+                    s = frame[target_column]
+                    try:
+                        if pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s):
+                            metrics[f"{name}_pos_rate"] = round(float(s.mean()), 4)
+                        else:
+                            uniques = sorted([str(v) for v in s.dropna().unique()])
+                            if len(uniques) == 2:
+                                metrics[f"{name}_pos_rate"] = round(float((s.astype(str) == uniques[1]).mean()), 4)
+                            else:
+                                metrics[f"{name}_pos_rate"] = 0.0
+                    except Exception:
+                        pass
         return TestResult(
             test_id="split.plan",
             test_name="Data split plan",

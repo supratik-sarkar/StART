@@ -59,6 +59,8 @@ from start.portfolio.factor_risk import (
     decompose_factor_risk,
 )
 
+pytestmark = pytest.mark.release
+
 
 # =========================================================================== #
 # 1. HUMAN-REVIEW ARTIFACTS & PROVENANCE TESTS

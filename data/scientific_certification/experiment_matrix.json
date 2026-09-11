@@ -1,0 +1,40 @@
+[
+  {
+    "experiment_id": "EXP_PRED_GOLDEN",
+    "domain": "predictive_binary",
+    "task_type": "binary_classification",
+    "layer": "golden_known_answer",
+    "dataset_id": "institutional_credit_v1",
+    "models": [
+      "xgboost",
+      "lightgbm",
+      "random_forest",
+      "gradient_boosting",
+      "logistic_regression",
+      "catboost"
+    ],
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "tuning_budget": 5,
+    "primary_metric": "roc_auc",
+    "secondary_metrics": [
+      "pr_auc",
+      "f1",
+      "brier"
+    ],
+    "xai_methods": [
+      "shap_tree_explainer",
+      "permutation_importance",
+      "native_importance"
+    ],
+    "sensitivity_modes": [
+      "one_at_a_time",
+      "parallel_basket"
+    ]
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "gate": "B",
+  "name": "Engineering Trace + Observability + Policy Closure",
+  "prerequisite": "GATE_A_CLOSED",
+  "hard_predicates": {
+    "native_trace": {
+      "structured_parent_child_trace_exists": true,
+      "stable_run_identity_in_trace": true,
+      "all_major_execution_stages_traceable": true
+    },
+    "opentelemetry": {
+      "otel_api_integrated": true,
+      "local_trace_export_works_without_external_collector": true,
+      "machine_readable_trace_exists": true,
+      "optional_otlp_path_is_fail_closed": true,
+      "secrets_in_spans": 0
+    },
+    "terminal_engineering_trace": {
+      "real_cli_trace_mode_exists": true,
+      "dataset_contract_proof_visible": true,
+      "orchestration_trace_visible": true,
+      "dispatch_proof_visible": true,
+      "scientific_invariants_visible": true,
+      "evidence_lineage_visible": true,
+      "governance_policy_trace_visible": true,
+      "reproducibility_capsule_visible": true,
+      "resource_ledger_visible": true,
+      "deterministic_mode_llm_calls_visible_as_zero": true
+    },
+    "policy": {
+      "policy_adapter_contract_exists": true,
+      "decision_id_exists": true,
+      "decision_references_evidence": true,
+      "fake_opa_claims": 0
+    },
+    "preservation": {
+      "gate_a_regression_passes_after_gate_b": true,
+      "trace_on_changes_scientific_results": 0,
+      "trace_on_changes_model_dispatch": 0,
+      "trace_on_changes_dataset_identity": 0,
+      "trace_on_changes_governance_semantics": 0
+    },
+    "security": {
+      "api_key_exposure": 0,
+      "credential_exposure": 0,
+      "full_prompt_capture_default": 0,
+      "private_path_exposure_in_public_trace_fields": 0
+    },
+    "artifacts": {
+      "trace_schema_exists": true,
+      "representative_trace_exists": true,
+      "trace_acceptance_report_exists": true,
+      "gate_b_summary_exists": true
+    }
+  },
+  "allowed_nonblocking_states": {
+    "external_opa_runtime": "May be OPTIONAL_EXTERNAL_RUNTIME if unavailable; OPA claims must remain disabled while unavailable.",
+    "nemo_guardrails": "Not required.",
+    "external_otel_collector": "Not required; local exporter is required."
+  },
+  "close_logic": "Gate B closes only when every hard predicate is true and a full Gate-A regression remains green."
+}

@@ -30,6 +30,8 @@ from start.registry.plugins import (
 )
 from start.runtime_profile import ProfileViolation, RuntimeProfile
 
+pytestmark = pytest.mark.integration
+
 
 def test_dataschema_validation_and_fail_closed():
     """Verify deterministic DataSchema enforces required columns, types, finiteness, and uniqueness."""

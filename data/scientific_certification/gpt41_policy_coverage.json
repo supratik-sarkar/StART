@@ -1,0 +1,85 @@
+[
+  {
+    "domain": "predictive_binary",
+    "call_id": "gpt41_plan_4ff22f8b",
+    "model": "gpt-4.1",
+    "decision_space": "Estimator selection, preprocessing, stratified split, tuning strategy, metrics",
+    "selected_model": "lightgbm",
+    "prompt_tokens": 428,
+    "completion_tokens": 260,
+    "schema_valid": true,
+    "correction_calls": 0,
+    "numeric_authority": 0,
+    "status": "PLAN_EXECUTED_DETERMINISTICALLY"
+  },
+  {
+    "domain": "deep_learning",
+    "call_id": "gpt41_plan_c783a2cf",
+    "model": "gpt-4.1",
+    "decision_space": "Architecture selection (MLP, LSTM, GRU, CNN), hyperparameters, optimizer",
+    "selected_model": "mlp",
+    "prompt_tokens": 412,
+    "completion_tokens": 251,
+    "schema_valid": true,
+    "correction_calls": 0,
+    "numeric_authority": 0,
+    "status": "PLAN_EXECUTED_DETERMINISTICALLY"
+  },
+  {
+    "domain": "fraud_imbalanced",
+    "call_id": "gpt41_plan_f3077b78",
+    "model": "gpt-4.1",
+    "decision_space": "Imbalance weighting strategy, model family selection, PR-AUC objective optimization",
+    "selected_model": "lightgbm_balanced",
+    "prompt_tokens": 440,
+    "completion_tokens": 274,
+    "schema_valid": true,
+    "correction_calls": 0,
+    "numeric_authority": 0,
+    "status": "PLAN_EXECUTED_DETERMINISTICALLY"
+  },
+  {
+    "domain": "recommender",
+    "call_id": "gpt41_plan_08538318",
+    "model": "gpt-4.1",
+    "decision_space": "Model selection from [ffm, ncf, mf, fm], embedding/latent dimension, learning rate",
+    "selected_model": "ncf",
+    "prompt_tokens": 414,
+    "completion_tokens": 275,
+    "schema_valid": true,
+    "correction_calls": 0,
+    "numeric_authority": 0,
+    "status": "PLAN_EXECUTED_DETERMINISTICALLY"
+  },
+  {
+    "domain": "portfolio",
+    "call_id": "gpt41_plan_9d7b5977",
+    "model": "gpt-4.1",
+    "decision_space": "Risk-based allocation selection (HRP, MinVar, ERC), covariance estimation, linkage",
+    "selected_model": "hrp",
+    "prompt_tokens": 411,
+    "completion_tokens": 288,
+    "schema_valid": true,
+    "correction_calls": 0,
+    "numeric_authority": 0,
+    "status": "PLAN_EXECUTED_DETERMINISTICALLY"
+  },
+  {
+    "domain": "market_risk",
+    "call_id": "gpt41_plan_0c898a8d",
+    "model": "gpt-4.1",
+    "decision_space": "VaR estimation family (Cornish-Fisher, Historical, Parametric), tail quantiles, Kupiec backtesting",
+    "selected_model": "historical_simulation",
+    "prompt_tokens": 422,
+    "completion_tokens": 278,
+    "schema_valid": true,
+    "correction_calls": 0,
+    "numeric_authority": 0,
+    "status": "PLAN_EXECUTED_DETERMINISTICALLY"
+  },
+  {
+    "domain": "scenario_traded_risk",
+    "decision_space": "Fixed regulatory stress specifications (Gate-6/Gate-6A); no autonomous generative variance permitted by mandate",
+    "status": "EXCLUDED_FROM_LLM_PLANNING_BY_REGULATORY_CONTRACT"
+  }
+]

@@ -12,16 +12,18 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Header, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from start.web.routes_certification import router as certification_router
+from start.web.routes_data import router as data_router
 from start.web.routes_health import get_health
 from start.web.routes_health import router as health_router
 from start.web.routes_reviewer import router as reviewer_router
 from start.web.routes_run import router as run_router
 from start.web.routes_workbench import router as workbench_router
-from start.web.schemas import START_VERSION, APIResponseEnvelope
+from start.web.schemas import START_VERSION, APIResponseEnvelope, RunRequest
 from start.web.security import verify_origin_hmac
 
 DEFAULT_DIST = Path(__file__).resolve().parent.parent.parent.parent / "webapp" / "dist"
@@ -109,11 +111,28 @@ def create_app() -> FastAPI:
     app.include_router(run_router)
     app.include_router(reviewer_router)
     app.include_router(workbench_router)
+    app.include_router(data_router)
+    app.include_router(certification_router)
 
     # Root health probe delegating directly to canonical get_health()
     @app.get("/health", response_model=APIResponseEnvelope, tags=["health"])
     def root_health() -> APIResponseEnvelope:
         return get_health()
+
+    # B1 Root route aliases for workbench /plan/generate and /workflow/run
+    @app.post("/plan/generate", tags=["workbench"])
+    async def root_plan_generate(run_request: RunRequest):
+        from start.web.routes_workbench import create_agent_plan
+        return create_agent_plan(run_request)
+
+    @app.post("/workflow/run", tags=["runs"])
+    @app.post("/api/v1/workflow/run", tags=["runs"])
+    async def root_workflow_run(
+        run_request: RunRequest,
+        x_forwarded_for: str | None = Header(None),
+    ):
+        from start.web.routes_run import start_run
+        return await start_run(run_request, x_forwarded_for=x_forwarded_for)
 
     # 4. Mount Frontend Static Assets if built
     if DIST_DIR.exists() and (DIST_DIR / "index.html").exists():

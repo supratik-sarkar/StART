@@ -41,7 +41,11 @@ from typing import Any
 from urllib.parse import urlparse
 
 import numpy as np
-from playwright.sync_api import sync_playwright
+
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None  # type: ignore[assignment]
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "start_output" / "v511_release"

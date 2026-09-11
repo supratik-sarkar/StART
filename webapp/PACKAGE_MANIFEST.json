@@ -1,0 +1,206 @@
+{
+  "package": "StART Greenfield Browser-Native Agentic Engineering Workbench",
+  "purpose": "Drop-in portable frontend baseline; backend wiring delegated to Antigravity through StartBackend adapter.",
+  "files": [
+    {
+      "path": ".env.example",
+      "bytes": 45,
+      "sha256": "60c1f56cbf3660cfce8b6fc6e9bf3e3d739cfd3b4d45dcd4e5ec40536c83ec87"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 56,
+      "sha256": "7f75203f594dac506a72e9b8e92ae66d321963519420c2826cb13af073a5529e"
+    },
+    {
+      "path": "README.md",
+      "bytes": 756,
+      "sha256": "73335f1257984dfecb886bf272fb32ad41fbf2f0a811ab4565c2e67aa53f1756"
+    },
+    {
+      "path": "docs/ANTIGRAVITY_HANDOFF.md",
+      "bytes": 1873,
+      "sha256": "5f141d3d5d64baff264fa833115d3a3e620cd32a5850f7d3ee8cb60a8e0967b8"
+    },
+    {
+      "path": "docs/ANTIGRAVITY_WIRING_PROMPT.md",
+      "bytes": 4211,
+      "sha256": "4d5155e28ec360e005290f7d8eddcc8b24103bf938222fec7b5b1073a3e28142"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 1629,
+      "sha256": "95f70d1bfd4e6f94b3b5fe96c73ce5c10176bcb80307c51f29665ccfc8483ac8"
+    },
+    {
+      "path": "docs/BACKEND_ADAPTER.md",
+      "bytes": 1072,
+      "sha256": "626407c2ac36e097734571e36606e3bc83fa05a8ba79523d2d9fd433d5b54fa4"
+    },
+    {
+      "path": "docs/BACKEND_GAP_CHECKLIST.md",
+      "bytes": 931,
+      "sha256": "80d4acb0c590d93d3432c46fa0b50b6d546b07881b1f8684f5aa8882e40389cc"
+    },
+    {
+      "path": "docs/BROWSER_AI.md",
+      "bytes": 896,
+      "sha256": "cca90b093dbe82688992b519ce43a16cf3d18d91f6f8cd837832510cde1f1d9d"
+    },
+    {
+      "path": "docs/DESIGN_FREEZE.md",
+      "bytes": 1080,
+      "sha256": "187cece01a0ef1d54413518e8cbe3f185406ea245b7e5fd34049feaa7d030bb8"
+    },
+    {
+      "path": "docs/EVENT_MODEL.md",
+      "bytes": 606,
+      "sha256": "81b298bd925d32f214a2b700e6ef8ffa5b20df8a40a69902ac965e2f3099b1da"
+    },
+    {
+      "path": "docs/PORTING_TO_ANOTHER_BACKEND.md",
+      "bytes": 1017,
+      "sha256": "33d2ca93e0dd192d0084dce3f741001f6b6eaf5135a36a65d8e084a73a3424a9"
+    },
+    {
+      "path": "docs/TERMINAL_TO_VISUAL_MAPPING.md",
+      "bytes": 2197,
+      "sha256": "ca22d174683919359d11ca140924c0c8c9de5d60f67cb9b3f25b73aa1c8e38f9"
+    },
+    {
+      "path": "index.html",
+      "bytes": 376,
+      "sha256": "716966e58d91ccf5c752e6007186c7d456be725509fcf3a4ce67a992589dc504"
+    },
+    {
+      "path": "package.json",
+      "bytes": 584,
+      "sha256": "1c07a00e6ad7297a5acd8d69f0fed32ed08d4dc33875fe598443699c7283782d"
+    },
+    {
+      "path": "src/adapters/demo/DemoBackend.ts",
+      "bytes": 16121,
+      "sha256": "2587a6bde842bd91a3ef202ee204ed773d5ed9429a33fe00bba98e30eadcdfb0"
+    },
+    {
+      "path": "src/adapters/public/PublicStARTBackend.ts",
+      "bytes": 2902,
+      "sha256": "a8ea58f4bda26dc47de452d8ac57a8fdb0433f5c8cd2d442619beb58a8b89ff8"
+    },
+    {
+      "path": "src/app/App.tsx",
+      "bytes": 6749,
+      "sha256": "3590f3b9cdc328b348c2b37b8290a3316439006d4bdbf19e7f6b76d6cb8d781c"
+    },
+    {
+      "path": "src/components/Brand.tsx",
+      "bytes": 269,
+      "sha256": "56ce9ce45c37fc1b1fef1af0c473c115e46cc9e0d4c0066c889c4727847e3d19"
+    },
+    {
+      "path": "src/contracts/backend.ts",
+      "bytes": 1312,
+      "sha256": "aec61ba1c233cbf9256a9879dbf0d9bb768c6bb9725a1987b21677b762f6b040"
+    },
+    {
+      "path": "src/contracts/contracts.test.ts",
+      "bytes": 308,
+      "sha256": "bfaa1937e77ecb96630852d1c464623de869ddd913eda109ee9e0f5b31c7b6b3"
+    },
+    {
+      "path": "src/contracts/reviewer.ts",
+      "bytes": 924,
+      "sha256": "880e474852b6f5fb135a7bf6ce5e64b2aa29ebcc17f30d43a72511c14716d982"
+    },
+    {
+      "path": "src/contracts/types.ts",
+      "bytes": 4757,
+      "sha256": "01997ec9a5698f6241600996066ed5aa0e8109dbe51fb19a2ae092cebb7d1b76"
+    },
+    {
+      "path": "src/design-system/global.css",
+      "bytes": 28406,
+      "sha256": "c27bbdf716aa45e002ff17abaaeb930bb7386b35458b5a933cd8d11f610c1eec"
+    },
+    {
+      "path": "src/design-system/tokens.css",
+      "bytes": 563,
+      "sha256": "160cfd70ecac372ad32db4fa8312d219c1d0018c31c9ba45c0b328e555801e66"
+    },
+    {
+      "path": "src/features/artifacts/ArtifactsPanel.tsx",
+      "bytes": 1163,
+      "sha256": "eaf1c6cbe48b3c1b83d2bb31dc7a28b3adc82a6b3a6cda8fabe4f3d3f5a83bfb"
+    },
+    {
+      "path": "src/features/composer/Composer.tsx",
+      "bytes": 4186,
+      "sha256": "0a705c2fd550ae811b487549295eb9cdd7da8f6f17f5bbf59b278a72aaa81d84"
+    },
+    {
+      "path": "src/features/conversation/AgentConversation.tsx",
+      "bytes": 2288,
+      "sha256": "d6b4e2f737928d426abfe301a76429b267d2bcd1ac4d04e5bb80c9f0bea2a3b9"
+    },
+    {
+      "path": "src/features/evidence/EvidenceExplorer.tsx",
+      "bytes": 1127,
+      "sha256": "76f98919ffad769aeec204a97fff69d4b58cf66ce1b9b807e5e06db35b214311"
+    },
+    {
+      "path": "src/features/evidence/EvidenceInspector.tsx",
+      "bytes": 1279,
+      "sha256": "3b44b6e8d8a9fae3ec7ebe6a2bac598e8b389c3d1fd9d93a1cc60dd2d94883c7"
+    },
+    {
+      "path": "src/features/execution/EventStream.tsx",
+      "bytes": 1288,
+      "sha256": "5cfaf57c594907dd6bfd168813be296a2c0b591b4a7143ad0651b6a8ae1c7fe3"
+    },
+    {
+      "path": "src/features/execution/ExecutionPath.tsx",
+      "bytes": 1987,
+      "sha256": "0a33d56a1870ef2f05a7019e9687fa7462e16a1a99aea5e46459230cb01426df"
+    },
+    {
+      "path": "src/features/execution/FindingsPanel.tsx",
+      "bytes": 2103,
+      "sha256": "b1814dbda1ec1efa56a5290f3e3137421db3c72692a868195f6713a310346d0b"
+    },
+    {
+      "path": "src/features/execution/ToolInspector.tsx",
+      "bytes": 1321,
+      "sha256": "0065f93416ab07896b2e63b7ed958cbafa13cf8a83358560d6f4763815d97445"
+    },
+    {
+      "path": "src/features/governance/Signoff.tsx",
+      "bytes": 1717,
+      "sha256": "6a4208f6e8fcdd4bf8fed9261f3afcb3e9d1d2bbefa0253b2deaccfb72caa434"
+    },
+    {
+      "path": "src/features/lineage/LineageGraph.tsx",
+      "bytes": 1690,
+      "sha256": "bb916457cbc72d2ddd7cd901074e0f0ea19a1b41515b693671848cd6b67d57e4"
+    },
+    {
+      "path": "src/main.tsx",
+      "bytes": 272,
+      "sha256": "68a552a693bc985b3c7782c481b24c95d0d70a5142656c0e79c23f07d46e69de"
+    },
+    {
+      "path": "src/state/useWorkbench.ts",
+      "bytes": 6136,
+      "sha256": "a5f7f6feb4ff75bfb0beb8c4f5e2a381723d558593f602243eccf2983cde647e"
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 527,
+      "sha256": "83efc1798334967d5a907f26b8cba31fa213f16b5ac0ed5c02fd38e7cf0ceb66"
+    },
+    {
+      "path": "vite.config.ts",
+      "bytes": 188,
+      "sha256": "27b19863c0bdb4ac363b902ff6fe069afe95f480bca90544bdedec64cc8ca46b"
+    }
+  ]
+}

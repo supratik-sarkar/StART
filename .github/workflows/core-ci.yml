@@ -1,0 +1,124 @@
+name: core-ci
+
+on:
+  push:
+    branches:
+      - main
+      - "staging/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  START_PROFILE: airgapped
+  START_DEVICE: cpu
+  START_DISABLE_MPS: "1"
+  OMP_NUM_THREADS: "1"
+  KMP_DUPLICATE_LIB_OK: "TRUE"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+
+jobs:
+  no-secrets:
+    name: no credentials or organisation identifiers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Scan for committed credentials
+        run: |
+          set +e
+          matches=$(git grep -En "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" -- '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.txt' '*.ipynb' || true)
+          if [ -n "$matches" ]; then
+            echo "Possible credential committed:"; echo "$matches"; exit 1
+          fi
+          echo "no credentials found"
+      - name: Refuse committed environments and outputs
+        run: |
+          set +e
+          bad=$(git ls-files | grep -E "^(\.venv|venv|\.env$|start_output/|dist/|build/)" || true)
+          if [ -n "$bad" ]; then echo "Must not be tracked:"; echo "$bad"; exit 1; fi
+          echo "working tree clean of environments and artefacts"
+
+  stdlib-core:
+    name: risk + attestation core with nothing installed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.13"
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
+      - name: Import the core with no dependencies present
+        run: python scripts/verify_stdlib_core.py
+      - name: Installer dry-run must work offline
+        run: python scripts/bootstrap.py --dry-run --profile minimal
+
+  packaging:
+    name: packaging contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.13"
+          cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
+      - name: Install packaging dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: pip check
+        run: pip check
+      - name: requirements.txt is in sync with pyproject.toml
+        run: python scripts/sync_requirements.py --check
+      - name: Run packaging contract tests
+        run: pytest tests/test_packaging_contract.py -v
+
+  core-tests:
+    name: fast hermetic core tests (ubuntu-latest, py3.12.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.13"
+          cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dl,trees,tuning,xai,formats,llm,orchestration,web,telemetry,dev]"
+      - name: pip check
+        run: pip check || true
+      - name: Lint
+        run: ruff check src tests scripts
+      - name: Type check
+        run: mypy || true
+      - name: Compile all sources
+        run: python -m compileall -q src scripts
+      - name: Fast hermetic core tests
+        run: pytest -m "not integration and not platform and not release and not network and not slow"
+      - name: CLI smoke test
+        run: |
+          start doctor
+          start list-tests
+          start risk stripes
+      - name: Demo flight (no provider, no network)
+        run: python scripts/demo_flight.py --speed 0 --no-clear

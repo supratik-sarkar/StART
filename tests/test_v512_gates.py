@@ -39,6 +39,8 @@ from start.web.schemas import (
     WebReviewerSubmission,
 )
 
+pytestmark = pytest.mark.release
+
 
 @pytest.fixture
 def run_context_with_evidence():

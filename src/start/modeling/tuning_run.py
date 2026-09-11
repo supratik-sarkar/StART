@@ -477,6 +477,10 @@ def run_tuning(
                     fold_epochs = 0
                     fold_early_stop = ""
 
+                    clf = None
+                    fold_epochs = 0
+                    fold_early_stop = "no"
+                    fold_metric = float("nan")
                     try:
                         with _warnings.catch_warnings(record=True) as caught:
                             _warnings.simplefilter("always")
@@ -577,7 +581,7 @@ def run_tuning(
                             "preprocessing_scope": "fold-local",
                             "epochs_completed": fold_epochs,
                             "early_stopping": fold_early_stop,
-                            "device": str(getattr(clf, "_device_used", "cpu") if "clf" in dir() else "cpu"),
+                            "device": str(getattr(clf, "_device_used", "cpu") if clf is not None else "cpu"),
                             "runtime_seconds": fold_runtime,
                             "metric_name": metric_name,
                             "metric_value": fold_metric,
@@ -605,6 +609,8 @@ def run_tuning(
                 fold_t0 = _time.perf_counter()
                 fold_warnings_list: list[str] = []
                 fold_status_h = "ok"
+                clf = None
+                metric = float("nan")
 
                 try:
                     with _warnings.catch_warnings(record=True) as caught:
@@ -653,13 +659,13 @@ def run_tuning(
                         "model_family": architecture,
                         "params": str(params),
                         "preprocessing_scope": "holdout-split",
-                        "epochs_completed": getattr(clf, "best_epoch_", 0) if "clf" in dir() else 0,
+                        "epochs_completed": getattr(clf, "best_epoch_", 0) if clf is not None else 0,
                         "early_stopping": "yes"
-                        if getattr(clf, "stopped_early_", False)
+                        if (clf is not None and getattr(clf, "stopped_early_", False))
                         else "no"
-                        if "clf" in dir()
+                        if clf is not None
                         else "",
-                        "device": str(getattr(clf, "_device_used", "cpu") if "clf" in dir() else "cpu"),
+                        "device": str(getattr(clf, "_device_used", "cpu") if clf is not None else "cpu"),
                         "runtime_seconds": fold_runtime_h,
                         "metric_name": metric_name,
                         "metric_value": metric,

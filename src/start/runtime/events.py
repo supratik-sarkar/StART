@@ -36,6 +36,7 @@ class RuntimeEvent:
     node_id: str | None = None
     parent_node_id: str | None = None
     test_id: str | None = None
+    checkpoint_id: str | None = None
     evidence_refs: list[str] = field(default_factory=list)
     artifact_refs: list[str] = field(default_factory=list)
     elapsed_seconds: float = 0.0

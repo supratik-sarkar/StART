@@ -290,6 +290,7 @@ class ReviewContextBundle:
     tabular: Any | None = None
     market: Any | None = None
     short_rate: Any | None = None
+    recommender: Any | None = None
     domains: tuple[ReviewDomain, ...] = field(default=())
     mode: ReviewMode = ReviewMode.SINGLE_DOMAIN
     technology: PredictiveTechnology | None = None
@@ -304,13 +305,16 @@ class ReviewContextBundle:
     structured_findings: list[Any] = field(default_factory=list)
 
     def context_for(self, context_type: str) -> Any | None:
-        return {"tabular": self.tabular, "market": self.market, "short_rate": self.short_rate}.get(
-            context_type
-        )
+        return {
+            "tabular": self.tabular,
+            "market": self.market,
+            "short_rate": self.short_rate,
+            "recommender": self.recommender,
+        }.get(context_type)
 
     def available_context_types(self) -> tuple[str, ...]:
         return tuple(
-            name for name in ("tabular", "market", "short_rate") if self.context_for(name) is not None
+            name for name in ("tabular", "market", "short_rate", "recommender") if self.context_for(name) is not None
         )
 
     def missing_context_types(self) -> tuple[str, ...]:

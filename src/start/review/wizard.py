@@ -518,7 +518,21 @@ def run_review_wizard(
         ds_choice = _ask_choice("Select Predictive Dataset Source:", ds_opts, default="1", ask=ask)
         selection = resolve_wizard_choice(ds_choice, seed=seed)
         predictive_config["dataset_selection"] = selection
-        predictive_config["target_column"] = selection.target_column or "is_fraud"
+        target_col = selection.target_column
+        if not target_col and selection.frame is not None and hasattr(selection.frame, "columns") and len(selection.frame.columns) > 0:
+            candidate_names = (
+                "income", "class", "target", "label", "is_fraud",
+                "is_bad_credit", "default", "churn", "fraud", "outcome", "status"
+            )
+            cols_lower = {str(c).lower(): str(c) for c in selection.frame.columns}
+            for cand in candidate_names:
+                if cand in cols_lower:
+                    target_col = cols_lower[cand]
+                    break
+            if not target_col:
+                target_col = str(selection.frame.columns[-1])
+            selection.target_column = target_col
+        predictive_config["target_column"] = target_col or "is_fraud"
         predictive_config["split_strategy_name"] = "stratified"
         predictive_config["split_proportions"] = (0.60, 0.20, 0.20)
         predictive_config["stratify"] = True

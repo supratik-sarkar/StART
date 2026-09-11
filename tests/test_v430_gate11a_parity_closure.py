@@ -57,6 +57,8 @@ from start.review.tables import (
     build_var_tail_table,
 )
 
+pytestmark = pytest.mark.release
+
 
 def make_evidence_record(
     test_id: str,

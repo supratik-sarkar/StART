@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-DEFAULT_SHOCKS = (-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30)
+DEFAULT_SHOCKS = (-0.30, -0.20, -0.10, -0.05, 0.0, 0.05, 0.10, 0.20, 0.30)
 
 
 @dataclass
@@ -125,8 +125,14 @@ def run_sensitivity_analysis(
     metric_name: str = "auc_roc",
     shocks: tuple[float, ...] = DEFAULT_SHOCKS,
     max_features: int = 5,
+    mode: str = "one_at_a_time",
 ) -> SensitivityResult:
-    """Shock each of the top features across the grid and measure metric drift."""
+    """Shock top features across the grid and measure metric drift.
+
+    Supports mode="one_at_a_time" (default isolated feature shocks),
+    mode="parallel_basket" (compound simultaneous shock across all top features),
+    or mode="both".
+    """
     features = [f for f in top_features if f in X.columns][:max_features]
     scorer = _scorer_for(metric_name)
     y = np.asarray(y).reshape(-1)
@@ -148,23 +154,42 @@ def run_sensitivity_analysis(
     rows: list[ShockRow] = []
     per_feature_max: dict[str, float] = {}
 
-    for feature in features:
+    norm_mode = mode.lower().strip()
+    run_oat = norm_mode in ("one_at_a_time", "both", "oat")
+    run_basket = norm_mode in ("parallel_basket", "both", "basket")
+
+    if run_oat:
+        for feature in features:
+            for shock in shocks:
+                if shock == 0.0:
+                    value, drift = baseline, 0.0  # 0% row == baseline by construction
+                else:
+                    shocked = X.copy()
+                    shocked[feature] = shocked[feature] * (1.0 + shock)
+                    value = score(shocked)
+                    drift = round(value - baseline, 6)
+                rows.append(ShockRow(feature=feature, shock=shock, metric_value=round(value, 6), drift=drift))
+                per_feature_max[feature] = max(per_feature_max.get(feature, 0.0), abs(drift))
+
+    if run_basket and features:
+        basket_label = f"[PARALLEL BASKET: TOP-{len(features)}]"
         for shock in shocks:
             if shock == 0.0:
-                value, drift = baseline, 0.0  # 0% row == baseline by construction
+                value, drift = baseline, 0.0
             else:
                 shocked = X.copy()
-                shocked[feature] = shocked[feature] * (1.0 + shock)
+                for feature in features:
+                    shocked[feature] = shocked[feature] * (1.0 + shock)
                 value = score(shocked)
                 drift = round(value - baseline, 6)
-            rows.append(ShockRow(feature=feature, shock=shock, metric_value=round(value, 6), drift=drift))
-            per_feature_max[feature] = max(per_feature_max.get(feature, 0.0), abs(drift))
+            rows.append(ShockRow(feature=basket_label, shock=shock, metric_value=round(value, 6), drift=drift))
+            per_feature_max[basket_label] = max(per_feature_max.get(basket_label, 0.0), abs(drift))
 
     most_sensitive = max(per_feature_max, key=per_feature_max.get) if per_feature_max else None
     max_drift = round(max(per_feature_max.values()), 6) if per_feature_max else 0.0
     interp = (
-        f"Most sensitive feature: {most_sensitive} (max |drift| {max_drift:.4f} in {metric_name}). "
-        "Large drift indicates the model relies heavily on that feature; review for stability."
+        f"Most sensitive feature/basket: {most_sensitive} (max |drift| {max_drift:.4f} in {metric_name}). "
+        "Large drift indicates the model relies heavily on that factor; review for stability."
         if most_sensitive
         else "No features available for sensitivity analysis."
     )

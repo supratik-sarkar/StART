@@ -1,0 +1,72 @@
+{
+  "schema_version": "2.0.0",
+  "certification_id": "CERT_4FB4D8C42308",
+  "system": "StART Scientific Certification System",
+  "authority": "StART Scientific Validation & Governance Core",
+  "timestamp": "2026-09-10T08:08:59Z",
+  "status_dimensions": {
+    "mathematical_invariants": "PASS",
+    "golden_data_certification": "CERTIFIED",
+    "real_data_empirical_certification": "PARTIAL",
+    "model_matrix_completeness": "CERTIFIED",
+    "xai_certification": "CERTIFIED",
+    "gpt41_policy_certification": "CERTIFIED",
+    "live_data_provider_certification": "CERTIFIED",
+    "distributed_data_runtime_certification": "LOCAL_COLUMNAR_VERIFIED"
+  },
+  "environment": {
+    "python": "3.12.13 (main, Mar  3 2026, 12:39:30) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "platform": "darwin",
+    "device": "Darwin arm64 (Apple Silicon)",
+    "openmp_threads_invariant": "n_jobs=1 on Darwin enforced",
+    "ray_available": false,
+    "ray_distributed_execution_verified": 0
+  },
+  "policies": {
+    "deterministic": "DETERMINISTIC_POLICY (Standard engineering baseline)",
+    "gpt41": "GPT41_POLICY (Bounded OpenAI gpt-4.1 architectural planning)",
+    "gpt41_model": "gpt-4.1",
+    "gpt41_numeric_authority": 0,
+    "gpt41_policy_label_without_real_plan": 0
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "domains_evaluated": [
+    "predictive_binary",
+    "deep_learning",
+    "fraud_imbalanced",
+    "recommender",
+    "portfolio",
+    "market_risk",
+    "scenario_traded_risk"
+  ],
+  "total_runs_recorded": 180,
+  "deterministic_runs_count": 150,
+  "gpt41_runs_count": 30,
+  "invariant_summary": {
+    "total_invariants": 10,
+    "passed": 10,
+    "failed": 0
+  },
+  "artifacts_emitted": [
+    "certification_manifest.json",
+    "dataset_manifest.json",
+    "experiment_matrix.json",
+    "deterministic_runs.jsonl",
+    "gpt41_runs.jsonl",
+    "champion_challenger.json",
+    "invariant_results.json",
+    "xai_results.json",
+    "sensitivity_results.json",
+    "provider_trace.json",
+    "failures.json",
+    "certification_discrepancies.json",
+    "real_data_domain_coverage.json",
+    "gpt41_policy_coverage.json"
+  ]
+}

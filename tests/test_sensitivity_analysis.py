@@ -24,7 +24,14 @@ def fitted():
 
 
 def test_shock_grid_is_correct():
-    assert DEFAULT_SHOCKS == (-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30)
+    assert DEFAULT_SHOCKS == (-0.30, -0.20, -0.10, -0.05, 0.0, 0.05, 0.10, 0.20, 0.30)
+
+
+def test_parallel_basket_mode(fitted):
+    clf, X, y = fitted
+    res = run_sensitivity_analysis(clf, X, y, top_features=["f0", "f1", "f2"], mode="parallel_basket")
+    assert len(res.shock_rows) == len(DEFAULT_SHOCKS)
+    assert any("[PARALLEL BASKET" in r.feature for r in res.shock_rows)
 
 
 def test_zero_shock_equals_baseline(fitted):

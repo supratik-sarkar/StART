@@ -1,15 +1,18 @@
 import type { StartBackend, StreamSubscription } from '../../contracts/backend'
 import type { ReviewerOutput } from '../../contracts/reviewer'
 import type {
-  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, EvidenceRecord,
-  ExecutionContext, ExecutionGraph, Finding, GovernanceState, ProposedAction, ReviewerGateResult,
-  RunRequest, RunSnapshot, RuntimeEvent
+  AgentPlanPreview, ArtifactRecord, AttestationState, Capability, CheckpointRecord,
+  DecisionReceipt, EdaProfile, EvidenceRecord, ExecutionContext, ExecutionGraph,
+  Finding, GovernanceState, ProposedAction, QuestionResponse, ReviewerGateResult,
+  RunCompareResult, RunHistoryItem, RunLineage,
+  RunRequest, RunSnapshot, RuntimeEvent, ScenarioItem, StARTCapabilityManifest, TestCatalogItem
 } from '../../contracts/types'
 import {
   validateAgentPlanPreview, validateArtifactRecords, validateAttestationState, validateCapabilities,
   validateEvidenceRecords, validateExecutionContexts, validateExecutionGraph, validateFindings,
-  validateGovernanceState, validateProposedAction, validateReviewerGateResult, validateRunSnapshot,
-  validateRuntimeEvent
+  validateGovernanceState, validateProposedAction, validateReviewerGateResult,
+  validateRunCompareResult, validateRunHistoryItems, validateRunLineage,
+  validateRunSnapshot, validateRuntimeEvent
 } from '../../contracts/validators'
 
 /**
@@ -66,14 +69,43 @@ export class PublicStARTBackend implements StartBackend {
     return validateCapabilities(unwrapped)
   }
 
+  async getCapabilityManifest(): Promise<StARTCapabilityManifest> {
+    const raw = await this.json<any>('/api/v1/capability-manifest')
+    return (raw?.data ?? raw) as StARTCapabilityManifest
+  }
+
   async listExecutionContexts(): Promise<ExecutionContext[]> {
     const raw = await this.json<unknown>('/api/v1/execution-contexts')
     const unwrapped = this.unwrap(raw, 'contexts')
     return validateExecutionContexts(unwrapped)
   }
 
+  async listScenarios(): Promise<ScenarioItem[]> {
+    const raw = await this.json<unknown>('/api/v1/scenarios')
+    const unwrapped = this.unwrap(raw, 'scenarios')
+    return (unwrapped as ScenarioItem[]) || []
+  }
+
+  async getScenarioEda(scenarioId: string): Promise<EdaProfile> {
+    const raw = await this.json<unknown>(`/api/v1/scenarios/${scenarioId}/eda`)
+    const unwrapped = this.unwrap(raw)
+    return unwrapped as EdaProfile
+  }
+
+  async getContextEda(contextId: string): Promise<EdaProfile> {
+    const raw = await this.json<unknown>(`/api/v1/execution-contexts/${contextId}/eda`)
+    const unwrapped = this.unwrap(raw)
+    return unwrapped as EdaProfile
+  }
+
+  async listTests(): Promise<TestCatalogItem[]> {
+    const raw = await this.json<unknown>('/api/v1/tests')
+    const unwrapped = this.unwrap(raw, 'tests')
+    return (unwrapped as TestCatalogItem[]) || []
+  }
+
   async createPlan(request: RunRequest): Promise<AgentPlanPreview> {
-    const raw = await this.json<unknown>('/api/v1/plans', {
+    const raw = await this.json<unknown>('/plan/generate', {
       method: 'POST',
       body: JSON.stringify(request),
     })
@@ -85,7 +117,7 @@ export class PublicStARTBackend implements StartBackend {
     const sessionId = (request as any).sessionId || (request as any).session_id || this.activeSessionId || `SES-${Date.now().toString(36)}`
     this.activeSessionId = sessionId
     const payload = { ...request, session_id: sessionId }
-    const raw = await this.json<unknown>('/api/v1/runs', {
+    const raw = await this.json<unknown>('/api/v1/workflow/run', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
@@ -97,6 +129,13 @@ export class PublicStARTBackend implements StartBackend {
     const raw = await this.json<unknown>(`/api/v1/runs/${runId}`)
     const unwrapped = this.unwrap(raw, 'run')
     return validateRunSnapshot(unwrapped)
+  }
+
+  async getRunEvents(runId: string): Promise<RuntimeEvent[]> {
+    const raw = await this.json<unknown>(`/api/v1/runs/${encodeURIComponent(runId)}/events`)
+    const events = this.unwrap(raw, 'events')
+    if (!Array.isArray(events)) throw new Error('Run events response is not a list')
+    return events.map(validateRuntimeEvent).filter(e => e.runId === runId)
   }
 
   streamRun(
@@ -236,4 +275,64 @@ export class PublicStARTBackend implements StartBackend {
     const unwrapped = this.unwrap(raw, 'attestation')
     return validateAttestationState(unwrapped)
   }
+
+  async getCheckpoints(runId: string): Promise<CheckpointRecord[]> {
+    const raw = await this.json<unknown>(`/api/v1/runs/${runId}/checkpoints`)
+    const unwrapped = this.unwrap(raw, 'checkpoints')
+    return (unwrapped as CheckpointRecord[]) || []
+  }
+
+  async recordDecision(runId: string, decision: Partial<DecisionReceipt>): Promise<DecisionReceipt> {
+    const raw = await this.json<unknown>(`/api/v1/runs/${runId}/decisions`, {
+      method: 'POST',
+      body: JSON.stringify(decision),
+    })
+    const unwrapped = this.unwrap(raw)
+    return unwrapped as DecisionReceipt
+  }
+
+  async askQuestion(runId: string, query: { question: string; targetStage?: string; evidenceId?: string }): Promise<QuestionResponse> {
+    const raw = await this.json<unknown>(`/api/v1/runs/${runId}/question`, {
+      method: 'POST',
+      body: JSON.stringify(query),
+    })
+    const unwrapped = this.unwrap(raw)
+    return unwrapped as QuestionResponse
+  }
+
+  async listRuns(query?: { workflow?: string; status?: string; domain?: string }): Promise<RunHistoryItem[]> {
+    const params = new URLSearchParams()
+    if (query?.workflow) params.set('workflow', query.workflow)
+    if (query?.status) params.set('status', query.status)
+    if (query?.domain) params.set('domain', query.domain)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    const raw = await this.json<unknown>(`/api/v1/runs${qs}`)
+    const unwrapped = this.unwrap(raw, 'runs')
+    return validateRunHistoryItems(unwrapped)
+  }
+
+  async compareRuns(runA: string, runB: string): Promise<RunCompareResult> {
+    const raw = await this.json<unknown>(`/api/v1/compare?run_a=${encodeURIComponent(runA)}&run_b=${encodeURIComponent(runB)}`)
+    const unwrapped = this.unwrap(raw)
+    return validateRunCompareResult(unwrapped)
+  }
+
+  async getRunLineage(runId: string): Promise<RunLineage> {
+    const raw = await this.json<unknown>(`/api/v1/runs/${encodeURIComponent(runId)}/lineage`)
+    const unwrapped = this.unwrap(raw)
+    return validateRunLineage(unwrapped)
+  }
+
+  async searchGlobal(query: string): Promise<Array<{ id: string; category: string; title: string; subtitle?: string; data?: any }>> {
+    const raw = await this.json<{ results?: Array<{ id: string; category: string; title: string; subtitle?: string; data?: any }> }>(`/api/v1/search?q=${encodeURIComponent(query)}`)
+    const unwrapped = this.unwrap(raw, 'results') as any
+    if (Array.isArray(unwrapped)) {
+      return unwrapped
+    }
+    if (raw && Array.isArray(raw.results)) {
+      return raw.results
+    }
+    return []
+  }
 }
+

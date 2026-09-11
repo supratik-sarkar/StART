@@ -19,6 +19,15 @@ from start.providers.base import ComputeProvider
 
 def detect_device() -> ComputeDevice:
     """CUDA -> MPS -> CPU. Never raises; torch is optional."""
+    env_dev = os.environ.get("START_COMPUTE_DEVICE") or os.environ.get("START_DEVICE")
+    if env_dev:
+        if env_dev.lower() == "cpu":
+            return ComputeDevice.CPU
+        if env_dev.lower() == "cuda":
+            return ComputeDevice.CUDA
+        if env_dev.lower() == "mps":
+            return ComputeDevice.MPS
+
     try:
         import torch  # type: ignore
     except ImportError:
@@ -28,6 +37,8 @@ def detect_device() -> ComputeDevice:
             return ComputeDevice.CUDA
         mps = getattr(torch.backends, "mps", None)
         if mps is not None and mps.is_available():
+            if os.environ.get("START_DISABLE_MPS", "").lower() in ("1", "true", "yes"):
+                return ComputeDevice.CPU
             return ComputeDevice.MPS
     except Exception:
         pass

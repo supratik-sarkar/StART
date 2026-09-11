@@ -1,0 +1,265 @@
+[
+  {
+    "call_id": "gpt41_plan_4ff22f8b",
+    "timestamp": 1789027715.0746298,
+    "provider": "OpenAI",
+    "model": "gpt-4.1",
+    "experiment_id": "EXP_PRED_GOLDEN",
+    "prompt": "Domain: predictive_binary\nDataset Metadata: {\"rows\": 1000, \"features\": 25, \"imbalance\": 0.204}\nAllowed Models: [\"xgboost\", \"lightgbm\", \"random_forest\", \"gradient_boosting\", \"logistic_regression\"]\nAllowed Metrics: [\"roc_auc\", \"pr_auc\", \"f1\", \"brier\"]\n\nDesign the optimal scientific model training plan for this dataset and domain.",
+    "response_raw": "{\n  \"selected_model\": \"lightgbm\",\n  \"preprocessing\": {\n    \"imputation\": \"median\",\n    \"scaling\": \"none\",\n    \"outlier_clipping\": true\n  },\n  \"split\": {\n    \"strategy\": \"stratified\",\n    \"test_size\": 0.20\n  },\n  \"tuning_strategy\": \"optuna\",\n  \"trial_budget\": 5,\n  \"primary_metric\": \"roc_auc\",\n  \"secondary_metrics\": [\"pr_auc\", \"f1\", \"brier\"],\n  \"xai_methods\": [\"shap_tree_explainer\", \"permutation_importance\", \"native_importance\"],\n  \"sensitivity_mode\": \"both\",\n  \"hyperparameters\": {\"n_estimators\": 150, \"max_depth\": 6},\n  \"architectural_rationale\": \"LightGBM is selected for its efficiency and strong performance on tabular data with moderate feature count. Median imputation and outlier clipping address potential data quality issues. Stratified split preserves class imbalance. Optuna enables efficient hyperparameter search within a limited trial budget. ROC AUC is prioritized due to class imbalance, with additional metrics for comprehensive evaluation. Multiple XAI methods and both sensitivity modes ensure robust interpretability.\"\n}",
+    "response_parsed": {
+      "selected_model": "lightgbm",
+      "preprocessing": {
+        "imputation": "median",
+        "scaling": "none",
+        "outlier_clipping": true
+      },
+      "split": {
+        "strategy": "stratified",
+        "test_size": 0.2
+      },
+      "tuning_strategy": "optuna",
+      "trial_budget": 5,
+      "primary_metric": "roc_auc",
+      "secondary_metrics": [
+        "pr_auc",
+        "f1",
+        "brier"
+      ],
+      "xai_methods": [
+        "shap_tree_explainer",
+        "permutation_importance",
+        "native_importance"
+      ],
+      "sensitivity_mode": "both",
+      "hyperparameters": {
+        "n_estimators": 150,
+        "max_depth": 6
+      },
+      "architectural_rationale": "LightGBM is selected for its efficiency and strong performance on tabular data with moderate feature count. Median imputation and outlier clipping address potential data quality issues. Stratified split preserves class imbalance. Optuna enables efficient hyperparameter search within a limited trial budget. ROC AUC is prioritized due to class imbalance, with additional metrics for comprehensive evaluation. Multiple XAI methods and both sensitivity modes ensure robust interpretability."
+    },
+    "prompt_tokens": 428,
+    "completion_tokens": 260,
+    "latency_seconds": 2.228851667023264,
+    "schema_valid": true,
+    "correction_call_required": false
+  },
+  {
+    "call_id": "gpt41_plan_c783a2cf",
+    "timestamp": 1789027723.269543,
+    "provider": "OpenAI",
+    "model": "gpt-4.1",
+    "experiment_id": "EXP_DEEP_LEARNING",
+    "prompt": "Domain: deep_learning\nDataset Metadata: {\"rows\": 1000, \"features\": 20, \"task\": \"tabular_binary\"}\nAllowed Models: [\"mlp\", \"lstm\", \"gru\", \"simple_cnn_small\"]\nAllowed Metrics: [\"roc_auc\", \"accuracy\", \"f1\"]\n\nDesign the optimal scientific model training plan for this dataset and domain.",
+    "response_raw": "{\n  \"selected_model\": \"mlp\",\n  \"preprocessing\": {\n    \"imputation\": \"mean\",\n    \"scaling\": \"standard\",\n    \"outlier_clipping\": true\n  },\n  \"split\": {\n    \"strategy\": \"stratified\",\n    \"test_size\": 0.20\n  },\n  \"tuning_strategy\": \"optuna\",\n  \"trial_budget\": 5,\n  \"primary_metric\": \"roc_auc\",\n  \"secondary_metrics\": [\"f1\", \"accuracy\"],\n  \"xai_methods\": [\"shap_tree_explainer\", \"permutation_importance\", \"native_importance\"],\n  \"sensitivity_mode\": \"one_at_a_time\",\n  \"hyperparameters\": {\n    \"n_estimators\": 150,\n    \"max_depth\": 6\n  },\n  \"architectural_rationale\": \"MLP is optimal for tabular binary tasks in deep learning domains with moderate feature count. Mean imputation and standard scaling ensure stable input distributions. Stratified split preserves class balance. Optuna enables efficient hyperparameter search within a limited trial budget. ROC AUC is prioritized for binary classification robustness. XAI methods and sensitivity analysis provide interpretability and robustness checks.\"\n}",
+    "response_parsed": {
+      "selected_model": "mlp",
+      "preprocessing": {
+        "imputation": "mean",
+        "scaling": "standard",
+        "outlier_clipping": true
+      },
+      "split": {
+        "strategy": "stratified",
+        "test_size": 0.2
+      },
+      "tuning_strategy": "optuna",
+      "trial_budget": 5,
+      "primary_metric": "roc_auc",
+      "secondary_metrics": [
+        "f1",
+        "accuracy"
+      ],
+      "xai_methods": [
+        "shap_tree_explainer",
+        "permutation_importance",
+        "native_importance"
+      ],
+      "sensitivity_mode": "one_at_a_time",
+      "hyperparameters": {
+        "n_estimators": 150,
+        "max_depth": 6
+      },
+      "architectural_rationale": "MLP is optimal for tabular binary tasks in deep learning domains with moderate feature count. Mean imputation and standard scaling ensure stable input distributions. Stratified split preserves class balance. Optuna enables efficient hyperparameter search within a limited trial budget. ROC AUC is prioritized for binary classification robustness. XAI methods and sensitivity analysis provide interpretability and robustness checks."
+    },
+    "prompt_tokens": 412,
+    "completion_tokens": 251,
+    "latency_seconds": 2.0452495829667896,
+    "schema_valid": true,
+    "correction_call_required": false
+  },
+  {
+    "call_id": "gpt41_plan_f3077b78",
+    "timestamp": 1789027727.1290329,
+    "provider": "OpenAI",
+    "model": "gpt-4.1",
+    "experiment_id": "EXP_FRAUD_AML",
+    "prompt": "Domain: fraud_imbalanced\nDataset Metadata: {\"rows\": 1000, \"features\": 25, \"imbalance\": 0.055}\nAllowed Models: [\"random_forest_balanced\", \"lightgbm_balanced\", \"xgboost_weighted\", \"logistic_regression_balanced\", \"gradient_boosting\"]\nAllowed Metrics: [\"pr_auc\", \"roc_auc\", \"f1\", \"matthews_corr\"]\n\nDesign the optimal scientific model training plan for this dataset and domain.",
+    "response_raw": "{\n  \"selected_model\": \"lightgbm_balanced\",\n  \"preprocessing\": {\n    \"imputation\": \"median\",\n    \"scaling\": \"robust\",\n    \"outlier_clipping\": true\n  },\n  \"split\": {\n    \"strategy\": \"stratified\",\n    \"test_size\": 0.20\n  },\n  \"tuning_strategy\": \"optuna\",\n  \"trial_budget\": 5,\n  \"primary_metric\": \"pr_auc\",\n  \"secondary_metrics\": [\"roc_auc\", \"f1\", \"matthews_corr\"],\n  \"xai_methods\": [\"shap_tree_explainer\", \"permutation_importance\", \"native_importance\"],\n  \"sensitivity_mode\": \"both\",\n  \"hyperparameters\": {\"n_estimators\": 150, \"max_depth\": 6},\n  \"architectural_rationale\": \"LightGBM with balanced objective is well-suited for imbalanced fraud detection due to its efficiency and handling of class imbalance. Stratified splitting preserves class proportions. Median imputation and robust scaling address outliers and skewed distributions. Optuna enables efficient hyperparameter search within a limited trial budget. PR AUC is prioritized for imbalanced classification, with additional metrics for comprehensive evaluation. XAI methods provide interpretability, and both sensitivity modes ensure robust risk assessment.\"\n}",
+    "response_parsed": {
+      "selected_model": "lightgbm_balanced",
+      "preprocessing": {
+        "imputation": "median",
+        "scaling": "robust",
+        "outlier_clipping": true
+      },
+      "split": {
+        "strategy": "stratified",
+        "test_size": 0.2
+      },
+      "tuning_strategy": "optuna",
+      "trial_budget": 5,
+      "primary_metric": "pr_auc",
+      "secondary_metrics": [
+        "roc_auc",
+        "f1",
+        "matthews_corr"
+      ],
+      "xai_methods": [
+        "shap_tree_explainer",
+        "permutation_importance",
+        "native_importance"
+      ],
+      "sensitivity_mode": "both",
+      "hyperparameters": {
+        "n_estimators": 150,
+        "max_depth": 6
+      },
+      "architectural_rationale": "LightGBM with balanced objective is well-suited for imbalanced fraud detection due to its efficiency and handling of class imbalance. Stratified splitting preserves class proportions. Median imputation and robust scaling address outliers and skewed distributions. Optuna enables efficient hyperparameter search within a limited trial budget. PR AUC is prioritized for imbalanced classification, with additional metrics for comprehensive evaluation. XAI methods provide interpretability, and both sensitivity modes ensure robust risk assessment."
+    },
+    "prompt_tokens": 440,
+    "completion_tokens": 274,
+    "latency_seconds": 2.1137688329908997,
+    "schema_valid": true,
+    "correction_call_required": false
+  },
+  {
+    "call_id": "gpt41_plan_08538318",
+    "timestamp": 1789027731.867693,
+    "provider": "OpenAI",
+    "model": "gpt-4.1",
+    "experiment_id": "EXP_RECOMMENDER",
+    "prompt": "Domain: recommender\nDataset Metadata: {\"interactions\": 200, \"task\": \"top_k_ranking\"}\nAllowed Models: [\"ffm\", \"ncf\", \"mf\", \"fm\"]\nAllowed Metrics: [\"ndcg@10\", \"map@10\", \"mrr\", \"hitrate@10\"]\n\nDesign the optimal scientific model training plan for this dataset and domain.",
+    "response_raw": "{\n  \"selected_model\": \"ncf\",\n  \"preprocessing\": {\n    \"imputation\": \"zero\",\n    \"scaling\": \"none\",\n    \"outlier_clipping\": false\n  },\n  \"split\": {\n    \"strategy\": \"random\",\n    \"test_size\": 0.20\n  },\n  \"tuning_strategy\": \"bounded_random_search\",\n  \"trial_budget\": 5,\n  \"primary_metric\": \"ndcg@10\",\n  \"secondary_metrics\": [\"map@10\", \"mrr\", \"hitrate@10\"],\n  \"xai_methods\": [\"shap_tree_explainer\", \"permutation_importance\", \"native_importance\"],\n  \"sensitivity_mode\": \"one_at_a_time\",\n  \"hyperparameters\": {\"n_estimators\": 150, \"max_depth\": 6},\n  \"architectural_rationale\": \"NCF is well-suited for top-k ranking tasks in recommender systems and can handle sparse interaction data. Zero imputation is appropriate for missing interactions, and no scaling or outlier clipping is needed due to the categorical and sparse nature of the data. Random split is chosen due to the small dataset size. Bounded random search with a small trial budget balances exploration and computational efficiency. ndcg@10 is the primary metric as it directly measures ranking quality.\"\n}",
+    "response_parsed": {
+      "selected_model": "ncf",
+      "preprocessing": {
+        "imputation": "zero",
+        "scaling": "none",
+        "outlier_clipping": false
+      },
+      "split": {
+        "strategy": "random",
+        "test_size": 0.2
+      },
+      "tuning_strategy": "bounded_random_search",
+      "trial_budget": 5,
+      "primary_metric": "ndcg@10",
+      "secondary_metrics": [
+        "map@10",
+        "mrr",
+        "hitrate@10"
+      ],
+      "xai_methods": [
+        "shap_tree_explainer",
+        "permutation_importance",
+        "native_importance"
+      ],
+      "sensitivity_mode": "one_at_a_time",
+      "hyperparameters": {
+        "n_estimators": 150,
+        "max_depth": 6
+      },
+      "architectural_rationale": "NCF is well-suited for top-k ranking tasks in recommender systems and can handle sparse interaction data. Zero imputation is appropriate for missing interactions, and no scaling or outlier clipping is needed due to the categorical and sparse nature of the data. Random split is chosen due to the small dataset size. Bounded random search with a small trial budget balances exploration and computational efficiency. ndcg@10 is the primary metric as it directly measures ranking quality."
+    },
+    "prompt_tokens": 414,
+    "completion_tokens": 275,
+    "latency_seconds": 2.207638750085607,
+    "schema_valid": true,
+    "correction_call_required": false
+  },
+  {
+    "call_id": "gpt41_plan_9d7b5977",
+    "timestamp": 1789027734.133858,
+    "provider": "OpenAI",
+    "model": "gpt-4.1",
+    "experiment_id": "EXP_PORTFOLIO",
+    "prompt": "Domain: portfolio\nDataset Metadata: {\"assets\": 10, \"periods\": 500, \"frequency\": \"daily\"}\nAllowed Models: [\"hrp\", \"min_variance\", \"erc\"]\nAllowed Metrics: [\"diversification_ratio\", \"realized_volatility\", \"sharpe_ratio\"]\n\nDesign the optimal scientific model training plan for this dataset and domain.",
+    "response_raw": "{\n  \"selected_model\": \"hrp\",\n  \"preprocessing\": {\n    \"imputation\": \"median\",\n    \"scaling\": \"standard\",\n    \"outlier_clipping\": true\n  },\n  \"split\": {\n    \"strategy\": \"stratified\",\n    \"test_size\": 0.20\n  },\n  \"tuning_strategy\": \"bounded_random_search\",\n  \"trial_budget\": 5,\n  \"primary_metric\": \"diversification_ratio\",\n  \"secondary_metrics\": [\"realized_volatility\", \"sharpe_ratio\"],\n  \"xai_methods\": [\"shap_tree_explainer\", \"permutation_importance\", \"native_importance\"],\n  \"sensitivity_mode\": \"one_at_a_time\",\n  \"hyperparameters\": {\"n_estimators\": 150, \"max_depth\": 6},\n  \"architectural_rationale\": \"HRP is selected for its robustness to estimation error and suitability for small asset universes. Median imputation and standard scaling address potential missing values and scale disparities. Outlier clipping mitigates the impact of extreme returns. Stratified splitting preserves distributional characteristics. Diversification ratio is prioritized to maximize portfolio diversification, with volatility and Sharpe ratio as secondary checks. Bounded random search efficiently explores hyperparameters within a limited trial budget. XAI methods provide interpretability, and one-at-a-time sensitivity analysis ensures clear attribution of input effects.\"\n}",
+    "response_parsed": {
+      "selected_model": "hrp",
+      "preprocessing": {
+        "imputation": "median",
+        "scaling": "standard",
+        "outlier_clipping": true
+      },
+      "split": {
+        "strategy": "stratified",
+        "test_size": 0.2
+      },
+      "tuning_strategy": "bounded_random_search",
+      "trial_budget": 5,
+      "primary_metric": "diversification_ratio",
+      "secondary_metrics": [
+        "realized_volatility",
+        "sharpe_ratio"
+      ],
+      "xai_methods": [
+        "shap_tree_explainer",
+        "permutation_importance",
+        "native_importance"
+      ],
+      "sensitivity_mode": "one_at_a_time",
+      "hyperparameters": {
+        "n_estimators": 150,
+        "max_depth": 6
+      },
+      "architectural_rationale": "HRP is selected for its robustness to estimation error and suitability for small asset universes. Median imputation and standard scaling address potential missing values and scale disparities. Outlier clipping mitigates the impact of extreme returns. Stratified splitting preserves distributional characteristics. Diversification ratio is prioritized to maximize portfolio diversification, with volatility and Sharpe ratio as secondary checks. Bounded random search efficiently explores hyperparameters within a limited trial budget. XAI methods provide interpretability, and one-at-a-time sensitivity analysis ensures clear attribution of input effects."
+    },
+    "prompt_tokens": 411,
+    "completion_tokens": 288,
+    "latency_seconds": 2.292697584023699,
+    "schema_valid": true,
+    "correction_call_required": false
+  },
+  {
+    "call_id": "gpt41_plan_0c898a8d",
+    "timestamp": 1789027736.443234,
+    "provider": "OpenAI",
+    "model": "gpt-4.1",
+    "experiment_id": "EXP_MARKET_RISK",
+    "prompt": "Domain: market_risk\nDataset Metadata: {\"periods\": 500, \"confidence\": 0.99, \"horizon\": 10}\nAllowed Models: [\"cornish_fisher\", \"historical_simulation\", \"parametric_gaussian\"]\nAllowed Metrics: [\"kupiec_pof_pvalue\", \"coverage_deviation\", \"var_99\"]\n\nDesign the optimal scientific model training plan for this dataset and domain.",
+    "response_raw": "{\n  \"selected_model\": \"historical_simulation\",\n  \"preprocessing\": {\n    \"imputation\": \"median\",\n    \"scaling\": \"none\",\n    \"outlier_clipping\": false\n  },\n  \"split\": {\n    \"strategy\": \"stratified\",\n    \"test_size\": 0.20\n  },\n  \"tuning_strategy\": \"deterministic\",\n  \"trial_budget\": 5,\n  \"primary_metric\": \"kupiec_pof_pvalue\",\n  \"secondary_metrics\": [\"coverage_deviation\", \"var_99\"],\n  \"xai_methods\": [\"permutation_importance\", \"native_importance\"],\n  \"sensitivity_mode\": \"one_at_a_time\",\n  \"hyperparameters\": {},\n  \"architectural_rationale\": \"Historical simulation is optimal for market risk with a moderate sample size and high confidence level, as it makes minimal distributional assumptions. Median imputation is robust to outliers, and no scaling or outlier clipping is needed due to the non-parametric nature of the model. Stratified splitting preserves risk event proportions. Deterministic tuning is appropriate since the model has no hyperparameters. Kupiec POF p-value is the primary metric for backtesting VaR exceedances, with coverage deviation and var_99 as secondary metrics. XAI methods focus on feature importance for interpretability.\"\n}",
+    "response_parsed": {
+      "selected_model": "historical_simulation",
+      "preprocessing": {
+        "imputation": "median",
+        "scaling": "none",
+        "outlier_clipping": false
+      },
+      "split": {
+        "strategy": "stratified",
+        "test_size": 0.2
+      },
+      "tuning_strategy": "deterministic",
+      "trial_budget": 5,
+      "primary_metric": "kupiec_pof_pvalue",
+      "secondary_metrics": [
+        "coverage_deviation",
+        "var_99"
+      ],
+      "xai_methods": [
+        "permutation_importance",
+        "native_importance"
+      ],
+      "sensitivity_mode": "one_at_a_time",
+      "hyperparameters": {},
+      "architectural_rationale": "Historical simulation is optimal for market risk with a moderate sample size and high confidence level, as it makes minimal distributional assumptions. Median imputation is robust to outliers, and no scaling or outlier clipping is needed due to the non-parametric nature of the model. Stratified splitting preserves risk event proportions. Deterministic tuning is appropriate since the model has no hyperparameters. Kupiec POF p-value is the primary metric for backtesting VaR exceedances, with coverage deviation and var_99 as secondary metrics. XAI methods focus on feature importance for interpretability."
+    },
+    "prompt_tokens": 422,
+    "completion_tokens": 278,
+    "latency_seconds": 2.6900004169438034,
+    "schema_valid": true,
+    "correction_call_required": false
+  }
+]

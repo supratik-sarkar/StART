@@ -66,6 +66,8 @@ from start.portfolio.scenario import (
 )
 from start.registry import list_tests
 
+pytestmark = pytest.mark.release
+
 # =========================================================================== #
 # 5.A PRE-FLIGHT SCENARIO DATA INTEGRITY
 # =========================================================================== #

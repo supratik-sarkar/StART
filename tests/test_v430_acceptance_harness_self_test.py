@@ -16,6 +16,8 @@ from scripts.run_market_acceptance_from_runbook import (
     RunbookParser,
 )
 
+pytestmark = pytest.mark.release
+
 
 def test_runbook_found_and_sha_computed() -> None:
     """1. Runbook file exists and SHA-256 is computed."""

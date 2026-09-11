@@ -1,0 +1,403 @@
+[
+  {
+    "domain": "predictive_binary",
+    "experiment_id": "EXP_PRED_GOLDEN",
+    "layer": "golden_known_answer",
+    "dataset": "institutional_credit_v1",
+    "primary_metric": "roc_auc",
+    "champion_model": "random_forest",
+    "champion_policy": "deterministic",
+    "champion_mean": 0.9780027611596871,
+    "champion_std": 0.009670357117578826,
+    "champion_ci95": [
+      0.965996,
+      0.99001
+    ],
+    "challenger_summaries": [
+      {
+        "model": "xgboost",
+        "policy": "deterministic",
+        "mean": 0.9688909341923608,
+        "std": 0.011462005476310181,
+        "ci95": [
+          0.954659,
+          0.983123
+        ]
+      },
+      {
+        "model": "lightgbm",
+        "policy": "deterministic",
+        "mean": 0.9710998619420158,
+        "std": 0.01091314835305785,
+        "ci95": [
+          0.95755,
+          0.98465
+        ]
+      },
+      {
+        "model": "gradient_boosting",
+        "policy": "deterministic",
+        "mean": 0.97100782328578,
+        "std": 0.007710431269742133,
+        "ci95": [
+          0.961434,
+          0.980581
+        ]
+      },
+      {
+        "model": "logistic_regression",
+        "policy": "deterministic",
+        "mean": 0.948090197883111,
+        "std": 0.012327588426292614,
+        "ci95": [
+          0.932784,
+          0.963397
+        ]
+      }
+    ],
+    "gpt41_vs_deterministic": {
+      "gpt41_selected_model": "lightgbm",
+      "gpt41_mean": 0.9728179168584139,
+      "gpt41_std": 0.012644107584680998,
+      "gpt41_ci95": [
+        0.957118,
+        0.988517
+      ],
+      "delta_mean": -0.005185
+    }
+  },
+  {
+    "domain": "predictive_binary",
+    "experiment_id": "EXP_PRED_REAL_ADULT",
+    "layer": "real_external",
+    "dataset": "scikit-learn/adult-census-income",
+    "primary_metric": "roc_auc",
+    "champion_model": "gradient_boosting",
+    "champion_policy": "deterministic",
+    "champion_mean": 0.9830450251502884,
+    "champion_std": 0.007968533969146449,
+    "champion_ci95": [
+      0.973151,
+      0.992939
+    ],
+    "challenger_summaries": [
+      {
+        "model": "xgboost",
+        "policy": "deterministic",
+        "mean": 0.9822107716844559,
+        "std": 0.009233982857408283,
+        "ci95": [
+          0.970745,
+          0.993676
+        ]
+      },
+      {
+        "model": "lightgbm",
+        "policy": "deterministic",
+        "mean": 0.9826769721506563,
+        "std": 0.012172177915382963,
+        "ci95": [
+          0.967563,
+          0.99779
+        ]
+      },
+      {
+        "model": "random_forest",
+        "policy": "deterministic",
+        "mean": 0.97142681879524,
+        "std": 0.009604154005663267,
+        "ci95": [
+          0.959502,
+          0.983352
+        ]
+      },
+      {
+        "model": "logistic_regression",
+        "policy": "deterministic",
+        "mean": 0.8966507177033494,
+        "std": 0.0271352397250548,
+        "ci95": [
+          0.862958,
+          0.930343
+        ]
+      }
+    ],
+    "gpt41_vs_deterministic": {
+      "real_data_champion": "gradient_boosting",
+      "mean_roc_auc": 0.9830450251502884
+    }
+  },
+  {
+    "domain": "deep_learning",
+    "experiment_id": "EXP_DEEP_LEARNING",
+    "architectures_certified": {
+      "mlp_tabular": {
+        "mean_roc_auc": 0.8748333333333334,
+        "std": 0.04410699023172619,
+        "ci95": [
+          0.820068,
+          0.929599
+        ],
+        "task": "tabular"
+      },
+      "lstm_sequence": {
+        "mean_roc_auc": 0.9996814779423475,
+        "std": 0.0,
+        "ci95": [
+          0.999681,
+          0.999681
+        ],
+        "task": "sequence"
+      },
+      "gru_sequence": {
+        "mean_roc_auc": 0.9992673992673993,
+        "std": 0.0007435972307646668,
+        "ci95": [
+          0.998344,
+          1.000191
+        ],
+        "task": "sequence"
+      },
+      "simple_cnn_vision": {
+        "mean_accuracy": 1.0,
+        "std": 0.0,
+        "ci95": [
+          1.0,
+          1.0
+        ],
+        "task": "vision"
+      }
+    },
+    "gpt41_vs_deterministic": {
+      "gpt41_selected_model": "mlp",
+      "gpt41_mean": 0.8748333333333334,
+      "delta_mean": 0.0
+    }
+  },
+  {
+    "domain": "fraud_imbalanced",
+    "experiment_id": "EXP_FRAUD_AML",
+    "layer": "golden_known_answer",
+    "dataset": "synthetic_aml_imbalanced",
+    "primary_metric": "pr_auc",
+    "champion_model": "lightgbm_balanced",
+    "champion_policy": "deterministic",
+    "champion_mean": 0.742618154021313,
+    "champion_std": 0.18054379975206344,
+    "champion_ci95": [
+      0.518447,
+      0.966789
+    ],
+    "challenger_summaries": [
+      {
+        "model": "random_forest_balanced",
+        "policy": "deterministic",
+        "mean": 0.31185172031191283,
+        "std": 0.07325268573930147,
+        "ci95": [
+          0.220898,
+          0.402805
+        ]
+      },
+      {
+        "model": "xgboost_weighted",
+        "policy": "deterministic",
+        "mean": 0.7024635718583021,
+        "std": 0.08989824308616974,
+        "ci95": [
+          0.590842,
+          0.814085
+        ]
+      },
+      {
+        "model": "logistic_regression_balanced",
+        "policy": "deterministic",
+        "mean": 0.3217976917846831,
+        "std": 0.11744689741666915,
+        "ci95": [
+          0.17597,
+          0.467625
+        ]
+      },
+      {
+        "model": "gradient_boosting",
+        "policy": "deterministic",
+        "mean": 0.7283409058492961,
+        "std": 0.0463924647370302,
+        "ci95": [
+          0.670738,
+          0.785944
+        ]
+      }
+    ],
+    "gpt41_vs_deterministic": {
+      "gpt41_selected_model": "lightgbm_balanced",
+      "gpt41_mean": 0.742618154021313,
+      "gpt41_std": 0.18054379975206344,
+      "gpt41_ci95": [
+        0.518447,
+        0.966789
+      ],
+      "delta_mean": 0.0,
+      "empirical_classification": "MODERATE_IMPROVEMENT_OVER_RANDOM",
+      "prevalence_baseline": 0.055,
+      "relative_gain": 13.5
+    }
+  },
+  {
+    "domain": "recommender",
+    "experiment_id": "EXP_RECOMMENDER",
+    "layer": "golden_known_answer",
+    "dataset": "recommender_ffm_v1",
+    "primary_metric": "ndcg@10",
+    "champion_model": "ncf",
+    "champion_policy": "deterministic",
+    "champion_mean": 0.5654660160522739,
+    "champion_std": 0.04001735776820011,
+    "champion_ci95": [
+      0.515779,
+      0.615153
+    ],
+    "challenger_summaries": [
+      {
+        "model": "ffm",
+        "policy": "deterministic",
+        "mean": 0.4253311983339968,
+        "std": 0.01673447178877349,
+        "ci95": [
+          0.404553,
+          0.446109
+        ]
+      },
+      {
+        "model": "mf",
+        "policy": "deterministic",
+        "mean": 0.39938511344959166,
+        "std": 0.04132886592298507,
+        "ci95": [
+          0.348069,
+          0.450701
+        ]
+      },
+      {
+        "model": "fm",
+        "policy": "deterministic",
+        "mean": 0.432005318866286,
+        "std": 0.034897460004516885,
+        "ci95": [
+          0.388675,
+          0.475336
+        ]
+      }
+    ],
+    "gpt41_vs_deterministic": {
+      "gpt41_selected_model": "ncf",
+      "gpt41_mean": 0.5654660160522739,
+      "gpt41_std": 0.04001735776820011,
+      "gpt41_ci95": [
+        0.515779,
+        0.615153
+      ],
+      "delta_mean": 0.0
+    }
+  },
+  {
+    "domain": "portfolio",
+    "experiment_id": "EXP_PORTFOLIO",
+    "multi_objective_evaluation": {
+      "hrp": {
+        "mean_vol": 0.08556872402486991,
+        "mean_ret": -0.04313549517172985,
+        "mean_sharpe": -0.5025113445113284,
+        "mean_div_ratio": 3.7885615457803974,
+        "std_div_ratio": 0.1443253992979004,
+        "mean_hhi": 0.1299912174885203
+      },
+      "min_variance": {
+        "mean_vol": 0.07047096268797831,
+        "mean_ret": -0.033009323637896576,
+        "mean_sharpe": -0.46550059630149254,
+        "mean_div_ratio": 4.505277516420925,
+        "std_div_ratio": 0.10132761216099734,
+        "mean_hhi": 0.1591451604791343
+      },
+      "erc": {
+        "mean_vol": 0.07465758240163918,
+        "mean_ret": -0.022679339392640593,
+        "mean_sharpe": -0.30064187805793396,
+        "mean_div_ratio": 4.450857738554349,
+        "std_div_ratio": 0.1014718449957116,
+        "mean_hhi": 0.12289535349146138
+      }
+    },
+    "objective_winners": {
+      "minimum_volatility": "min_variance",
+      "maximum_diversification": "min_variance",
+      "equal_risk_contribution": "erc"
+    },
+    "gpt41_vs_deterministic": {
+      "gpt41_selected_model": "hrp",
+      "gpt41_mean_div_ratio": 3.7885615457803974,
+      "delta_div_ratio": 0.0
+    }
+  },
+  {
+    "domain": "market_risk",
+    "experiment_id": "EXP_MARKET_RISK",
+    "calibration_diagnostics": {
+      "cornish_fisher": {
+        "mean_var_99": 0.014562189101571366,
+        "mean_es_99": 0.017583525889079837,
+        "mean_exceptions": 1.6,
+        "expected_exceptions": 2.500000000000002,
+        "mean_coverage_deviation": -0.0036000000000000086,
+        "mean_kupiec_lr": 0.5356575838705133,
+        "mean_kupiec_pvalue": 0.5563882165771554,
+        "std_kupiec_pvalue": 0.2540672487827725,
+        "kupiec_decision": "DO_NOT_REJECT"
+      },
+      "historical_simulation": {
+        "mean_var_99": 0.013837290734467305,
+        "mean_es_99": 0.016102178039289216,
+        "mean_exceptions": 3.0,
+        "expected_exceptions": 2.500000000000002,
+        "mean_coverage_deviation": 0.0019999999999999914,
+        "mean_kupiec_lr": 0.09494012266443974,
+        "mean_kupiec_pvalue": 0.7579883213732812,
+        "std_kupiec_pvalue": 0.0,
+        "kupiec_decision": "DO_NOT_REJECT"
+      },
+      "parametric_gaussian": {
+        "mean_var_99": 0.014899406311657537,
+        "mean_es_99": 0.017078301805844187,
+        "mean_exceptions": 1.2,
+        "expected_exceptions": 2.500000000000002,
+        "mean_coverage_deviation": -0.0052000000000000084,
+        "mean_kupiec_lr": 1.5190041259732978,
+        "mean_kupiec_pvalue": 0.4129979769973205,
+        "std_kupiec_pvalue": 0.3175544059993043,
+        "kupiec_decision": "DO_NOT_REJECT"
+      }
+    },
+    "governance_note": "Kupiec POF evaluates coverage consistency (H_0: p=0.01). Higher p-value above 0.05 does not imply monotonic superiority. All three methods successfully fail to reject H_0.",
+    "gpt41_vs_deterministic": {
+      "gpt41_selected_model": "historical_simulation",
+      "gpt41_mean_kupiec_pval": 0.7579883213732812,
+      "delta_pvalue": 0.0
+    }
+  },
+  {
+    "domain": "scenario_traded_risk",
+    "experiment_id": "EXP_SCENARIO_RISK",
+    "layer": "golden_known_answer",
+    "champion_model": "gate6_asset_tail_shock",
+    "primary_metric": "repricing_consistency",
+    "champion_mean": 1.0,
+    "champion_std": 0.0,
+    "champion_ci95": [
+      1.0,
+      1.0
+    ],
+    "governance_note": "Scenario evaluation governed strictly by regulatory known-answer invariant proofs."
+  }
+]

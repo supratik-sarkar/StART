@@ -1,0 +1,103 @@
+{
+  "audit_version": "1.0.0",
+  "audit_timestamp": "2026-09-10T07:59:00Z",
+  "audit_system": "StART Scientific Certification Governance Core",
+  "summary": {
+    "total_claims_audited": 11,
+    "proven_by_result_bundle": 1,
+    "partially_proven": 5,
+    "not_executed": 2,
+    "report_contradictions": 2,
+    "scientifically_mislabeled": 1
+  },
+  "discrepancies": [
+    {
+      "claim_id": "DISC-01-GPT41-RUN-ACCOUNTING",
+      "topic": "GPT-4.1 Run Accounting & Attribution",
+      "report_statement": "60 total runs (50 deterministic runs, 10 GPT-4.1 runs) across 7 domains with GPT-4.1 policy comparison.",
+      "bundle_truth": "deterministic_runs.jsonl contains 55 runs; gpt41_runs.jsonl contains only 5 runs (seeds 0-4 for predictive_binary only). Only 1 GPT-4.1 planning call occurred (call_id: gpt41_plan_75b5e5ce). In champion_challenger.json, domains 2 to 7 copied deterministic values under gpt41_vs_deterministic without any real GPT-4.1 plan.",
+      "classification": "REPORT_CONTRADICTION",
+      "reconciliation": "Enforce GPT41_POLICY_LABEL_WITHOUT_REAL_PLAN = 0. Execute genuine GPT-4.1 planning calls for all decision-capable domains (Predictive, Deep Learning, Fraud, Recommender, Portfolio, Market Risk). Record discrete call IDs, token telemetry, structured plans, and execute via deterministic engine across 5 seeds."
+    },
+    {
+      "claim_id": "DISC-02-SENSITIVITY-GRID",
+      "topic": "Sensitivity Shock Grid Consistency",
+      "report_statement": "Section 1 & 8 mention -20% to +20%, while Section 6.2 specifies [-0.30, -0.20, -0.10, -0.05, 0.00, +0.05, +0.10, +0.20, +0.30].",
+      "bundle_truth": "sensitivity_results.json contains the canonical 9-point grid: [-0.3, -0.2, -0.1, -0.05, 0.0, 0.05, 0.1, 0.2, 0.3]. The textual reference in the report was a typographical omission of the 30% outer shock bounds.",
+      "classification": "REPORT_CONTRADICTION",
+      "reconciliation": "Enforce canonical 9-point grid [-0.30, -0.20, -0.10, -0.05, 0.00, +0.05, +0.10, +0.20, +0.30] universally across text, JSON, and rerun outputs."
+    },
+    {
+      "claim_id": "DISC-03-XAI-COVERAGE",
+      "topic": "Explainability (XAI) Methods Certified",
+      "report_statement": "Report implies comprehensive XAI support; spec discusses PDP, ICE, ALE, LIME.",
+      "bundle_truth": "xai_results.json records only Native Gain, Permutation, and SHAP. PDP and ICE are executable via scikit-learn inspection but were not executed in the initial bundle. ALE and LIME are not installed/not implemented in the environment.",
+      "classification": "PARTIALLY_PROVEN",
+      "reconciliation": "Classify XAI methods explicitly: Native, Permutation, SHAP, PDP, ICE as CERTIFIED (after executing PDP and ICE on the real-data champion). Classify ALE and LIME as NOT_EXECUTABLE / DEFERRED."
+    },
+    {
+      "claim_id": "DISC-04-REAL-DATA-COVERAGE",
+      "topic": "Real-Data Empirical Benchmark Execution",
+      "report_statement": "Report Section 2 catalogs Real External datasets (Hugging Face Adult Census, UCI German Credit, Local Parquet).",
+      "bundle_truth": "Data provider runtime successfully fetched and cached real datasets, but champion/challenger benchmark in champion_challenger.json was executed ONLY on Layer A Golden Known-Answer (institutional_credit_v1). Real-data empirical evaluation was not executed.",
+      "classification": "NOT_EXECUTED",
+      "reconciliation": "Execute full champion/challenger matrix across 5 seeds on real external dataset (scikit-learn/adult-census-income) with semantic feature names, comparing RF, LightGBM, XGBoost, Gradient Boosting, and Logistic Regression. Run XAI on the real-data champion."
+    },
+    {
+      "claim_id": "DISC-05-CHAMPION-SEMANTICS-PORTFOLIO",
+      "topic": "Portfolio Champion Semantics",
+      "report_statement": "HRP declared universal champion over Min-Var solely because it attained higher Diversification Ratio (3.7886 vs 3.6386). Equal Risk Contribution (ERC) omitted.",
+      "bundle_truth": "HRP, Min-Var, and ERC optimize fundamentally different objective functions. HRP maximizes tree-based diversification, Min-Var minimizes portfolio variance, and ERC equalizes marginal risk contributions. Universal ranking is scientifically invalid.",
+      "classification": "SCIENTIFICALLY_MISLABELED",
+      "reconciliation": "Report HRP, Minimum Variance, and ERC simultaneously across multi-objective metrics (realized vol, return, Sharpe, max drawdown, diversification ratio, concentration, Euler reconciliation). Report OBJECTIVE_WINNER for each optimization objective."
+    },
+    {
+      "claim_id": "DISC-06-CHAMPION-SEMANTICS-MARKET-RISK",
+      "topic": "Market Risk Champion Semantics",
+      "report_statement": "Cornish-Fisher declared champion over Parametric Gaussian by ranking Kupiec POF p-value (0.5564 vs 0.5064). Historical Simulation omitted.",
+      "bundle_truth": "Kupiec POF tests the null hypothesis H_0: coverage == 0.01. A higher p-value above alpha=0.05 does not imply monotonic model superiority. Historical Simulation was missing from the benchmark.",
+      "classification": "PARTIALLY_PROVEN",
+      "reconciliation": "Evaluate Historical Simulation, Parametric Gaussian, and Cornish-Fisher across 5 seeds. Report full calibration diagnostics (exceptions, expected exceptions, coverage deviation, Kupiec LR, Kupiec p-value, 99% VaR, 99% ES) without claiming a single scalar winner."
+    },
+    {
+      "claim_id": "DISC-07-RECOMMENDER-MATRIX-COMPLETENESS",
+      "topic": "Recommender Systems Model Matrix",
+      "report_statement": "Table reports FFM vs FM ranking performance.",
+      "bundle_truth": "NCF and MF are fully implemented in start.recommender.models but were omitted from the 5-seed benchmark table. Real recommender data was not evaluated.",
+      "classification": "PARTIALLY_PROVEN",
+      "reconciliation": "Execute complete 4-model comparison (FFM, NCF, MF, FM) across 5 seeds on golden fixture. For real external data, truthfully record RECOMMENDER_REAL_DATA_CERTIFICATION = BLOCKED due to missing production recommender provider adapter."
+    },
+    {
+      "claim_id": "DISC-08-DEEP-LEARNING-ARCHITECTURES",
+      "topic": "Deep Learning Architecture Coverage",
+      "report_statement": "Deep Learning domain only certifies Tabular PyTorch MLP.",
+      "bundle_truth": "start.modeling contains SequenceClassifier (LSTM, GRU) and VisionCNNClassifier (simple_cnn_small). These were not benchmarked on appropriate task datasets.",
+      "classification": "PARTIALLY_PROVEN",
+      "reconciliation": "Execute task-appropriate bounded 5-seed benchmarks for Tabular MLP (tabular data), Sequence LSTM and GRU (sequence data), and Vision CNN (vision image data). Record loss curves, val metrics, test metrics, and best epochs."
+    },
+    {
+      "claim_id": "DISC-09-FRAUD-CHALLENGERS",
+      "topic": "Fraud & AML Model Matrix",
+      "report_statement": "Fraud domain reports only Balanced Random Forest (PR-AUC = 0.2950).",
+      "bundle_truth": "No challenger models (LightGBM, XGBoost, Gradient Boosting, Logistic Regression) were evaluated on the imbalanced dataset.",
+      "classification": "PARTIALLY_PROVEN",
+      "reconciliation": "Retain PR-AUC = 0.2950 ± 0.1285 as real empirical result. Evaluate executable challengers with class weighting across 5 seeds. Classify empirical performance based on descriptive criteria."
+    },
+    {
+      "claim_id": "DISC-10-TERMINOLOGY-SUBADDITIVITY",
+      "topic": "Market Risk Invariant Terminology",
+      "report_statement": "Invariant table describes ES >= VaR as 'Sub-additivity coherence'.",
+      "bundle_truth": "ES >= VaR verifies that Expected Shortfall is a conservative tail measure that upper-bounds VaR at the same confidence level. It does not by itself prove subadditivity ES(X+Y) <= ES(X) + ES(Y), which requires a multi-asset portfolio test.",
+      "classification": "SCIENTIFICALLY_MISLABELED",
+      "reconciliation": "Correct invariant terminology to 'Expected Shortfall Tail Conservatism / Upper Bound (ES_alpha >= VaR_alpha)'. Execute an explicit 2-asset subadditivity check if claiming subadditivity coherence."
+    },
+    {
+      "claim_id": "DISC-11-DATA-PARALLELISM-RAY",
+      "topic": "Distributed Data Runtime vs Local Partitioning",
+      "report_statement": "Specification references Ray Data integration check.",
+      "bundle_truth": "Ray is not installed in the environment (ray_installed: False). Data execution uses deterministic single-node PyArrow columnar partitioning.",
+      "classification": "PROVEN_BY_RESULT_BUNDLE",
+      "reconciliation": "Explicitly report RAY_AVAILABLE = 0 and RAY_DISTRIBUTED_EXECUTION_VERIFIED = 0 in all manifests and authoritative reports."
+    }
+  ]
+}

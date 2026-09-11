@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "5.1.3"
+START_VERSION: str = "6.0.1"
 
 
 def get_backend_build_version() -> str:
@@ -108,22 +108,33 @@ class RunRequest(BaseModel):
     session_id: str = Field(default_factory=lambda: f"SES-{uuid.uuid4().hex[:12]}")
     workflow: str | None = None
     workflowId: str | None = None
+    workflow_id: str | None = None
     contextId: str | None = None
+    context_id: str | None = None
     goal: str | None = None
     sourceEvidenceId: str | None = None
     parentRunId: str | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
     parent_run_id: str | None = None
     intervention: str | None = None
+    execution_mode: Literal["hybrid_workbench", "agentic_session", "deterministic_run"] | str = "hybrid_workbench"
+    executionMode: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
-        if self.workflowId and not self.workflow:
-            self.workflow = self.workflowId
-        elif self.workflowId:
-            self.workflow = self.workflowId
+        if self.executionMode:
+            self.execution_mode = self.executionMode
+        elif not self.execution_mode and self.parameters.get("execution_mode"):
+            self.execution_mode = self.parameters["execution_mode"]
+        elif not self.execution_mode and self.parameters.get("executionMode"):
+            self.execution_mode = self.parameters["executionMode"]
 
-        if self.contextId and not self.synthetic_profile:
-            self.synthetic_profile = self.contextId
+        wf = self.workflowId or self.workflow_id
+        if wf:
+            self.workflow = wf
+
+        ctx = self.contextId or self.context_id
+        if ctx:
+            self.synthetic_profile = ctx
         elif self.contextId:
             self.synthetic_profile = self.contextId
 
@@ -333,4 +344,51 @@ class ReviewerHydrationResponse(BaseModel):
     ) = None
     attestation_seal_merkle_root: str | None = None
     attestation_timestamp: float = Field(default_factory=time.time)
+
+
+# --------------------------------------------------------------------------- #
+# Data Provider & Runtime Schemas
+# --------------------------------------------------------------------------- #
+class DataResolveRequest(BaseModel):
+    provider: str
+    dataset_id: str
+    revision: str | None = None
+    target: str | None = None
+    configuration: dict[str, Any] = Field(default_factory=dict)
+    provider_session_id: str | None = None
+
+
+class DataPrecertificationRequest(BaseModel):
+    provider: str
+    dataset_id: str
+    revision: str | None = None
+    target: str | None = None
+    sample_rows: int = 500
+    provider_session_id: str | None = None
+
+
+class DataSessionCreateRequest(BaseModel):
+    provider: str
+    dataset_id: str
+    revision: str | None = None
+    target: str | None = None
+    batch_size: int = 1000
+    max_rows: int | None = 2000
+    partition_plan: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "strategy": "stratified",
+            "train_ratio": 0.70,
+            "val_ratio": 0.15,
+            "test_ratio": 0.15,
+        }
+    )
+    cache_policy: str = "memory"
+    auto_start: bool = True
+    provider_session_id: str | None = None
+
+
+class ProviderSessionCreateRequest(BaseModel):
+    provider: str
+    credentials: dict[str, Any]
+    ttl_seconds: int = 3600
 

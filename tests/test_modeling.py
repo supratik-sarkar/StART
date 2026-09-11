@@ -71,7 +71,12 @@ def test_xgboost_unavailable_falls_back_cleanly(monkeypatch):
     import start.modeling.models as models
 
     monkeypatch.setattr(models, "xgboost_available", lambda: False)
-    model, name, note = models.resolve_model("xgboost", seed=0)
+    # Fail-closed raises ValueError
+    import pytest
+    with pytest.raises(ValueError, match="FAIL CLOSED"):
+        models.resolve_model("xgboost", seed=0, fail_closed=True)
+    # Fallback path when fail_closed=False
+    model, name, note = models.resolve_model("xgboost", seed=0, fail_closed=False)
     assert name == "random_forest"
     assert "xgboost is not installed" in note
 
@@ -80,7 +85,12 @@ def test_lightgbm_unavailable_falls_back_cleanly(monkeypatch):
     import start.modeling.models as models
 
     monkeypatch.setattr(models, "lightgbm_available", lambda: False)
-    model, name, note = models.resolve_model("lightgbm", seed=0)
+    # Fail-closed raises ValueError
+    import pytest
+    with pytest.raises(ValueError, match="FAIL CLOSED"):
+        models.resolve_model("lightgbm", seed=0, fail_closed=True)
+    # Fallback path when fail_closed=False
+    model, name, note = models.resolve_model("lightgbm", seed=0, fail_closed=False)
     assert name == "random_forest"
     assert "lightgbm is not installed" in note
 

@@ -1,0 +1,891 @@
+{
+  "logistic_regression": {
+    "C": {
+      "type": "float",
+      "grid": [
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "low": 0.001,
+      "high": 100.0,
+      "log": true
+    },
+    "penalty": {
+      "type": "cat",
+      "grid": [
+        "l2",
+        null
+      ],
+      "choices": [
+        "l2",
+        null
+      ]
+    },
+    "solver": {
+      "type": "cat",
+      "grid": [
+        "lbfgs"
+      ],
+      "choices": [
+        "lbfgs"
+      ]
+    },
+    "max_iter": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        500
+      ],
+      "low": 100,
+      "high": 1000,
+      "step": 100
+    },
+    "tol": {
+      "type": "float",
+      "grid": [
+        0.0001,
+        0.001
+      ],
+      "low": 1e-05,
+      "high": 0.01,
+      "log": true
+    }
+  },
+  "gradient_boosting": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "max_depth": {
+      "type": "int",
+      "grid": [
+        3,
+        5,
+        8
+      ],
+      "low": 2,
+      "high": 12,
+      "step": 1
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.03,
+        0.1,
+        0.3
+      ],
+      "low": 0.01,
+      "high": 0.3,
+      "log": true
+    },
+    "subsample": {
+      "type": "float",
+      "grid": [
+        0.7,
+        0.85,
+        1.0
+      ],
+      "low": 0.5,
+      "high": 1.0
+    },
+    "min_samples_split": {
+      "type": "int",
+      "grid": [
+        2,
+        5,
+        10
+      ],
+      "low": 2,
+      "high": 20,
+      "step": 1
+    }
+  },
+  "random_forest": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "max_depth": {
+      "type": "int",
+      "grid": [
+        4,
+        8,
+        16
+      ],
+      "low": 3,
+      "high": 24,
+      "step": 1
+    },
+    "min_samples_split": {
+      "type": "int",
+      "grid": [
+        2,
+        5,
+        10
+      ],
+      "low": 2,
+      "high": 20,
+      "step": 1
+    },
+    "min_samples_leaf": {
+      "type": "int",
+      "grid": [
+        1,
+        2,
+        5
+      ],
+      "low": 1,
+      "high": 10,
+      "step": 1
+    },
+    "max_features": {
+      "type": "cat",
+      "grid": [
+        "sqrt",
+        "log2",
+        null
+      ],
+      "choices": [
+        "sqrt",
+        "log2",
+        null
+      ]
+    }
+  },
+  "xgboost": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "max_depth": {
+      "type": "int",
+      "grid": [
+        3,
+        5,
+        8
+      ],
+      "low": 2,
+      "high": 12,
+      "step": 1
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.03,
+        0.1,
+        0.3
+      ],
+      "low": 0.01,
+      "high": 0.3,
+      "log": true
+    },
+    "subsample": {
+      "type": "float",
+      "grid": [
+        0.7,
+        0.85,
+        1.0
+      ],
+      "low": 0.5,
+      "high": 1.0
+    },
+    "colsample_bytree": {
+      "type": "float",
+      "grid": [
+        0.7,
+        0.85,
+        1.0
+      ],
+      "low": 0.5,
+      "high": 1.0
+    }
+  },
+  "lightgbm": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "num_leaves": {
+      "type": "int",
+      "grid": [
+        15,
+        31,
+        63
+      ],
+      "low": 7,
+      "high": 127,
+      "step": 2
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.03,
+        0.1,
+        0.3
+      ],
+      "low": 0.01,
+      "high": 0.3,
+      "log": true
+    },
+    "subsample": {
+      "type": "float",
+      "grid": [
+        0.7,
+        0.85,
+        1.0
+      ],
+      "low": 0.5,
+      "high": 1.0
+    },
+    "colsample_bytree": {
+      "type": "float",
+      "grid": [
+        0.7,
+        0.85,
+        1.0
+      ],
+      "low": 0.5,
+      "high": 1.0
+    }
+  },
+  "mlp": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    },
+    "dropout": {
+      "type": "float",
+      "grid": [
+        0.0,
+        0.1,
+        0.3
+      ],
+      "low": 0.0,
+      "high": 0.5
+    },
+    "activation": {
+      "type": "cat",
+      "grid": [
+        "relu",
+        "leaky_relu"
+      ],
+      "choices": [
+        "relu",
+        "leaky_relu"
+      ]
+    }
+  },
+  "catboost": {
+    "iterations": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "depth": {
+      "type": "int",
+      "grid": [
+        4,
+        6,
+        8
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.03,
+        0.1,
+        0.3
+      ],
+      "low": 0.01,
+      "high": 0.3,
+      "log": true
+    },
+    "l2_leaf_reg": {
+      "type": "float",
+      "grid": [
+        1.0,
+        3.0,
+        5.0
+      ],
+      "low": 1.0,
+      "high": 10.0
+    },
+    "border_count": {
+      "type": "int",
+      "grid": [
+        32,
+        128,
+        254
+      ],
+      "low": 32,
+      "high": 255,
+      "step": 1
+    }
+  },
+  "distributed_random_forest": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "max_depth": {
+      "type": "int",
+      "grid": [
+        4,
+        8,
+        16
+      ],
+      "low": 3,
+      "high": 24,
+      "step": 1
+    },
+    "min_samples_split": {
+      "type": "int",
+      "grid": [
+        2,
+        5,
+        10
+      ],
+      "low": 2,
+      "high": 20,
+      "step": 1
+    },
+    "min_samples_leaf": {
+      "type": "int",
+      "grid": [
+        1,
+        2,
+        5
+      ],
+      "low": 1,
+      "high": 10,
+      "step": 1
+    },
+    "max_features": {
+      "type": "cat",
+      "grid": [
+        "sqrt",
+        "log2",
+        null
+      ],
+      "choices": [
+        "sqrt",
+        "log2",
+        null
+      ]
+    }
+  },
+  "extra_trees": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "max_depth": {
+      "type": "int",
+      "grid": [
+        4,
+        8,
+        16
+      ],
+      "low": 3,
+      "high": 24,
+      "step": 1
+    },
+    "min_samples_split": {
+      "type": "int",
+      "grid": [
+        2,
+        5,
+        10
+      ],
+      "low": 2,
+      "high": 20,
+      "step": 1
+    },
+    "min_samples_leaf": {
+      "type": "int",
+      "grid": [
+        1,
+        2,
+        5
+      ],
+      "low": 1,
+      "high": 10,
+      "step": 1
+    },
+    "max_features": {
+      "type": "cat",
+      "grid": [
+        "sqrt",
+        "log2",
+        null
+      ],
+      "choices": [
+        "sqrt",
+        "log2",
+        null
+      ]
+    }
+  },
+  "random_rotation_forest": {
+    "n_estimators": {
+      "type": "int",
+      "grid": [
+        100,
+        200,
+        400
+      ],
+      "low": 100,
+      "high": 600,
+      "step": 50
+    },
+    "max_depth": {
+      "type": "int",
+      "grid": [
+        4,
+        8,
+        16
+      ],
+      "low": 3,
+      "high": 24,
+      "step": 1
+    },
+    "min_samples_split": {
+      "type": "int",
+      "grid": [
+        2,
+        5,
+        10
+      ],
+      "low": 2,
+      "high": 20,
+      "step": 1
+    },
+    "min_samples_leaf": {
+      "type": "int",
+      "grid": [
+        1,
+        2,
+        5
+      ],
+      "low": 1,
+      "high": 10,
+      "step": 1
+    },
+    "max_features": {
+      "type": "cat",
+      "grid": [
+        "sqrt",
+        "log2",
+        null
+      ],
+      "choices": [
+        "sqrt",
+        "log2",
+        null
+      ]
+    }
+  },
+  "rnn": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    },
+    "dropout": {
+      "type": "float",
+      "grid": [
+        0.0,
+        0.1,
+        0.3
+      ],
+      "low": 0.0,
+      "high": 0.5
+    }
+  },
+  "lstm": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    },
+    "dropout": {
+      "type": "float",
+      "grid": [
+        0.0,
+        0.1,
+        0.3
+      ],
+      "low": 0.0,
+      "high": 0.5
+    }
+  },
+  "gru": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    },
+    "dropout": {
+      "type": "float",
+      "grid": [
+        0.0,
+        0.1,
+        0.3
+      ],
+      "low": 0.0,
+      "high": 0.5
+    }
+  },
+  "bi_lstm": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    },
+    "dropout": {
+      "type": "float",
+      "grid": [
+        0.0,
+        0.1,
+        0.3
+      ],
+      "low": 0.0,
+      "high": 0.5
+    }
+  },
+  "cnn": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    }
+  },
+  "simple_cnn_small": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    }
+  },
+  "simple_cnn_medium": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    }
+  },
+  "simple_cnn_deep": {
+    "epochs": {
+      "type": "int",
+      "grid": [
+        5,
+        8,
+        10
+      ],
+      "low": 3,
+      "high": 10,
+      "step": 1
+    },
+    "batch_size": {
+      "type": "int",
+      "grid": [
+        32,
+        64,
+        128
+      ],
+      "low": 16,
+      "high": 128,
+      "step": 16
+    },
+    "learning_rate": {
+      "type": "float",
+      "grid": [
+        0.0003,
+        0.001,
+        0.003
+      ],
+      "low": 0.0001,
+      "high": 0.01,
+      "log": true
+    }
+  }
+}

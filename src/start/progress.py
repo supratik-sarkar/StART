@@ -24,7 +24,10 @@ from typing import Any
 @contextlib.contextmanager
 def spinner(description: str, *, enabled: bool = True, console: Any = None) -> Iterator[None]:
     """Indeterminate spinner + elapsed time for work without a known count."""
-    if not enabled:
+    import os
+    import sys
+
+    if not enabled or os.environ.get("PYTEST_CURRENT_TEST") or not getattr(sys.stdout, "isatty", lambda: False)():
         yield
         return
 
@@ -54,7 +57,10 @@ def progress_bar(
     Yields an ``advance(n=1)`` callable. Only use this when ``total`` is the
     real number of units of work; the percentage shown is therefore real.
     """
-    if not enabled or total <= 0:
+    import os
+    import sys
+
+    if not enabled or total <= 0 or os.environ.get("PYTEST_CURRENT_TEST") or not getattr(sys.stdout, "isatty", lambda: False)():
         yield lambda n=1: None
         return
 
