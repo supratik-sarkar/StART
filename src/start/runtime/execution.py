@@ -567,7 +567,7 @@ class CanonicalExecutionService:
                     if (
                         y_tr_raw.dtype == object
                         or str(y_tr_raw.dtype) == "category"
-                        or not np.issubdtype(y_tr_raw.dtype, np.number)
+                        or not pd.api.types.is_numeric_dtype(y_tr_raw)
                     ):
                         unique_vals = sorted([str(v) for v in pd.Series(y_tr_raw).dropna().unique()])
                         mapping = {val: idx for idx, val in enumerate(unique_vals)}

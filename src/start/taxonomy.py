@@ -66,9 +66,9 @@ def _infer_target_type(series: pd.Series) -> str:
     n_unique = clean.nunique()
     if n_unique == 2:
         return "binary"
-    if n_unique <= 20 and (clean.dtype == object or np.issubdtype(clean.dtype, np.integer)):
+    if n_unique <= 20 and (clean.dtype == object or pd.api.types.is_integer_dtype(clean.dtype)):
         return "multiclass"
-    if np.issubdtype(clean.dtype, np.number):
+    if pd.api.types.is_numeric_dtype(clean.dtype):
         return "continuous"
     return "multiclass"
 
@@ -88,7 +88,7 @@ def profile_dataset(
         if df[c].dropna().astype(str).str.len().mean() > 30
     ]
     has_ts = bool(timestamp_column and timestamp_column in df.columns) or any(
-        np.issubdtype(df[c].dtype, np.datetime64) for c in feature_cols
+        pd.api.types.is_datetime64_any_dtype(df[c].dtype) for c in feature_cols
     )
     has_entity = bool(entity_id_column and entity_id_column in df.columns)
     profile = DatasetProfile(

@@ -314,7 +314,7 @@ def instantiate_context(
 
         # Clean string / categorical target into binary integer
         if target_col in df.columns:
-            if df[target_col].dtype == object or str(df[target_col].dtype) == "category" or not np.issubdtype(df[target_col].dtype, np.number):
+            if df[target_col].dtype == object or str(df[target_col].dtype) == "category" or not pd.api.types.is_numeric_dtype(df[target_col]):
                 uniques = sorted(list(df[target_col].dropna().unique()))
                 label_map = {val: idx for idx, val in enumerate(uniques)}
                 df[target_col] = df[target_col].map(label_map).fillna(0).astype(int)
