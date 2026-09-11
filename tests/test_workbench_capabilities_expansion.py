@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
+
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from start.data.uci_credit import fetch_or_load_german_credit

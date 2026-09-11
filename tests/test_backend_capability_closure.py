@@ -23,6 +23,9 @@ os.environ["START_DEVICE"] = "cpu"
 import numpy as np
 import pandas as pd
 import pytest
+
+pytest.importorskip("fastapi")
+pytest.importorskip("starlette")
 from starlette.testclient import TestClient
 
 from start.modeling.models import resolve_model

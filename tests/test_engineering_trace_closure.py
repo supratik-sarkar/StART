@@ -29,6 +29,10 @@ os.environ["START_TORCH_DEVICE"] = "cpu"
 os.environ["START_DISABLE_MPS"] = "1"
 os.environ["START_DEVICE"] = "cpu"
 
+import pytest
+
+pytest.importorskip("opentelemetry")
+
 from start.runtime.execution import CanonicalExecutionService
 from start.telemetry.engineering_trace import (
     OP_DATASET_RESOLVE,

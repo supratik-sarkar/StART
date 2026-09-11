@@ -3,6 +3,9 @@
 import time
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from start.registry import list_tests

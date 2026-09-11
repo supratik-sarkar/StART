@@ -1,5 +1,8 @@
 """Tests for Phase 2 Live Agent Orchestration, Checkpoints, Human Control, and Artifacts."""
 
+import pytest
+
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from start.runtime.execution import CanonicalExecutionService
