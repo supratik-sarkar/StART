@@ -1,1 +1,1 @@
-v6.0.1 release certification trigger
+v6.0.1 release candidate certification - attempt 2
