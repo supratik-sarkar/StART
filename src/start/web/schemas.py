@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "5.1.3"
+START_VERSION: str = "6.0.1"
 
 
 def get_backend_build_version() -> str:

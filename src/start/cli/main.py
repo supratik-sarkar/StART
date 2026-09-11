@@ -27,6 +27,29 @@ console = Console()
 DEFAULT_CONFIG = "configs/default.yaml"
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        import start
+
+        console.print(f"StART {start.__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show version and exit.",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """StART: Standardized Agentic Reusable Tests."""
+    pass
+
+
 @app.command()
 def init(path: str = typer.Option(".", help="Project root to initialize.")) -> None:
     """Create config templates and output directories."""

@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "5.1.3"
+version = "6.0.1"
 description = "StART: risk-stripe-agnostic agentic review platform — deterministic engines compute, agents reason, evidence proves, seals attest."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -196,9 +196,6 @@ Documentation = "https://github.com/start-project/start#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/start"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/start/policies" = "start/policies"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/start", "tests", "configs", "scripts", "README.md", "LICENSE", "pyproject.toml"]

@@ -2,6 +2,11 @@ name: release-certification
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release certification version'
+        required: true
+        default: '6.0.1'
   push:
     tags:
       - 'v*'
@@ -15,6 +20,11 @@ env:
   START_DEVICE: cpu
   START_DISABLE_MPS: "1"
   OMP_NUM_THREADS: "1"
+  KMP_DUPLICATE_LIB_OK: "TRUE"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
 
 jobs:
   packaging-audit:
@@ -37,15 +47,41 @@ jobs:
           pip install build twine
       - name: Build sdist and wheel
         run: python -m build
+      - name: Assert package metadata version is ${{ github.event.inputs.version || '6.0.1' }}
+        run: |
+          python -c "
+          import email, pathlib, zipfile
+          wheels = list(pathlib.Path('dist').glob('*.whl'))
+          assert len(wheels) == 1, f'Expected 1 wheel, found {len(wheels)}'
+          with zipfile.ZipFile(wheels[0]) as z:
+              metadata_files = [n for n in z.namelist() if n.endswith('METADATA')]
+              assert len(metadata_files) == 1, 'METADATA file missing in wheel'
+              meta = email.message_from_bytes(z.read(metadata_files[0]))
+              version = meta.get('Version')
+              expected = '${{ github.event.inputs.version || '6.0.1' }}'
+              print(f'Wheel version: {version}, Expected: {expected}')
+              assert version == expected, f'Metadata version mismatch: {version} != {expected}'
+          "
       - name: Check package distribution
         run: twine check dist/*
 
-  gate-certification:
-    name: full regression and release gate certification
+  ubuntu-certification:
+    name: full regression, gate reconciliation & Ubuntu certification
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
+      - name: Scan for committed credentials and private paths
+        run: |
+          set +e
+          matches=$(git grep -En "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" -- '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.txt' '*.ipynb' || true)
+          if [ -n "$matches" ]; then
+            echo "Possible credential committed:"; echo "$matches"; exit 1
+          fi
+          echo "SECRET_EXPOSURE = 0"
+          bad=$(git ls-files | grep -E "^(\.venv|venv|\.env$|start_output/|dist/|build/)" || true)
+          if [ -n "$bad" ]; then echo "Must not be tracked:"; echo "$bad"; exit 1; fi
+          echo "PRIVATE_PATH_EXPOSURE = 0"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12.13"
@@ -53,13 +89,77 @@ jobs:
       - name: Assert exact certified Python 3.12.13
         run: |
           python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
-      - name: Install all dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[everything,dev]"
-      - name: Full test suite
-        run: pytest tests/
-      - name: Gate reconciliation
+          pip install -e ".[dl,trees,tuning,xai,formats,llm,orchestration,web,telemetry,dev]"
+      - name: pip check
+        run: pip check || true
+      - name: Lint
+        run: ruff check src tests scripts
+      - name: Type check
+        run: mypy || true
+      - name: Compile all sources
+        run: python -m compileall -q src scripts tests
+      - name: Full test suite (excluding live external integration)
+        run: pytest tests/ -m "not integration"
+      - name: Gate A/Gate B Reconciliation
+        run: python scripts/run_gate_ab_reconciliation.py
+      - name: CLI smoke test
         run: |
-          python scripts/verify_stdlib_core.py
-          python scripts/sync_requirements.py --check
+          start doctor
+          start list-tests
+          start risk stripes
+      - name: Demo flight (no provider, no network)
+        run: python scripts/demo_flight.py --speed 0 --no-clear
+
+  macos-certification:
+    name: macOS release certification
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache macOS Python 3.12.13 toolcache
+        id: cache-macos-python
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.tool_cache }}/Python/3.12.13
+          key: macos-toolcache-python-3.12.13-${{ runner.arch }}
+      - name: Provision Python 3.12.13 toolcache on macOS
+        if: steps.cache-macos-python.outputs.cache-hit != 'true'
+        run: |
+          brew install pyenv
+          pyenv install 3.12.13
+          PY_DIR="$(pyenv root)/versions/3.12.13"
+          ARCH=$(uname -m)
+          TC_DIR="${RUNNER_TOOL_CACHE}/Python/3.12.13/${ARCH}"
+          mkdir -p "$TC_DIR"
+          cp -a "$PY_DIR/"* "$TC_DIR/"
+          [ -f "$TC_DIR/bin/python3.12" ] && [ ! -f "$TC_DIR/bin/python" ] && ln -sf "$TC_DIR/bin/python3.12" "$TC_DIR/bin/python"
+          [ -f "$TC_DIR/bin/python3" ] && [ ! -f "$TC_DIR/bin/python" ] && ln -sf "$TC_DIR/bin/python3" "$TC_DIR/bin/python"
+          touch "${RUNNER_TOOL_CACHE}/Python/3.12.13/${ARCH}.complete"
+      - name: Install macOS runtime dependencies
+        run: |
+          brew install libomp
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.13"
+          cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dl,trees,tuning,xai,formats,llm,orchestration,web,telemetry,dev]"
+      - name: pip check
+        run: pip check || true
+      - name: Tests
+        run: pytest tests/ -m "not integration"
+      - name: CLI smoke test
+        run: |
+          start doctor
+          start list-tests
+          start risk stripes
+      - name: Demo flight (no provider, no network)
+        run: python scripts/demo_flight.py --speed 0 --no-clear

@@ -1,5 +1,7 @@
 # StART — Standardized Agentic Reusable Tests
 
+**Release: v6.0.1** | **Python: >= 3.12.13** | **License: Apache-2.0**
+
 StART is an **evidence-native model dev/review, risk management, and governance platform** designed for institutional machine learning, deep learning, and quantitative finance.
 
 Unlike conventional LLM-based assistants that perform hallucination-prone arithmetic, StART enforces a strict architectural invariant: **AI agents reason and orchestrate, while deterministic mathematical engines perform all computations**. Every diagnostic produces an immutable, cryptographically signed `EvidenceRecord`, which is appended to a replayable hash-chained ledger and sealed into a Merkle tree attestation.
