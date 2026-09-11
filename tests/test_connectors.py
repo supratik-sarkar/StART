@@ -16,6 +16,8 @@ from start.connectors import (
 )
 from start.modeling.data import TARGET_COLUMN, load_attrition_dataset
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def demo_df() -> pd.DataFrame:

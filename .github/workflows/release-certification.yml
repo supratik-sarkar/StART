@@ -1,0 +1,65 @@
+name: release-certification
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  START_PROFILE: airgapped
+  START_DEVICE: cpu
+  START_DISABLE_MPS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  packaging-audit:
+    name: release packaging audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.13"
+          cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
+      - name: Install packaging dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install build twine
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Check package distribution
+        run: twine check dist/*
+
+  gate-certification:
+    name: full regression and release gate certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.13"
+          cache: pip
+      - name: Assert exact certified Python 3.12.13
+        run: |
+          python -c "import sys; print('Python version:', sys.version); assert sys.version_info[:3] == (3, 12, 13), f'Expected (3, 12, 13), got {sys.version_info[:3]}'"
+      - name: Install all dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[everything,dev]"
+      - name: Full test suite
+        run: pytest tests/
+      - name: Gate reconciliation
+        run: |
+          python scripts/verify_stdlib_core.py
+          python scripts/sync_requirements.py --check

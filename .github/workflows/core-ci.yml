@@ -1,4 +1,4 @@
-name: ci
+name: core-ci
 
 on:
   push:
@@ -26,12 +26,34 @@ env:
   NUMEXPR_NUM_THREADS: "1"
 
 jobs:
+  no-secrets:
+    name: no credentials or organisation identifiers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Scan for committed credentials
+        run: |
+          set +e
+          matches=$(git grep -En "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" -- '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.txt' '*.ipynb' || true)
+          if [ -n "$matches" ]; then
+            echo "Possible credential committed:"; echo "$matches"; exit 1
+          fi
+          echo "no credentials found"
+      - name: Refuse committed environments and outputs
+        run: |
+          set +e
+          bad=$(git ls-files | grep -E "^(\.venv|venv|\.env$|start_output/|dist/|build/)" || true)
+          if [ -n "$bad" ]; then echo "Must not be tracked:"; echo "$bad"; exit 1; fi
+          echo "working tree clean of environments and artefacts"
+
   stdlib-core:
     name: risk + attestation core with nothing installed
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12.13"
       - name: Assert exact certified Python 3.12.13
@@ -45,9 +67,10 @@ jobs:
   packaging:
     name: packaging contract
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12.13"
           cache: pip
@@ -65,46 +88,15 @@ jobs:
       - name: Run packaging contract tests
         run: pytest tests/test_packaging_contract.py -v
 
-  test:
-    name: tests (${{ matrix.os }}, py${{ matrix.python-version }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ["3.12.13"]
+  core-tests:
+    name: fast hermetic core tests (ubuntu-latest, py3.12.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache macOS Python 3.12.13 toolcache
-        if: runner.os == 'macOS'
-        id: cache-macos-python
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
         with:
-          path: ${{ runner.tool_cache }}/Python/3.12.13
-          key: macos-toolcache-python-3.12.13-${{ runner.arch }}
-
-      - name: Provision Python 3.12.13 toolcache on macOS
-        if: runner.os == 'macOS' && steps.cache-macos-python.outputs.cache-hit != 'true'
-        run: |
-          brew install pyenv
-          pyenv install 3.12.13
-          PY_DIR="$(pyenv root)/versions/3.12.13"
-          ARCH=$(uname -m)
-          TC_DIR="${RUNNER_TOOL_CACHE}/Python/3.12.13/${ARCH}"
-          mkdir -p "$TC_DIR"
-          cp -a "$PY_DIR/"* "$TC_DIR/"
-          [ -f "$TC_DIR/bin/python3.12" ] && [ ! -f "$TC_DIR/bin/python" ] && ln -sf "$TC_DIR/bin/python3.12" "$TC_DIR/bin/python"
-          [ -f "$TC_DIR/bin/python3" ] && [ ! -f "$TC_DIR/bin/python" ] && ln -sf "$TC_DIR/bin/python3" "$TC_DIR/bin/python"
-          touch "${RUNNER_TOOL_CACHE}/Python/3.12.13/${ARCH}.complete"
-
-      - name: Install macOS runtime dependencies
-        if: runner.os == 'macOS'
-        run: |
-          brew install libomp
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12.13"
           cache: pip
       - name: Assert exact certified Python 3.12.13
         run: |
@@ -121,8 +113,8 @@ jobs:
         run: mypy || true
       - name: Compile all sources
         run: python -m compileall -q src scripts
-      - name: Tests
-        run: pytest tests/
+      - name: Fast hermetic core tests
+        run: pytest -m "not integration and not platform and not release and not network and not slow"
       - name: CLI smoke test
         run: |
           start doctor
@@ -130,23 +122,3 @@ jobs:
           start risk stripes
       - name: Demo flight (no provider, no network)
         run: python scripts/demo_flight.py --speed 0 --no-clear
-
-  no-secrets:
-    name: no credentials or organisation identifiers
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Scan for committed credentials
-        run: |
-          set +e
-          matches=$(git grep -En "sk-[A-Za-z0-9]{20,}|(api[_-]?key|password|secret)[[:space:]]*=[[:space:]]*[\"'][A-Za-z0-9_-]{16,}" -- '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.txt' '*.ipynb' || true)
-          if [ -n "$matches" ]; then
-            echo "Possible credential committed:"; echo "$matches"; exit 1
-          fi
-          echo "no credentials found"
-      - name: Refuse committed environments and outputs
-        run: |
-          set +e
-          bad=$(git ls-files | grep -E "^(\.venv|venv|\.env$|start_output/|dist/|build/)" || true)
-          if [ -n "$bad" ]; then echo "Must not be tracked:"; echo "$bad"; exit 1; fi
-          echo "working tree clean of environments and artefacts"

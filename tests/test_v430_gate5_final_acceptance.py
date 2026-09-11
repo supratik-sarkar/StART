@@ -47,6 +47,8 @@ from start.registry import list_tests, load_builtin_tests
 from start.review.applicability import applicable_tests
 from start.review.architecture import ReviewDomain
 
+pytestmark = pytest.mark.release
+
 
 def test_registry_census_is_79_with_zero_duplicates() -> None:
     """The canonical test registry must maintain exactly 79 registered root surfaces with zero duplicates."""

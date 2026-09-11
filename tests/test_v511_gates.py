@@ -31,6 +31,8 @@ from start.web.app import create_app
 from start.web.queue import GLOBAL_QUEUE
 from start.web.routes_workbench import get_workflow_definition, make_canonical_plan
 
+pytestmark = pytest.mark.release
+
 
 @pytest.fixture
 def client() -> TestClient:

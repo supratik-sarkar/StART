@@ -13,6 +13,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 from start.agents.committee import CrossAnalyticalCommittee
 from start.core.schemas import EvidenceRecord, Status
 from start.data.adapters import DataFrameAdapter, execute_chunked
@@ -27,6 +29,8 @@ from start.portfolio.contracts import (
     ScenarioResult,
 )
 from start.registry import list_tests, load_builtin_tests
+
+pytestmark = pytest.mark.release
 
 
 def _make_synth_evidence(
