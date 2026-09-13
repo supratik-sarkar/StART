@@ -1,0 +1,16 @@
+# Databricks-oriented config. Device auto-detects CUDA on GPU clusters;
+# Databricks runtime detection is independent of device detection.
+project_name: start-databricks
+seed: 42
+compute: { mode: databricks, device: auto, distributed_backend: databricks_spark }
+llm: { provider: none }   # or enterprise_llm_gateway via private mapping
+data: { provider: csv_parquet, path: /dbfs/FileStore/start_demo, dataset_id: dataset-dbx }
+experiment: { provider: mlflow, experiment_name: /Shared/start-runs }
+model:
+  model_id: propensity-demo
+  task_type: binary_classification
+  materiality: high
+  target_column: target
+  score_column: score
+test_families: { enabled: [preprocessing, supervised, xai] }
+policy_file: configs/policy/default_policy.yaml

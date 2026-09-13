@@ -1,0 +1,29 @@
+# Version constraints for a clean-room / CI-matching StART environment.
+# Use with the pyproject extras:
+#     python -m pip install -e ".[all]" -c constraints.txt
+
+numpy==2.4.4
+pandas==3.0.2
+scipy==1.17.1
+scikit-learn==1.8.0
+pydantic==2.13.4
+pydantic-settings==2.14.1
+PyYAML==6.0.3
+typer==0.26.7
+rich==15.0.0
+torch==2.7.1
+captum==0.9.0
+matplotlib==3.10.8
+pillow==12.1.1
+xgboost==3.2.0
+lightgbm==4.6.0
+optuna==4.9.0
+shap==0.52.0
+pyarrow==24.0.0
+openpyxl==3.1.5
+pytest==9.0.3
+hypothesis==6.155.2
+ruff==0.15.16
+mypy==2.1.0
+opentelemetry-sdk==1.42.1
+opentelemetry-api==1.42.1

@@ -1,0 +1,15 @@
+# Fully offline run: CPU-only, no LLM, local experiment tracking.
+project_name: start-offline
+seed: 42
+compute: { mode: cpu, device: cpu, distributed_backend: none }
+llm: { provider: none }
+data: { provider: csv_parquet, path: examples/data, dataset_id: dataset-offline }
+experiment: { provider: local }
+model:
+  model_id: propensity-demo
+  task_type: binary_classification
+  materiality: medium
+  target_column: target
+  score_column: score
+test_families: { enabled: [preprocessing, supervised, xai] }
+policy_file: configs/policy/default_policy.yaml
