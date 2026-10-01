@@ -4,44 +4,57 @@
 
 [![Release](https://img.shields.io/badge/release-v6.0.2-blue?style=flat)](https://github.com/supratik-sarkar/StART/releases/tag/v6.0.2)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green?style=flat)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.12+-blue?style=flat)](pyproject.toml)
 [![CI](https://img.shields.io/github/actions/workflow/status/supratik-sarkar/StART/core-ci.yml?branch=main&label=CI&style=flat)](https://github.com/supratik-sarkar/StART/actions/workflows/core-ci.yml)
-[![Frontend](https://img.shields.io/badge/frontend-React_18_%7C_TypeScript-61dafb?style=flat&logo=react&logoColor=black)](webapp/)
-[![Architecture](https://img.shields.io/badge/architecture-evidence--native-purple?style=flat)](#architectural-invariant--orchestration)
 [![Governance](https://img.shields.io/badge/governance-OPA-blueviolet?style=flat&logo=open-policy-agent&logoColor=white)](src/start/certification/policies.py)
 [![Observability](https://img.shields.io/badge/observability-OpenTelemetry-orange?style=flat&logo=opentelemetry&logoColor=white)](src/start/telemetry/engineering_trace.py)
 [![X](https://img.shields.io/badge/X-%40SupratikSarkar__-000000?style=flat&logo=x&logoColor=white)](https://x.com/SupratikSarkar_)
 
-**LangGraph orchestrates. Agents reason. Deterministic engines calculate. EvidenceRecords prove. OPA governs. OpenTelemetry observes.**
+**LangGraph orchestrates. Agents reason. Deterministic engines calculate. EvidenceRecords prove. OPA governs. OpenTelemetry observes. Attestation seals the outcome.**
 
 ---
 
-## Demonstration
+## Demo
 
-[![StART Terminal & Artifact Board Demonstration](docs/media/start-demo-poster.png)](#demonstration)
+[![StART Terminal & Artifact Board Demonstration](docs/media/start-demo-poster.png)](https://github.com/supratik-sarkar/StART/releases/download/v6.0.2/StART_v6.0.2_Zero_Cost_Demo_Master.mp4)
 
-*Interactive dual-pane demonstration featuring live terminal observability, real-time deterministic calculations, and dynamic artifact board.*
+*Interactive dual-pane demonstration: live terminal execution (~62%) alongside dynamic artifact board (~38%) across temporal deep learning, portfolio risk, and deterministic control plane.*
 
-[Explore the Web Workbench →](#web-workbench)
+[Watch the full demonstration (MP4) →](https://github.com/supratik-sarkar/StART/releases/download/v6.0.2/StART_v6.0.2_Zero_Cost_Demo_Master.mp4)
+
+### Web Workbench
+
+**[Open the StART Web Workbench →](https://start-mrt-gateway.sapman.workers.dev)**  
+*Public demo · Rate limits may apply*
 
 ---
 
-StART is an evidence-native development and review workbench in which agents contribute reasoning while deterministic engines retain quantitative authority. Evidence, human challenge, grounding, governance, policy, and attestation remain inspectable throughout the run.
+## Why StART?
+
+**StART is an evidence-native development and review workbench in which agents contribute reasoning while deterministic engines retain quantitative authority. Evidence, human challenge, grounding, governance, policy, and attestation remain inspectable throughout the run.**
 
 ---
 
 ## Generalized Review Workflow
 
 ```mermaid
-flowchart LR
-    In["INPUT"] --> Obj["OBJECTIVE"]
-    Obj --> Plan["CAPABILITY PLAN"]
-    Plan --> Dec["AGENT / HUMAN DECISION"]
-    Dec --> Exec["DETERMINISTIC EXECUTION"]
-    Exec --> Ev["EVIDENCERECORD"]
-    Ev --> Ground["GROUNDING"]
-    Ground --> Gov["GOVERNANCE / POLICY"]
-    Gov --> Out["OUTCOME / ATTESTATION"]
+flowchart TD
+    subgraph Row1 ["Formulation & Planning"]
+        direction LR
+        In["INPUT"] --> Obj["PROBLEM / OBJECTIVE CONTRACT"]
+        Obj --> Plan["ALTERNATIVES / CAPABILITY PLAN"]
+    end
+    subgraph Row2 ["Reasoning Trace & Execution"]
+        direction LR
+        Trace["HUMAN / AGENT DECISION TRACE"] --> Exec["DETERMINISTIC EXECUTION"]
+        Exec --> Ev["EVIDENCE"]
+    end
+    subgraph Row3 ["Verification & Governance"]
+        direction LR
+        Ground["GROUNDING"] --> Gov["GOVERNANCE / POLICY"]
+        Gov --> Out["OUTCOME / ATTESTATION"]
+    end
+    Plan --> Trace
+    Ev --> Ground
 ```
 
 ---
@@ -71,23 +84,32 @@ flowchart TD
     Gov -.-> Observability
 ```
 
+### Invariants & Semantic Distinctions
+
+- **Agents reason, deterministic engines calculate**: Language models are structurally barred from generating numbers or claiming mathematical authority.
+- **EvidenceRecords prove**: Every diagnostic metric, table, and figure is sealed into an immutable `EvidenceRecord` containing SHA-256 fingerprints, execution node lineage, and verification criteria.
+- **Grounding != Governance**: Grounding verifies whether claims match recorded evidence metrics; governance tracks institutional disposition (`ACCEPT`, `ACCEPT_WITH_CONDITIONS`, `CHALLENGED_PENDING_REVIEW`).
+- **Governance != OPA Policy**: Governance represents human/committee adjudication; OPA evaluates deterministic fail-closed machine rules (`ALLOW` / `DENY`). A policy `ALLOW` is never conflated with model approval.
+- **Execution != Validation**: Executing a workflow calculation is distinct from evaluating whether results pass model validation and risk thresholds.
+- **RECORDED != PASS**: An evidence record being captured and recorded does not imply its assertions have passed.
+- **Policy ALLOW != Model Approval**: OPA allowing the execution pipeline does not constitute validation sign-off.
+
 ---
 
 ## Key Product Capabilities
 
 * **Numerical Authority & Zero Hallucination**: Deterministic calculation engines establish quantitative truth. Language models are structurally barred from generating numbers or claiming mathematical authority.
 * **Cryptographic EvidenceRecords**: Every diagnostic metric, table, and figure is sealed into an immutable `EvidenceRecord` containing SHA-256 fingerprints, execution node lineage, and verification criteria.
-* **Separation of Grounding, Governance, and Policy**:
-  - **Grounding** verifies whether natural language claims match recorded evidence metrics.
-  - **Governance** tracks institutional dispositions (`ACCEPT`, `ACCEPT_WITH_CONDITIONS`, `CHALLENGED_PENDING_REVIEW`).
-  - **OPA Policy** evaluates fail-closed machine rules (`ALLOW` / `DENY`). A policy `ALLOW` is never conflated with model approval.
+* **Separation of Grounding, Governance, and Policy**: Independent layers prevent circular reasoning between model commentary, institutional disposition, and machine-enforced policy rules.
 * **Human Challenge & Lineage**: Reviewers can challenge findings and record structured decisions. Challenges append immutable decision receipts, update governance state, and branch into traceable child reviews without mutating historical runs.
 * **Cryptographic Attestation**: The append-only evidence ledger resolves to a Merkle tree root hash signed upon run finalization, guaranteeing end-to-end auditability.
 * **Multi-Domain Scientific Coverage**:
   - **Predictive ML**: Data integrity, feature drift (PSI), ROC/AUC discrimination, Brier score calibration, and perturbation robustness.
-  - **Deep Learning**: Temporal sequence classification, architecture diagnostics, training dynamics, and temporal input-gradient saliency.
-  - **Quantitative Finance**: Traded risk, portfolio construction (HRP, MVO), covariance matrix conditioning, VaR exception backtesting (Kupiec, Christoffersen), and reverse stress testing.
+  - **Deep Learning**: Temporal sequence classification `(800, 24, 3)`, architecture diagnostics, training dynamics, and temporal input-gradient saliency.
+  - **Quantitative Finance**: Traded risk, portfolio construction (HRP dendrogram, MVO), covariance matrix conditioning, VaR exception backtesting (`Loss = -Return`, VaR as positive loss, Kupiec POF, Christoffersen independence), and reverse stress testing.
   - **Recommender Systems**: Ranking evaluation (NDCG@K), interaction sparsity, and coverage metrics.
+
+![StART Capability & Governance Architecture](docs/media/start_capability_system.svg)
 
 ---
 
@@ -116,7 +138,7 @@ start --help
 start review --help
 ```
 
-> **Note**: v6.0.2 is installed from source. Package-registry distribution is intentionally deferred. Release verification was performed with Python 3.12.13 on macOS and Linux (Ubuntu 22.04 / 24.04).
+> **Note**: Requires Python `>=3.12` (tested with Python 3.12.13 on macOS and Linux Ubuntu 22.04 / 24.04). Package-registry distribution is intentionally deferred.
 
 ### 2. Deterministic CLI Reviews
 
@@ -133,9 +155,9 @@ start doctor
 
 ---
 
-## Web Workbench
+## Local Web Workbench
 
-StART includes a local browser-based engineering workbench (`webapp/`) with an offline demonstration twin requiring zero hosted model calls.
+StART includes a local browser-based engineering workbench (`webapp/`) with an offline demonstration twin requiring zero hosted model calls:
 
 ```bash
 cd webapp
@@ -193,6 +215,8 @@ Part of the Engineering & Systems Portfolio by [Supratik Sarkar](https://github.
 - [multimodal-context-systems](https://github.com/supratik-sarkar/multimodal-context-systems) — Long-context retrieval, multimodal embeddings, and grounding engines.
 - [applied-ml-systems](https://github.com/supratik-sarkar/applied-ml-systems) — Production ML pipelines, monitoring, and robust predictive modeling.
 - **StART** (Current) — Evidence-native model development and institutional review workbench.
+
+Connect on X: [@SupratikSarkar_](https://x.com/SupratikSarkar_)
 
 ---
 
