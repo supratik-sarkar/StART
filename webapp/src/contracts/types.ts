@@ -149,6 +149,8 @@ export interface RuntimeEvent {
     | 'evidence_commit'
     | 'finding_created'
     | 'human_required'
+    | 'human_decision'
+    | 'agent_decision_recorded'
     | 'governance'
     | 'governance_seal'
     | 'artifact_created'
@@ -176,12 +178,13 @@ export interface EvidenceRecord {
   runId: string
   testId: string
   title: string
-  status: 'RECORDED' | 'PASS' | 'FAIL' | 'ATTENTION' | 'NOT_APPLICABLE'
+  status: 'RECORDED' | 'PASS' | 'FAIL' | 'WARN' | 'ERROR' | 'INFORMATIONAL' | 'SKIPPED' | 'ATTENTION' | 'NOT_APPLICABLE'
   metrics: Array<{ name: string; value: number | string | boolean | null; unit?: string; criterion?: string }>
   provenance: string[]
   parentNodeId?: string
   createdAt: string
   summary?: string
+  rawSource?: Record<string, unknown>
 }
 
 export interface Finding {

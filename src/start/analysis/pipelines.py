@@ -209,7 +209,7 @@ def run_predictive_classification_pipeline(
 
     # 7. Sensitivity: 9-point feature shocks (-30% to +30%)
     from start.modeling.sensitivity_analysis import DEFAULT_SHOCKS, run_sensitivity_analysis
-    top_feats = structural["top_features"][:5]
+    top_feats = list(structural["top_features"])[:5]
     sens_result = run_sensitivity_analysis(
         clf,
         X_test_imp,
@@ -637,7 +637,7 @@ def run_recommender_mf_pipeline(
 
     test_df = split_res.test_data
     all_items = sorted(df["item_id"].unique())
-    ground_truth = {u: list(grp["item_id"].values) for u, grp in test_df.groupby("user_id")}
+    ground_truth = {str(u): set(map(str, grp["item_id"].values)) for u, grp in test_df.groupby("user_id")}
     recs = {u: model.recommend(u, k=20, candidate_items=all_items) for u in ground_truth}
 
     y_true = test_df["rating"].to_numpy(dtype=float)
@@ -749,7 +749,7 @@ def run_recommender_ncf_pipeline(
 
     test_df = split_res.test_data
     all_items = sorted(df["item_id"].unique())
-    ground_truth = {u: list(grp["item_id"].values) for u, grp in test_df.groupby("user_id")}
+    ground_truth = {str(u): set(map(str, grp["item_id"].values)) for u, grp in test_df.groupby("user_id")}
     recs = {u: model.recommend(u, k=20, candidate_items=all_items) for u in ground_truth}
 
     ranking_m = compute_ranking_metrics(recs, ground_truth, k_list=[5, 10, 20])
@@ -848,7 +848,7 @@ def run_recommender_fm_pipeline(
 
     test_df = split_res.test_data
     all_items = sorted(df["item_id"].unique())
-    ground_truth = {u: list(grp["item_id"].values) for u, grp in test_df.groupby("user_id")}
+    ground_truth = {str(u): set(map(str, grp["item_id"].values)) for u, grp in test_df.groupby("user_id")}
     recs = {u: model.recommend(u, k=10, candidate_items=all_items) for u in ground_truth}
 
     ranking_m = compute_ranking_metrics(recs, ground_truth, k_list=[5, 10])
@@ -917,7 +917,7 @@ def execute_canonical_recommender_ffm(
 
     test_df = split_res.test_data
     all_items = sorted(df["item_id"].unique())
-    ground_truth = {u: list(grp["item_id"].values) for u, grp in test_df.groupby("user_id")}
+    ground_truth = {str(u): set(map(str, grp["item_id"].values)) for u, grp in test_df.groupby("user_id")}
     recs = {u: model.recommend(u, k=10, candidate_items=all_items) for u in ground_truth}
 
     ranking_m = compute_ranking_metrics(recs, ground_truth, k_list=[5, 10])
@@ -1042,7 +1042,7 @@ def run_portfolio_hrp_pipeline(
     }
 
     # Generate canonical dendrogram SVG
-    dendrogram_svg = _generate_dendrogram_svg(tree_res)
+    dendrogram_svg = _generate_dendrogram_svg(tree_res, run_id=run_id)
 
     diagnostics = {
         "correlation_matrix": {a: {b: round(float(corr_mat[i, j]), 4) for j, b in enumerate(assets)} for i, a in enumerate(assets)},

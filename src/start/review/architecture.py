@@ -257,8 +257,8 @@ def requires_predictive_technology(domains: tuple[ReviewDomain, ...]) -> bool:
 class LLMReviewConfig:
     """Explicit typed configuration for AI reviewer backend in interactive reviews."""
 
-    backend_mode: str = "none"  # "none" | "enterprise" | "public"
-    provider: str = "none"  # "openai" | "anthropic" | "gemini" | "deepseek" | "grok" | "none"
+    backend_mode: str = "none"  # "none" | "enterprise" | "public" | "offline"
+    provider: str = "none"
     model: str | None = None
     status: str = "DETERMINISTIC"  # "CONNECTED" | "CONFIGURED" | "FAILED" | "DETERMINISTIC"
     detail: str = ""
@@ -288,6 +288,9 @@ class ReviewContextBundle:
     """
 
     tabular: Any | None = None
+    # Rank-3 model input contract. ``tabular`` may still carry an internal
+    # metadata/provenance envelope, but it is never the public model modality.
+    temporal_sequence: Any | None = None
     market: Any | None = None
     short_rate: Any | None = None
     recommender: Any | None = None
@@ -303,10 +306,12 @@ class ReviewContextBundle:
     known_limitations: str = ""
     grounding_mode: ReviewGroundingMode = ReviewGroundingMode.LEGACY_FREEFORM
     structured_findings: list[Any] = field(default_factory=list)
+    selected_source: str = ""
 
     def context_for(self, context_type: str) -> Any | None:
         return {
             "tabular": self.tabular,
+            "temporal_sequence": self.temporal_sequence,
             "market": self.market,
             "short_rate": self.short_rate,
             "recommender": self.recommender,
@@ -314,8 +319,17 @@ class ReviewContextBundle:
 
     def available_context_types(self) -> tuple[str, ...]:
         return tuple(
-            name for name in ("tabular", "market", "short_rate", "recommender") if self.context_for(name) is not None
+            name
+            for name in ("temporal_sequence", "tabular", "market", "short_rate", "recommender")
+            if self.context_for(name) is not None
         )
+
+    def presentation_context_types(self) -> tuple[str, ...]:
+        """Return truthful public-facing modalities for planning and reports."""
+        contexts = list(required_context_types(self.domains))
+        if self.temporal_sequence is not None and "tabular" in contexts:
+            contexts[contexts.index("tabular")] = "temporal_sequence"
+        return tuple(contexts)
 
     def missing_context_types(self) -> tuple[str, ...]:
         """Required by the selected domains but not populated."""
@@ -340,7 +354,8 @@ class ReviewContextBundle:
             "reviewer_clarification": self.reviewer_clarification,
             "intended_use": self.intended_use,
             "known_limitations": self.known_limitations,
-            "required_contexts": list(required_context_types(self.domains)),
+            "selected_source": self.selected_source or None,
+            "required_contexts": list(self.presentation_context_types()),
             "available_contexts": list(self.available_context_types()),
             "missing_contexts": list(self.missing_context_types()),
             "complete": self.is_complete(),

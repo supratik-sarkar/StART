@@ -43,7 +43,156 @@ __all__ = [
     "ReviewerAssessment",
     "hydrate_assessment_values",
     "format_assessment_markdown",
+    "normalize_structured_json_text",
+    "CheckpointDegradationPolicy",
+    "CHECKPOINT_STABLE_IDS",
+    "DEFAULT_CHECKPOINT_POLICIES",
+    "get_checkpoint_degradation_policy",
+    "StructuredDegradationEvent",
+    "render_evidence_only_fallback_panel",
 ]
+
+
+class CheckpointDegradationPolicy(StrEnum):
+    """Explicit MRM failure policy for reviewer interactions at review checkpoints.
+
+    Strict MRM invariants:
+    - REQUIRE_VALID_AGENT_RESPONSE: Model narrative or sign-off is mandatory. Any invalid
+      structured response MUST fail closed and disallow deterministic continuation.
+    - ALLOW_EVIDENCE_ONLY_DEGRADATION: Reviewer interaction is informational/interpretive.
+      When the LLM response is ungrounded or malformed, the system retains immutable deterministic
+      evidence records, displays an auditable fallback panel, records the degradation, and continues.
+    """
+
+    REQUIRE_VALID_AGENT_RESPONSE = "REQUIRE_VALID_AGENT_RESPONSE"
+    ALLOW_EVIDENCE_ONLY_DEGRADATION = "ALLOW_EVIDENCE_ONLY_DEGRADATION"
+
+
+CHECKPOINT_STABLE_IDS: dict[str, str] = {
+    "Portfolio Risk & Volatility Assumptions": "market.portfolio_allocation",
+    "Portfolio Allocation & Constraint Admissibility": "market.portfolio_allocation",
+    "Factor Modeling & Attribution Assumptions": "market.factor_attribution",
+    "VaR Backtesting & Exception Frequency": "market.var_tail_risk",
+    "Covariance Structure & Missing Data Treatment": "market.covariance_structure",
+    "Scenario Analysis & Stress Testing": "market.scenario_stress",
+    "Cross-Analytical Committee Synthesis": "market.cross_analytical_synthesis",
+    "Model Governance & Attestation Sign-off": "market.governance_signoff",
+}
+
+DEFAULT_CHECKPOINT_POLICIES: dict[str, CheckpointDegradationPolicy] = {
+    "market.portfolio_allocation": CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+    "market.factor_attribution": CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+    "market.var_tail_risk": CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+    "market.covariance_structure": CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+    "market.scenario_stress": CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+    "market.cross_analytical_synthesis": CheckpointDegradationPolicy.ALLOW_EVIDENCE_ONLY_DEGRADATION,
+    "market.governance_signoff": CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+}
+
+
+def get_checkpoint_degradation_policy(
+    checkpoint_id_or_title: str,
+    action: str = "Q",
+) -> CheckpointDegradationPolicy:
+    """Resolve the effective degradation policy for an interaction at a checkpoint.
+
+    Strict MRM rules per Gate specifications:
+    1. Overrides ('O'), challenges ('C'), decisions ('A'), and formal sign-offs are NEVER degradable.
+    2. Checkpoints marked REQUIRE_VALID_AGENT_RESPONSE (e.g. governance_signoff, scenario_stress)
+       are NEVER degradable under any action.
+    3. Only registered informational checkpoints with action == 'Q' may safely degrade to evidence-only.
+    """
+    if action.upper() not in ("Q", "QUESTION"):
+        return CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE
+
+    stable_id = CHECKPOINT_STABLE_IDS.get(checkpoint_id_or_title, checkpoint_id_or_title)
+    return DEFAULT_CHECKPOINT_POLICIES.get(
+        stable_id,
+        CheckpointDegradationPolicy.REQUIRE_VALID_AGENT_RESPONSE,
+    )
+
+
+@dataclass(frozen=True)
+class StructuredDegradationEvent:
+    """Audit record capturing an authorized evidence-only degradation event."""
+
+    checkpoint_id: str
+    checkpoint_title: str
+    provider: str
+    model: str
+    structured_response_status: str  # "INVALID"
+    reason_class: str
+    invalid_refs_count: int
+    invalid_refs_details: tuple[dict[str, Any], ...]
+    policy_applied: str  # "ALLOW_EVIDENCE_ONLY_DEGRADATION"
+    deterministic_evidence_retained: bool
+    workflow_continued: bool
+    timestamp: float
+
+
+def render_evidence_only_fallback_panel(
+    view: Any,
+    checkpoint_title: str,
+    note: str,
+    reason: str,
+    invalid_count: int = 0,
+) -> Any:
+    """Render a polished, audit-grade visual panel for safe evidence-only degradation."""
+    from rich.console import Group
+    from rich.panel import Panel
+    from rich.table import Table
+
+    stable_id = CHECKPOINT_STABLE_IDS.get(checkpoint_title, checkpoint_title)
+
+    # Internal table of canonical evidence records
+    ev_table = Table(
+        title="Retained Canonical Evidence Records",
+        title_style="bold cyan",
+        header_style="bold white",
+        show_lines=True,
+    )
+    ev_table.add_column("Evidence ID", style="bold yellow", justify="center")
+    ev_table.add_column("Test / Surface ID", style="cyan")
+    ev_table.add_column("Status", style="bold green", justify="center")
+    ev_table.add_column("Key Metric Paths", style="dim")
+
+    records = getattr(view, "evidence_records", ()) or ()
+    # Display representative records
+    for r in records[:8]:
+        m_paths = list((r.metrics or {}).keys())[:4]
+        m_str = ", ".join(f"metrics.{p}" for p in m_paths) if m_paths else "—"
+        ev_table.add_row(
+            r.evidence_id,
+            r.test_id,
+            str(r.status).upper(),
+            m_str,
+        )
+
+    content_lines = [
+        f"[bold white]Checkpoint:[/bold white] {checkpoint_title} ([dim]{stable_id}[/dim])",
+        f"[bold white]Reviewer Query:[/bold white] \"{note}\"",
+        f"[bold red]LLM Response Status:[/bold red] INVALID ({reason}; {invalid_count} ungrounded reference(s) rejected)",
+        "",
+        "[bold green]✔ Deterministic Grounding Guarantee:[/bold green]",
+        "  • Zero ungrounded agent assertions or fabricated metrics accepted into audit ledger.",
+        "  • All underlying quantitative evidence records, matrices, and backtest results retained.",
+        "  • Challenge resolution diagnostics and governance integrity fully preserved.",
+        "",
+    ]
+
+    group = Group(
+        "\n".join(content_lines),
+        ev_table,
+        "\n[bold yellow]Governance Note:[/bold yellow] Agent narrative omitted under ALLOW_EVIDENCE_ONLY_DEGRADATION policy.\n"
+        "[bold white]Remaining Human Decisions:[/bold white] Model selection, objective weighting, and formal attestation remain human governance responsibilities.",
+    )
+
+    return Panel(
+        group,
+        title="[bold yellow]AGENT INTERPRETATION UNAVAILABLE — DETERMINISTIC EVIDENCE RETAINED[/bold yellow]",
+        border_style="yellow",
+        padding=(1, 2),
+    )
 
 
 class FindingType(StrEnum):
@@ -238,6 +387,40 @@ def validate_qualitative_text_cleanliness(text: str) -> tuple[bool, str | None]:
     if matches:
         return False, f"Raw measurement values {matches} embedded in qualitative text; use EvidenceMetricRef."
     return True, None
+
+
+def normalize_structured_json_text(raw_text: str) -> str:
+    """Bounded, deterministic representational normalization of raw LLM JSON text.
+
+    Strict rules per MRM governance:
+    1. Trim leading/trailing whitespace.
+    2. Strip markdown code fences (``` or ```json).
+    3. If raw text contains harmless conversational preamble/postscript around a single
+       unique JSON object, extract the substring from the first '{' to the last '}'.
+    4. Does NOT invent missing fields, change enums, or modify evidence refs.
+    """
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        first_nl = cleaned.find("\n")
+        if first_nl != -1:
+            cleaned = cleaned[first_nl + 1 :]
+        if cleaned.rstrip().endswith("```"):
+            cleaned = cleaned.rstrip()[:-3]
+        cleaned = cleaned.strip()
+
+    # Extract outermost JSON object if surrounded by harmless conversational wrapper prose
+    first_brace = cleaned.find("{")
+    last_brace = cleaned.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        candidate = cleaned[first_brace : last_brace + 1].strip()
+        # Verify candidate is valid JSON before adopting to avoid mangling malformed text
+        try:
+            json.loads(candidate)
+            cleaned = candidate
+        except Exception:
+            pass
+
+    return cleaned
 
 
 def _format_deterministic_display(val: Any, metric_path: str) -> tuple[str, str]:

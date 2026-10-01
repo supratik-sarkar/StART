@@ -600,10 +600,10 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
     (runAId?: string, runBId?: string) => {
       setIsCompareOpen(true)
       const a = runAId || compareRunA || (run?.parentRunId ? run.parentRunId : null)
-      const b = runBId || compareRunB || (run ? run.runId : null)
+      const b = runBId || (run && a !== run.runId ? run.runId : null) || compareRunB || (run ? run.runId : null)
       if (a) setCompareRunA(a)
       if (b) setCompareRunB(b)
-      if (a && b) {
+      if (a && b && a !== b) {
         executeCompare(a, b)
       }
     },
@@ -766,4 +766,3 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
     closeSearch,
   }
 }
-

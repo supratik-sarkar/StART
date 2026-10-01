@@ -62,6 +62,8 @@ class ExecutionResult:
     elapsed_seconds: float = 0.0
     tracer: Any | None = None
     policy_result: Any | None = None
+    workflow_coherence: Any | None = None
+    run_outcome_capsule: Any | None = None
 
     def __getitem__(self, item: str) -> Any:
         if item == "evidence_records":
@@ -567,7 +569,7 @@ class CanonicalExecutionService:
                     if (
                         y_tr_raw.dtype == object
                         or str(y_tr_raw.dtype) == "category"
-                        or not pd.api.types.is_numeric_dtype(y_tr_raw)
+                        or not np.issubdtype(y_tr_raw.dtype, np.number)
                     ):
                         unique_vals = sorted([str(v) for v in pd.Series(y_tr_raw).dropna().unique()])
                         mapping = {val: idx for idx, val in enumerate(unique_vals)}
@@ -1565,10 +1567,40 @@ class CanonicalExecutionService:
                 metadata={
                     "governance_disposition": final_gov_disposition,
                     "policy_decision_id": policy_res.decision_id if policy_res else None,
+                    "policy_decision": policy_res.to_dict() if policy_res else None,
+                    "validation_failures": sum(
+                        1
+                        for record in records
+                        if str(getattr(record.status, "value", record.status)).lower()
+                        in {"fail", "error"}
+                    ),
+                    "unresolved_count": 0,
                 },
             )
             sink.emit(evt_gov)
             all_events.append(evt_gov)
+
+            # The deterministic execution trace is complete at the policy
+            # boundary.  Publish that genuine snapshot synchronously before
+            # the cryptographic seal is created so presentation order mirrors
+            # the actual governance -> trace -> attestation lifecycle.
+            trace_records = [record.to_dict() for record in tracer.get_records()] if tracer else []
+            evt_trace = RuntimeEvent(
+                run_id=run_id,
+                event_type="trace_ready",
+                status="COMPLETED" if trace_records else "NOT_APPLICABLE",
+                source_agent="ModelGovernance",
+                target_agent="AuditArchive",
+                stage="TRACE",
+                action="finalize_execution_trace",
+                node_id="step-governance",
+                parent_node_id=prev_node_id,
+                elapsed_seconds=round(time.time() - start_time, 2),
+                message=f"Execution trace ready ({len(trace_records)} spans)",
+                metadata={"records": trace_records, "span_count": len(trace_records)},
+            )
+            sink.emit(evt_trace)
+            all_events.append(evt_trace)
 
             # Build real Merkle attestation seal
             with trace_scope(OP_GOVERNANCE_COMMIT, {"seal": True, "disposition": final_gov_disposition}):
@@ -1601,7 +1633,10 @@ class CanonicalExecutionService:
                 parent_node_id="step-governance",
                 elapsed_seconds=round(time.time() - start_time, 2),
                 message=f"Attestation signed Merkle root {merkle_root[:16]}",
-                metadata={"merkle_root": merkle_root},
+                metadata={
+                    "merkle_root": merkle_root,
+                    "leaf_count": len(getattr(seal, "leaves", [])),
+                },
             )
             sink.emit(evt_att)
             all_events.append(evt_att)

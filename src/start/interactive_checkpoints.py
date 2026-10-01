@@ -118,6 +118,7 @@ def resolve_checkpoint(
     ask: Callable[[str], str] = input,
     emit: Callable[[str], None] | None = None,
     on_ask: Callable[[str], str] | None = None,
+    on_action: Callable[[str, str], None] | None = None,
     llm: Any = None,
     session: Any = None,
     ctx: Any = None,
@@ -240,6 +241,8 @@ def resolve_checkpoint(
             if question.lower() in ("q", "ask", "?") or not question:
                 continue
 
+            if on_action is not None:
+                on_action("Q", question)
             agent_answer = on_ask(question)
             say(f"    {agent_answer}")
             _fallback_log(question, agent_answer)
@@ -260,6 +263,8 @@ def resolve_checkpoint(
                         f"preferable to my choice '{user_value}'? "
                         f"Please justify this choice and address the alternative."
                     )
+                if on_action is not None:
+                    on_action("C", challenge_q)
                 agent_answer = on_ask(challenge_q)
                 say(f"    {agent_answer}")
                 _fallback_log(challenge_q, agent_answer)
@@ -290,6 +295,8 @@ def resolve_checkpoint(
             continue
 
         if answer in ("a", "accept"):
+            if on_action is not None:
+                on_action("A", "Accepted agent recommendation")
             return CheckpointDecision(
                 name,
                 user_value=recommended_value,
@@ -321,6 +328,8 @@ def resolve_checkpoint(
                 rev_rationale = (
                     "Accepted agent recommendation" if is_noop else f"Reviewer overridden to {new_val}"
                 )
+            if on_action is not None:
+                on_action("A" if is_noop else "O", rev_rationale)
             return CheckpointDecision(
                 name,
                 user_value=new_val,
@@ -334,6 +343,8 @@ def resolve_checkpoint(
             )
         if answer in ("k", "keep", ""):
             is_noop = user_value == recommended_value
+            if on_action is not None:
+                on_action("A" if is_noop else "O", "Kept configured reviewer choice")
             return CheckpointDecision(
                 name,
                 user_value=user_value,

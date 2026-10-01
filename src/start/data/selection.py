@@ -49,6 +49,7 @@ __all__ = [
     "select_german_credit",
     "select_fannie_mae",
     "select_local_file",
+    "select_temporal_sequence",
     "WIZARD_OPTIONS",
     "resolve_wizard_choice",
 ]
@@ -60,6 +61,7 @@ class DatasetKind(StrEnum):
     SYNTHETIC = "synthetic"
     PUBLIC_BENCHMARK = "public_benchmark"
     USER_SUPPLIED = "user_supplied"
+    TEMPORAL_SEQUENCE = "temporal_sequence"
 
 
 @dataclass
@@ -85,23 +87,40 @@ class DatasetSelection:
     #: Free-form generator or loader parameters, recorded for reproducibility.
     parameters: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    #: SequenceBundle holding rank-3 temporal arrays for sequence workflows.
+    sequence_bundle: Any = None
 
     # -- shape -------------------------------------------------------------
     @property
     def n_rows(self) -> int:
+        if self.sequence_bundle is not None:
+            return int(
+                len(self.sequence_bundle.X_train)
+                + len(self.sequence_bundle.X_test)
+                + len(self.sequence_bundle.X_oos)
+            )
         return int(self.frame.shape[0]) if self.frame is not None else 0
 
     @property
     def n_columns(self) -> int:
+        if self.sequence_bundle is not None:
+            return int(self.sequence_bundle.n_features)
         return int(self.frame.shape[1]) if self.frame is not None else 0
 
     def volumetrics(self) -> str:
+        if self.sequence_bundle is not None:
+            n_tot = (
+                len(self.sequence_bundle.X_train)
+                + len(self.sequence_bundle.X_test)
+                + len(self.sequence_bundle.X_oos)
+            )
+            return f"{n_tot:,} Sequences x {self.sequence_bundle.timesteps} Timesteps x {self.sequence_bundle.n_features} Features"
         return f"{self.n_rows:,} Rows x {self.n_columns} Dimensions"
 
     # -- provenance --------------------------------------------------------
     def provenance_dict(self) -> dict[str, Any]:
         """The block that goes in the evidence chain and the report."""
-        return {
+        res = {
             "kind": self.kind.value,
             "display_name": self.display_name,
             "source_reference": self.source_reference,
@@ -114,6 +133,11 @@ class DatasetSelection:
             "parameters": dict(sorted(self.parameters.items())),
             "notes": list(self.notes),
         }
+        if self.sequence_bundle is not None:
+            res["modality"] = "temporal_sequence"
+            res["timesteps"] = self.sequence_bundle.timesteps
+            res["n_features"] = self.sequence_bundle.n_features
+        return res
 
     def consistency_errors(self) -> list[str]:
         """Refuse to let the display name and the stated source disagree.
@@ -133,6 +157,14 @@ class DatasetSelection:
                 )
             if self.source_path:
                 errors.append("synthetic data must not claim a source_path")
+        elif self.kind is DatasetKind.TEMPORAL_SEQUENCE:
+            if "http" in ref:
+                errors.append(
+                    f"{self.display_name!r} is synthetic temporal sequence but cites a URL "
+                    f"({self.source_reference!r}). Generated data has no external source."
+                )
+            if self.sequence_bundle is None:
+                errors.append("temporal sequence selection must supply a valid SequenceBundle")
         elif self.kind is DatasetKind.PUBLIC_BENCHMARK:
             if "http" not in ref:
                 errors.append(f"{self.display_name!r} is a public benchmark and must cite its source URL")
@@ -283,6 +315,87 @@ def select_local_file(path: str) -> DatasetSelection:
     )
 
 
+def select_temporal_sequence(
+    *,
+    n_series: int = 800,
+    timesteps: int = 24,
+    n_features: int = 3,
+    seed: int = 42,
+) -> DatasetSelection:
+    """Locally generated multivariate temporal sequence dataset for recurrent architectures."""
+    import numpy as np
+    import pandas as pd
+
+    from start.modeling.sequence_data import generate_sequence_dataset, split_sequences
+
+    X, y = generate_sequence_dataset(
+        n_series=n_series, timesteps=timesteps, n_features=n_features, seed=seed
+    )
+    bundle = split_sequences(X, y)
+
+    # Build sequence-level metadata summary DataFrame for discovery and transparency
+    records = []
+    for split_name, X_split, y_split in (
+        ("train", bundle.X_train, bundle.y_train),
+        ("test", bundle.X_test, bundle.y_test),
+        ("oos", bundle.X_oos, bundle.y_oos),
+    ):
+        for i in range(len(X_split)):
+            row = {
+                "sequence_id": f"{split_name}_{i:03d}",
+                "split": split_name,
+                "timesteps": timesteps,
+                "feature_0_trend_mean": float(np.mean(X_split[i, :, 0])),
+                "feature_1_drift_mean": float(np.mean(X_split[i, :, 1])) if n_features > 1 else 0.0,
+                "feature_2_noise_mean": float(np.mean(X_split[i, :, 2])) if n_features > 2 else 0.0,
+                "target": int(y_split[i]),
+            }
+            records.append(row)
+    summary_df = pd.DataFrame(records)
+
+    params = {
+        "n_series": n_series,
+        "timesteps": timesteps,
+        "n_features": n_features,
+        "seed": seed,
+        "task": "sequence_classification",
+        "split_fractions": [0.6, 0.2, 0.2],
+        "tensor_shape": [n_series, timesteps, n_features],
+        "split_sizes": {
+            "train": len(bundle.X_train),
+            "test": len(bundle.X_test),
+            "oos": len(bundle.X_oos),
+        },
+    }
+    n_train = len(bundle.X_train)
+    n_test = len(bundle.X_test)
+    n_oos = len(bundle.X_oos)
+
+    return DatasetSelection(
+        kind=DatasetKind.TEMPORAL_SEQUENCE,
+        display_name="Synthetic Temporal Sequence — Multivariate Trajectory Monitoring",
+        frame=summary_df,
+        sequence_bundle=bundle,
+        source_reference="generated locally via start.modeling.sequence_data (seed=42)",
+        licence_note="not applicable (generated)",
+        target_column="target",
+        target_derivation="temporal anomaly label (rising linear trend + sinusoidal component in feature 0)",
+        parameters=params,
+        notes=[
+            (
+                "Multivariate temporal sequence dataset: "
+                f"{n_series} sequences, {timesteps} timesteps, {n_features} features."
+            ),
+            "Task: sequence binary classification (trajectory pattern detection).",
+            (
+                "Order-preserving contiguous temporal block split "
+                f"({n_train} train / {n_test} test / {n_oos} OOS)."
+            ),
+            "Intended exclusively for recurrent deep-learning models (LSTM, GRU, RNN, Bi-LSTM).",
+        ],
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Wizard wiring
 # --------------------------------------------------------------------------- #
@@ -292,6 +405,7 @@ WIZARD_OPTIONS: tuple[tuple[str, str], ...] = (
     ("2", "UCI Statlog German Credit (public benchmark; documented 5:1 cost matrix)"),
     ("3", "Fannie Mae single-family loan performance (you supply the file)"),
     ("4", "Custom local dataset (CSV, Parquet, TSV, JSON)"),
+    ("5", "Synthetic Temporal Sequence (multivariate series: 24 timesteps x 3 features; for LSTM/GRU)"),
 )
 
 
@@ -347,5 +461,8 @@ def resolve_wizard_choice(
                 echo(f"\n[Warning] Could not load {path}: {exc}")
                 echo("Falling back to the synthetic generator.")
         return select_synthetic(seed=seed)
+
+    if choice == "5":
+        return select_temporal_sequence(seed=seed)
 
     return select_synthetic(seed=seed)

@@ -6,6 +6,9 @@ required for robust, proof-carrying interactive review.
 
 from __future__ import annotations
 
+import hashlib
+import json
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 
@@ -135,13 +138,18 @@ _VALID_TRANSITIONS: dict[CheckpointState, set[CheckpointState]] = {
 class CheckpointStateMachine:
     """Deterministic state machine governing a single checkpoint's lifecycle."""
 
-    def __init__(self, checkpoint_title: str) -> None:
+    def __init__(
+        self,
+        checkpoint_title: str,
+        on_transition: Callable[[CheckpointState, CheckpointState, str, str], None] | None = None,
+    ) -> None:
         self.checkpoint_title = checkpoint_title
         self._current_state = CheckpointState.READY
         self._history: list[CheckpointState] = [CheckpointState.READY]
         self._terminal_decision: str | None = None
         self._repair_attempts: int = 0
         self._fallback_offers: int = 0
+        self._on_transition = on_transition
 
     @property
     def current_state(self) -> CheckpointState:
@@ -163,7 +171,7 @@ class CheckpointStateMachine:
     def is_terminal(self) -> bool:
         return self._current_state in (CheckpointState.CANCELLED, CheckpointState.COMPLETED)
 
-    def transition(self, new_state: CheckpointState) -> None:
+    def transition(self, new_state: CheckpointState, *, trigger: str = "STATE_MACHINE") -> None:
         """Attempt to transition to a new state, validating against transition rules."""
         if self._current_state == CheckpointState.CANCELLED:
             raise InvalidStateTransitionError(
@@ -197,8 +205,21 @@ class CheckpointStateMachine:
                     f"(offer {self._fallback_offers})."
                 )
 
+        previous_state = self._current_state
         self._current_state = new_state
         self._history.append(new_state)
+        if self._on_transition is not None:
+            state_payload = {
+                "checkpoint": self.checkpoint_title,
+                "current_state": new_state.value,
+                "history": [state.value for state in self._history],
+                "repair_attempts": self._repair_attempts,
+                "fallback_offers": self._fallback_offers,
+            }
+            state_hash = hashlib.sha256(
+                json.dumps(state_payload, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            self._on_transition(previous_state, new_state, trigger, state_hash)
 
     def record_decision(self, decision: str) -> None:
         """Record final terminal decision, ensuring no failure branch produces multiple decisions."""

@@ -15,7 +15,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
-import pytest
 from scripts.run_gate6_showcase import run_gate6_showcase
 
 from start.portfolio import (
@@ -36,8 +35,6 @@ from start.portfolio import (
     solve_reverse_stress,
 )
 from start.registry import list_tests, load_builtin_tests
-
-pytestmark = pytest.mark.release
 
 
 def test_registry_census_and_domain_invariants():

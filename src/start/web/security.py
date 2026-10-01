@@ -1,4 +1,4 @@
-"""Security, Origin Authentication & Turnstile Verification for StART v4.5.3 Web Transport.
+"""Security, origin authentication, and Turnstile verification for StART web transport.
 
 Enforces:
 1. Fail-closed Origin HMAC signature validation with replay prevention (Cloudflare Worker -> Oracle origin)

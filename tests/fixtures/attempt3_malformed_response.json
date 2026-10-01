@@ -1,0 +1,52 @@
+{
+  "findings": [
+    {
+      "finding_id": "F-01",
+      "finding_type": "OBSERVED_EVIDENCE",
+      "conclusion": "Quantitative cross-analytical risk synthesis confirms capital adequacy under standard market conditions with balanced risk contributions.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-7322962e3fa7",
+          "metric_path": "metrics.annualised_volatility"
+        },
+        {
+          "evidence_id": "EV-7322962e3fa7",
+          "metric_path": "metrics.sharpe_ratio"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-02",
+      "finding_type": "DIAGNOSTIC_FINDING",
+      "conclusion": "Adversarial stress testing reveals localized tail sensitivity in severe factor dislocation scenarios.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-72493e5f4cfd",
+          "metric_path": "metrics.var_historical_99"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-09",
+      "finding_type": "CONDITIONAL_CONCLUSION",
+      "conclusion": "Model governance synthesis incorporates qualitative committee narrative alongside empirical risk measures.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-7322962e3fa7",
+          "metric_path": "Interpretation"
+        },
+        {
+          "evidence_id": "EV-72493e5f4cfd",
+          "metric_path": "Interpretation"
+        }
+      ],
+      "criterion_status": "EVIDENCE_ONLY",
+      "unresolved_reason": "Qualitative committee consensus required before deployment."
+    }
+  ],
+  "overall_assessment": "The model suite exhibits robust baseline performance across portfolio allocation and factor attribution domains. Tail-risk exposure under joint stress scenarios remains elevated, warranting conditional approval with enhanced quarterly monitoring."
+}

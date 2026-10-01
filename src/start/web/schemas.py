@@ -1,4 +1,4 @@
-"""Authoritative Pydantic Schemas for StART v4.5 Web Transport.
+"""Authoritative Pydantic schemas for the StART web transport.
 
 Serves as the single authoritative schema source of truth for:
 - API requests / responses
@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 START_SCHEMA_VERSION: str = "5.0.0"
-START_VERSION: str = "6.0.1"
+START_VERSION: str = "6.0.2"
 
 
 def get_backend_build_version() -> str:
@@ -391,4 +391,3 @@ class ProviderSessionCreateRequest(BaseModel):
     provider: str
     credentials: dict[str, Any]
     ttl_seconds: int = 3600
-

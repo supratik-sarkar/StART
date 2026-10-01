@@ -1,6 +1,6 @@
 # Terminal → Visual Mapping
 
-This is the canonical integration checklist for Antigravity. The browser should expose an equal or better representation of every meaningful terminal concept.
+This is the canonical integration checklist for the web frontend. The browser should expose an equal or better representation of every meaningful terminal concept.
 
 | Terminal / runtime concept | Contract | Primary visual |
 |---|---|---|

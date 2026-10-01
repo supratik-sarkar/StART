@@ -23,6 +23,7 @@ Validates:
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -33,7 +34,7 @@ import pytest
 
 from start.analysis.builder import DeterministicArtifactBuilder
 from start.analysis.contracts import CanonicalAnalyticalResult, compute_deterministic_hash
-from start.analysis.manifest import get_manifest
+from start.analysis.manifest import MANIFEST_REGISTRY, get_manifest
 from start.analysis.pipelines import (
     run_deep_learning_pipeline,
     run_portfolio_erc_pipeline,

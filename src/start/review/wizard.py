@@ -149,6 +149,11 @@ def run_review_wizard(
                 "Public LLM Providers (OpenAI, Anthropic, Gemini, DeepSeek, Grok)",
                 "Third-party APIs with live dialogue",
             ),
+            (
+                "4",
+                "Offline Demo Twin (Private Rehearsal)",
+                "Deterministic semantic fixture; network disabled; hosted calls 0",
+            ),
         ],
         default="1",
         ask=ask,
@@ -165,6 +170,19 @@ def run_review_wizard(
         llm_model = "gateway-managed"
         llm_status = "CONFIGURED"
         llm_detail = "Enterprise gateway routing."
+    elif backend_choice == "4":
+        agent_mode = "llm"
+        llm_provider = "offline_demo_twin"
+        llm_model = "deterministic-semantic-fixture-v1"
+        llm_status = "OFFLINE_REHEARSAL"
+        llm_detail = (
+            "Execution: deterministic local fixture; network disabled; hosted calls 0; "
+            "purpose: rehearsal / controller validation."
+        )
+        console.print("\n  [bold]AI Reviewer:[/bold] Offline Demo Twin")
+        console.print("  [bold]Provider:[/bold]    offline_demo_twin")
+        console.print("  [bold]Network:[/bold]     disabled")
+        console.print("  [bold]Hosted calls:[/bold] 0\n")
     elif backend_choice == "3":
         agent_mode = "llm"
         prov_choice = _ask_choice(
@@ -349,7 +367,15 @@ def run_review_wizard(
 
     from start.review.architecture import LLMReviewConfig
 
-    backend_mode = "public" if backend_choice == "3" else ("enterprise" if backend_choice == "2" else "none")
+    backend_mode = (
+        "public"
+        if backend_choice == "3"
+        else "enterprise"
+        if backend_choice == "2"
+        else "offline"
+        if backend_choice == "4"
+        else "none"
+    )
     llm_config = LLMReviewConfig(
         backend_mode=backend_mode,
         provider=llm_provider,
@@ -514,10 +540,31 @@ def run_review_wizard(
         # Dataset selection
         from start.data.selection import WIZARD_OPTIONS, resolve_wizard_choice
 
+        is_recurrent = predictive_config.get("model") in ("lstm", "gru", "rnn", "bi_lstm")
         ds_opts = [(key, text, "") for key, text in WIZARD_OPTIONS]
-        ds_choice = _ask_choice("Select Predictive Dataset Source:", ds_opts, default="1", ask=ask)
+        default_ds = "5" if is_recurrent else "1"
+        ds_choice = _ask_choice("Select Predictive Dataset Source:", ds_opts, default=default_ds, ask=ask)
         selection = resolve_wizard_choice(ds_choice, seed=seed)
+
+        # Fail-closed validation: recurrent models strictly require temporal sequence data
+        if is_recurrent and getattr(selection, "sequence_bundle", None) is None:
+            console.print(
+                f"\n[bold red]Scientific Contract Error:[/bold red] Recurrent architecture "
+                f"'{predictive_config.get('model', '').upper()}' requires a temporal sequence dataset (samples, timesteps, features).\n"
+                f"Ordinary tabular datasets cannot be converted into fake sequences. "
+                f"Selecting default compatible temporal sequence dataset (option 5)."
+            )
+            selection = resolve_wizard_choice("5", seed=seed)
+        elif not is_recurrent and getattr(selection, "sequence_bundle", None) is not None:
+            console.print(
+                f"\n[bold red]Scientific Contract Error:[/bold red] Selected architecture "
+                f"'{predictive_config.get('model', '').upper()}' expects tabular data and cannot consume temporal sequences.\n"
+                f"Selecting default compatible tabular dataset (option 1)."
+            )
+            selection = resolve_wizard_choice("1", seed=seed)
+
         predictive_config["dataset_selection"] = selection
+        predictive_config["sequence_bundle"] = getattr(selection, "sequence_bundle", None)
         target_col = selection.target_column
         if not target_col and selection.frame is not None and hasattr(selection.frame, "columns") and len(selection.frame.columns) > 0:
             candidate_names = (
@@ -533,11 +580,20 @@ def run_review_wizard(
                 target_col = str(selection.frame.columns[-1])
             selection.target_column = target_col
         predictive_config["target_column"] = target_col or "is_fraud"
-        predictive_config["split_strategy_name"] = "stratified"
+        if predictive_config["sequence_bundle"] is not None:
+            predictive_config["task_type"] = "binary_classification"
+            predictive_config["split_strategy_name"] = "time_based"
+            predictive_config["split_semantics"] = (
+                "order-preserving contiguous sequence holdout; "
+                "independent sequences; not chronological forecasting"
+            )
+        else:
+            predictive_config["split_strategy_name"] = "stratified"
         predictive_config["split_proportions"] = (0.60, 0.20, 0.20)
         predictive_config["stratify"] = True
         predictive_config["class_weight"] = "balanced"
         bundle.tabular = selection.frame
+        bundle.temporal_sequence = predictive_config["sequence_bundle"]
 
     # B) Market / Treasury Domain Data Setup
     if ReviewDomain.MARKET in domains or ReviewDomain.TREASURY in domains:
@@ -565,6 +621,7 @@ def run_review_wizard(
         )
 
         if market_ds_c == "1" or market_ds_c not in ("2", "3"):
+            bundle.selected_source = "Built-in Synthetic Market World"
             world = generate_market_world(
                 n_assets=50,
                 n_periods=1000,

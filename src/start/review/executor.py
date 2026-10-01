@@ -14,6 +14,7 @@ import time
 import uuid
 from collections import Counter
 from collections.abc import Callable
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,11 +28,12 @@ from start.attestation.seal import build_seal
 from start.core.schemas import EvidenceRecord, Status, TestResult
 from start.evidence.ledger import EvidenceLedger
 from start.orchestration.tracer import AgentExecutionTracer
+from start.portfolio.contracts import TailBacktestResult
 from start.providers.base import ProviderResult, ProviderUsage
 from start.providers.llm import format_safe_provider_diagnostic
 from start.registry import list_tests
 from start.reporting.presentation import build_presentation_model
-from start.reporting.viewer import get_artifact_view_mode, view_artifacts
+from start.reporting.viewer import view_artifacts
 from start.review.applicability import ApplicableTests, applicable_tests
 from start.review.architecture import (
     ReviewContextBundle,
@@ -71,8 +73,41 @@ PROVIDER_DISPLAY_NAMES = {
     "deepseek": "DeepSeek",
     "grok": "Grok",
     "enterprise_llm_gateway": "Enterprise LLM Gateway",
+    "offline_demo_twin": "offline_demo_twin",
     "none": "None",
 }
+
+
+def _render_rejected_raw_payload(
+    target_console: Any,
+    *,
+    label: str,
+    payload: str,
+) -> bool:
+    """Render rejected provider payloads only outside viewer presentation mode.
+
+    The caller retains and validates the payload either way; this controls only
+    the redundant viewer-facing diagnostic dump.
+    """
+    from start.review.terminal_observability import (
+        presentation_mode_enabled,
+        viewer_suppression_signal,
+    )
+
+    if presentation_mode_enabled():
+        stream = getattr(target_console, "file", None)
+        if stream is None:
+            return False
+        stream.write(viewer_suppression_signal(enabled=True))
+        stream.flush()
+        try:
+            target_console.print(f"  [yellow]{label}:[/yellow]\n  {payload}\n")
+        finally:
+            stream.write(viewer_suppression_signal(enabled=False))
+            stream.flush()
+        return False
+    target_console.print(f"  [yellow]{label}:[/yellow]\n  {payload}\n")
+    return True
 
 
 def _safe_complete_result(
@@ -253,6 +288,36 @@ def execute_market_treasury_tests(
                 products.register("portfolio.hrp_tree", hrp_tree, source_fingerprint=mkt_fp)
                 products.register("portfolio.hrp_weights", hrp_w, source_fingerprint=mkt_fp)
 
+            # Euler risk contribution is a distinct deterministic output; it is
+            # never inferred from the allocation chart by the presentation layer.
+            from start.portfolio.risk_contributions import calculate_risk_contributions
+
+            risk_contributions = calculate_risk_contributions(
+                weights_dict, cov_mat, assets=assets
+            )
+            products.register(
+                "portfolio.risk_contributions",
+                risk_contributions,
+                source_fingerprint=mkt_fp,
+            )
+            results.append(
+                TestResult(
+                    test_id="portfolio.risk_statistics.euler_decomposition",
+                    test_name="Euler Risk Contribution Decomposition",
+                    status=Status.RECORDED,
+                    metrics={
+                        "portfolio_variance": risk_contributions.portfolio_variance,
+                        "portfolio_volatility": risk_contributions.portfolio_volatility,
+                        "euler_reconciliation_error": risk_contributions.euler_reconciliation_error,
+                        "n_assets": len(risk_contributions.percentage_contributions),
+                    },
+                    interpretation=(
+                        "Euler component risk contributions were computed separately from allocation "
+                        "weights and reconciled to portfolio volatility."
+                    ),
+                )
+            )
+
             # 1. Asset return scenario (configurable shock magnitude)
             raw_shock_mag = float(req_params.get("shock_magnitude", req_params.get("shock_value", -5.0)))
             asset_shocks = tuple(
@@ -271,6 +336,11 @@ def execute_market_treasury_tests(
                 repricing_method=RepricingMethod.LINEAR_RETURN,
             )
             res_asset = apply_asset_return_scenario(weights=weights_dict, scenario_spec_or_shocks=spec_asset)
+            products.register(
+                "scenario.spec",
+                spec_asset,
+                source_fingerprint=getattr(res_asset, "data_fingerprint", ""),
+            )
             products.register(
                 "scenario.linear_return",
                 res_asset,
@@ -447,11 +517,15 @@ def generate_review_artifacts(
 
     if not (has_market or has_treasury or has_predictive):
         return artifacts_by_checkpoint
+    if not records:
+        # Scientific artifacts require canonical evidence provenance.  An empty
+        # evidence set is rendered as an empty board, never with placeholder IDs.
+        return artifacts_by_checkpoint
 
     output_dir.mkdir(parents=True, exist_ok=True)
     rec_by_test = {r.test_id: r for r in records}
     rec_ids_set = {r.evidence_id for r in records}
-    default_ev = records[0].evidence_id if records else "EV-DEFAULT"
+    default_ev = records[0].evidence_id
 
     import hashlib
     import json
@@ -462,10 +536,12 @@ def generate_review_artifacts(
         _hash_payload,
         render_asset_weights_artifact,
         render_backtest_summary_artifact,
+        render_exception_transition_artifact,
         render_raw_correlation_artifact,
         render_raw_covariance_heatmap_artifact,
         render_reverse_stress_profile_artifact,
         render_scenario_pnl_waterfall_artifact,
+        render_var_pnl_timeline_artifact,
     )
 
     if has_market:
@@ -484,9 +560,6 @@ def generate_review_artifacts(
         if weights_dict is None and market is not None:
             if market.portfolio is not None and market.portfolio.weights is not None:
                 weights_dict = {str(k): float(v) for k, v in market.portfolio.weights.items()}
-            elif getattr(market, "returns", None) is not None:
-                n_c = market.returns.shape[1]
-                weights_dict = {str(c): 1.0 / n_c for c in market.returns.columns}
         if weights_dict and assets and set(weights_dict.keys()) != set(assets):
             if len(weights_dict) == len(assets):
                 weights_dict = {assets[i]: float(v) for i, v in enumerate(weights_dict.values())}
@@ -494,10 +567,36 @@ def generate_review_artifacts(
             art_weights = render_asset_weights_artifact(
                 weights=weights_dict,
                 evidence_ids=(ev_port_id,),
+                method_name=(
+                    str(
+                        getattr(market, "extra", {})
+                        .get("resolved_configuration", {})
+                        .get("optimizer", "portfolio")
+                    ).upper()
+                    if market is not None
+                    else "PORTFOLIO"
+                ),
                 output_dir=output_dir,
             )
             artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(
                 art_weights
+            )
+
+        risk_contributions = (
+            products.get_result("portfolio.risk_contributions") if products else None
+        )
+        ev_risk_contrib = rec_by_test.get("portfolio.risk_statistics.euler_decomposition")
+        if risk_contributions is not None and ev_risk_contrib is not None:
+            from start.portfolio.artifacts import render_risk_contribution_artifact
+
+            art_risk = render_risk_contribution_artifact(
+                rc=risk_contributions,
+                assets=assets,
+                evidence_ids=(ev_risk_contrib.evidence_id,),
+                output_dir=output_dir,
+            )
+            artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(
+                art_risk
             )
 
         # 2. Covariance & Correlation setup
@@ -509,9 +608,6 @@ def generate_review_artifacts(
         ev_cov_id = ev_cov.evidence_id if ev_cov else default_ev
         cov_mat = products.get_result("covariance.matrix") if products else None
         corr_mat = products.get_result("covariance.correlation") if products else None
-        if cov_mat is None and market is not None and getattr(market, "returns", None) is not None:
-            cov_mat = market.returns.cov().values
-            corr_mat = market.returns.corr().values
 
         # 1b. HRP Dendrogram and Seriated Correlation (from HRP tree in products)
         hrp_tree = products.get_result("portfolio.hrp_tree") if products else None
@@ -527,6 +623,7 @@ def generate_review_artifacts(
                     tree_result=hrp_tree,
                     evidence_ids=(ev_hrp.evidence_id,),
                     output_dir=output_dir,
+                    run_id=ev_hrp.run_id,
                 )
                 artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(
                     art_dendro
@@ -536,7 +633,7 @@ def generate_review_artifacts(
 
             if corr_mat is not None and getattr(hrp_tree, "quasi_diagonal_order", None) is not None:
                 try:
-                    ordered_lbls = [assets[i] for i in hrp_tree.quasi_diagonal_order if i < len(assets)]
+                    ordered_lbls = list(hrp_tree.quasi_diagonal_order)
                     art_seriated = render_seriated_correlation_artifact(
                         corr_matrix=corr_mat,
                         ordered_assets=ordered_lbls,
@@ -570,75 +667,6 @@ def generate_review_artifacts(
             artifacts_by_checkpoint.setdefault("Covariance Structure & Missing Data Treatment", []).append(
                 art_corr
             )
-
-        # 2a. Canonical Portfolio HRP Analytical Package
-        # 2a. Canonical Portfolio Analytical Package
-        if m_ret is not None and len(assets) > 0:
-            try:
-                from start.analysis.builder import DeterministicArtifactBuilder
-                from start.analysis.pipelines import (
-                    run_portfolio_erc_pipeline,
-                    run_portfolio_hrp_pipeline,
-                    run_portfolio_min_variance_pipeline,
-                )
-
-                extra_mkt = getattr(market, "extra", {}).get("resolved_configuration", {}) if market else {}
-                opt_name = extra_mkt.get("optimizer", "hrp")
-                scen_name = extra_mkt.get("scenario", "asset_tail_stress")
-
-                run_id_m = records[0].run_id if records else "RUN-PORT-001"
-                if opt_name == "min_var":
-                    can_res_market = run_portfolio_min_variance_pipeline(covariance=cov_mat, assets=assets, run_id=run_id_m, seed=42)
-                    case_key = "case_h"
-                elif opt_name == "erc":
-                    can_res_market = run_portfolio_erc_pipeline(covariance=cov_mat, assets=assets, run_id=run_id_m, seed=42)
-                    case_key = "case_i"
-                else:
-                    cov_input = (
-                        pd.DataFrame(cov_mat, index=assets, columns=assets)
-                        if cov_mat is not None
-                        else m_ret
-                    )
-                    can_res_market = run_portfolio_hrp_pipeline(returns_or_cov=cov_input, assets=assets, run_id=run_id_m, seed=42)
-                    case_key = "case_g"
-
-                can_res_market.resolved_configuration["scenario"] = scen_name
-                can_res_market.resolved_configuration["requested_scenario"] = extra_mkt.get("requested_scenario", scen_name)
-                can_res_market.resolved_configuration["optimizer"] = opt_name
-                can_res_market.resolved_configuration["requested_optimizer"] = extra_mkt.get("requested_optimizer", opt_name)
-
-                builder_m = DeterministicArtifactBuilder(output_dir)
-                canon_market_arts = builder_m.build_and_persist_all(can_res_market, case_key)
-                for cart in canon_market_arts:
-                    matched_evs = [eid for eid in cart.get("evidence_ids", []) if eid in rec_ids_set]
-                    m_ev_ids = tuple(matched_evs) if matched_evs else (ev_port_id,)
-                    art_rec = ArtifactRecord(
-                        artifact_id=cart["artifact_id"],
-                        spec=ArtifactSpec(
-                            artifact_type=cart["artifact_type"],
-                            title=cart["title"],
-                            test_id=f"portfolio.{cart['artifact_type']}",
-                            evidence_ids=m_ev_ids,
-                        ),
-                        data_fingerprint=cart.get("data_fingerprint", can_res_market.provenance.get("content_hash", "")),
-                        semantic_payload=cart["semantic_payload"],
-                        semantic_payload_hash=cart.get("semantic_payload_hash") or cart.get("content_hash", ""),
-                        file_path=cart.get("file_path"),
-                        rendering_format=cart.get("rendering_format", "json"),
-                        created_by_engine="start.analysis.builder",
-                    )
-                    artifacts_by_checkpoint.setdefault("Portfolio Risk & Volatility Assumptions", []).append(art_rec)
-
-                if products is not None:
-                    products.register(
-                        "analysis.canonical_result",
-                        can_res_market,
-                        evidence_ids=tuple(r.evidence_id for r in records[:5]),
-                        source_fingerprint=can_res_market.provenance.get("content_hash", ""),
-                        provenance="start.analysis.pipelines",
-                    )
-            except Exception:
-                pass
 
         # 2b. Factor Attribution artifact (for Factor Modeling & Attribution Assumptions)
         # Strict zero-recomputation invariant: cites only original deterministic attribution EvidenceRecords
@@ -703,25 +731,35 @@ def generate_review_artifacts(
             and getattr(market, "pnl", None) is not None
             and getattr(market, "var_series", None) is not None
         )
-        if bt is None and has_pnl_var and market is not None:
-            from start.portfolio.tail_risk import run_comprehensive_tail_backtest
-
-            raw_conf = getattr(market, "var_confidence", None)
-            conf_val = float(raw_conf) if raw_conf is not None else 0.99
-            bt = run_comprehensive_tail_backtest(
-                pnl_or_losses=market.pnl.values,
-                var_series=market.var_series.values,
-                var_confidence=conf_val,
-            )
         if bt is not None:
             art_bt = render_backtest_summary_artifact(
                 backtest=bt,
                 evidence_ids=(ev_var_id,),
                 output_dir=output_dir,
             )
-            artifacts_by_checkpoint.setdefault("VaR Backtesting & Exception Frequency", []).append(art_bt)
+            var_artifacts = artifacts_by_checkpoint.setdefault(
+                "VaR Backtesting & Exception Frequency", []
+            )
+            var_artifacts.append(art_bt)
+            art_transition = render_exception_transition_artifact(
+                backtest=bt,
+                evidence_ids=(ev_var_id,),
+                output_dir=output_dir,
+            )
+            var_artifacts.append(art_transition)
+            if has_pnl_var and market is not None:
+                art_timeline = render_var_pnl_timeline_artifact(
+                    backtest=bt,
+                    evidence_ids=(ev_var_id,),
+                    output_dir=output_dir,
+                    pnl_or_losses=market.pnl.values,
+                    var_series=market.var_series.values,
+                    is_loss_series=False,
+                    horizon=str(getattr(market, "var_horizon", "one period")),
+                )
+                var_artifacts.append(art_timeline)
 
-        # 4. Scenario artifacts (from products or bundle fallback)
+        # 4. Scenario artifacts consume exact execution products only.
         ev_scen = (
             rec_by_test.get("scenario.linear_return")
             or rec_by_test.get("scenario.asset_return")
@@ -729,54 +767,16 @@ def generate_review_artifacts(
         )
         ev_scen_id = ev_scen.evidence_id if ev_scen else default_ev
         scen_res = products.get_result("scenario.linear_return") if products else None
-        if scen_res is None and weights_dict and assets:
-            from start.portfolio.contracts import (
-                RepricingMethod,
-                ScenarioSpec,
-                ScenarioType,
-                ShockUnit,
-            )
-            from start.portfolio.scenario import apply_asset_return_scenario, create_scenario_shock
-
-            shocks = tuple(
-                create_scenario_shock(
-                    a,
-                    raw_value=-5.0 if i < 3 else 0.0,
-                    shock_unit=ShockUnit.RELATIVE_PERCENT,
-                )
-                for i, a in enumerate(assets)
-            )
-            scen_spec = ScenarioSpec(
-                "SCEN-TAIL",
-                "Asset Tail Stress",
-                ScenarioType.SYNTHETIC,
-                shocks,
-                RepricingMethod.LINEAR_RETURN,
-            )
-            scen_res = apply_asset_return_scenario(weights=weights_dict, scenario_spec_or_shocks=scen_spec)
         if scen_res is not None:
             art_scen = render_scenario_pnl_waterfall_artifact(
                 res=scen_res,
                 evidence_ids=(ev_scen_id,),
                 output_dir=output_dir,
+                scenario_spec=(products.get_result("scenario.spec") if products else None),
             )
             artifacts_by_checkpoint.setdefault("Scenario Analysis & Stress Testing", []).append(art_scen)
 
         rev_res = products.get_result("scenario.reverse_stress") if products else None
-        if rev_res is None and weights_dict and assets and cov_mat is not None:
-            import numpy as np
-
-            from start.portfolio.contracts import ReverseStressNorm, ReverseStressSpec, ShockSpace
-            from start.portfolio.scenario import solve_reverse_stress
-
-            w_vec = np.array([weights_dict.get(c, 0.0) for c in assets])
-            rev_spec = ReverseStressSpec(
-                target_loss=0.10,
-                shock_space=ShockSpace.ASSET_RETURN,
-                distance_norm=ReverseStressNorm.MAHALANOBIS,
-                covariance=cov_mat,
-            )
-            rev_res = solve_reverse_stress(sensitivities_or_weights=w_vec, spec=rev_spec, factors=assets)
         if rev_res is not None:
             art_rev = render_reverse_stress_profile_artifact(
                 rev_res=rev_res,
@@ -823,15 +823,34 @@ def generate_review_artifacts(
             artifacts_by_checkpoint.setdefault("Short-Rate Diffusion & CEV Elasticity", []).append(art_sr)
 
         if ev_cev is not None:
+            cev_validation = rec_by_test.get("validation.cev_consistency")
             cev_payload = {
                 "gamma_hat": ev_cev.metrics.get("gamma_hat"),
                 "sigma_hat": ev_cev.metrics.get("sigma_hat"),
                 "dt": ev_cev.metrics.get("dt"),
                 "ci_low": ev_cev.metrics.get("ci_low"),
                 "ci_high": ev_cev.metrics.get("ci_high"),
-                "validation_status": "FAIL",
-                "coverage_gamma_0": 0.635,
-                "coverage_required": [0.90, 0.98],
+                "validation_status": (
+                    str(getattr(cev_validation.status, "value", cev_validation.status)).upper()
+                    if cev_validation is not None
+                    else "NOT_APPLICABLE"
+                ),
+                "coverage_gamma_0": (
+                    cev_validation.metrics.get(
+                        "observed.coverage_gamma_0_0",
+                        cev_validation.metrics.get("empirical_coverage"),
+                    )
+                    if cev_validation is not None
+                    else None
+                ),
+                "coverage_required": (
+                    [
+                        cev_validation.metrics.get("required.coverage_interval_lower"),
+                        cev_validation.metrics.get("required.coverage_interval_upper"),
+                    ]
+                    if cev_validation is not None
+                    else None
+                ),
             }
             cev_fp = hashlib.sha256(json.dumps(cev_payload, sort_keys=True).encode()).hexdigest()
             cev_path = output_dir / "cev_elasticity_diagnostic.json"
@@ -854,14 +873,30 @@ def generate_review_artifacts(
             artifacts_by_checkpoint.setdefault("Short-Rate Diffusion & CEV Elasticity", []).append(art_cev)
 
         if ev_st is not None:
+            st_validation = rec_by_test.get("validation.stanton_bias")
             st_payload = {
                 "estimator_order": ev_st.metrics.get("estimator_order"),
                 "kernel": ev_st.metrics.get("kernel"),
                 "bandwidth": ev_st.metrics.get("bandwidth"),
                 "n_grid_points": ev_st.metrics.get("n_grid_points"),
-                "validation_status": "FAIL",
-                "wrong_sign_rate": 0.475,
-                "wrong_sign_rate_required": 0.10,
+                "validation_status": (
+                    str(getattr(st_validation.status, "value", st_validation.status)).upper()
+                    if st_validation is not None
+                    else "NOT_APPLICABLE"
+                ),
+                "wrong_sign_rate": (
+                    st_validation.metrics.get(
+                        "observed.max_wrong_sign_rate_nonzero_drift",
+                        st_validation.metrics.get("wrong_sign_rate"),
+                    )
+                    if st_validation is not None
+                    else None
+                ),
+                "wrong_sign_rate_required": (
+                    st_validation.metrics.get("required.max_wrong_sign_rate")
+                    if st_validation is not None
+                    else None
+                ),
             }
             st_fp = hashlib.sha256(json.dumps(st_payload, sort_keys=True).encode()).hexdigest()
             st_path = output_dir / "stanton_drift_diagnostic.json"
@@ -1030,11 +1065,7 @@ def generate_review_artifacts(
             )
 
             # 3. Real ROC Discrimination Curve
-            roc_data = can_res.structural_analysis.get("roc_curve") or {
-                "fpr": [0.0, 0.1, 1.0],
-                "tpr": [0.0, 0.8, 1.0],
-                "thresholds": [1.0, 0.5, 0.0],
-            }
+            roc_data = can_res.structural_analysis.get("roc_curve") or {}
             raw_th = roc_data.get("thresholds", [])
             safe_th = []
             for v in raw_th:
@@ -1046,10 +1077,11 @@ def generate_review_artifacts(
 
             roc_payload = {
                 "metric_name": "ROC-AUC",
-                "roc_auc": can_res.metrics.get("roc_auc", 0.5),
-                "gini": can_res.metrics.get("gini", 0.0),
-                "ks_statistic": can_res.metrics.get("ks_statistic", 0.0),
+                "roc_auc": can_res.metrics.get("roc_auc"),
+                "gini": can_res.metrics.get("gini"),
+                "ks_statistic": can_res.metrics.get("ks_statistic"),
                 "curve_type": "roc",
+                "curve_available": bool(roc_data.get("fpr") and roc_data.get("tpr")),
                 "thresholds": safe_th,
                 "fpr": [round(float(v), 4) for v in roc_data.get("fpr", []) if not (math.isinf(float(v)) or math.isnan(float(v)))],
                 "tpr": [round(float(v), 4) for v in roc_data.get("tpr", []) if not (math.isinf(float(v)) or math.isnan(float(v)))],
@@ -1079,8 +1111,8 @@ def generate_review_artifacts(
             cal_data = can_res.diagnostics.get("calibration_curve") or {}
             cal_payload = {
                 "metric_name": "Calibration Curve (Reliability Diagram)",
-                "ece": can_res.metrics.get("ece", 0.0),
-                "brier_score": can_res.metrics.get("brier_score", 0.0),
+                "ece": can_res.metrics.get("ece"),
+                "brier_score": can_res.metrics.get("brier_score"),
                 "n_bins": 10,
                 "curve_type": "calibration",
                 "predicted_prob": cal_data.get("bin_centers", []),
@@ -1139,13 +1171,13 @@ def generate_review_artifacts(
 
             # 6. Real Permutation Feature Importance (ZERO harmonic rank formulas)
             feat_info = can_res.structural_analysis.get("feature_importance", {})
-            top_feats = feat_info.get("top_features", list(df.columns[:5]))
-            feat_scores = feat_info.get("permutation_importances", {f: 0.0 for f in top_feats})
+            top_feats = feat_info.get("top_features", [])
+            feat_scores = feat_info.get("permutation_importances", {})
             xai_payload = {
                 "top_features": top_feats,
                 "feature_scores": feat_scores,
-                "importance_method": feat_info.get("method", "permutation_importance"),
-                "baseline_score": feat_info.get("baseline_score", 0.0),
+                "importance_method": feat_info.get("method", "NOT_AVAILABLE"),
+                "baseline_score": feat_info.get("baseline_score"),
             }
             xai_fp = hashlib.sha256(json.dumps(xai_payload, sort_keys=True).encode()).hexdigest()
             xai_path = output_dir / "feature_importance_artifact.json"
@@ -1155,7 +1187,7 @@ def generate_review_artifacts(
                     artifact_id="ART-PRED-IMPORTANCE",
                     spec=ArtifactSpec(
                         artifact_type="plot",
-                        title="Global Feature Attributions & SHAP Importance",
+                        title="Global Feature Importance",
                         test_id="xai.global_importance",
                         evidence_ids=(default_ev,),
                     ),
@@ -1214,7 +1246,7 @@ def evaluate_deterministic_governance_disposition(
     for d in decisions:
         if d.get("action") in ("challenge", "question"):
             dt = str(d.get("details", "")).lower()
-            if "unresolved" in dt or "evidence_only" in dt:
+            if "unresolved" in dt or "evidence_only" in dt or d.get("degradation_event") is not None:
                 return "ACCEPT_WITH_CONDITIONS"
 
     return "ACCEPT"
@@ -1228,6 +1260,8 @@ def run_domain_checkpoints(
     products: ReviewExecutionProducts | None = None,
     interactive: bool = True,
     ask: Callable[[str], str] = input,
+    observer: Any | None = None,
+    evidence_ledger: EvidenceLedger | None = None,
 ) -> list[dict[str, Any]]:
     """Present domain-aware review checkpoints with real LLM dialogue routing."""
     if not interactive or (ask is input and not sys.stdin.isatty()):
@@ -1339,8 +1373,8 @@ def run_domain_checkpoints(
             (
                 "Feature Attribution & Explainability (XAI)",
                 (
-                    "Review global feature importance, local SHAP attributions, "
-                    "Integrated Gradients, and feature drift."
+                    "Review registered global or local attribution methods and feature drift; "
+                    "the visible method label is taken from its EvidenceRecord."
                 ),
                 [
                     "explainability.importance",
@@ -1542,7 +1576,7 @@ def run_domain_checkpoints(
         if "Portfolio" in title:
             console.print(build_portfolio_table(matched_records))
             if any(r.test_id == "portfolio.hierarchical_risk_parity" for r in matched_records):
-                console.print(build_hrp_showcase_table(matched_records))
+                console.print(build_hrp_showcase_table(matched_records, chk_artifacts))
             console.print(build_optimization_sensitivity_table(matched_records))
         elif "Factor Modeling" in title or "Attribution" in title:
             console.print(build_attribution_table(matched_records))
@@ -1564,7 +1598,12 @@ def run_domain_checkpoints(
                 "materiality": bundle.materiality,
                 "lifecycle": bundle.lifecycle,
                 "n_evidence_records": len(records),
-                "n_validation_failures": 2 if ReviewDomain.TREASURY in bundle.domains else 0,
+                "n_validation_failures": sum(
+                    1
+                    for record in records
+                    if str(getattr(record.status, "value", record.status)).lower()
+                    in {"fail", "error"}
+                ),
                 "disposition": gov_disp,
             }
             console.print(build_governance_table(gov_meta, decisions))
@@ -1635,8 +1674,10 @@ def run_domain_checkpoints(
                     note = ask("  Enter reviewer override justification: ").strip()
                 except (EOFError, KeyboardInterrupt, StopIteration):
                     note = "Reviewer override"
+                if observer is not None:
+                    observer.human_action("O", title, note)
                 console.print(f"  [yellow]Recorded override:[/yellow] {note}")
-                sm.transition(CheckpointState.COMPLETED)
+                sm.transition(CheckpointState.COMPLETED, trigger="HUMAN_OVERRIDE")
                 sm.record_decision("override")
                 decisions.append(
                     {
@@ -1662,7 +1703,9 @@ def run_domain_checkpoints(
 
             if choice.startswith("A"):
                 action = "accept"
-                sm.transition(CheckpointState.COMPLETED)
+                if observer is not None:
+                    observer.human_action("A", title)
+                sm.transition(CheckpointState.COMPLETED, trigger="HUMAN_ACCEPT")
                 sm.record_decision("accept")
                 console.print("  [green]Accepted recommendation.[/green]")
                 decisions.append(
@@ -1697,27 +1740,49 @@ def run_domain_checkpoints(
                     note = "Reviewer challenge" if is_challenge else "Reviewer query"
                 if not note:
                     note = "Reviewer challenge" if is_challenge else "Reviewer query"
+                if observer is not None:
+                    observer.human_action("C" if is_challenge else "Q", title, note)
+                    if is_challenge:
+                        observer.challenge_created(
+                            checkpoint=title,
+                            note=note,
+                            source_evidence_ids=(r.evidence_id for r in matched_records),
+                        )
+                    observer.agent_card(
+                        "AdversarialChallengeAgent" if is_challenge else "EvidenceReviewAgent",
+                        role="architecture / evidence challenge" if is_challenge else "evidence interpretation",
+                        evidence_ids=(r.evidence_id for r in matched_records),
+                        activity="challenge" if is_challenge else "interpretation",
+                        checkpoint=title,
+                    )
 
                 # Deterministic non-mutating challenge diagnostic tool execution
                 diag_ev_id = ""
                 diag_tool_name = ""
+                diag_cov_res = None
+                diag_scen_res = None
+                d_res = None
+                diag_port_res = None
+                diag_validation_metrics: dict[str, Any] = {}
+                diagnostic_unresolved = False
                 if is_challenge:
+                    if observer is not None:
+                        observer.diagnostic_started(
+                            "RegisteredDiagnosticDispatcher",
+                            operation=f"challenge diagnostic for {title}",
+                            checkpoint=title,
+                        )
                     if "Covariance" in title:
                         from start.portfolio.covariance import diagnose_covariance
 
                         cov_m = products.get_result("covariance.matrix") if products else None
-                        has_ret = (
-                            bundle.market is not None and getattr(bundle.market, "returns", None) is not None
-                        )
-                        if cov_m is None and has_ret and bundle.market is not None:
-                            cov_m = bundle.market.returns.cov().values
-                        diag_tool_name = "diagnose_covariance"
-                        diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
-                        console.print(
-                            f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
-                            f"Executed {diag_tool_name} -> [{diag_ev_id}]"
-                        )
                         if cov_m is not None:
+                            diag_tool_name = "diagnose_covariance"
+                            diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
+                            console.print(
+                                f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
+                                f"Executed {diag_tool_name} -> [{diag_ev_id}]"
+                            )
                             m_ret = getattr(bundle.market, "returns", None) if bundle.market else None
                             m_assets = list(m_ret.columns) if m_ret is not None else []
                             diag_cov_res = diagnose_covariance(cov_m, assets=m_assets)
@@ -1728,12 +1793,12 @@ def run_domain_checkpoints(
                                 f"is_psd={diag_cov_res.is_psd} (matrix unchanged).[/dim]"
                             )
                         else:
+                            diag_tool_name = "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
                             console.print(
-                                "  [dim]Resolution: Non-mutating diagnostic completed on "
-                                "reference covariance.[/dim]"
+                                "  [yellow]Diagnostic unavailable:[/yellow] no covariance execution "
+                                "product is registered; challenge remains unresolved."
                             )
                     elif "Scenario" in title:
-                        from start.portfolio.contracts import RepricingMethod, ScenarioSpec, ScenarioType
                         from start.portfolio.scenario import validate_scenario_data_integrity
 
                         active_spec = None
@@ -1747,55 +1812,66 @@ def run_domain_checkpoints(
                             active_spec = products.get_result("scenario.spec")
 
                         if active_spec is None:
-                            active_spec = ScenarioSpec(
-                                "SCEN-AUDIT",
-                                "Scenario Integrity Audit",
-                                ScenarioType.SYNTHETIC,
-                                (),
-                                RepricingMethod.LINEAR_RETURN,
+                            diag_tool_name = "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
+                            console.print(
+                                "  [yellow]Diagnostic unavailable:[/yellow] no executed ScenarioSpec "
+                                "is registered; challenge remains unresolved."
                             )
-
-                        has_m_ret = bundle.market and getattr(bundle.market, "returns", None) is not None
-                        p_assets = list(bundle.market.returns.columns) if has_m_ret and bundle.market else []
-                        diag_scen_res = validate_scenario_data_integrity(
-                            active_spec, portfolio_assets=p_assets
-                        )
-                        diag_tool_name = "validate_scenario_data_integrity"
-                        diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
-                        console.print(
-                            f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
-                            f"Executed {diag_tool_name} on [{active_spec.scenario_id}] -> [{diag_ev_id}]"
-                        )
-                        res_msg = (
-                            f"Valid ({diag_scen_res.n_shocks} shock legs audited)"
-                            if diag_scen_res.valid
-                            else f"Invalid ({diag_scen_res.n_shocks} shocks; {', '.join(diag_scen_res.issues)})"
-                        )
-                        console.print(
-                            f"  [dim]Resolution: Non-mutating scenario shock integrity check: "
-                            f"{res_msg}.[/dim]"
-                        )
+                        else:
+                            has_m_ret = (
+                                bundle.market
+                                and getattr(bundle.market, "returns", None) is not None
+                            )
+                            p_assets = (
+                                list(bundle.market.returns.columns)
+                                if has_m_ret and bundle.market
+                                else []
+                            )
+                            diag_scen_res = validate_scenario_data_integrity(
+                                active_spec, portfolio_assets=p_assets
+                            )
+                            diag_tool_name = "validate_scenario_data_integrity"
+                            diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
+                            console.print(
+                                f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
+                                f"Executed {diag_tool_name} on [{active_spec.scenario_id}] -> "
+                                f"[{diag_ev_id}]"
+                            )
+                            res_msg = (
+                                f"Valid ({diag_scen_res.n_shocks} shock legs audited)"
+                                if diag_scen_res.valid
+                                else f"Invalid ({diag_scen_res.n_shocks} shocks; "
+                                f"{', '.join(diag_scen_res.issues)})"
+                            )
+                            console.print(
+                                "  [dim]Resolution: Non-mutating scenario shock integrity check: "
+                                f"{res_msg}.[/dim]"
+                            )
                     elif "VaR" in title or "Tail" in title:
                         from start.portfolio.tail_risk import compute_exception_duration_diagnostics
 
-                        diag_tool_name = "compute_exception_duration_diagnostics"
-                        diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
-                        console.print(
-                            f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
-                            f"Executed {diag_tool_name} -> [{diag_ev_id}]"
+                        bt = cast(
+                            TailBacktestResult | None,
+                            products.get_result("traded_risk.tail_backtest") if products else None,
                         )
-                        bt = products.get_result("traded_risk.tail_backtest") if products else None
-                        if bt is not None and getattr(bt, "exception_indicators", None) is not None:
-                            d_res = compute_exception_duration_diagnostics(bt.exception_indicators)
+                        if bt is not None and bt.indicators:
+                            diag_tool_name = "compute_exception_duration_diagnostics"
+                            diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
+                            console.print(
+                                f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
+                                f"Executed {diag_tool_name} -> [{diag_ev_id}]"
+                            )
+                            d_res = compute_exception_duration_diagnostics(bt.indicators)
                             console.print(
                                 f"  [dim]Resolution: Non-mutating exception duration analysis; "
                                 f"mean duration={d_res.mean_duration:.1f} periods, "
                                 f"max cluster run={d_res.max_run_length}.[/dim]"
                             )
                         else:
+                            diag_tool_name = "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
                             console.print(
-                                "  [dim]Resolution: Non-mutating exception duration analysis; "
-                                "independence and temporal clustering evaluated.[/dim]"
+                                "  [yellow]Diagnostic unavailable:[/yellow] no canonical exception "
+                                "indicator series is registered; challenge remains unresolved."
                             )
                     elif "Portfolio" in title:
                         from start.portfolio.constraints import verify_portfolio_constraints
@@ -1808,13 +1884,13 @@ def run_domain_checkpoints(
                         )
                         if w_d is None and has_port_w and bundle.market is not None:
                             w_d = {str(k): float(v) for k, v in bundle.market.portfolio.weights.items()}
-                        diag_tool_name = "verify_portfolio_constraints"
-                        diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
-                        console.print(
-                            f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
-                            f"Executed {diag_tool_name} -> [{diag_ev_id}]"
-                        )
                         if w_d:
+                            diag_tool_name = "verify_portfolio_constraints"
+                            diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
+                            console.print(
+                                f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
+                                f"Executed {diag_tool_name} -> [{diag_ev_id}]"
+                            )
                             diag_port_res = verify_portfolio_constraints(weights=w_d, assets=list(w_d.keys()))
                             console.print(
                                 f"  [dim]Resolution: Non-mutating constraint verification; "
@@ -1822,21 +1898,44 @@ def run_domain_checkpoints(
                                 f"max violation={diag_port_res.max_violation:.6g}.[/dim]"
                             )
                         else:
+                            diag_tool_name = "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
                             console.print(
-                                "  [dim]Resolution: Non-mutating constraint verification completed.[/dim]"
+                                "  [yellow]Diagnostic unavailable:[/yellow] no executed portfolio "
+                                "weights are registered; challenge remains unresolved."
                             )
                     elif "Diffusion" in title or "CEV" in title or "Stanton" in title or "Treasury" in title:
-                        diag_tool_name = "inspect_validation_diagnostics"
-                        diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
-                        console.print(
-                            f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
-                            f"Executed {diag_tool_name} -> [{diag_ev_id}]"
-                        )
-                        console.print(
-                            "  [dim]Resolution: Diagnostic inspection confirms "
-                            "pre-registered validation failures: "
-                            "CEV consistency under-coverage and Stanton wrong-sign drift bias.[/dim]"
-                        )
+                        validation_records = [
+                            record
+                            for record in matched_records
+                            if record.test_id.startswith("validation.")
+                        ]
+                        if validation_records:
+                            diag_tool_name = "inspect_validation_diagnostics"
+                            diag_ev_id = f"EV-DIAG-{uuid.uuid4().hex[:8]}"
+                            diag_validation_metrics = {
+                                record.test_id: str(
+                                    getattr(record.status, "value", record.status)
+                                ).upper()
+                                for record in validation_records
+                            }
+                            console.print(
+                                f"  [cyan]Deterministic Challenge Diagnostic:[/cyan] "
+                                f"Executed {diag_tool_name} -> [{diag_ev_id}]"
+                            )
+                            console.print(
+                                "  [dim]Resolution: committed validation statuses inspected: "
+                                + ", ".join(
+                                    f"{test_id}={status}"
+                                    for test_id, status in diag_validation_metrics.items()
+                                )
+                                + ".[/dim]"
+                            )
+                        else:
+                            diag_tool_name = "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
+                            console.print(
+                                "  [yellow]Diagnostic unavailable:[/yellow] no committed validation "
+                                "records are in checkpoint scope; challenge remains unresolved."
+                            )
                     else:
                         diag_tool_name = "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
                         console.print(
@@ -1847,56 +1946,100 @@ def run_domain_checkpoints(
                             "(No registered deterministic diagnostic tool for this surface)[/dim]"
                         )
 
+                diagnostic_unresolved = (
+                    is_challenge
+                    and diag_tool_name == "NO_REGISTERED_DIAGNOSTIC_AVAILABLE"
+                )
+
+                if is_challenge and observer is not None:
+                    observer.engine_completed(
+                        "RegisteredDiagnosticDispatcher",
+                        details=(
+                            "no registered deterministic diagnostic"
+                            if diagnostic_unresolved
+                            else f"{diag_tool_name or 'diagnostic'} completed"
+                        ),
+                        checkpoint=title,
+                    )
+
                 if is_challenge and diag_tool_name and diag_tool_name != "NO_REGISTERED_DIAGNOSTIC_AVAILABLE":
                     diag_metrics: dict[str, Any] = {}
-                    if "Covariance" in title and "diag_cov_res" in locals() and diag_cov_res is not None:
+                    if "Covariance" in title and diag_cov_res is not None:
                         diag_metrics = {
                             "condition_number": diag_cov_res.condition_number,
                             "minimum_eigenvalue": diag_cov_res.minimum_eigenvalue,
                             "is_psd": diag_cov_res.is_psd,
                         }
-                    elif "Scenario" in title and "diag_scen_res" in locals() and diag_scen_res is not None:
+                    elif "Scenario" in title and diag_scen_res is not None:
                         diag_metrics = {
                             "is_valid": bool(diag_scen_res.valid),
                             "n_shocks": int(diag_scen_res.n_shocks),
-                            "scenario_id": str(getattr(active_spec, "scenario_id", "SCEN-AUDIT")),
-                            "issues": list(diag_scen_res.issues),
+                            "scenario_id": str(getattr(active_spec, "scenario_id", "UNAVAILABLE")),
+                            "issues": "; ".join(diag_scen_res.issues) if diag_scen_res.issues else "none",
                         }
-                    elif ("VaR" in title or "Tail" in title) and "d_res" in locals() and d_res is not None:
+                    elif ("VaR" in title or "Tail" in title) and d_res is not None:
                         diag_metrics = {
                             "mean_duration": d_res.mean_duration,
                             "max_run_length": d_res.max_run_length,
                         }
-                    elif "Portfolio" in title and "diag_port_res" in locals() and diag_port_res is not None:
+                    elif "Portfolio" in title and diag_port_res is not None:
                         diag_metrics = {
                             "is_valid": diag_port_res.is_valid,
                             "max_violation": diag_port_res.max_violation,
                         }
+                    elif diag_validation_metrics:
+                        diag_metrics = diag_validation_metrics
                     else:
-                        diag_metrics = {"status": "completed"}
+                        diag_metrics = {"status": "completed_without_numeric_output"}
 
-                    active_run_id = matched_records[0].run_id if matched_records else "RUN-REVIEW"
+                    source_record = matched_records[0] if matched_records else None
+                    active_run_id = (
+                        source_record.run_id
+                        if source_record is not None
+                        else getattr(getattr(observer, "state", None), "run_id", "UNAVAILABLE")
+                    )
                     from start.core.schemas import ReproducibilityMeta
 
                     diag_record = EvidenceRecord(
                         evidence_id=diag_ev_id,
                         test_id=f"diagnostic.{diag_tool_name}",
                         test_name=f"Deterministic Challenge Diagnostic ({diag_tool_name})",
-                        model_id="MOD-DEFAULT",
-                        dataset_id="DS-DEFAULT",
+                        model_id=(source_record.model_id if source_record is not None else "NOT_APPLICABLE"),
+                        dataset_id=(
+                            source_record.dataset_id if source_record is not None else "NOT_APPLICABLE"
+                        ),
                         run_id=active_run_id,
                         status=Status.RECORDED,
                         metrics=diag_metrics,
                         repro=ReproducibilityMeta(runtime="DIAGNOSTIC"),
                     )
+                    if evidence_ledger is not None:
+                        diag_record = evidence_ledger.append(diag_record)
                     matched_records.append(diag_record)
                     records.append(diag_record)
+                    if observer is not None:
+                        observer.evidence_committed(diag_record, producer=diag_tool_name)
+                        observer.challenge_lineage(
+                            source_evidence_ids=(r.evidence_id for r in matched_records if r is not diag_record),
+                            diagnostic=diag_tool_name,
+                            generated_evidence_ids=(diag_record.evidence_id,),
+                            resolution_status="EVIDENCE_GENERATED",
+                            checkpoint=title,
+                        )
                     view = build_checkpoint_evidence_view(
                         checkpoint_title=title,
                         checkpoint_description=description,
                         domains=bundle.domains,
                         records=matched_records,
                         artifacts=chk_artifacts,
+                    )
+                elif diagnostic_unresolved and observer is not None:
+                    observer.challenge_lineage(
+                        source_evidence_ids=(r.evidence_id for r in matched_records),
+                        diagnostic=diag_tool_name,
+                        generated_evidence_ids=(),
+                        resolution_status="UNRESOLVED",
+                        checkpoint=title,
                     )
 
                 llm_cfg = bundle.llm_config
@@ -1916,10 +2059,12 @@ def run_domain_checkpoints(
                 fallback_details: dict[str, Any] | None = None
                 provider_failed = False
                 val_res: Any | None = None
+                degradation_event = None
+                degradation_policy = None
 
                 llm_backend = getattr(llm_cfg, "backend_mode", "public")
                 llm_provider_name = getattr(llm_cfg, "provider", "none")
-                if llm_backend in ("public", "enterprise") and llm_provider_name not in ("none", ""):
+                if llm_backend in ("public", "enterprise", "offline") and llm_provider_name not in ("none", ""):
                     from start.core.config import LLMConfig
                     from start.providers.llm import get_llm_provider
 
@@ -1959,8 +2104,12 @@ def run_domain_checkpoints(
                     is_structured = getattr(bundle, "grounding_mode", None) == ReviewGroundingMode.STRUCTURED
 
                     if is_structured:
+                        from start.review.structured_contract import CHECKPOINT_STABLE_IDS
+
                         canonical_paths = view.get_canonical_admissible_paths()
                         paths_snippet = ", ".join(canonical_paths[:40])
+                        semantic_checkpoint_id = CHECKPOINT_STABLE_IDS.get(title, title)
+                        interaction_action = "CHALLENGE" if is_challenge else "QUESTION"
                         system_prompt = (
                             "You are an independent Model Risk Management (MRM) review agent in StART.\n"
                             "Return your assessment as a strict JSON object conforming to the "
@@ -2001,16 +2150,21 @@ def run_domain_checkpoints(
                             "CROSS_ANALYTICAL_DEPENDENCY, and CONDITIONAL_CONCLUSION MUST have >= 1 refs.\n"
                             "5. Finding types EVIDENCE_GAP, CRITERION_REQUIRED, and UNRESOLVED_MODEL_RISK "
                             "may have 0 evidence_refs if noting missing criteria or structural risk.\n"
-                            "6. Respond with ONLY the raw JSON object. No Markdown code fences (no ```json), "
+                            "6. 'criterion_status' MUST be strictly one of: 'APPLICABLE', 'NOT_APPLICABLE', 'ABSENT', 'EVIDENCE_ONLY'. "
+                            "(Never set criterion_status to 'CRITERION_REQUIRED'; use 'ABSENT' when criteria are required but missing).\n"
+                            "7. Respond with ONLY the raw JSON object. No Markdown code fences (no ```json), "
                             "no conversation before or after."
                         )
                         user_prompt = (
                             f"Review Mode: {bundle.mode}\n"
                             f"Review Domains: {', '.join(str(d) for d in bundle.domains)}\n"
+                            f"Predictive Input Modality: {', '.join(bundle.presentation_context_types())}\n"
                             f"Materiality: {bundle.materiality}\n"
                             f"Lifecycle Stage: {bundle.lifecycle}\n\n"
                             f"Governance Context:\n{gov_block}\n\n"
                             f"Checkpoint: {title}\n"
+                            f"Semantic Checkpoint ID: {semantic_checkpoint_id}\n"
+                            f"Interaction Action: {interaction_action}\n"
                             f"Description: {description}\n\n"
                             f"Permitted EvidenceRecords for this Checkpoint:\n{ev_block}\n\n"
                             f"{directive}\n\n"
@@ -2026,6 +2180,7 @@ def run_domain_checkpoints(
                         user_prompt = (
                             f"Review Mode: {bundle.mode}\n"
                             f"Review Domains: {', '.join(str(d) for d in bundle.domains)}\n"
+                            f"Predictive Input Modality: {', '.join(bundle.presentation_context_types())}\n"
                             f"Materiality: {bundle.materiality}\n"
                             f"Lifecycle Stage: {bundle.lifecycle}\n\n"
                             f"Governance Context:\n{gov_block}\n\n"
@@ -2176,21 +2331,23 @@ def run_domain_checkpoints(
 
                         if is_structured:
                             from start.review.structured_contract import (
+                                CHECKPOINT_STABLE_IDS,
+                                CheckpointDegradationPolicy,
+                                StructuredDegradationEvent,
                                 StructuredReviewContext,
                                 StructuredReviewerResponse,
+                                get_checkpoint_degradation_policy,
+                                normalize_structured_json_text,
+                                render_evidence_only_fallback_panel,
                                 render_structured_grounding_table,
                                 render_structured_response_markdown,
                                 validate_and_hydrate_structured_response,
                             )
 
-                            cleaned_text = raw_text.strip()
-                            if cleaned_text.startswith("```"):
-                                first_nl = cleaned_text.find("\n")
-                                if first_nl != -1:
-                                    cleaned_text = cleaned_text[first_nl + 1 :]
-                                if cleaned_text.rstrip().endswith("```"):
-                                    cleaned_text = cleaned_text.rstrip()[:-3]
-                                cleaned_text = cleaned_text.strip()
+                            cleaned_text = normalize_structured_json_text(raw_text)
+
+                            degradation_event = None
+                            degradation_policy = None
 
                             parse_error = None
                             structured_obj: StructuredReviewerResponse | None = None
@@ -2205,32 +2362,75 @@ def run_domain_checkpoints(
                                     f"\n  [bold red]STRUCTURED_REVIEWER_RESPONSE_INVALID: "
                                     f"Failed to parse JSON schema: {parse_error}[/bold red]\n"
                                 )
-                                console.print(f"  [yellow]Raw response:[/yellow]\n  {raw_text}\n")
-                                sm.transition(CheckpointState.FALLBACK_OFFERED)
-                                console.print("    [1] Continue deterministically (default)")
-                                console.print("    [2] Abort review")
-                                try:
-                                    rec_choice = (ask("  Select action [default: 1]: ") or "1").strip()
-                                except (EOFError, KeyboardInterrupt, StopIteration):
-                                    rec_choice = "1"
-                                if rec_choice == "2":
+                                _render_rejected_raw_payload(
+                                    console,
+                                    label="Raw response",
+                                    payload=raw_text,
+                                )
+
+                                policy = get_checkpoint_degradation_policy(title, action=action)
+                                degradation_policy = policy
+                                stable_id = CHECKPOINT_STABLE_IDS.get(title, title)
+
+                                if policy == CheckpointDegradationPolicy.ALLOW_EVIDENCE_ONLY_DEGRADATION:
+                                    console.print(
+                                        render_evidence_only_fallback_panel(
+                                            view,
+                                            checkpoint_title=title,
+                                            note=note,
+                                            reason=f"Failed to parse JSON schema: {parse_error}",
+                                            invalid_count=1,
+                                        )
+                                    )
+                                    sm.transition(CheckpointState.FALLBACK_OFFERED)
+                                    console.print("    [1] Continue deterministically (default)")
+                                    console.print("    [2] Abort review")
+                                    try:
+                                        rec_choice = (ask("  Select action [default: 1]: ") or "1").strip()
+                                    except (EOFError, KeyboardInterrupt, StopIteration):
+                                        rec_choice = "1"
+                                    if rec_choice == "2":
+                                        sm.transition(CheckpointState.CANCELLED)
+                                        sm.record_decision("aborted")
+                                        raise ReviewCancelled(
+                                            f"Review aborted: STRUCTURED_REVIEWER_RESPONSE_INVALID from {prov_display}."
+                                        )
+                                    sm.transition(CheckpointState.DETERMINISTIC_FALLBACK)
+                                    sm.record_decision("fallback")
+                                    response_backend = "fallback"
+                                    response_text = "Agent interpretation unavailable — deterministic evidence retained."
+                                    degradation_event = StructuredDegradationEvent(
+                                        checkpoint_id=stable_id,
+                                        checkpoint_title=title,
+                                        provider=prov_display,
+                                        model=model_used or "unknown",
+                                        structured_response_status="INVALID",
+                                        reason_class="JSON_PARSE_ERROR",
+                                        invalid_refs_count=0,
+                                        invalid_refs_details=(),
+                                        policy_applied=policy.value,
+                                        deterministic_evidence_retained=True,
+                                        workflow_continued=True,
+                                        timestamp=time.time(),
+                                    )
+                                    console.print(
+                                        f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
+                                    )
+                                    sm.transition(CheckpointState.COMPLETED)
+                                else:
+                                    console.print(
+                                        f"\n  [bold red]CRITICAL: Checkpoint '{title}' ({stable_id}) "
+                                        f"requires valid agent response under governance policy ({policy.value}). "
+                                        f"Evidence-only degradation disallowed.[/bold red]\n"
+                                    )
+                                    sm.transition(CheckpointState.FALLBACK_OFFERED)
+                                    console.print("    [2] Abort review (mandatory under REQUIRE_VALID_AGENT_RESPONSE policy)")
                                     sm.transition(CheckpointState.CANCELLED)
                                     sm.record_decision("aborted")
                                     raise ReviewCancelled(
-                                        "Review aborted: "
-                                        "STRUCTURED_REVIEWER_RESPONSE_INVALID"
-                                        f" from {prov_display}."
+                                        f"Review aborted: Checkpoint '{title}' requires valid agent response ({policy.value}), "
+                                        f"but {prov_display} produced invalid structured response."
                                     )
-                                sm.transition(CheckpointState.DETERMINISTIC_FALLBACK)
-                                sm.record_decision("fallback")
-                                response_backend = "fallback"
-                                response_text = (
-                                    f"Deterministic fallback: Recorded {action} on '{title}' ({note})."
-                                )
-                                console.print(
-                                    f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
-                                )
-                                sm.transition(CheckpointState.COMPLETED)
                             else:
                                 active_run_id = matched_records[0].run_id if matched_records else "RUN-REVIEW"
                                 st_ctx = StructuredReviewContext(
@@ -2245,6 +2445,9 @@ def run_domain_checkpoints(
                                     },
                                 )
                                 val_res = validate_and_hydrate_structured_response(structured_obj, st_ctx)
+                                claims_count = val_res.evidence_refs_count
+                                grounded_count = val_res.validated_refs_count
+                                unbound_count = val_res.invalid_refs_count
 
                                 if not val_res.valid:
                                     response_backend = "grounding_failed"
@@ -2271,33 +2474,75 @@ def run_domain_checkpoints(
                                         err = str(d.get("error", "INVALID"))
                                         diag_table.add_row(f_id, ev_id, m_path, err)
                                     console.print(diag_table)
-                                    console.print(f"\n  [yellow]Raw JSON:[/yellow]\n  {cleaned_text}\n")
+                                    _render_rejected_raw_payload(
+                                        console,
+                                        label="Raw JSON",
+                                        payload=cleaned_text,
+                                    )
 
-                                    sm.transition(CheckpointState.FALLBACK_OFFERED)
-                                    console.print("    [1] Continue deterministically (default)")
-                                    console.print("    [2] Abort review")
-                                    try:
-                                        rec_choice = (ask("  Select action [default: 1]: ") or "1").strip()
-                                    except (EOFError, KeyboardInterrupt, StopIteration):
-                                        rec_choice = "1"
-                                    if rec_choice == "2":
+                                    policy = get_checkpoint_degradation_policy(title, action=action)
+                                    degradation_policy = policy
+                                    stable_id = CHECKPOINT_STABLE_IDS.get(title, title)
+
+                                    if policy == CheckpointDegradationPolicy.ALLOW_EVIDENCE_ONLY_DEGRADATION:
+                                        console.print(
+                                            render_evidence_only_fallback_panel(
+                                                view,
+                                                checkpoint_title=title,
+                                                note=note,
+                                                reason=val_res.error_message or "Ungrounded metric references",
+                                                invalid_count=val_res.invalid_refs_count,
+                                            )
+                                        )
+                                        sm.transition(CheckpointState.FALLBACK_OFFERED)
+                                        console.print("    [1] Continue deterministically (default)")
+                                        console.print("    [2] Abort review")
+                                        try:
+                                            rec_choice = (ask("  Select action [default: 1]: ") or "1").strip()
+                                        except (EOFError, KeyboardInterrupt, StopIteration):
+                                            rec_choice = "1"
+                                        if rec_choice == "2":
+                                            sm.transition(CheckpointState.CANCELLED)
+                                            sm.record_decision("aborted")
+                                            raise ReviewCancelled(
+                                                f"Review aborted: STRUCTURED_REVIEWER_RESPONSE_INVALID from {prov_display}."
+                                            )
+                                        sm.transition(CheckpointState.DETERMINISTIC_FALLBACK)
+                                        sm.record_decision("fallback")
+                                        response_backend = "fallback"
+                                        response_text = "Agent interpretation unavailable — deterministic evidence retained."
+                                        degradation_event = StructuredDegradationEvent(
+                                            checkpoint_id=stable_id,
+                                            checkpoint_title=title,
+                                            provider=prov_display,
+                                            model=model_used or "unknown",
+                                            structured_response_status="INVALID",
+                                            reason_class="UNGROUNDED_EVIDENCE_REFS",
+                                            invalid_refs_count=val_res.invalid_refs_count,
+                                            invalid_refs_details=val_res.invalid_refs_details,
+                                            policy_applied=policy.value,
+                                            deterministic_evidence_retained=True,
+                                            workflow_continued=True,
+                                            timestamp=time.time(),
+                                        )
+                                        console.print(
+                                            f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
+                                        )
+                                        sm.transition(CheckpointState.COMPLETED)
+                                    else:
+                                        console.print(
+                                            f"\n  [bold red]CRITICAL: Checkpoint '{title}' ({stable_id}) "
+                                            f"requires valid agent response under governance policy ({policy.value}). "
+                                            f"Evidence-only degradation disallowed.[/bold red]\n"
+                                        )
+                                        sm.transition(CheckpointState.FALLBACK_OFFERED)
+                                        console.print("    [2] Abort review (mandatory under REQUIRE_VALID_AGENT_RESPONSE policy)")
                                         sm.transition(CheckpointState.CANCELLED)
                                         sm.record_decision("aborted")
                                         raise ReviewCancelled(
-                                            "Review aborted: "
-                                            "STRUCTURED_REVIEWER_RESPONSE_INVALID"
-                                            f" from {prov_display}."
+                                            f"Review aborted: Checkpoint '{title}' requires valid agent response ({policy.value}), "
+                                            f"but {prov_display} produced invalid structured response."
                                         )
-                                    sm.transition(CheckpointState.DETERMINISTIC_FALLBACK)
-                                    sm.record_decision("fallback")
-                                    response_backend = "fallback"
-                                    response_text = (
-                                        f"Deterministic fallback: Recorded {action} on '{title}' ({note})."
-                                    )
-                                    console.print(
-                                        f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
-                                    )
-                                    sm.transition(CheckpointState.COMPLETED)
                                 else:
                                     assert val_res.hydrated_response is not None
                                     rendered_md = render_structured_response_markdown(
@@ -2312,11 +2557,6 @@ def run_domain_checkpoints(
                                     response_backend = "llm_structured"
                                     sm.transition(CheckpointState.COMPLETED)
                                     sm.record_decision("verified")
-
-                                    claims_count = val_res.evidence_refs_count
-                                    grounded_count = val_res.validated_refs_count
-                                    unbound_count = val_res.invalid_refs_count
-
                                     if not hasattr(bundle, "structured_findings"):
                                         bundle.structured_findings = []
                                     bundle.structured_findings.append(val_res.hydrated_response)
@@ -2363,14 +2603,27 @@ def run_domain_checkpoints(
                                 console.print(diag_table)
                                 console.print(f"\n  [yellow]Raw response:[/yellow]\n  {raw_text}\n")
 
-                                if action in ("Q", "C"):
-                                    console.print(
-                                        "  [yellow]Notice: Question/Challenge contains "
-                                        "ungrounded quantitative assertions.[/yellow]\n"
-                                    )
-                                    sm.record_decision("grounding_failed")
-                                else:
+                                from start.review.structured_contract import (
+                                    CHECKPOINT_STABLE_IDS,
+                                    CheckpointDegradationPolicy,
+                                    StructuredDegradationEvent,
+                                    get_checkpoint_degradation_policy,
+                                )
+
+                                policy_action = "Q" if action == "question" else "C"
+                                degradation_policy = get_checkpoint_degradation_policy(
+                                    title, action=policy_action
+                                )
+                                stable_id = CHECKPOINT_STABLE_IDS.get(title, title)
+                                if (
+                                    degradation_policy
+                                    == CheckpointDegradationPolicy.ALLOW_EVIDENCE_ONLY_DEGRADATION
+                                ):
                                     sm.transition(CheckpointState.FALLBACK_OFFERED)
+                                    console.print(
+                                        "  [yellow]Registered policy permits evidence-only "
+                                        "continuation at this checkpoint.[/yellow]"
+                                    )
                                     console.print("    [1] Continue deterministically (default)")
                                     console.print("    [2] Abort review")
                                     rec_choice = (ask("  Select action [default: 1]: ") or "1").strip()
@@ -2384,12 +2637,39 @@ def run_domain_checkpoints(
                                     sm.record_decision("fallback")
                                     response_backend = "fallback"
                                     response_text = (
-                                        f"Deterministic fallback: Recorded {action} on '{title}' ({note})."
+                                        "Agent interpretation unavailable — deterministic evidence retained."
+                                    )
+                                    degradation_event = StructuredDegradationEvent(
+                                        checkpoint_id=stable_id,
+                                        checkpoint_title=title,
+                                        provider=prov_display,
+                                        model=model_used or "unknown",
+                                        structured_response_status="INVALID",
+                                        reason_class="UNGROUNDED_LEGACY_RESPONSE",
+                                        invalid_refs_count=len(binding.unbound),
+                                        invalid_refs_details=tuple(binding.unbound),
+                                        policy_applied=degradation_policy.value,
+                                        deterministic_evidence_retained=True,
+                                        workflow_continued=True,
+                                        timestamp=time.time(),
                                     )
                                     console.print(
                                         f"  [cyan]Deterministic Review Response:[/cyan] {response_text}"
                                     )
                                     sm.transition(CheckpointState.COMPLETED)
+                                else:
+                                    console.print(
+                                        f"  [bold red]Checkpoint '{title}' ({stable_id}) requires "
+                                        "a valid agent response; evidence-only continuation is "
+                                        "not permitted.[/bold red]"
+                                    )
+                                    sm.transition(CheckpointState.CANCELLED)
+                                    sm.record_decision("aborted")
+                                    raise ReviewCancelled(
+                                        f"Review aborted: Checkpoint '{title}' requires valid "
+                                        f"agent response ({degradation_policy.value}), but "
+                                        f"{prov_display} produced ungrounded claims."
+                                    )
                             else:
                                 sm.transition(CheckpointState.VERIFIED)
                                 response_text = raw_text
@@ -2483,8 +2763,130 @@ def run_domain_checkpoints(
                     dec_entry["details"] = fallback_details
                     dec_entry["live_reviewer_validated"] = False
                     dec_entry["live_reviewer_status"] = "LIVE_REVIEWER_NOT_VALIDATED"
+                if diagnostic_unresolved:
+                    dec_entry["details"] = "unresolved: no registered diagnostic execution product"
+                    dec_entry["diagnostic_status"] = "UNRESOLVED"
+                if "degradation_event" in locals() and degradation_event is not None:
+                    dec_entry["degradation_event"] = asdict(degradation_event)
+                    dec_entry["degradation_policy_applied"] = (
+                        degradation_policy.value if degradation_policy is not None else "ALLOW_EVIDENCE_ONLY_DEGRADATION"
+                    )
+                    dec_entry["live_reviewer_validated"] = False
+                    dec_entry["live_reviewer_status"] = "EVIDENCE_ONLY_DEGRADATION"
+                    dec_entry["details"] = "evidence_only_degraded"
                 decisions.append(dec_entry)
+                if observer is not None:
+                    from start.review.workflow_coherence import AgentDecisionTrace
+
+                    observer.agent_decision_trace(
+                        AgentDecisionTrace(
+                            agent_identity=(
+                                "AdversarialChallengeAgent" if is_challenge else "EvidenceReviewAgent"
+                            ),
+                            role=(
+                                "architecture / evidence challenge"
+                                if is_challenge
+                                else "evidence interpretation"
+                            ),
+                            trigger=action,
+                            checkpoint=title,
+                            canonical_input_references=tuple(relevant_tests),
+                            evidence_record_references=tuple(
+                                record.evidence_id for record in matched_records
+                            ),
+                            applicable_alternatives=(
+                                "accept grounded response",
+                                "evidence-only continuation when policy permits",
+                                "abort when valid agent response is mandatory",
+                            ),
+                            recommendation=(
+                                "retain deterministic evidence"
+                                if response_backend in {"fallback", "grounding_failed"}
+                                else "use validated bounded interpretation"
+                            ),
+                            rationale_summary=(
+                                f"backend={response_backend}; canonical refs validated="
+                                f"{grounded_count}/{claims_count}; diagnostic="
+                                f"{diag_tool_name or 'NOT_APPLICABLE'}"
+                            ),
+                            limitations=(
+                                "No numerical authority; quantitative truth remains in EvidenceRecords.",
+                            ),
+                            human_action=action.upper(),
+                            resulting_action=str(sm.current_state.value),
+                        )
+                    )
+                    invalid_details = []
+                    if val_res is not None:
+                        invalid_details = list(getattr(val_res, "invalid_refs_details", []) or [])
+                    grounding_accepted = (
+                        not provider_failed
+                        and degradation_event is None
+                        and (val_res is None or bool(getattr(val_res, "valid", False)))
+                        and unbound_count == 0
+                    )
+                    observer.grounding_result(
+                        accepted=grounding_accepted,
+                        quantitative_claims=claims_count,
+                        grounded_claims=grounded_count,
+                        invalid_details=invalid_details,
+                        continuation=(
+                            "EVIDENCE_ONLY"
+                            if dec_entry.get("degradation_event") is not None
+                            else "NOT_APPLICABLE"
+                        ),
+                        deterministic_evidence_retained=(
+                            bool(
+                                dec_entry.get("degradation_event", {}).get(
+                                    "deterministic_evidence_retained", False
+                                )
+                            )
+                            if isinstance(dec_entry.get("degradation_event"), dict)
+                            else not grounding_accepted
+                        ),
+                        checkpoint=title,
+                    )
+                    if (
+                        title == "Cross-Analytical Committee Synthesis"
+                        and not grounding_accepted
+                    ):
+                        observer.review_story(
+                            "GROUNDING CONTROL — AGENT INTERPRETATION UNAVAILABLE",
+                            question=note,
+                            human_action=action.upper(),
+                            agent_recommendation="Quantitative interpretation submitted",
+                            deterministic_result=(
+                                "INVALID CLAIM REJECTED; deterministic EvidenceRecords retained unchanged"
+                            ),
+                            evidence=(record.evidence_id for record in matched_records[:5]),
+                            outcome=(
+                                f"{grounded_count}/{claims_count} claims grounded · "
+                                "EVIDENCE_ONLY continuation · governance still requires valid sign-off"
+                            ),
+                            prominence="hero",
+                        )
                 continue
+
+        if observer is not None and title == "Portfolio Risk & Volatility Assumptions":
+            final_decision = decisions[-1] if decisions else {}
+            executed_methods = [
+                record.test_id.split(".", 1)[1]
+                for record in matched_records
+                if record.test_id.startswith("portfolio.")
+            ]
+            observer.review_story(
+                "DECISION SNAPSHOT — PORTFOLIO METHOD REVIEW",
+                question=description,
+                alternatives=executed_methods,
+                human_action=str(final_decision.get("action", "REVIEWED")).upper(),
+                agent_recommendation=str(final_decision.get("response", "")),
+                deterministic_result=(
+                    f"{len(matched_records)} portfolio EvidenceRecords retained; "
+                    "allocation weight and risk contribution remain distinct"
+                ),
+                evidence=(record.evidence_id for record in matched_records[:5]),
+                outcome="Checkpoint decision recorded without altering deterministic allocations",
+            )
 
     return decisions
 
@@ -2493,20 +2895,20 @@ def build_market_narrative(
     records: list[EvidenceRecord],
     domains: tuple[ReviewDomain, ...],
 ) -> str:
-    """Build proof-carrying narrative scoped to active domains with single [EV-...] citations."""
+    """Build a proof-carrying narrative exclusively from committed EvidenceRecords."""
     by_test = {r.test_id: r for r in records}
 
-    def metric(test_id: str, key: str, default: float = 0.0) -> float:
+    def metric(test_id: str, key: str) -> float | None:
         r = by_test.get(test_id)
         if r is None:
-            return default
-        val = r.metrics.get(key, default)
-        return float(val) if isinstance(val, (int, float)) else default
+            return None
+        val = r.metrics.get(key)
+        return float(val) if isinstance(val, (int, float)) else None
 
     def ev(test_id: str) -> str:
         r = by_test.get(test_id)
         if r is None:
-            return "[EV-MISSING]"
+            raise ValueError(f"narrative attempted to cite absent evidence: {test_id}")
         eid = r.evidence_id
         return f"[{eid}]" if eid.startswith("EV-") else f"[EV-{eid}]"
 
@@ -2514,7 +2916,12 @@ def build_market_narrative(
     has_market = ReviewDomain.MARKET in domains
     has_treasury = ReviewDomain.TREASURY in domains
 
+    def recorded_status(test_id: str) -> str | None:
+        record = by_test.get(test_id)
+        return str(record.status).upper() if record is not None else None
+
     lines: list[str] = []
+    validation_outcomes: list[tuple[str, str]] = []
 
     if has_predictive:
         target_test = None
@@ -2523,94 +2930,118 @@ def build_market_narrative(
                 target_test = cand
                 break
         if target_test is not None:
-            auc_val = metric(target_test, "roc_auc", 0.85)
-            lines.append(
-                f"The supervised classification model achieved an out-of-sample ROC-AUC "
-                f"of {auc_val:.4f} {ev(target_test)}."
-            )
+            auc_val = metric(target_test, "roc_auc")
+            if auc_val is not None:
+                lines.append(
+                    f"The supervised classification model recorded an out-of-sample ROC-AUC "
+                    f"of {auc_val:.4f} {ev(target_test)}."
+                )
         elif "deep_learning.performance_diagnostics" in by_test:
-            auc_val = metric("deep_learning.performance_diagnostics", "train_auc_roc", 0.85)
-            lines.append(
-                f"The deep learning model achieved a ROC-AUC of {auc_val:.4f} "
-                f"{ev('deep_learning.performance_diagnostics')}."
-            )
+            auc_val = metric("deep_learning.performance_diagnostics", "train_auc_roc")
+            if auc_val is not None:
+                lines.append(
+                    f"The deep learning model recorded a training ROC-AUC of {auc_val:.4f} "
+                    f"{ev('deep_learning.performance_diagnostics')}."
+                )
 
     if has_market:
-        volatility = metric("portfolio.risk_statistics", "annualised_volatility", 0.0937)
-        reconciliation = metric("attribution.return_attribution", "max_abs_reconciliation_error", 0.0)
-        exceptions = metric("traded_risk.var_exceptions", "n_exceptions", 4.0)
-        kupiec_p = metric("traded_risk.var_kupiec_pof", "p_value", 0.6414)
-        shrinkage = metric("covariance.ledoit_wolf_shrinkage", "shrinkage_intensity", 0.0086)
-        var_size = metric("validation.var_size_power", "observed.size_correct_forecast", 0.0660)
-
-        lines.extend(
-            [
-                f"The portfolio's annualised volatility was {volatility:.4f} {ev('portfolio.risk_statistics')}.",
-                f"Return attribution reconciled to within {reconciliation:.2e} "
-                f"{ev('attribution.return_attribution')}.",
-                f"The VaR backtest recorded {exceptions:.0f} exceptions {ev('traded_risk.var_exceptions')}.",
-                f"The Kupiec proportion-of-failures test returned a p-value of {kupiec_p:.4f} "
-                f"{ev('traded_risk.var_kupiec_pof')}.",
-                f"Ledoit-Wolf shrinkage intensity was {shrinkage:.4f} {ev('covariance.ledoit_wolf_shrinkage')}.",
-                "",
-                f"The VaR backtest study met every pre-registered criterion, with empirical size: {var_size:.4f} "
-                f"(nominal significance level: 0.05) under a correct forecast {ev('validation.var_size_power')}.",
-                f"The RegEM study met both structural criteria in all eighteen cells "
-                f"{ev('validation.regem_structural')}.",
-            ]
+        market_metrics = (
+            ("portfolio.risk_statistics", "annualised_volatility", "The portfolio annualised volatility was", ".4f"),
+            (
+                "attribution.return_attribution",
+                "max_abs_reconciliation_error",
+                "The maximum absolute return-attribution reconciliation error was",
+                ".2e",
+            ),
+            ("traded_risk.var_exceptions", "n_exceptions", "The VaR backtest exception count was", ".0f"),
+            ("traded_risk.var_kupiec_pof", "p_value", "The Kupiec test p-value was", ".4f"),
+            (
+                "covariance.ledoit_wolf_shrinkage",
+                "shrinkage_intensity",
+                "The Ledoit-Wolf shrinkage intensity was",
+                ".4f",
+            ),
         )
+        for test_id, key, label, fmt in market_metrics:
+            value = metric(test_id, key)
+            if value is not None:
+                lines.append(f"{label} {format(value, fmt)} {ev(test_id)}.")
+
+        for test_id, label in (
+            ("validation.var_size_power", "VaR size-and-power validation"),
+            ("validation.regem_structural", "RegEM structural validation"),
+        ):
+            status = recorded_status(test_id)
+            if status is not None:
+                validation_outcomes.append((label, status))
+                lines.append(f"{label} recorded status {status} {ev(test_id)}.")
+        empirical_size = metric("validation.var_size_power", "observed.size_correct_forecast")
+        if empirical_size is not None:
+            lines.append(
+                "VaR size validation recorded empirical size: "
+                f"{empirical_size:.4f} (nominal significance level: 0.05) "
+                f"{ev('validation.var_size_power')}."
+            )
 
     if has_treasury:
-        cev_consistency = metric(
-            "validation.cev_consistency", "observed.consistency_ratio_gamma_0_0", 0.469967
-        )
-        cev_coverage = metric("validation.cev_consistency", "observed.coverage_gamma_0_0", 0.6350)
-        stanton_ratio = metric("validation.stanton_bias", "observed.bias_improvement_ratio", 0.305052)
-        stanton_sign = metric("validation.stanton_bias", "observed.max_wrong_sign_rate_nonzero_drift", 0.4750)
-
         if lines:
             lines.append("")
-        lines.extend(
-            [
-                f"The CEV estimator satisfied the pre-registered consistency requirement, with a ratio "
-                f"of {cev_consistency:.6f} at gamma = 0, but FAILED the nominal-coverage requirement at "
-                f"gamma = 0, where empirical coverage was {cev_coverage:.4f} against a required interval "
-                f"of [0.90, 0.98] {ev('validation.cev_consistency')}. The CEV estimator is not fully validated.",
-                "",
-                f"The Stanton estimator satisfied the bias-improvement criterion, with a ratio of "
-                f"{stanton_ratio:.6f}, but FAILED the pre-registered wrong-sign criterion, reaching "
-                f"{stanton_sign:.4f} against a required maximum of 0.10 {ev('validation.stanton_bias')}. "
-                f"The Stanton estimator is not fully validated.",
+        for test_id, label, fields in (
+            (
+                "validation.cev_consistency",
+                "CEV consistency validation",
+                (
+                    ("observed.consistency_ratio_gamma_0_0", "consistency ratio at gamma zero", ".6f"),
+                    ("observed.coverage_gamma_0_0", "coverage at gamma zero", ".4f"),
+                ),
+            ),
+            (
+                "validation.stanton_bias",
+                "Stanton bias validation",
+                (
+                    ("observed.bias_improvement_ratio", "bias-improvement ratio", ".6f"),
+                    (
+                        "observed.max_wrong_sign_rate_nonzero_drift",
+                        "maximum wrong-sign rate for non-zero drift",
+                        ".4f",
+                    ),
+                ),
+            ),
+        ):
+            status = recorded_status(test_id)
+            if status is None:
+                continue
+            validation_outcomes.append((label, status))
+            available = [
+                f"{description} {format(value, fmt)}"
+                for key, description, fmt in fields
+                if (value := metric(test_id, key)) is not None
             ]
-        )
+            details = "; ".join(available)
+            detail_clause = f", with {details}," if details else ""
+            lines.append(f"{label} recorded status {status}{detail_clause} {ev(test_id)}.")
 
-    if has_market and has_treasury:
+    if validation_outcomes:
+        counts = Counter(status for _, status in validation_outcomes)
+        summary = ", ".join(f"{count} {status}" for status, count in sorted(counts.items()))
         lines.extend(
             [
                 "",
-                "CEV and Stanton failed frozen pre-registered criteria, while VaR and RegEM passed their "
-                "frozen criteria. Statistical validation is therefore partial and requires scientific "
-                "governance remediation.",
-            ]
-        )
-    elif has_market:
-        lines.extend(
-            [
-                "",
-                "VaR and RegEM passed their frozen pre-registered criteria. Statistical validation for market "
-                "surfaces is fully passed.",
-            ]
-        )
-    elif has_treasury:
-        lines.extend(
-            [
-                "",
-                "CEV and Stanton failed frozen pre-registered criteria. Statistical validation is therefore "
-                "incomplete and requires scientific disposition before CEV or Stanton is relied upon.",
+                f"Across the applicable committed validation records, the recorded status breakdown is {summary}.",
+                "Any non-passing status requires explicit scientific-governance disposition before reliance.",
             ]
         )
 
     return "\n".join(lines)
+
+
+def generate_review_run_id() -> str:
+    """Return a readable, process-safe identifier for one governed review run.
+
+    Wall-clock seconds remain useful to operators, but UUID entropy owns
+    uniqueness so rapid or concurrent runs cannot share artifact/evidence state.
+    """
+    return f"RUN-REVIEW-{int(time.time())}-{uuid.uuid4().hex[:12]}"
 
 
 def run_market_treasury_review(
@@ -2620,16 +3051,160 @@ def run_market_treasury_review(
     ask: Callable[[str], str] = input,
 ) -> dict[str, Any]:
     """Execute complete Market / Treasury / Cross-Domain review."""
-    run_id = f"RUN-REVIEW-{int(time.time())}"
-    root = Path(output_root) / run_id
-    root.mkdir(parents=True, exist_ok=True)
+    run_id = generate_review_run_id()
+    from start.reporting.current_run import (
+        RunLineage,
+        build_artifact_entry,
+        current_run_presentation_root,
+        write_current_run_manifest,
+    )
+
+    root = current_run_presentation_root(output_root, run_id)
+    lineage = RunLineage(review_run_id=run_id, execution_run_ids=(run_id,))
+
+    from start.review.terminal_observability import (
+        TerminalReviewObserver,
+    )
+    from start.telemetry.engineering_trace import (
+        OP_AGENT_INVOKE,
+        OP_ARTIFACT_PERSIST,
+        OP_EVIDENCE_EMIT,
+        OP_GOVERNANCE_COMMIT,
+        OP_MARKET_RISK_EVALUATE,
+        OP_POLICY_EVALUATE,
+        OP_RUN,
+        EngineeringTracer,
+    )
+
+    observer = TerminalReviewObserver(
+        run_id,
+        console=console,
+        domains=bundle.domains,
+        session_kind="B",
+    )
+    engineering_tracer = EngineeringTracer(run_id=run_id, service_name="start.review")
+    run_trace = engineering_tracer.span(
+        OP_RUN,
+        {"mode": str(bundle.mode), "domains": [str(d) for d in bundle.domains]},
+    )
+    run_trace.__enter__()
+    observer.session_started(source_component="start.review.executor")
+    observer.human_action(
+        "SETUP",
+        "review.setup",
+        f"domains: {', '.join(str(d) for d in bundle.domains)}",
+    )
+    observer.show_authority_boundary(
+        reviewer_mode=(
+            "deterministic"
+            if getattr(bundle.llm_config, "backend_mode", "none") == "none"
+            else "llm"
+        ),
+        backend_mode=getattr(bundle.llm_config, "backend_mode", "none"),
+        provider=getattr(bundle.llm_config, "provider", "none"),
+        provider_status=getattr(bundle.llm_config, "status", ""),
+    )
+
+    from start.orchestration.state_graph import build_live_review_graph
+
+    def _live_graph_transition(
+        source: str,
+        target: str,
+        trigger: str,
+        state_hash: str,
+        transition_thread_id: str,
+    ) -> None:
+        observer.graph_transition(
+            source,
+            target,
+            trigger=trigger,
+            state_hash=state_hash,
+            thread_id=transition_thread_id,
+        )
+
+    live_graph = build_live_review_graph(
+        run_id=run_id,
+        phases=(
+            "plan",
+            "execute_tools",
+            "review_evidence",
+            "generate_artifacts",
+            "governance_signoff",
+        ),
+        on_transition=_live_graph_transition,
+    )
+    live_graph.enter_phase(
+        "plan",
+        updates={
+            "domains": tuple(str(d.value if hasattr(d, "value") else d) for d in bundle.domains)
+        },
+    )
+    applicable = applicable_tests(bundle.domains)
+    from start.review.workflow_coherence import build_unified_review_coherence_envelope
+
+    observer.bind_coherence_envelope(
+        build_unified_review_coherence_envelope(
+            run_id=run_id,
+            bundle=bundle,
+            applicable=applicable,
+        )
+    )
+    observer.publish_coherence_contract()
+    market_context = bundle.market
+    market_returns = getattr(market_context, "returns", None) if market_context is not None else None
+    asset_names = list(getattr(market_returns, "columns", []))
+    observation_count = len(market_returns) if market_returns is not None else 0
+    resolved_market = (
+        getattr(market_context, "extra", {}).get("resolved_configuration", {})
+        if market_context is not None
+        else {}
+    )
+    planned_portfolio_methods = [
+        test_id.split(".", 1)[1]
+        for test_id in applicable.test_ids
+        if test_id.startswith("portfolio.")
+    ]
+    from start.review.terminal_observability import (
+        treasury_review_path,
+        workflow_runtime_context_title,
+    )
+
+    runtime_context_title = workflow_runtime_context_title(bundle.domains)
+    portfolio_path = (
+        "DATA → COVARIANCE → HRP TREE → ORDERING → ALLOCATION → RISK CONTRIBUTION → "
+        "HUMAN CHALLENGE → EVIDENCE → GOVERNANCE"
+    )
+    market_risk_path = (
+        "FACTOR EXPOSURE → VaR/ES → LOSS + EXCEPTIONS → KUPIEC/CHRISTOFFERSEN → "
+        "SCENARIO → CONTRIBUTION → REVERSE STRESS → GOVERNANCE"
+    )
+    treasury_test_ids = tuple(applicable.by_context.get("short_rate", ()))
+    treasury_path = treasury_review_path(treasury_test_ids)
+    opening_rows: list[tuple[str, Any]] = [
+        ("Asset universe", f"{len(asset_names)} assets: {', '.join(asset_names[:6])}"),
+        ("Observations", f"{observation_count:,}"),
+        (
+            "Portfolio / risk objective",
+            f"optimizer={resolved_market.get('optimizer', 'runtime default')}; governed risk review",
+        ),
+        ("Deterministic method plan", planned_portfolio_methods),
+        ("Applicable surfaces", applicable.count),
+        ("Review objective", bundle.business_context or "Evidence-native portfolio and market-risk review"),
+    ]
+    if ReviewDomain.MARKET in bundle.domains:
+        opening_rows.extend((("Portfolio path", portfolio_path), ("Market-risk path", market_risk_path)))
+    if treasury_path:
+        opening_rows.append(("Treasury path", treasury_path))
+    observer.flight_context(
+        runtime_context_title,
+        opening_rows,
+    )
 
     # 1. Pre-flight Descriptive Input Summary
     console.print("\n")
     console.print(build_preflight_data_summary_table(bundle))
 
     # 2. Test Execution
-    applicable = applicable_tests(bundle.domains)
     console.print(
         f"\n[bold green]Executing {applicable.count} Registered Deterministic Tests...[/bold green]"
     )
@@ -2644,19 +3219,36 @@ def run_market_treasury_review(
         detail=f"Discovered {len(applicable.test_ids)} applicable tests across domains {bundle.domains}",
     )
 
-    exec_out = execute_market_treasury_tests(bundle, applicable, return_products=True)
+    live_graph.enter_phase("execute_tools")
+    observer.engine_card(
+        "RegisteredDeterministicDispatcher",
+        operation=f"execute {applicable.count} applicable analytical surfaces",
+    )
+    with engineering_tracer.span(
+        OP_MARKET_RISK_EVALUATE,
+        {"surface_count": applicable.count, "domains": [str(d) for d in bundle.domains]},
+    ):
+        exec_out = execute_market_treasury_tests(bundle, applicable, return_products=True)
     if isinstance(exec_out, tuple):
         test_results, products = exec_out
     else:
         test_results = exec_out
         products = ReviewExecutionProducts()
+    observer.engine_completed(
+        "RegisteredDeterministicDispatcher",
+        output_count=len(test_results),
+        details="registered analytical surfaces returned typed TestResults",
+    )
 
     # Populate Evidence Store & Ledger
     ledger = EvidenceLedger(root / "ledger.jsonl", root / "evidence")
     records: list[EvidenceRecord] = []
-    for tr in test_results:
-        rec = ledger.append(tr, run_id=run_id)
-        records.append(rec)
+    with engineering_tracer.span(OP_EVIDENCE_EMIT, {"result_count": len(test_results)}):
+        for tr in test_results:
+            rec = ledger.append(tr, run_id=run_id)
+            records.append(rec)
+            observer.evidence_committed(rec, producer=tr.test_id)
+    observer.evidence_batch_summary()
 
     tracer.record(
         source_agent="MarketSpecialist",
@@ -2673,11 +3265,51 @@ def run_market_treasury_review(
     has_treasury = ReviewDomain.TREASURY in bundle.domains
 
     committee_result = None
+    live_graph.enter_phase(
+        "review_evidence",
+        updates={
+            "evidence_records": records,
+            "evidence_ids": [record.evidence_id for record in records],
+        },
+    )
     if has_market:
         from start.agents.committee import CrossAnalyticalCommittee
 
         committee = CrossAnalyticalCommittee()
-        committee_result = committee.conduct_committee_review(records)
+        observer.agent_card(
+            "CrossAnalyticalCommittee",
+            role="cross-analytical challenge and synthesis",
+            evidence_ids=(r.evidence_id for r in records),
+            activity="reasoning / challenge",
+        )
+        with engineering_tracer.span(
+            OP_AGENT_INVOKE,
+            {"agent": "CrossAnalyticalCommittee", "evidence_count": len(records)},
+        ):
+            committee_result = committee.conduct_committee_review(records)
+        from start.review.workflow_coherence import AgentDecisionTrace
+
+        observer.agent_decision_trace(
+            AgentDecisionTrace(
+                agent_identity="CrossAnalyticalCommittee",
+                role="cross-analytical challenge and synthesis",
+                trigger="canonical evidence review",
+                checkpoint="market.cross_analytical_committee",
+                canonical_input_references=tuple(record.test_id for record in records),
+                evidence_record_references=tuple(record.evidence_id for record in records),
+                applicable_alternatives=tuple(
+                    sorted({record.test_id for record in records})
+                ),
+                recommendation=str(committee_result.governance_decision),
+                rationale_summary=(
+                    f"Reviewed {len(records)} canonical records and resolved "
+                    f"{len(committee_result.resolutions)} registered challenge(s)."
+                ),
+                limitations=("Agent synthesis has no numerical authority.",),
+                human_action="PENDING_CHECKPOINT_REVIEW",
+                resulting_action="committee synthesis recorded for governed review",
+            )
+        )
         tracer.record(
             source_agent="DeterministicEngine",
             target_agent="CrossAnalyticalCommittee",
@@ -2688,9 +3320,96 @@ def run_market_treasury_review(
         )
 
     # Deterministic visual and tabular artifact generation without scientific recomputation
+    live_graph.enter_phase("generate_artifacts")
     artifacts_dir = root / "artifacts"
-    artifacts_by_checkpoint = generate_review_artifacts(bundle, records, artifacts_dir, products=products)
+    with engineering_tracer.span(OP_ARTIFACT_PERSIST, {"output": "run-scoped artifacts"}):
+        artifacts_by_checkpoint = generate_review_artifacts(
+            bundle, records, artifacts_dir, products=products
+        )
     all_arts_list = [art for arts in artifacts_by_checkpoint.values() for art in arts]
+    flight_a_checkpoints = {
+        "Data Quality, Imbalance & Preprocessing Assumptions",
+        "Model Architecture & Optimization Parameters",
+        "Out-of-Sample Performance & Decision Metrics",
+        "Feature Attribution & Explainability (XAI)",
+        "Sensitivity, Robustness & Drift Analysis",
+    }
+    flight_b_checkpoints = {
+        "Portfolio Risk & Volatility Assumptions",
+        "Factor Modeling & Attribution Assumptions",
+        "Covariance Structure & Missing Data Treatment",
+    }
+    flight_c_checkpoints = {
+        "VaR Backtesting & Exception Frequency",
+        "Scenario Analysis & Stress Testing",
+        "Short-Rate Diffusion & CEV Elasticity",
+        "Stanton Nonparametric Drift & Diffusion",
+        "Barrier Validation & Boundary Admissibility",
+    }
+
+    def _manifest_entry(artifact: Any, checkpoint: str) -> dict[str, Any]:
+        base = artifact.to_dict() if hasattr(artifact, "to_dict") else {}
+        file_path = getattr(artifact, "file_path", None) or base.get("file_path")
+        if not file_path:
+            raise ValueError(f"artifact lacks a file path: {artifact!r}")
+        return {
+            **base,
+            **build_artifact_entry(
+                path=file_path,
+                owner_run_id=run_id,
+                lineage=lineage,
+                artifact_id=str(base.get("artifact_id", getattr(artifact, "artifact_id", "ART"))),
+                artifact_type=str(base.get("artifact_type", "file")),
+                title=str(base.get("title", "Artifact")),
+                checkpoint=checkpoint,
+                test_id=str(base.get("test_id", "")),
+                evidence_ids=base.get("evidence_ids", ()),
+            ),
+        }
+
+    artifact_groups: dict[str, list[dict[str, Any]]] = {
+        "flight_a": [],
+        "flight_b": [],
+        "flight_c": [],
+    }
+    for checkpoint, checkpoint_artifacts in artifacts_by_checkpoint.items():
+        if checkpoint in flight_a_checkpoints:
+            group = "flight_a"
+        elif checkpoint in flight_b_checkpoints:
+            group = "flight_b"
+        else:
+            group = "flight_c"
+        artifact_groups[group].extend(
+            _manifest_entry(artifact, checkpoint) for artifact in checkpoint_artifacts
+        )
+        for artifact in checkpoint_artifacts:
+            entry = _manifest_entry(artifact, checkpoint)
+            observer.artifact_available(
+                artifact_id=str(entry.get("artifact_id", "")),
+                file_path=str(entry.get("file_path", "")),
+                evidence_ids=entry.get("evidence_ids", []),
+                checkpoint=checkpoint,
+            )
+    artifact_manifest_path = write_current_run_manifest(
+        presentation_root=root,
+        lineage=lineage,
+        groups=artifact_groups,
+    )
+    observer.artifact_board_ready(artifact_manifest_path, run_id=run_id)
+    actual_products = list(products.summary())
+    observer.review_story(
+        "REVIEW STORY — DETERMINISTIC PORTFOLIO + RISK ANALYSIS",
+        question="What did the registered analytical engines establish?",
+        alternatives=planned_portfolio_methods,
+        deterministic_result=(
+            f"{len(records)} canonical analytical records; {len(actual_products)} typed execution products"
+        ),
+        evidence=(record.evidence_id for record in records[:5]),
+        outcome=(
+            f"{len(all_arts_list)} current-run scientific artifacts available; "
+            f"products: {', '.join(actual_products[:6])}"
+        ),
+    )
     tracer.record(
         source_agent="DeterministicEngine",
         target_agent="StructuredReviewer",
@@ -2709,6 +3428,8 @@ def run_market_treasury_review(
         products=products,
         interactive=interactive,
         ask=ask,
+        observer=observer,
+        evidence_ledger=ledger,
     )
     tracer.record(
         source_agent="StructuredReviewer",
@@ -2720,8 +3441,49 @@ def run_market_treasury_review(
     )
 
     # Deterministically evaluate final governance disposition
-    final_gov_disposition = evaluate_deterministic_governance_disposition(
-        bundle, records, decisions, committee_result
+    live_graph.enter_phase("governance_signoff")
+    with engineering_tracer.span(
+        OP_GOVERNANCE_COMMIT,
+        {"evidence_count": len(records), "decision_count": len(decisions)},
+    ):
+        final_gov_disposition = evaluate_deterministic_governance_disposition(
+            bundle, records, decisions, committee_result
+        )
+    unresolved_decisions = sum(
+        1
+        for decision in decisions
+        if decision.get("degradation_event") is not None
+        or "unresolved" in str(decision.get("details", "")).lower()
+    )
+    validation_failures = sum(
+        1
+        for record in records
+        if str(getattr(record.status, "value", record.status)).lower() in {"fail", "error"}
+    )
+    governance_conditions = [
+        f"{record.test_name}: {record.interpretation or str(record.status)}"
+        for record in records
+        if str(getattr(record.status, "value", record.status)).lower() in {"fail", "error"}
+        or (isinstance(record.metrics, dict) and (record.metrics.get("valid") is False or record.metrics.get("is_valid") is False))
+    ]
+    governance_conditions.extend(
+        str(decision.get("details"))
+        for decision in decisions
+        if decision.get("details") and "unresolved" in str(decision.get("details")).lower()
+    )
+    if final_gov_disposition == "ACCEPT_WITH_CONDITIONS" and not governance_conditions:
+        if committee_result is not None:
+            governance_conditions.extend(
+                str(item)
+                for item in (getattr(committee_result, "resolutions", ()) or ())
+                if str(item).strip()
+            )
+    observer.governance_card(
+        disposition=final_gov_disposition,
+        evidence_count=len(records),
+        unresolved_count=unresolved_decisions,
+        validation_failures=validation_failures,
+        conditions=governance_conditions,
     )
 
     # Build Narrative & Claim Binding (from structured findings if available, else deterministic evidence narrative)
@@ -2729,13 +3491,18 @@ def run_market_treasury_review(
         narrative_lines = []
         for sf in bundle.structured_findings:
             for f in sf.findings:
-                if f.evidence_refs:
+                refs = getattr(f, "hydrated_refs", None) or getattr(f, "evidence_refs", None) or ()
+                statement = getattr(f, "conclusion", None) or getattr(f, "statement", "")
+                if refs:
+                    ref_ids = [
+                        getattr(r, "evidence_id", str(r)) for r in refs[:2]
+                    ]
                     refs_str = " ".join(
-                        f"[{ref}]" if not ref.startswith("[") else ref for ref in f.evidence_refs[:2]
+                        f"[{ref}]" if not str(ref).startswith("[") else str(ref) for ref in ref_ids
                     )
-                    narrative_lines.append(f"{f.statement} {refs_str}")
+                    narrative_lines.append(f"{statement} {refs_str}")
                 else:
-                    narrative_lines.append(f"{f.statement}")
+                    narrative_lines.append(f"{statement}")
         narrative = (
             "\n".join(narrative_lines[:8])
             if narrative_lines
@@ -2746,6 +3513,54 @@ def run_market_treasury_review(
 
     claims = extract_claims(narrative)
     binding = bind_claims(claims, records)
+    observer.grounding_result(
+        accepted=len(binding.unbound) == 0,
+        quantitative_claims=len(claims),
+        grounded_claims=len(binding.bound),
+        grounding_required_claims=binding.total_claims,
+        other_exempt_claims=max(0, len(claims) - binding.total_claims),
+        invalid_details=list(binding.unbound),
+        continuation="NOT_PERMITTED" if binding.unbound else "NOT_APPLICABLE",
+    )
+
+    # Deterministic policy boundary.  The renderer consumes the typed result;
+    # it never invents an OPA status when the local runtime is unavailable.
+    from start.telemetry.engineering_trace import PolicyAdapter
+
+    with engineering_tracer.span(
+        OP_POLICY_EVALUATE,
+        {
+            "evidence_count": len(records),
+            "ungrounded_claims": len(binding.unbound),
+            "governance_disposition": final_gov_disposition,
+        },
+    ):
+        policy_result = PolicyAdapter(use_opa=True).evaluate_signoff(
+            run_id=run_id,
+            evidence_ids=[record.evidence_id for record in records],
+            disposition=final_gov_disposition,
+            ungrounded_claims=len(binding.unbound),
+            validation_failures=validation_failures,
+        )
+    observer.policy_gate(policy_result)
+    observer.review_story(
+        "DECISION SNAPSHOT — FINAL GOVERNANCE",
+        question="May this portfolio and market-risk review proceed to attestation?",
+        human_action=observer.state.last_human_action or "REVIEWED",
+        agent_recommendation=(
+            f"Committee {committee_result.governance_decision}"
+            if committee_result is not None
+            else "Evidence review complete"
+        ),
+        deterministic_result=(
+            f"{len(records)} EvidenceRecords; {validation_failures} validation failure(s); "
+            f"{len(binding.unbound)} ungrounded claim(s)"
+        ),
+        evidence=(record.evidence_id for record in records[:5]),
+        outcome=f"Governance {final_gov_disposition} · policy {policy_result.decision}",
+    )
+    run_trace.__exit__(None, None, None)
+    observer.trace_waterfall(engineering_tracer.get_records())
 
     console.print("\n[bold cyan]══════════════════ Attested Review Narrative ══════════════════[/bold cyan]")
     console.print(f"[dim]{narrative}[/dim]\n")
@@ -2768,7 +3583,11 @@ def run_market_treasury_review(
 
     # Attestation Seal
     live_reviewer_not_validated = any(
-        isinstance(d, dict) and d.get("details", {}).get("live_reviewer_validated") is False
+        isinstance(d, dict)
+        and (
+            d.get("live_reviewer_validated") is False
+            or (isinstance(d.get("details"), dict) and d.get("details", {}).get("live_reviewer_validated") is False)
+        )
         for d in decisions
     )
     seal_meta: dict[str, Any] = {
@@ -2776,11 +3595,12 @@ def run_market_treasury_review(
         "mode": str(bundle.mode),
         "domains": [str(d) for d in bundle.domains],
         "n_records": len(records),
-        "n_validation_failures": 2 if has_treasury else 0,
+        "n_validation_failures": validation_failures,
         "materiality": bundle.materiality,
         "lifecycle": str(bundle.lifecycle),
         "llm_config": bundle.llm_config.describe(),
         "governance_disposition": final_gov_disposition,
+        "policy_decision": policy_result.to_dict(),
     }
     if hasattr(bundle, "structured_findings") and bundle.structured_findings:
         import hashlib
@@ -2792,20 +3612,32 @@ def run_market_treasury_review(
     if live_reviewer_not_validated:
         seal_meta["live_reviewer_status"] = "LIVE_REVIEWER_NOT_VALIDATED"
 
-    seal = build_seal(
-        review_id=run_id,
-        evidence_head=records[-1].evidence_id if records else None,
-        metadata=seal_meta,
-    )
-    root_hash = seal.root() if callable(seal.root) else seal.root
+    seal = None
+    root_hash = ""
+    if policy_result.decision == "ALLOW":
+        seal = build_seal(
+            review_id=run_id,
+            evidence_head=records[-1].evidence_id if records else None,
+            metadata=seal_meta,
+        )
+        root_hash = seal.root() if callable(seal.root) else seal.root
+        observer.attestation_sealed(
+            merkle_root=str(root_hash), leaf_count=len(getattr(seal, "leaves", []))
+        )
+    else:
+        observer.attestation_withheld(reason=f"Policy decision {policy_result.decision}")
 
     tracer.record(
         source_agent="CrossAnalyticalCommittee" if committee_result else "EvidenceCritic",
         target_agent="ModelGovernance",
         stage="GOVERNANCE_SIGN_OFF",
         node="attestation_seal",
-        status="SUCCESS",
-        detail=f"Attestation signed Merkle root {str(root_hash)[:16]} -> {final_gov_disposition}",
+        status="SUCCESS" if root_hash else "BLOCKED",
+        detail=(
+            f"Attestation signed Merkle root {str(root_hash)[:16]} -> {final_gov_disposition}"
+            if root_hash
+            else f"Attestation blocked by policy decision {policy_result.decision}"
+        ),
     )
 
     # Governance Summary Display
@@ -2818,20 +3650,39 @@ def run_market_treasury_review(
     table.add_column("Status", justify="center")
     table.add_column("Details")
 
+    def _status_cell(status: str) -> str:
+        normalized = status.upper()
+        color = {
+            "PASS": "green",
+            "RECORDED": "cyan",
+            "INFORMATIONAL": "cyan",
+            "WARN": "yellow",
+            "SKIPPED": "yellow",
+            "FAIL": "red",
+            "ERROR": "red",
+        }.get(normalized, "white")
+        return f"[{color}]{normalized}[/{color}]"
+
+    execution_errors = sum(
+        count for status, count in status_counts.items() if status.lower() == "error"
+    )
+    implementation_status = "ERROR" if execution_errors else "COMPLETE"
+
     table.add_row(
         "Implementation Verification",
-        "[green]PASS[/green]",
+        _status_cell(implementation_status),
         f"{len(det_records)} registered deterministic surfaces executed ({breakdown_str})",
     )
+    valid_evidence_ids = sum(1 for record in records if str(record.evidence_id).startswith("EV-"))
     table.add_row(
         "Evidence Integrity",
-        "[green]PASS[/green]",
-        f"{len(records)} EvidenceRecords signed and stored",
+        _status_cell("PASS" if valid_evidence_ids == len(records) else "ERROR"),
+        f"{valid_evidence_ids}/{len(records)} EvidenceRecords have canonical evidence identifiers",
     )
     table.add_row(
         "Ledger / Replay Chain",
-        "[green]PASS[/green]",
-        "Cryptographic chain verified; 0 replay divergences",
+        _status_cell("PASS" if replay_verdict.intact else "FAIL"),
+        replay_verdict.summary_line(),
     )
     table.add_row(
         "Narrative Claim Grounding",
@@ -2849,82 +3700,53 @@ def run_market_treasury_review(
             f"{len(committee_result.resolutions)} challenge resolutions",
         )
 
-    if has_market:
-        r_size = next((r for r in records if r.test_id == "validation.var_size_power"), None)
-        if r_size:
-            s_val = r_size.metrics.get(
-                "observed.size_correct_forecast",
-                r_size.metrics.get("empirical_size", 0.066),
-            )
-            size_str = f"{float(s_val):.4f}" if s_val is not None else "N/A"
-        else:
-            size_str = "N/A"
-        table.add_row(
-            "VaR Size & Power Validation",
-            "[green]PASS[/green]",
-            f"Empirical size: {size_str} | Nominal significance level: 0.05 | Validation result: PASS",
+    validation_records = [record for record in records if record.test_id.startswith("validation.")]
+    for record in validation_records:
+        record_status = str(getattr(record.status, "value", record.status)).upper()
+        numeric_metrics = [
+            (key, value)
+            for key, value in record.metrics.items()
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+        ]
+        metric_summary = ", ".join(
+            f"{key}={float(value):.6g}" for key, value in numeric_metrics[:3]
         )
         table.add_row(
-            "RegEM Structural Validation",
-            "[green]PASS[/green]",
-            "Met structural criteria across all 18 test cells",
+            record.test_name or record.test_id,
+            _status_cell(record_status),
+            metric_summary or f"Evidence {record.evidence_id}",
         )
 
-    if has_treasury:
-        r_cev_val = next((r for r in records if r.test_id == "validation.cev_consistency"), None)
-        cev_raw = None
-        if r_cev_val:
-            cev_raw = r_cev_val.metrics.get(
-                "observed.coverage_gamma_0_0", r_cev_val.metrics.get("empirical_coverage")
-            )
-        cev_cov = f"{float(cev_raw):.3f}" if cev_raw is not None else "0.635"
-        table.add_row(
-            "CEV Elasticity Validation",
-            "[red]FAIL[/red]",
-            f"Nominal coverage {cev_cov} at gamma=0 (required [0.90, 0.98])",
-        )
-        r_st_val = next((r for r in records if r.test_id == "validation.stanton_bias"), None)
-        st_raw = None
-        if r_st_val:
-            st_raw = r_st_val.metrics.get(
-                "observed.max_wrong_sign_rate_nonzero_drift", r_st_val.metrics.get("wrong_sign_rate")
-            )
-        st_ws = f"{float(st_raw):.3f}" if st_raw is not None else "0.475"
-        table.add_row(
-            "Stanton Nonparametric Validation",
-            "[red]FAIL[/red]",
-            f"Wrong-sign rate {st_ws} on non-zero drift (required <= 0.10)",
-        )
-        table.add_row(
-            "Applicable Pre-Registered Statistical Studies",
-            "[yellow]REVIEW REQUIRED[/yellow]",
-            (
-                "CEV and Stanton studies failed frozen criteria; Market studies passed."
-                if has_market
-                else "Pre-registered Treasury studies failed frozen criteria"
-            ),
-        )
-    elif has_market:
-        table.add_row(
-            "Applicable Pre-Registered Statistical Studies",
-            "[green]PASS[/green]",
-            "Both applicable pre-registered Market studies passed their frozen criteria.",
-        )
-    else:
-        table.add_row(
-            "Applicable Pre-Registered Statistical Studies",
-            "[green]PASS[/green]",
-            "All required criteria met",
-        )
+    validation_status_counts = Counter(
+        str(getattr(record.status, "value", record.status)).upper()
+        for record in validation_records
+    )
+    blocking_validation_count = sum(
+        count
+        for status, count in validation_status_counts.items()
+        if status in {"FAIL", "ERROR"}
+    )
+    validation_summary = ", ".join(
+        f"{count} {status}" for status, count in sorted(validation_status_counts.items())
+    ) or "No applicable validation records"
+    table.add_row(
+        "Applicable Pre-Registered Statistical Studies",
+        _status_cell("FAIL" if blocking_validation_count else "PASS"),
+        validation_summary,
+    )
 
     table.add_row(
-        "Attestation Seal", "[green]VALID[/green]", f"Merkle Root: {str(root_hash)[:16]}... (7 leaves)"
+        "Attestation Seal",
+        "[green]VALID[/green]" if root_hash else "[red]NOT SEALED[/red]",
+        f"Merkle Root: {str(root_hash)[:16]}..."
+        if root_hash
+        else f"Blocked by policy decision {policy_result.decision}",
     )
     disp_style = "bold green" if final_gov_disposition == "ACCEPT" else "bold yellow"
     table.add_row(
         "Final Governance Disposition",
         f"[{disp_style}]{final_gov_disposition}[/{disp_style}]",
-        "Cryptographically attested sign-off",
+        "Cryptographically attested sign-off" if root_hash else "Policy blocked attestation",
     )
 
     console.print("\n")
@@ -2960,42 +3782,57 @@ def run_market_treasury_review(
     except Exception:
         pass
 
-    # Safe Non-Blocking Artifact Viewing
+    # The terminal-native review never spawns external plot windows.  The exact-run
+    # board consumes the persisted manifest when a reviewer explicitly launches it.
     try:
-        view_artifacts(all_arts_list, mode=get_artifact_view_mode())
+        view_artifacts(all_arts_list, mode="off")
     except Exception:
         pass
 
-    console.print(f"\n[dim]Review artifacts saved to: {root}[/dim]\n")
+    console.print(f"\n[dim]Review artifacts saved to: {root}[/dim]")
+    console.print(f"[dim]Review run: {run_id}[/dim]")
+    console.print(f"[dim]Execution run: {run_id}[/dim]")
+    console.print(f"[dim]Artifact manifest: {artifact_manifest_path}[/dim]\n")
 
-    # Canonical LangGraph StateGraph Execution & Checkpoint Persistence
-    from start.orchestration.state_graph import TypedReviewState, build_canonical_review_graph
+    graph_out = live_graph.state
+    checkpoint_state = live_graph.checkpoint
+    langgraph_app = live_graph.app
+    thread_id = live_graph.thread_id
+    from start.review.workflow_coherence import DeterministicExecutionSummary
 
-    langgraph_app = build_canonical_review_graph()
-    thread_id = f"thread-{run_id}"
-    initial_graph_state: TypedReviewState = {
-        "run_id": run_id,
-        "thread_id": thread_id,
-        "stage": "PLANNING",
-        "domains": tuple(str(d.value if hasattr(d, "value") else d) for d in bundle.domains),
-        "evidence_records": records,
-        "evidence_ids": [r.evidence_id for r in records],
-        "artifact_ids": [getattr(a, "artifact_id", "ART") for a in all_arts_list],
-        "governance_state": {"disposition": final_gov_disposition, "sealed": True},
-        "step_history": [],
-        "retry_count": 0,
-        "max_retries": 3,
-        "errors": [],
-    }
-    graph_out = langgraph_app.invoke(
-        initial_graph_state,
-        config={"configurable": {"thread_id": thread_id}},
+    observer.deterministic_execution_summary(
+        DeterministicExecutionSummary(
+            engine_ids=("RegisteredDeterministicDispatcher",),
+            canonical_input_references=tuple(bundle.presentation_context_types()),
+            operations=tuple(sorted(applicable.by_family)),
+            authoritative_outputs=tuple(test_result.test_id for test_result in test_results),
+            statuses=tuple(
+                str(getattr(test_result.status, "value", test_result.status)).upper()
+                for test_result in test_results
+            ),
+            evidence_record_references=tuple(record.evidence_id for record in records),
+            artifact_references=tuple(
+                str(getattr(artifact, "artifact_id", ""))
+                for artifact in all_arts_list
+                if getattr(artifact, "artifact_id", "")
+            ),
+            limitations=tuple(
+                item
+                for item in (bundle.known_limitations,)
+                if item
+            ),
+            skipped_or_not_applicable=(),
+        ),
+        checkpoint="review.execution.complete",
     )
-    checkpoint_state = langgraph_app.get_state({"configurable": {"thread_id": thread_id}})
+    observer.session_completed(source_component="start.review.executor")
+    observer.export(root / "presentation_events.json")
+    engineering_tracer.export_jsonl(root / "engineering_trace.jsonl")
 
     summary_data: dict[str, Any] = {
         "run_id": run_id,
         "output_path": str(root),
+        "artifact_manifest_path": str(artifact_manifest_path),
         "grounding_mode": (
             bundle.grounding_mode.value
             if hasattr(bundle.grounding_mode, "value")
@@ -3017,6 +3854,7 @@ def run_market_treasury_review(
             "metadata": seal_meta,
         },
         "governance_disposition": final_gov_disposition,
+        "policy_decision": policy_result.to_dict(),
         "langgraph_thread_id": thread_id,
         "exit_code": 0,
     }
@@ -3042,6 +3880,11 @@ def run_market_treasury_review(
         "langgraph_app": langgraph_app,
         "langgraph_state": graph_out,
         "langgraph_checkpoint": checkpoint_state,
+        "policy_result": policy_result,
+        "engineering_tracer": engineering_tracer,
+        "presentation_observer": observer,
+        "workflow_coherence": observer.coherence_envelope,
+        "run_outcome_capsule": observer.outcome_capsule,
     }
 
 

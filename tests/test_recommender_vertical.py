@@ -11,28 +11,44 @@ Tests:
 """
 
 import math
-
 import numpy as np
+import pytest
 
-from start.recommender.data import (
-    sample_negative_items,
-    split_recommender_dataset,
-    validate_recommender_dataset,
+from start.recommender.contracts import (
+    ExplicitFeedbackData,
+    ImplicitFeedbackData,
+    ContextualFeedbackData,
+    SplitProtocol,
 )
 from start.recommender.fixtures import DATASET_A, DATASET_B, DATASET_C, to_dataframe
+from start.recommender.data import (
+    validate_recommender_dataset,
+    profile_recommender_dataset,
+    split_recommender_dataset,
+    sample_negative_items,
+)
 from start.recommender.metrics import (
-    compute_mrr,
-    compute_ndcg_at_k,
-    compute_precision_at_k,
     compute_rating_metrics,
+    compute_ndcg_at_k,
     compute_recall_at_k,
+    compute_precision_at_k,
+    compute_mrr,
+    compute_ranking_metrics,
+    compute_beyond_accuracy_metrics,
+    compute_cold_start_metrics,
 )
 from start.recommender.models import (
-    FactorizationMachineModel,
     MatrixFactorizationModel,
     NeuralCollaborativeFilteringModel,
+    FactorizationMachineModel,
+)
+from start.recommender.sensitivity import (
+    run_mf_sensitivity,
+    run_ncf_sensitivity,
+    evaluate_recommender_sensitivity,
 )
 from start.runtime.execution import CanonicalExecutionService
+from start.runtime.workflows import resolve_workflow
 
 
 class TestRecommenderMetrics:

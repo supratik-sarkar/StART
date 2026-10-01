@@ -52,8 +52,6 @@ from start.portfolio import (
     validate_horizon_alignment,
 )
 
-pytestmark = pytest.mark.release
-
 
 # =========================================================================== #
 # FIXTURES

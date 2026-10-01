@@ -21,6 +21,10 @@ from start.modeling.deep_learning import resolve_torch_device
 from start.modeling.sequence_models import SEQUENCE_FAMILIES, build_sequence_network
 
 
+class SequenceInputContractError(ValueError):
+    """Raised when sequence models receive non-sequential data (e.g. rank-2 tabular input) or degenerate timesteps."""
+
+
 class SequenceClassifier:
     """sklearn-style recurrent classifier for sequence binary classification."""
 
@@ -63,7 +67,7 @@ class SequenceClassifier:
         self.class_weight = class_weight
         self.task = task
         self.cost_specification = cost_specification or {"type": "balanced"}
-        self._net = None
+        self._net: Any = None
         self._device_used = "cpu"
         self.classes_ = np.array([0, 1])
         self.history_: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
@@ -103,12 +107,23 @@ class SequenceClassifier:
         torch.manual_seed(self.random_state)
         np.random.seed(self.random_state)
         X = np.asarray(X, dtype=np.float32)
-        if X.ndim == 2:
-            X = X[:, np.newaxis, :]
+        if X.ndim != 3:
+            raise SequenceInputContractError(
+                f"Sequence model family '{self.family}' requires rank-3 input (samples, timesteps, features), "
+                f"got ndim={X.ndim} with shape {X.shape}. Ordinary rank-2 tabular data is not supported."
+            )
+        if X.shape[1] <= 1:
+            raise SequenceInputContractError(
+                f"Sequence model family '{self.family}' requires timesteps > 1 for temporal modeling, "
+                f"got timesteps={X.shape[1]} (shape {X.shape}). Degenerate length-1 sequences are rejected."
+            )
+        if not np.all(np.isfinite(X)):
+            raise ValueError(f"Sequence input contains non-finite values (NaN or Inf). Shape: {X.shape}")
 
         classes = np.unique(y)
         self.classes_ = classes
 
+        y_arr: Any
         if self.task == "multiclass_classification":
             self.n_outputs_ = len(classes)
             mapping = {c: i for i, c in enumerate(classes)}
@@ -132,6 +147,7 @@ class SequenceClassifier:
         has_val = n_val > 0
 
         Xt = torch.tensor(X)
+        loss_fn: Any
         if self.task == "multiclass_classification":
             yt = torch.tensor(y_arr, dtype=torch.long)
         else:
@@ -225,8 +241,17 @@ class SequenceClassifier:
         if self._net is None:
             raise RuntimeError("Not fitted; call fit() first.")
         X = np.asarray(X, dtype=np.float32)
-        if X.ndim == 2:
-            X = X[:, np.newaxis, :]
+        if X.ndim != 3:
+            raise SequenceInputContractError(
+                f"Sequence model family '{self.family}' requires rank-3 input (samples, timesteps, features), "
+                f"got ndim={X.ndim} with shape {X.shape}."
+            )
+        if X.shape[1] <= 1:
+            raise SequenceInputContractError(
+                f"Sequence model family '{self.family}' requires timesteps > 1, got timesteps={X.shape[1]}."
+            )
+        if not np.all(np.isfinite(X)):
+            raise ValueError(f"Sequence input contains non-finite values (NaN or Inf). Shape: {X.shape}")
         device = torch.device(self._device_used)
         self._net.eval()
         with torch.no_grad():
@@ -311,9 +336,19 @@ def sequence_saliency(
     model._net.eval()
     out = model._net(x).sum()
     out.backward()
+    if x.grad is None:
+        raise RuntimeError("Sequence saliency backward pass produced no input gradient.")
     grads = x.grad.abs().detach().cpu().numpy()  # (n, timesteps, features)
+    timestep_feature = grads.mean(axis=0)
     return {
         "method": "gradient_saliency",
+        "algorithm": "INPUT_GRADIENT",
+        "display_name": "Temporal Input-Gradient Saliency",
+        "aggregation": "mean absolute input gradient across sampled sequences",
+        "attributed_output": "sum of model outputs over sampled sequences",
+        "n_samples": int(len(idx)),
+        "sample_indices": [int(i) for i in idx],
+        "per_timestep_feature": timestep_feature.round(6).tolist(),
         "per_timestep": grads.mean(axis=(0, 2)).round(6).tolist(),
         "per_feature": grads.mean(axis=(0, 1)).round(6).tolist(),
         "most_salient_timestep": int(grads.mean(axis=(0, 2)).argmax()),

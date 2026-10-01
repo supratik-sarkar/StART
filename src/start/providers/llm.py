@@ -27,6 +27,7 @@ PROVIDER_DISPLAY_NAMES = {
     "deepseek": "DeepSeek",
     "grok": "Grok",
     "enterprise_llm_gateway": "Enterprise LLM Gateway",
+    "offline_demo_twin": "offline_demo_twin",
     "none": "None",
 }
 
@@ -737,6 +738,12 @@ _PROVIDERS: dict[str, type[LLMProvider]] = {
 }
 
 
+def _offline_demo_twin_type() -> type[LLMProvider]:
+    from start.providers.offline_demo_twin import OfflineDemoTwinProvider
+
+    return OfflineDemoTwinProvider
+
+
 def get_llm_provider(config: LLMConfig, expected_domain: str | None = None) -> LLMProvider:
     """Resolve a provider, enforcing trust-domain separation and runtime profile egress containment.
 
@@ -784,7 +791,11 @@ def get_llm_provider(config: LLMConfig, expected_domain: str | None = None) -> L
             return NoLLMProvider()
         return provider_inst
 
-    cls = _PROVIDERS.get(config.provider, NoLLMProvider)
+    cls = (
+        _offline_demo_twin_type()
+        if config.provider == "offline_demo_twin"
+        else _PROVIDERS.get(config.provider, NoLLMProvider)
+    )
     known_models = {"openai", "anthropic", "grok", "gemini", "deepseek", "huggingface", "hf_local"}
     try:
         if config.model and config.provider in known_models:

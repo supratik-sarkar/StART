@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 200" width="900" height="200">
+  <defs>
+    <style>
+      .node { fill: #f0f4f8; stroke: #cbd5e1; stroke-width: 2; rx: 8; ry: 8; }
+      .text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #334155; text-anchor: middle; font-weight: 500; }
+      .text-small { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; fill: #64748b; text-anchor: middle; }
+      .arrow { stroke: #94a3b8; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-dashed { stroke: #94a3b8; stroke-width: 2; fill: none; stroke-dasharray: 4 4; marker-end: url(#arrowhead); }
+      .engine-node { fill: #e0f2fe; stroke: #7dd3fc; }
+      .evidence-node { fill: #f1f5f9; stroke: #cbd5e1; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <!-- Top row: Primary Flow -->
+  <rect x="20" y="40" width="100" height="40" class="node" />
+  <text x="70" y="64" class="text">Developer</text>
+  
+  <path d="M 120 60 L 145 60" class="arrow" />
+  
+  <rect x="150" y="40" width="100" height="40" class="node" />
+  <text x="200" y="64" class="text">LangGraph</text>
+  
+  <path d="M 250 60 L 275 60" class="arrow" />
+  
+  <rect x="280" y="40" width="100" height="40" class="node" />
+  <text x="330" y="64" class="text">Agents</text>
+  
+  <path d="M 380 60 L 405 60" class="arrow" />
+  
+  <rect x="410" y="40" width="110" height="40" class="node" />
+  <text x="465" y="58" class="text">NeMo Guardrails</text>
+  <text x="465" y="72" class="text-small">(Optional)</text>
+  
+  <path d="M 520 60 L 545 60" class="arrow" />
+  
+  <rect x="550" y="40" width="120" height="40" class="node engine-node" />
+  <text x="610" y="58" class="text">Scientific Engines</text>
+  <text x="610" y="72" class="text-small">Deterministic</text>
+  
+  <path d="M 670 60 L 695 60" class="arrow" />
+  
+  <rect x="700" y="40" width="160" height="40" class="node evidence-node" />
+  <text x="780" y="58" class="text">EvidenceRecords</text>
+  <text x="780" y="72" class="text-small">OPA &amp; OpenTelemetry</text>
+
+  <!-- Bottom row: Evidence Lineage -->
+  <path d="M 610 80 L 610 130" class="arrow-dashed" />
+  <path d="M 780 80 L 780 130" class="arrow-dashed" />
+  
+  <rect x="150" y="130" width="710" height="40" class="node evidence-node" />
+  
+  <text x="220" y="154" class="text">Hash-Chain Ledger</text>
+  <path d="M 280 150 L 310 150" class="arrow" />
+  
+  <text x="375" y="154" class="text">Cryptographic Linkage</text>
+  <path d="M 440 150 L 470 150" class="arrow" />
+  
+  <text x="535" y="154" class="text">Merkle Attestation</text>
+  <path d="M 600 150 L 630 150" class="arrow" />
+  
+  <text x="695" y="154" class="text">Reproducibility</text>
+  
+  <!-- Observability branch -->
+  <path d="M 200 40 L 200 20 L 850 20 L 850 40" class="arrow-dashed" />
+  <rect x="475" y="5" width="100" height="30" class="node" style="fill:#ffffff;" />
+  <text x="525" y="24" class="text-small">LangSmith Trace</text>
+</svg>

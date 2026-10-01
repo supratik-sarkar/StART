@@ -65,8 +65,6 @@ from start.portfolio import (
     walk_forward_to_evidence,
 )
 
-pytestmark = pytest.mark.release
-
 
 @pytest.fixture
 def audit_market_data():

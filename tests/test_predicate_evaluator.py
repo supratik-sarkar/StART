@@ -6,9 +6,9 @@
 """
 
 import pytest
-
 from start.closure.predicate_evaluator import (
     RecursivePredicateEvaluator,
+    GateEvaluationSummary,
 )
 
 

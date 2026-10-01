@@ -74,6 +74,40 @@ def recommend_feature_engineering(
         i += 1
         return f"{evidence_prefix}-{i:02d}"
 
+    if modality == "temporal_sequence":
+        # The DataFrame is only a review/provenance envelope on this route.
+        # Never recommend encodings or column deletion against sequence_id,
+        # timestep metadata, or other non-predictive fields.
+        recs.extend(
+            [
+                FERecommendation(
+                    step="sequence_length_contract",
+                    recommendation="Preserve the fixed rank-3 (N,T,F) sequence-length contract.",
+                    reason="The registered recurrent model consumes fixed-length independent sequences.",
+                    evidence_id=ev(),
+                    risk_if_ignored="Shape drift can invalidate the recurrent input contract.",
+                    default_action="validate_fixed_length",
+                ),
+                FERecommendation(
+                    step="missing_value_policy",
+                    recommendation="Reject non-finite tensor values before model fitting.",
+                    reason="The sequence engine enforces finite rank-3 inputs.",
+                    evidence_id=ev(),
+                    risk_if_ignored="NaN or infinite values make optimization invalid.",
+                    default_action="fail_on_non_finite",
+                ),
+                FERecommendation(
+                    step="tensor_feature_selection",
+                    recommendation="Keep the registered tensor feature set unchanged.",
+                    reason="No sequence-native feature-selection transform is configured for this run.",
+                    evidence_id=ev(),
+                    risk_if_ignored="A metadata-derived column decision could create phantom preprocessing.",
+                    default_action="no_transform",
+                ),
+            ]
+        )
+        return FERecommendationSet(recommendations=recs)
+
     # missing-value imputation
     cols_missing = {k: v for k, v in stats.missing_by_column.items() if v > 0}
     if cols_missing:
@@ -122,7 +156,7 @@ def recommend_feature_engineering(
 
     # outlier handling
     if stats.outlier_summary:
-        worst_col = max(stats.outlier_summary, key=stats.outlier_summary.get)
+        worst_col = max(stats.outlier_summary, key=lambda column: stats.outlier_summary[column])
         recs.append(
             FERecommendation(
                 step="outliers",

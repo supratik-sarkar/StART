@@ -612,7 +612,7 @@ def test_twin_challenge_verified_single_attempt(monkeypatch):
 
 
 def test_twin_question_repair_failure_fallback_deterministic(monkeypatch):
-    """Branch 7: [Q]uestion -> repair fails -> user chooses 1 (fallback deterministic)."""
+    """Evidence-only fallback is available only at its registered synthesis checkpoint."""
 
     class StubbornProvider:
         name = "openai"
@@ -631,16 +631,22 @@ def test_twin_question_repair_failure_fallback_deterministic(monkeypatch):
         ),
     )
 
-    prompts = ["Q", "Assess risk", "1", "A", "A", "A", "A"]  # 1 = continue deterministically
+    prompts = ["A", "A", "A", "A", "A", "Q", "Assess synthesis", "1", "A"]
     prompt_iter = iter(prompts)
 
     decisions = run_domain_checkpoints(bundle, [], interactive=True, ask=lambda _: next(prompt_iter))
-    assert decisions[0]["backend"] == "fallback"
-    assert "Deterministic fallback" in decisions[0]["response"]
+    synthesis = next(
+        decision
+        for decision in decisions
+        if decision["checkpoint"] == "Cross-Analytical Committee Synthesis"
+    )
+    assert synthesis["backend"] == "fallback"
+    assert synthesis["degradation_policy_applied"] == "ALLOW_EVIDENCE_ONLY_DEGRADATION"
+    assert synthesis["response"] == "Agent interpretation unavailable — deterministic evidence retained."
 
 
 def test_twin_question_repair_failure_abort(monkeypatch):
-    """Branch 8: [Q]uestion -> repair fails -> user chooses 2 (Abort review)."""
+    """An allowed evidence-only fallback still honors the human abort choice."""
 
     class StubbornProvider:
         name = "openai"
@@ -659,7 +665,7 @@ def test_twin_question_repair_failure_abort(monkeypatch):
         ),
     )
 
-    prompts = ["Q", "Assess risk", "2"]  # 2 = abort
+    prompts = ["A", "A", "A", "A", "A", "Q", "Assess synthesis", "2"]
     prompt_iter = iter(prompts)
 
     with pytest.raises(ReviewCancelled, match="Review aborted due to ungrounded claims"):

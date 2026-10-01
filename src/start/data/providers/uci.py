@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
-
+import io
+import urllib.request
+from typing import Any, Iterator
 import pandas as pd
 
 from start.data.providers.base import DatasetProviderAdapter

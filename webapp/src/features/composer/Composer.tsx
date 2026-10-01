@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight, CheckCircle, Database, Globe, FileText } from 'lucide-react'
 import type { AgentPlanPreview, Capability, ExecutionContext, ExecutionMode, ScenarioItem, StARTCapabilityManifest, WorkflowId } from '../../contracts/types'
 import { DataValue } from '../investigation/Science'
@@ -47,6 +47,23 @@ export function Composer(p: {
   const [report, setReport] = useState<any>(null)
   const [liveBusy, setLiveBusy] = useState<string | null>(null)
   const [liveError, setLiveError] = useState<string | null>(null)
+  const [providerRegistry, setProviderRegistry] = useState<Record<string, {runnable:boolean; reason_if_unavailable?:string | null}> | null>(null)
+  const [providerRegistryError, setProviderRegistryError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (hubTab !== 'live') return
+    let current = true
+    liveRequest('/data/providers').then(data => {
+      if (!current) return
+      setProviderRegistry(Object.fromEntries((Array.isArray(data.providers) ? data.providers : []).map((row:any) => [String(row.provider_id), {runnable:row.runnable===true,reason_if_unavailable:row.reason_if_unavailable}])))
+      setProviderRegistryError(null)
+    }).catch(() => {
+      if (current) {setProviderRegistry(null);setProviderRegistryError('Provider availability could not be verified. Remote execution is unavailable.')}
+    })
+    return () => {current = false}
+  }, [hubTab])
+  const providerStatus = providerRegistry?.[provider]
+  const providerRunnable = providerStatus?.runnable === true
 
   // Local file controls state
   const [localPath, setLocalPath] = useState('data/credit_risk.csv')
@@ -82,7 +99,7 @@ export function Composer(p: {
   }
 
   const handleResolveLive = async () => {
-    if (!datasetId.trim()) return
+    if (!datasetId.trim() || !providerRunnable) return
     setLiveBusy('Resolving remote dataset contract...')
     setLiveError(null)
     try {
@@ -105,7 +122,7 @@ export function Composer(p: {
   }
 
   const handlePrecertifyLive = async () => {
-    if (!datasetId.trim()) return
+    if (!datasetId.trim() || !providerRunnable) return
     setLiveBusy('Evaluating pre-certification checks...')
     setLiveError(null)
     try {
@@ -128,6 +145,7 @@ export function Composer(p: {
   }
 
   const handleSelectLiveForExecution = () => {
+    if (!providerRunnable) return
     const chosenId = datasetId.trim()
     p.setContext(chosenId)
     p.onParametersChange?.({
@@ -307,12 +325,17 @@ export function Composer(p: {
                       key={pr}
                       type="button"
                       className={provider === pr ? 'primary' : 'tonal'}
+                      disabled={providerRegistry?.[pr]?.runnable !== true}
+                      title={providerRegistry?.[pr]?.runnable === false ? providerRegistry[pr].reason_if_unavailable ?? 'Provider unavailable' : undefined}
                       onClick={() => setProviderAndPreset(pr)}
                     >
                       {pr === 'huggingface' ? 'Hugging Face' : pr.toUpperCase()}
                     </button>
                   ))}
                 </div>
+                {providerRegistryError && <p className="attention-note" role="status">{providerRegistryError}</p>}
+                {providerRegistry && !providerRunnable && <p className="attention-note" role="status">{providerStatus?.reason_if_unavailable ?? 'This provider is unavailable in the current backend.'}</p>}
+                {providerRegistry && Object.entries(providerRegistry).filter(([,status]) => !status.runnable).map(([id,status]) => <p className="field-help" key={id}>{id.toUpperCase()} unavailable: {status.reason_if_unavailable ?? 'No reason supplied by the backend.'}</p>)}
                 <div className="configuration-fields">
                   <label className="stacked-label">
                     Dataset identifier
@@ -343,7 +366,7 @@ export function Composer(p: {
                   <button
                     type="button"
                     className="tonal"
-                    disabled={!!liveBusy || !datasetId.trim()}
+                    disabled={!!liveBusy || !datasetId.trim() || !providerRunnable}
                     onClick={handleResolveLive}
                   >
                     Resolve dataset
@@ -351,7 +374,7 @@ export function Composer(p: {
                   <button
                     type="button"
                     className="tonal"
-                    disabled={!!liveBusy || !datasetId.trim()}
+                    disabled={!!liveBusy || !datasetId.trim() || !providerRunnable}
                     onClick={handlePrecertifyLive}
                   >
                     Run pre-certification
@@ -359,7 +382,7 @@ export function Composer(p: {
                   <button
                     type="button"
                     className="primary"
-                    disabled={!datasetId.trim()}
+                    disabled={!datasetId.trim() || !providerRunnable}
                     onClick={handleSelectLiveForExecution}
                   >
                     Use for Execution

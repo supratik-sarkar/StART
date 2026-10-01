@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import Span, StatusCode
@@ -124,6 +124,16 @@ def sanitize_trace_value(val: Any, key: str = "") -> Any:
     return s
 
 
+def _span_id_hex(span: Span | ReadableSpan) -> str:
+    ctx = span.get_span_context()
+    return f"{ctx.span_id:016x}" if ctx is not None else "0" * 16
+
+
+def _trace_id_hex(span: Span | ReadableSpan) -> str:
+    ctx = span.get_span_context()
+    return f"{ctx.trace_id:032x}" if ctx is not None else "0" * 32
+
+
 @dataclass
 class TraceRecord:
     """Serializable, schema-compliant trace record for JSONL export."""
@@ -187,35 +197,57 @@ class EngineeringTracer:
 
         t0 = time.time()
         self._span_stack.append(span)
+        status_str = "ERROR: span did not complete"
+        active_error: BaseException | None = None
         try:
             yield span
             span.set_status(StatusCode.OK)
             status_str = "OK"
-        except Exception as exc:
+        except BaseException as exc:
+            # Cancellation, GeneratorExit, KeyboardInterrupt, and SystemExit are
+            # exceptional span outcomes too.  Record them, but always preserve
+            # the original exception identity and traceback.
+            active_error = exc
+            status_str = f"ERROR: {type(exc).__name__}: {exc}"
             span.set_status(StatusCode.ERROR, description=str(exc))
-            status_str = f"ERROR: {exc}"
             raise
         finally:
             t1 = time.time()
-            span.end()
-            self._span_stack.pop()
+            try:
+                span.end()
+                self._span_stack.pop()
 
-            # Record serializable trace entry
-            s_ctx = span.get_span_context()
-            p_span_id = f"{parent_span.get_span_context().span_id:016x}" if parent_span else None
-            record = TraceRecord(
-                trace_id=f"{s_ctx.trace_id:032x}" if s_ctx.trace_id else self._trace_id_str,
-                span_id=f"{s_ctx.span_id:016x}",
-                parent_span_id=p_span_id,
-                name=name,
-                start_time=t0,
-                end_time=t1,
-                duration_ms=round((t1 - t0) * 1000, 2),
-                status=status_str,
-                run_id=self.run_id,
-                attributes=clean_attrs,
-            )
-            self._records.append(record)
+                # Record serializable trace entry.  Defensive context checks keep
+                # telemetry finalization from hiding the exception being traced.
+                s_ctx = span.get_span_context()
+                parent_ctx = parent_span.get_span_context() if parent_span else None
+                p_span_id = (
+                    f"{parent_ctx.span_id:016x}"
+                    if parent_ctx is not None and parent_ctx.span_id
+                    else None
+                )
+                trace_id = (
+                    f"{s_ctx.trace_id:032x}"
+                    if s_ctx is not None and s_ctx.trace_id
+                    else self._trace_id_str
+                )
+                span_id = f"{s_ctx.span_id:016x}" if s_ctx is not None else "0" * 16
+                record = TraceRecord(
+                    trace_id=trace_id,
+                    span_id=span_id,
+                    parent_span_id=p_span_id,
+                    name=name,
+                    start_time=t0,
+                    end_time=t1,
+                    duration_ms=round((t1 - t0) * 1000, 2),
+                    status=status_str,
+                    run_id=self.run_id,
+                    attributes=clean_attrs,
+                )
+                self._records.append(record)
+            except BaseException:
+                if active_error is None:
+                    raise
 
     def get_records(self) -> list[TraceRecord]:
         """Return all recorded trace spans in chronological order."""
@@ -249,8 +281,8 @@ class EngineeringTracer:
                                 "spans": [
                                     {
                                         "name": s.name,
-                                        "spanId": f"{s.get_span_context().span_id:016x}",
-                                        "traceId": f"{s.get_span_context().trace_id:032x}",
+                                        "spanId": _span_id_hex(s),
+                                        "traceId": _trace_id_hex(s),
                                         "parentSpanId": f"{s.parent.span_id:016x}" if s.parent else "",
                                         "status": {"code": s.status.status_code.name},
                                         "attributes": [
@@ -313,7 +345,16 @@ class PolicyAdapter:
     ) -> PolicyEvaluationResult:
         """Evaluate governance attestation policy and emit decision ID referencing evidence."""
         dec_id = f"POL-DEC-{uuid.uuid4().hex[:8]}"
-        fp = hashlib.sha256(f"{run_id}:{disposition}:{len(evidence_ids)}".encode()).hexdigest()[:16]
+        policy_input = {
+            "run_id": run_id,
+            "evidence_ids": sorted(evidence_ids),
+            "committee_disposition": disposition,
+            "n_ungrounded_claims": int(ungrounded_claims),
+            "n_validation_failures": int(validation_failures),
+        }
+        fp = hashlib.sha256(
+            json.dumps(policy_input, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()[:16]
 
         if self.opa_plane:
             # Authentic OPA evaluation
@@ -334,14 +375,31 @@ class PolicyAdapter:
                 engine="OPA_LOCAL",
             )
         else:
-            # Native policy fallback
-            allow = (ungrounded_claims == 0 and disposition in ("ACCEPT", "ACCEPT_WITH_CONDITIONS") and validation_failures == 0)
+            # Native policy fallback mirrors start.governance.attestation_rules.
+            valid_dispositions = {
+                "ACCEPT",
+                "ACCEPT_WITH_CONDITIONS",
+                "REMEDIATION_REQUIRED",
+            }
+            allow = (
+                ungrounded_claims == 0
+                and disposition in valid_dispositions
+                and not (validation_failures > 0 and disposition == "ACCEPT")
+            )
             return PolicyEvaluationResult(
                 decision_id=dec_id,
                 policy_package="start.governance.attestation_rules",
-                rule_name="allow_governance_attestation" if allow else "deny_validation_failure",
+                rule_name=(
+                    "allow_governance_attestation"
+                    if allow
+                    else "deny_ungrounded_or_invalid_unconditional_accept"
+                ),
                 decision="ALLOW" if allow else "DENY",
-                reason="Governance attestation criteria satisfied." if allow else "Governance validation criteria not met.",
+                reason=(
+                    f"Governance attestation criteria satisfied (disposition: {disposition})."
+                    if allow
+                    else "Governance attestation denied: ungrounded claims or invalid unconditional accept."
+                ),
                 evidence_ids=evidence_ids,
                 input_fingerprint=fp,
                 engine="NATIVE_ADAPTER",
@@ -371,6 +429,17 @@ class TerminalEngineeringRenderer:
         trace_mode: str = "engineering",
     ) -> str:
         """Format and return complete engineering trace panel output."""
+        from start import __version__
+
+        rows = dataset_contract.get("rows")
+        features = dataset_contract.get("features")
+        if rows is not None and features is not None:
+            shape = f"{rows} rows x {features} features"
+        else:
+            shape = str(
+                dataset_contract.get("shape_descriptor")
+                or "N/A (structured quantitative-finance context)"
+            )
         lines = [
             "================================================================================",
             f" [StART ENGINEERING TRACE] -- Mode: {trace_mode.upper()} | Run: {run_id}",
@@ -380,7 +449,7 @@ class TerminalEngineeringRenderer:
             f" Provider:         {dataset_contract.get('provider', 'local')}",
             f" Dataset ID / Rev: {dataset_contract.get('dataset_id', 'unknown')} (rev: {dataset_contract.get('revision', '1.0')})",
             f" Target Column:    {dataset_contract.get('target_column', 'target')}",
-            f" Shape:            {dataset_contract.get('rows', 0)} rows x {dataset_contract.get('features', 0)} features",
+            f" Shape:            {shape}",
             f" Fingerprint:      {dataset_contract.get('fingerprint', 'sha256:verified')}",
             f" Precertification: {dataset_contract.get('precertification', 'PASSED_CLEAN')}",
             "",
@@ -414,13 +483,14 @@ class TerminalEngineeringRenderer:
             f" Decision:         {governance_policy.get('decision', 'ALLOW')}",
             f" Decision ID:      {governance_policy.get('decision_id', 'POL-DEC-00000000')}",
             f" Policy Rule:      {governance_policy.get('policy_package', 'start.governance.attestation_rules')}",
-            f" Engine:           {governance_policy.get('engine', 'OPA_LOCAL')}",
+            f" Engine:           {governance_policy.get('engine', 'NOT_EVALUATED')}",
             f" Evidence Bound:   {len(governance_policy.get('evidence_ids', []))} EvidenceRecords referenced",
             "",
             "--- 7. REPRODUCIBILITY CAPSULE -------------------------------------------------",
             f" Run ID:           {run_id}",
             f" Seed:             {reproducibility.get('seed', 42)}",
-            f" Runtime:          Python {sys.version.split()[0]} | StART 2.0-Enterprise",
+            f" Runtime:          Python {sys.version.split()[0]} | StART version {__version__}",
+            " Edition / Profile: Enterprise deterministic engineering profile",
             f" Merkle Root:      {reproducibility.get('merkle_root', 'start-seal/3:verified')}",
             f" Replay Readiness: {reproducibility.get('replay_readiness', 'SELF_CONTAINED_CAPSULE_COMMITTED')}",
             "",

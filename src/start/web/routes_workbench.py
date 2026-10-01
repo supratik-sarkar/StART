@@ -30,7 +30,7 @@ from start.runtime import (
     get_canonical_workflow_specs,
     resolve_workflow,
 )
-from start.runtime.scenarios import compute_scenario_eda, list_scenarios
+from start.runtime.scenarios import compute_scenario_eda, get_scenario, list_scenarios
 from start.web.queue import GLOBAL_QUEUE, ActiveRunContext
 from start.web.schemas import RunRequest
 
@@ -434,7 +434,7 @@ def get_capability_manifest() -> dict[str, Any]:
     Exposes real execution modes, supported models, preprocessing options, tuning strategies,
     sensitivity grids, recommender algorithms, deep learning architectures, and explicit deferred items.
     """
-    from start.modeling.models import MODEL_CHOICES
+    from start.modeling.models import MODEL_CHOICES, HYPERPARAM_SPACES
     from start.providers.keys import ensure_provider_key
 
     key_status = ensure_provider_key("openai", interactive=False)
@@ -1493,7 +1493,6 @@ def ask_evidence_question(
     """Answer evidence-grounded questions using genuine EvidenceRecords and the OpenAI provider."""
     import os
     import re
-
     from start.core.config import LLMConfig, load_config
     from start.providers.keys import ensure_provider_key
     from start.providers.llm import get_llm_provider

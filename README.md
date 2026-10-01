@@ -1,14 +1,54 @@
 # StART — Standardized Agentic Reusable Tests
 
-**Release: v6.0.1** | **Python: >= 3.12.13** | **License: Apache-2.0**
+### Evidence-Native Model Development and Review
 
-StART is an **evidence-native model dev/review, risk management, and governance platform** designed for institutional machine learning, deep learning, and quantitative finance.
+[![Release](https://img.shields.io/badge/release-v6.0.2-blue?style=flat)](https://github.com/supratik-sarkar/StART/releases/tag/v6.0.2)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green?style=flat)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12+-blue?style=flat)](pyproject.toml)
+[![CI](https://img.shields.io/github/actions/workflow/status/supratik-sarkar/StART/core-ci.yml?branch=main&label=CI&style=flat)](https://github.com/supratik-sarkar/StART/actions/workflows/core-ci.yml)
+[![Frontend](https://img.shields.io/badge/frontend-React_18_%7C_TypeScript-61dafb?style=flat&logo=react&logoColor=black)](webapp/)
+[![Architecture](https://img.shields.io/badge/architecture-evidence--native-purple?style=flat)](#architectural-invariant--orchestration)
+[![Governance](https://img.shields.io/badge/governance-OPA-blueviolet?style=flat&logo=open-policy-agent&logoColor=white)](src/start/certification/policies.py)
+[![Observability](https://img.shields.io/badge/observability-OpenTelemetry-orange?style=flat&logo=opentelemetry&logoColor=white)](src/start/telemetry/engineering_trace.py)
+[![X](https://img.shields.io/badge/X-%40SupratikSarkar__-000000?style=flat&logo=x&logoColor=white)](https://x.com/SupratikSarkar_)
 
-Unlike conventional LLM-based assistants that perform hallucination-prone arithmetic, StART enforces a strict architectural invariant: **AI agents reason and orchestrate, while deterministic mathematical engines perform all computations**. Every diagnostic produces an immutable, cryptographically signed `EvidenceRecord`, which is appended to a replayable hash-chained ledger and sealed into a Merkle tree attestation.
+**LangGraph orchestrates. Agents reason. Deterministic engines calculate. EvidenceRecords prove. OPA governs. OpenTelemetry observes.**
+
+---
+
+## Demonstration
+
+[![StART Terminal & Artifact Board Demonstration](docs/media/start-demo-poster.png)](#demonstration)
+
+*Interactive dual-pane demonstration featuring live terminal observability, real-time deterministic calculations, and dynamic artifact board.*
+
+[Explore the Web Workbench →](#web-workbench)
+
+---
+
+StART is an evidence-native development and review workbench in which agents contribute reasoning while deterministic engines retain quantitative authority. Evidence, human challenge, grounding, governance, policy, and attestation remain inspectable throughout the run.
+
+---
+
+## Generalized Review Workflow
+
+```mermaid
+flowchart LR
+    In["INPUT"] --> Obj["OBJECTIVE"]
+    Obj --> Plan["CAPABILITY PLAN"]
+    Plan --> Dec["AGENT / HUMAN DECISION"]
+    Dec --> Exec["DETERMINISTIC EXECUTION"]
+    Exec --> Ev["EVIDENCERECORD"]
+    Ev --> Ground["GROUNDING"]
+    Ground --> Gov["GOVERNANCE / POLICY"]
+    Gov --> Out["OUTCOME / ATTESTATION"]
+```
 
 ---
 
 ## Architectural Invariant & Orchestration
+
+Unlike conversational LLM tools where arithmetic and statistical outputs risk model hallucination, StART establishes an unyielding boundary: **AI agents reason and propose, while deterministic mathematical engines perform all computations**.
 
 ```mermaid
 flowchart TD
@@ -31,185 +71,97 @@ flowchart TD
     Gov -.-> Observability
 ```
 
-> **Core System Tenet**:
-> * **LangGraph** orchestrates.
-> * **Agents** reason.
-> * **Deterministic engines** calculate.
-> * **EvidenceRecords** prove.
-> * **OPA** governs.
-> * **OpenTelemetry** observes.
+---
+
+## Key Product Capabilities
+
+* **Numerical Authority & Zero Hallucination**: Deterministic calculation engines establish quantitative truth. Language models are structurally barred from generating numbers or claiming mathematical authority.
+* **Cryptographic EvidenceRecords**: Every diagnostic metric, table, and figure is sealed into an immutable `EvidenceRecord` containing SHA-256 fingerprints, execution node lineage, and verification criteria.
+* **Separation of Grounding, Governance, and Policy**:
+  - **Grounding** verifies whether natural language claims match recorded evidence metrics.
+  - **Governance** tracks institutional dispositions (`ACCEPT`, `ACCEPT_WITH_CONDITIONS`, `CHALLENGED_PENDING_REVIEW`).
+  - **OPA Policy** evaluates fail-closed machine rules (`ALLOW` / `DENY`). A policy `ALLOW` is never conflated with model approval.
+* **Human Challenge & Lineage**: Reviewers can challenge findings and record structured decisions. Challenges append immutable decision receipts, update governance state, and branch into traceable child reviews without mutating historical runs.
+* **Cryptographic Attestation**: The append-only evidence ledger resolves to a Merkle tree root hash signed upon run finalization, guaranteeing end-to-end auditability.
+* **Multi-Domain Scientific Coverage**:
+  - **Predictive ML**: Data integrity, feature drift (PSI), ROC/AUC discrimination, Brier score calibration, and perturbation robustness.
+  - **Deep Learning**: Temporal sequence classification, architecture diagnostics, training dynamics, and temporal input-gradient saliency.
+  - **Quantitative Finance**: Traded risk, portfolio construction (HRP, MVO), covariance matrix conditioning, VaR exception backtesting (Kupiec, Christoffersen), and reverse stress testing.
+  - **Recommender Systems**: Ranking evaluation (NDCG@K), interaction sparsity, and coverage metrics.
 
 ---
 
 ## Quick Start
 
-### 1. Installation & Environment Setup
+StART v6.0.2 is distributed from source.
+
+### 1. Installation
 
 ```bash
-# Clone repository
+# Clone the repository
 git clone https://github.com/supratik-sarkar/StART.git
 cd StART
 
-# Create and activate Python virtual environment (Python >= 3.12.13 required)
-python3.12 -m venv .venv-start
-source .venv-start/bin/activate
+# Create and activate a clean virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Install package with core and developer dependencies
-pip install -e ".[all]"
+# Upgrade pip and install StART from source
+python -m pip install --upgrade pip
+pip install .
 
-# Verify environment integrity
+# Verify CLI installation
+start --version
+start --help
+start review --help
+```
+
+> **Note**: v6.0.2 is installed from source. Package-registry distribution is intentionally deferred. Release verification was performed with Python 3.12.13 on macOS and Linux (Ubuntu 22.04 / 24.04).
+
+### 2. Deterministic CLI Reviews
+
+```bash
+# Run deterministic predictive ML review
+start review --domain predictive --mode deterministic
+
+# Run quantitative finance risk and portfolio review
+start review --domain market --mode deterministic
+
+# Check environment diagnostics and provider connectivity
 start doctor
 ```
 
-### 2. Run Deterministic Workflows
+---
+
+## Web Workbench
+
+StART includes a local browser-based engineering workbench (`webapp/`) with an offline demonstration twin requiring zero hosted model calls.
 
 ```bash
-# Run Predictive & Deep Learning development/review workflows
-start review --domain predictive --mode deterministic
-
-# Run Market & Portfolio analytical workflows
-start review --domain market --mode deterministic
-
-# Launch the local StART Web Workstation
-python -m uvicorn start.web.app:app --port 8000
-
-# Open http://localhost:8000 in a modern browser
+cd webapp
+npm install
+npm run dev
 ```
+
+Open `http://localhost:5173` to access:
+
+* **Task Composer & Dataset Hub**: Select workflows, inspect exploratory data profiles, select execution modes (Hybrid Workbench, Agentic Session, Deterministic Run), and review planned execution milestones before execution.
+* **Live Execution & Analytical Output**: Stream runtime events, inspect deterministic milestones, and examine generated SVG charts and data tables.
+* **Outcome Capsule**: Review the 13-point structured completion summary: Started with, Objective, Alternatives, Human decisions, Agent contribution, Deterministic execution, Evidence status breakdown, Grounding, Governance disposition, Policy result, Achieved result, Remaining conditions, and Merkle Attestation.
+* **Evidence Ledger & Failure Inspection**: Inspect full EvidenceRecords with canonical IDs, exact numerical metrics, and failure criteria. Failed records remain visibly and textually `FAIL`.
+* **Human Review & Challenge**: Record structured review actions (`ACCEPT`, `CHALLENGE`, `OVERRIDE`, `ESCALATE`) with rationales and persisted receipts.
+* **Run History & Comparison**: Compare distinct reviews with backend-supplied metric deltas. Same-run comparison is strictly prevented.
+* **Scientific Certification**: Inspect the independent scientific assurance matrix across verified capability dimensions.
 
 ---
 
-## Live Web Workstation
+## Platform Support
 
-The deployed interactive preview workstation is available at:
-**[https://start-mrt-gateway.sapman.workers.dev](https://start-mrt-gateway.sapman.workers.dev)**
-
-*Note: The deployed workstation serves as an interactive demonstration environment and preview. Because remote edge deployments may trail bleeding-edge backend releases, this repository remains the canonical authoritative source of truth.*
-
----
-
-## StART Institutional Workstation & Browser AI
-
-The **StART Institutional Workstation** delivers an evidence-native interface designed for ML/AI engineering, software/technology teams in financial institutions, model development, independent review, quantitative analysis, and risk/governance.
-
-* **Agentic Engineering Workspace Layout**:
-  - **Task-Oriented Composer**: Initiate workflows across Predictive ML, Deep Learning, Calibration, Robustness, Explainability, Hyperparameter Tuning, Model Comparison, Recommenders, and Quantitative Finance.
-  - **Live Execution & Findings**: Real-time structured progress tracking, runtime execution graphs, and evidence-grounded findings with contextual iterative actions (*Explain with AI*, *Challenge*, *Run deeper test*, *Compare candidates*, *Re-run*).
-  - **Interactive Evidence & Artifact Inspector**: Dynamic React Flow evidence decision graphs, interactive charts (ROC curves, calibration distributions, SHAP attributions, efficient frontiers), deterministic PDF reports, and provenance JSON.
-
-* **Client-Side WebLLM Reviewer (WebGPU Client Inference)**:
-  - Executes local small language models (pinned model: `SmolLM2-1.7B-Instruct-q4f16_1-MLC`) **directly inside the user's browser via WebGPU** without blocking deterministic engine execution.
-  - **Server-Side Hydration Protocol**: The browser LLM only cites Evidence IDs (`[EV-xxxx]`); the backend server rejects any client-supplied numbers, hydrates exact numerical metrics directly from immutable `EvidenceRecord`s, evaluates authentic **OPA** Rego policies, and generates the final Merkle attestation root.
-
----
-
-## Core Architecture Schematics
-
-### 1. End-to-End Review Orchestration Flow
-
-```mermaid
-flowchart TD
-    User["Portfolio / Model Specification"] --> Context["Review Context Bundle"]
-    Context --> StateGraph["LangGraph StateGraph Engine"]
-    StateGraph --> Specialist["Domain Specialist Agent"]
-    Specialist --> Engines["Deterministic Analytical Engines"]
-    Engines --> Ledger[("Cryptographic Evidence Ledger")]
-    Engines --> Artifacts["Vector SVG & Tabular Artifacts"]
-    Ledger --> StructRev["Structured Reviewer Graph"]
-    StructRev --> Critic["Evidence Critic & Grounding Gate"]
-    Critic --> Committee["Cross-Analytical Committee"]
-    Committee --> OPA["OPA Policy & Security Plane"]
-    OPA --> Seal["Merkle Root Attestation Seal"]
-    Seal --> UI["Terminal / Presentation Model / Dashboards"]
-```
-
-### 2. LangGraph StateGraph & Checkpoint Persistence Flow
-
-```mermaid
-stateDiagram-v2
-    [*] --> START
-    START --> PlanNode: Initialize TypedReviewState
-    PlanNode --> ExecuteToolsNode: Discover & Dispatch Tools
-    ExecuteToolsNode --> ReviewEvidenceNode: Commit EvidenceRecords
-    ExecuteToolsNode --> ErrorRecovery: Exception / Validation Gap
-    ErrorRecovery --> ExecuteToolsNode: Resume from Checkpoint (thread_id)
-    ReviewEvidenceNode --> GenerateArtifactsNode: Render SVG / Tables
-    GenerateArtifactsNode --> GovernanceSignoffNode: Committee Disposition
-    GovernanceSignoffNode --> END: Merkle Root Attestation Seal
-    END --> [*]
-```
-
-### 3. Open Policy Agent (OPA) Decision Boundary
-
-```mermaid
-flowchart LR
-    Action["Runtime Request\n(Tool / Egress / Export / Signoff)"] --> PolicyPlane["OPA Policy Plane\n(opa eval / In-Process Engine)"]
-    PolicyPlane --> RegoEgress["network_egress.rego"]
-    PolicyPlane --> RegoTools["tool_allowlist.rego"]
-    PolicyPlane --> RegoExport["artifact_export.rego"]
-    PolicyPlane --> RegoGov["attestation.rego"]
-
-    RegoEgress --> Decision{"Policy Decision"}
-    RegoTools --> Decision
-    RegoExport --> Decision
-    RegoGov --> Decision
-
-    Decision -- ALLOW --> Execute["Proceed with Execution"]
-    Decision -- DENY --> Block["Fail-Closed Security Block"]
-```
-
-### 4. OpenTelemetry Hierarchical Span Trace
-
-```mermaid
-flowchart TD
-    Run["review.run (Trace Root)"] --> Ckpt["review.checkpoint (Checkpoint Phase)"]
-    Ckpt --> Agent["agent.execution (Specialist Agent)"]
-    Agent --> Tool["tool.execution (Deterministic Tool)"]
-    Tool --> Ev["evidence.commit (Evidence Ledger Append)"]
-    Ev --> Art["artifact.generate (SVG/Table Render)"]
-    Art --> Pol["policy.evaluate (OPA Decision)"]
-    Pol --> Gov["governance.evaluate (Committee Review)"]
-    Gov --> Seal["attestation.seal (Merkle Seal Signature)"]
-```
-
-### 5. Evidence & Attestation Lineage
-
-```mermaid
-flowchart LR
-    DetResult["Deterministic Analytical Result"] --> EvRec["EvidenceRecord (SHA-256)"]
-    EvRec --> HashChain["Append-Only Ledger Block"]
-    HashChain --> CitRef["Reviewer Finding EvidenceMetricRef"]
-    CitRef --> GraphHash["Finding Graph Merkle Leaf"]
-    GraphHash --> MerkleRoot["Cryptographic Attestation Seal"]
-```
-
----
-
-## Key Technical Differentiators
-
-* **Deterministic Validation Surfaces**: Comprehensive coverage across Portfolio Construction (MVO, HRP, HERC, MDP, Black-Litterman, CVaR LP), Factor Modeling, Covariance Conditioning, VaR Exception Backtesting (Kupiec, Christoffersen), Scenario Stress Repricing, Short-Rate Calibration (Vasicek, CIR, Hull-White), Recommender Benchmarks, and PyTorch Tabular Deep Learning.
-* **Provider-Neutral Structured Reviewer Contract**: LLMs reason over citations (`[EV-xxxx]`), but are mathematically barred from performing numerical arithmetic or inventing values.
-* **Claim Grounding Verification**: Every numerical claim in the final review narrative is automatically validated against cited `EvidenceRecord` metrics before governance sign-off.
-* **Resumable LangGraph StateGraph Runtime**: Production-grade compiled `StateGraph[TypedReviewState]` with typed state, conditional routing, checkpointer persistence (`MemorySaver`), failure recovery, and zero duplicate evidence on resume.
-* **Open Policy Agent (OPA) Control Plane**: Strict fail-closed policy enforcement via authentic `.rego` policies for network egress, tool allowlists, agent permissions, artifact filtering, and attestation rules.
-* **OpenTelemetry Observability**: Hierarchical spans (`review.run` $\to$ `checkpoint` $\to$ `agent` $\to$ `tool` $\to$ `evidence` $\to$ `governance` $\to$ `attestation`) with automated secret and credential redaction.
-* **Hermetic Local Execution**: All core computations, graph executions, policy evaluations, and attestation seals execute locally in-process with zero network requirements; external data connectors and LLMs remain optional and explicitly configured.
-
----
-
-## Verified Architecture Capability Registry
-
-| Component | Type | Classification | Verified Runtime Capability |
-| :--- | :--- | :---: | :--- |
-| **Deep Learning Institutional UX** | Deep Learning | `PROVEN_ADVANCED` | PyTorch tabular DL inspection, layer summaries, loss history, Optuna tuning, ECE calibration, SHAP, and SVG artifacts. |
-| **StateGraph / LangGraph Runtime** | Orchestration | `PROVEN_ADVANCED` | Compiled StateGraph with typed state, conditional edges, checkpointers, resumability, and bounded retry. |
-| **OpenTelemetry Tracing** | Telemetry | `PROVEN_ADVANCED` | Hierarchical span model with automated credential/secret redaction and in-memory export. |
-| **Open Policy Agent (OPA)** | Policy | `PROVEN_ADVANCED` | Authentic OPA Rego evaluation with fail-closed policies for egress, tools, export filtering, and governance sign-off. |
-| **NeMo Guardrails** | Security | `OPTIONAL_ADVANCED` | Real `RailsConfig`/`LLMRails` safety boundary, prompt injection defense, and EvidenceRecord immutability enforcement. |
-| **LangSmith Tracer** | Telemetry | `OPTIONAL_ADVANCED` | Optional external telemetry exporter over canonical event model with strict redaction. |
-| **MCP Server Integration** | Adapter | `OPTIONAL_ADVANCED` | Standardized Model Context Protocol adapter for tool discovery and typed capability inspection. |
-| **Garak Vulnerability Scanner** | Security | `OPTIONAL_FUNCTIONAL` | Automated LLM vulnerability probing and adversarial prompt evaluation harness. |
-| **Promptfoo / DeepEval** | Adapter | `OPTIONAL_FUNCTIONAL` | Unit-testing and regression evaluation harnesses for LLM prompt variations. |
-| **Langfuse / Phoenix** | Telemetry | `OPTIONAL_FUNCTIONAL` | Trace capture and observability adapters consuming the unified event model. |
+| Operating System | Support Level | Verification Scope |
+| :--- | :---: | :--- |
+| **macOS (Apple Silicon & Intel)** | Directly Verified | Core engines, CLI, visible Terminal presentation mode, artifact board, and web workbench. |
+| **Linux (Ubuntu 22.04 / 24.04)** | CI-Verified | Source installation, CLI smoke, packaging contract, hermetic test suites, and frontend build. |
+| **Windows** | Uncertified | Not formally certified for this release. Source installation may operate under WSL2. |
 
 ---
 
@@ -217,42 +169,33 @@ flowchart LR
 
 ```text
 StART/
-├── .github/workflows/       # CI workflows (certified Python 3.12.13, exact runtime validation)
+├── .github/workflows/       # GitHub Actions CI (core-ci, packaging, frontend)
 ├── configs/                 # Policy, runtime, and model configurations
-├── data/                    # Reference benchmark datasets and scientific certification bundle
-├── deploy/                  # Cloudflare, Oracle, and container deployment scripts
-├── docs/                    # Architecture contracts, specifications, and audit reports
+├── data/                    # Benchmark datasets and scientific certification bundle
+├── deploy/                  # Container, cloud, and edge deployment configurations
+├── docs/                    # Architecture contracts, specifications, and runbooks
 ├── examples/                # Quickstart and integration examples
 ├── notebooks/               # Interactive exploration and review workflows
-├── scripts/                 # Gate reconciliation, verification, and demo drivers
-├── src/start/               # Core scientific engines, agents, registry, runtime, and web services
-├── tests/                   # 2,317 automated regression, invariant, and integration tests
-└── webapp/                  # React/Vite evidence-native workstation and WebLLM client
+├── scripts/                 # Verification, bootstrap, and demonstration drivers
+├── src/start/               # Core scientific engines, agents, runtime, and web services
+├── tests/                   # Automated regression, invariant, and contract test suites
+└── webapp/                  # React 18 / TypeScript evidence-native workstation
 ```
 
 ---
 
-## Repository Composition
+## Portfolio Navigation
 
-| File type | Typical extensions | Tracked files | Bytes | Contribution |
-| :--- | :--- | :---: | :---: | :---: |
-| **Python** | `.py` | 527 | 6,795,135 | 77.84% |
-| **TypeScript / JavaScript** | `.ts, .tsx, .js, .mjs` | 81 | 621,657 | 7.12% |
-| **Markdown / Documentation** | `.md, .txt` | 43 | 383,338 | 4.39% |
-| **Configuration** | `.json, .jsonl, .yaml, .toml, .rego` | 41 | 601,827 | 6.89% |
-| **Web styles / markup** | `.css, .html, .svg` | 7 | 166,982 | 1.91% |
-| **Shell / tooling** | `.sh` | 3 | 5,088 | 0.06% |
-| **Other tracked text** | `other text / data` | 9 | 156,051 | 1.79% |
-| **Total** | `*` | 711 | 8,730,078 | 100.00% |
+Part of the Engineering & Systems Portfolio by [Supratik Sarkar](https://github.com/supratik-sarkar):
 
----
-
-## Contributors
-
-StART is developed as a collaborative open-source engineering project. Its scientific engines, agentic orchestration, validation framework, observability stack, deployment surfaces, documentation, and testing have evolved through contributions from maintainers and collaborators. Git history and the GitHub Contributors graph are the canonical attribution record for project contributions.
+- [training-inference-systems](https://github.com/supratik-sarkar/training-inference-systems) — Distributed training, inference optimization, and systems performance.
+- [agentic-ai-systems](https://github.com/supratik-sarkar/agentic-ai-systems) — Multi-agent orchestration, tool routing, and autonomous evaluation systems.
+- [multimodal-context-systems](https://github.com/supratik-sarkar/multimodal-context-systems) — Long-context retrieval, multimodal embeddings, and grounding engines.
+- [applied-ml-systems](https://github.com/supratik-sarkar/applied-ml-systems) — Production ML pipelines, monitoring, and robust predictive modeling.
+- **StART** (Current) — Evidence-native model development and institutional review workbench.
 
 ---
 
 ## License
 
-Apache-2.0. Copyright (c) 2026 StART contributors.
+[Apache-2.0](LICENSE). Copyright (c) 2026 StART contributors.

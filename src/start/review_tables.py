@@ -56,14 +56,25 @@ def _table(title: str, columns: list[str], header_style: str = "bold") -> Any:
 
 
 def dataset_discovery_table(
-    store: Any, candidate_targets: list[str], split_props: tuple[float, float, float]
+    store: Any,
+    candidate_targets: list[str],
+    split_props: tuple[float, float, float],
+    *,
+    temporal_metadata: bool = False,
 ) -> Any:
     """#5: dataset transparency before recommendations."""
-    t = _table("DatasetDiscoveryAgent — dataset transparency", ["Field", "Value"])
+    title = (
+        "REVIEW METADATA DIAGNOSTICS — NOT MODEL INPUT"
+        if temporal_metadata
+        else "DatasetDiscoveryAgent — dataset transparency"
+    )
+    t = _table(title, ["Field", "Value"])
     t.add_row("Detected target", str(store.target or "—"))
     t.add_row("Candidate targets", ", ".join(candidate_targets) if candidate_targets else "—")
-    t.add_row("Rows", str(store.n_rows if store.n_rows is not None else "—"))
-    t.add_row("Features", str(store.n_features if store.n_features is not None else "—"))
+    row_label = "Metadata rows" if temporal_metadata else "Rows"
+    feature_label = "Metadata fields" if temporal_metadata else "Features"
+    t.add_row(row_label, str(store.n_rows if store.n_rows is not None else "—"))
+    t.add_row(feature_label, str(store.n_features if store.n_features is not None else "—"))
     t.add_row(
         "Numeric / categorical",
         f"{store.n_numeric if store.n_numeric is not None else '—'} / "
@@ -85,28 +96,40 @@ def dataset_discovery_table(
     return t
 
 
-def outlier_evidence_table(store: Any, n: int = 10) -> Any:
+def outlier_evidence_table(store: Any, n: int = 10, *, temporal_metadata: bool = False) -> Any:
     """#6: outlier diagnostics with count, percent, rule, threshold."""
-    t = _table(
-        "FeatureEngineeringAgent — outlier evidence", ["Feature", "Outliers", "Percent", "Rule", "Action"]
+    title = (
+        "SEQUENCE SUMMARY DIAGNOSTICS — NOT TENSOR PREPROCESSING"
+        if temporal_metadata
+        else "FeatureEngineeringAgent — outlier evidence"
     )
+    first_column = "Field" if temporal_metadata else "Feature"
+    t = _table(title, [first_column, "Outliers", "Percent", "Rule", "Action"])
     items = store.top_outliers(n)
     total = store.n_rows or 0
     for it in items:
         col = it.label.split(":")[0]
         cnt = it.value
         pct = f"{(100.0 * cnt / total):.1f}%" if total else "—"
-        t.add_row(col, str(cnt), pct, "IQR (1.5×)", "winsorize")
+        action = "Diagnostic only — not applied to tensor" if temporal_metadata else "winsorize"
+        t.add_row(col, str(cnt), pct, "IQR (1.5×)", action)
     return t, bool(items)
 
 
-def correlation_evidence_table(store: Any, n: int = 10) -> Any:
+def correlation_evidence_table(store: Any, n: int = 10, *, temporal_metadata: bool = False) -> Any:
     """#6: correlation pairs with coefficient and proposed drop."""
-    t = _table("FeatureEngineeringAgent — correlation evidence", ["Pair", "Coefficient", "Proposed drop"])
+    title = (
+        "SEQUENCE SUMMARY DIAGNOSTICS — NOT TENSOR PREPROCESSING"
+        if temporal_metadata
+        else "FeatureEngineeringAgent — correlation evidence"
+    )
+    final_column = "Interpretation" if temporal_metadata else "Proposed drop"
+    t = _table(title, ["Pair", "Coefficient", final_column])
     items = store.top_correlations(n)
     for it in items:
         v = it.value
-        t.add_row(f"{v['a']} ~ {v['b']}", f"{float(v['r']):.3f}", v["b"])
+        action = "Diagnostic only — not applied to tensor" if temporal_metadata else v["b"]
+        t.add_row(f"{v['a']} ~ {v['b']}", f"{float(v['r']):.3f}", action)
     return t, bool(items)
 
 
@@ -269,6 +292,7 @@ def llm_activation_panel(activation: Any) -> Any:
         "gemini": "bright_blue",
         "deepseek": "bright_blue",
         "enterprise_llm_gateway": "bright_yellow",
+        "offline_demo_twin": "bright_cyan",
         "none": "dim",
     }.get(prov, "white")
     grid.add_row("Provider", f"[{prov_color}]{prov}[/]")

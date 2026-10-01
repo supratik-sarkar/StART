@@ -2,7 +2,7 @@
 
 A portable, browser-native agentic engineering workbench for StART.
 
-This package is intentionally **not wired to the existing public backend by default**. It starts with a clearly labeled deterministic preview adapter so the visual product can be reviewed independently. Antigravity should wire `PublicStARTBackend` to canonical StART routes after this folder is placed in the non-Git project.
+This package is intentionally **not wired to the existing public backend by default**. It starts with a clearly labeled deterministic preview adapter so the visual product can be reviewed independently. Production integration binds `PublicStARTBackend` to canonical StART routes.
 
 ## Run locally
 
@@ -21,11 +21,11 @@ npm run build
 
 Default: preview adapter.
 
-For public wiring after Antigravity integration:
+For public backend integration:
 
 ```bash
 VITE_START_ADAPTER=public
 VITE_START_API_BASE=https://your-start-gateway.example
 ```
 
-Read `docs/ANTIGRAVITY_HANDOFF.md` before integration.
+Read `docs/BACKEND_INTEGRATION_GUIDE.md` and `docs/BACKEND_WIRING_GUIDE.md` before integration.

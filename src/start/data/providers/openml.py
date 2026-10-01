@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from collections.abc import Iterator
-from typing import Any
-
+from typing import Any, Iterator
 import pandas as pd
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 from start.data.providers.base import DatasetProviderAdapter
@@ -100,7 +99,7 @@ class OpenMLProviderAdapter(DatasetProviderAdapter):
                 partition_manifest={"openml_did": did},
                 cache_policy="stream",
             )
-        except Exception:
+        except Exception as e:
             # Fallback for offline/test environments
             return DatasetContract(
                 provider=self.name,

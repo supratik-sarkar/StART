@@ -265,8 +265,10 @@ def build_portfolio_table(records: list[EvidenceRecord]) -> Table:
     return table
 
 
-def build_hrp_showcase_table(records: list[EvidenceRecord]) -> Table:
-    """Build a dedicated showcase table for Hierarchical Risk Parity (HRP) architecture."""
+def build_hrp_showcase_table(
+    records: list[EvidenceRecord], artifacts: list[Any] | None = None
+) -> Table:
+    """Build a compact summary of the genuine optimizer hierarchy and artifact."""
     table = Table(
         title="Hierarchical Risk Parity (HRP) Topology & Cluster Allocation",
         title_style="bold cyan",
@@ -307,6 +309,13 @@ def build_hrp_showcase_table(records: list[EvidenceRecord]) -> Table:
             r.evidence_id,
         )
         table.add_row(
+            "Top-Level Clusters",
+            "2" if int(m.get("n_assets", 0) or 0) > 1 else "1",
+            "Root partition count from the optimizer hierarchy",
+            _status_badge(r.status),
+            r.evidence_id,
+        )
+        table.add_row(
             "Effective N Positions",
             f"{_safe_float(m.get('effective_n_positions', 0.0)):.2f}",
             "Diversification breadth measure 1 / sum(w_i^2)",
@@ -342,6 +351,22 @@ def build_hrp_showcase_table(records: list[EvidenceRecord]) -> Table:
                 _status_badge(r.status),
                 r.evidence_id,
             )
+
+        for artifact in artifacts or []:
+            data = artifact.to_dict() if hasattr(artifact, "to_dict") else {}
+            artifact_type = str(data.get("artifact_type", getattr(artifact, "artifact_type", "")))
+            if artifact_type != "dendrogram":
+                continue
+            artifact_id = str(data.get("artifact_id", getattr(artifact, "artifact_id", "ART")))
+            file_path = str(data.get("file_path", getattr(artifact, "file_path", "")))
+            table.add_row(
+                "Current-Run Dendrogram",
+                artifact_id,
+                file_path,
+                "[green]AVAILABLE[/green]",
+                r.evidence_id,
+            )
+            break
 
     return table
 
@@ -1025,6 +1050,19 @@ def build_governance_table(metadata: dict[str, Any], decisions: list[dict[str, A
         f"Challenges: {n_challenges} | Questions: {n_questions}"
     )
     table.add_row("Checkpoint Decisions", dec_summary)
+
+    n_degraded = sum(
+        1
+        for d in decisions
+        if d.get("degradation_event") is not None
+        or "evidence_only" in str(d.get("details", "")).lower()
+        or "agent interpretation unavailable" in str(d.get("response", "")).lower()
+    )
+    if n_degraded > 0:
+        table.add_row(
+            "Agent Interpretations",
+            f"Grounded: {max(0, n_questions - n_degraded)} | [bold yellow]Evidence-Only Degraded: {n_degraded}[/bold yellow]",
+        )
 
     val_fails = metadata.get("n_validation_failures", 0)
     fail_style = "bold red" if val_fails > 0 else "green"

@@ -168,7 +168,7 @@ class ReviewPlanPreview:
             f"  Lifecycle:         {LIFECYCLE_LABELS[bundle.lifecycle]}",
             "  Contexts:",
         ]
-        for context in self.applicable.context_types:
+        for context in bundle.presentation_context_types():
             marker = "x" if bundle.context_for(context) is not None else " "
             out.append(f"    [{marker}] {context}")
 
@@ -245,11 +245,17 @@ class ReviewPlanPreview:
             "",
             "  Planned Visual & Tabular Artifacts:",
         ]
-        if ReviewDomain.PREDICTIVE in bundle.domains:
+        if ReviewDomain.PREDICTIVE in bundle.domains and bundle.temporal_sequence is not None:
+            out += [
+                "    - [ART] Temporal Sequence Input Contract (N,T,F) (JSON/SVG)",
+                "    - [ART] Temporal Input-Gradient Saliency — INPUT_GRADIENT (JSON/SVG)",
+                "    - [ART] Temporal Robustness Perturbation Profile (JSON/SVG)",
+            ]
+        elif ReviewDomain.PREDICTIVE in bundle.domains:
             out += [
                 "    - [ART] ROC & PR Performance Curves (JSON/PNG)",
                 "    - [ART] Calibration Diagnostics (JSON/PNG)",
-                "    - [ART] Feature Attribution & SHAP (JSON/PNG)",
+                "    - [ART] Feature Attribution / Explainability (resolved method shown at runtime)",
             ]
         if ReviewDomain.MARKET in bundle.domains:
             out += [
@@ -273,6 +279,7 @@ class ReviewPlanPreview:
             "deepseek": "DeepSeek",
             "grok": "Grok",
             "enterprise_llm_gateway": "Enterprise LLM Gateway",
+            "offline_demo_twin": "offline_demo_twin",
             "none": "None",
         }
         if llm_cfg.backend_mode == "public":
@@ -283,6 +290,16 @@ class ReviewPlanPreview:
                 f"    Provider:                {prov_display}",
                 f"    Model:                   {llm_cfg.model or 'default'}",
                 f"    Backend Status:          {llm_cfg.status.title() if llm_cfg.status else 'Ready'}",
+            ]
+        elif llm_cfg.backend_mode == "offline":
+            out += [
+                "",
+                "  AI Reviewer Backend:       Offline Demo Twin",
+                "    Provider:                offline_demo_twin",
+                "    Execution:               deterministic local fixture",
+                "    Network:                 disabled",
+                "    Hosted calls:            0",
+                "    Purpose:                 rehearsal / controller validation",
             ]
         elif llm_cfg.backend_mode == "enterprise":
             out += [

@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker Gateway for StART v4.5.3.
+ * Cloudflare Worker Gateway for StART v6.0.2 (transport introduced in v4.5.3).
  *
  * Directs:
  * - Static Assets -> Cloudflare Static Assets (zero worker executions for cached static files)

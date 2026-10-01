@@ -63,7 +63,7 @@ interface DemoRunState {
 }
 
 export class DemoBackend implements StartBackend {
-  readonly adapterName='Greenfield deterministic preview adapter'
+  readonly adapterName='Demonstration data adapter'
   readonly adapterMode='demo' as const
   private runs = new Map<string,DemoRunState>()
   async getCapabilities(){ return caps }

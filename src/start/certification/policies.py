@@ -232,7 +232,6 @@ class GPT41PolicyRunner:
     def _init_client(self) -> None:
         try:
             from openai import OpenAI
-
             from start.providers.keys import ensure_provider_key
 
             status = ensure_provider_key("openai")

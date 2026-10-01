@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
-
+from typing import Any, Iterator
 import pandas as pd
 
-from start.data.providers.contract import DatasetContract, DatasetStream
+from start.data.providers.contract import DatasetContract, DatasetStream, DatasetTelemetry
 
 
 class DatasetProviderAdapter(ABC):

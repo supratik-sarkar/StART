@@ -144,6 +144,7 @@ class ReviewSession:
     challenges: list[Challenge] = field(default_factory=list)
     mrm_signoff: dict[str, Any] | None = None
     validation_review: dict[str, Any] | None = None
+    adjudications: list[dict[str, Any]] = field(default_factory=list)
 
     # -- recording -------------------------------------------------------- #
     def record_decision(self, decision: Decision) -> Decision:
@@ -260,6 +261,7 @@ class ReviewSession:
             },
             "mrm_signoff": self.mrm_signoff,
             "validation_review": self.validation_review,
+            "adjudications": list(self.adjudications),
         }
 
     def to_canonical_dict(self) -> dict[str, Any]:
@@ -277,4 +279,5 @@ class ReviewSession:
             },
             "validation_review": self.validation_review or {},
             "mrm_signoff": self.mrm_signoff or {},
+            "adjudications": list(self.adjudications),
         }

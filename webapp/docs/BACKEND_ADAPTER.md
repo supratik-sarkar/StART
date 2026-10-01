@@ -29,6 +29,6 @@ React UI → StartBackend → PublicStARTBackendAdapter
 
 Do not rewrite UI components to match backend payloads. Normalize backend payloads inside the adapter into the contracts defined in `src/contracts/types.ts`.
 
-## Public wiring notes for Antigravity
+## Public backend integration notes
 
 The `PublicStARTBackend` contains intentionally generic route names. Reconcile them against actual StART route/schema contracts. If a backend surface is missing, prefer a thin transport/presentation endpoint over duplicating analytical logic.

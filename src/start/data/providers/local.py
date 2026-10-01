@@ -6,9 +6,9 @@ and deterministic content hashing.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import hashlib
 from pathlib import Path
-
+from typing import Any, Iterator
 import pandas as pd
 import pyarrow.parquet as pq
 

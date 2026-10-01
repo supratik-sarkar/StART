@@ -1,5 +1,5 @@
 [Unit]
-Description=StART v4.5 Institutional Model Validation Web Service
+Description=StART v6.0.2 Institutional Model Validation Web Service
 After=network.target
 
 [Service]

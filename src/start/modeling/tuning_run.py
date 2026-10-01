@@ -80,25 +80,22 @@ _VISION_DL_SEARCH_SPACE = {
     "batch_size": [32, 64],
 }
 
-_SEQUENCE_FAMILIES = ()  # Tabular recurrent nets route to tabular_dl
-_VISION_FAMILIES = ("simple_cnn_small", "simple_cnn_medium", "simple_cnn_deep")
+_SEQUENCE_FAMILIES = ("lstm", "gru", "rnn", "bi_lstm")
+_VISION_FAMILIES = ("simple_cnn_small", "simple_cnn_medium", "simple_cnn_deep", "cnn")
 _TABULAR_DL_FAMILIES = (
     "mlp",
     "wide_deep",
     "residual_mlp",
     "dcn",
     "leaky_relu_mlp",
-    "rnn",
-    "lstm",
-    "gru",
-    "bi_lstm",
-    "cnn",
     "gnn",
 )
 
 
 def _model_family(architecture: str) -> str:
     """Classify architecture into 'tabular_dl', 'sequence_dl', 'vision_dl', or 'sklearn'."""
+    if architecture in _SEQUENCE_FAMILIES:
+        return "sequence_dl"
     if architecture in _TABULAR_DL_FAMILIES:
         return "tabular_dl"
     if architecture in _VISION_FAMILIES:

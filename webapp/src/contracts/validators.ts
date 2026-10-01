@@ -161,8 +161,7 @@ export function validateEvidenceRecords(data: unknown): EvidenceRecord[] {
     } else if (o.metrics && typeof o.metrics === 'object') {
       metrics = Object.entries(o.metrics).map(([k, v]) => ({
         name: k,
-        value: typeof v === 'number' ? roundValue(v) : v,
-        status: 'PASS',
+        value: v,
       }))
     }
 
@@ -170,13 +169,14 @@ export function validateEvidenceRecords(data: unknown): EvidenceRecord[] {
       evidenceId,
       runId: String(o.runId || o.run_id || ''),
       testId,
-      title: String(o.title || testId),
-      status: (o.status as any) || 'RECORDED',
+      title: String(o.title || o.test_name || testId),
+      status: String(o.status || 'RECORDED').toUpperCase() as EvidenceRecord['status'],
       metrics,
       provenance: Array.isArray(o.provenance) ? o.provenance.map(String) : [],
-      parentNodeId: o.parentNodeId ? String(o.parentNodeId) : undefined,
-      createdAt: String(o.createdAt || o.created_at || new Date().toISOString()),
-      summary: o.summary ? String(o.summary) : undefined,
+      parentNodeId: o.parentNodeId ? String(o.parentNodeId) : (o.parent_node_id ? String(o.parent_node_id) : undefined),
+      createdAt: String(o.createdAt || o.created_at || o.timestamp || ''),
+      summary: o.summary ? String(o.summary) : (o.interpretation ? String(o.interpretation) : undefined),
+      rawSource: o,
     }
   })
 }
@@ -364,4 +364,3 @@ export function validateRunLineage(data: unknown): RunLineage {
     })) : [],
   }
 }
-

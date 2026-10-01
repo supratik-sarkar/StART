@@ -50,7 +50,6 @@ test_dl_output/
 bootstrap-report.json
 mlruns/
 mlflow.db
-*.db
 ledger.jsonl
 evidence_store/
 
@@ -101,3 +100,9 @@ docs/media/*.cast
 .langchain/
 .langsmith/
 .ux-audit/
+
+# Private project state
+tmp/
+
+# Demo controller output (kept beneath the canonical output root)
+start_output/demo_results/

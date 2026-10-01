@@ -32,7 +32,7 @@ class TrustDomain(StrEnum):
 
 
 PUBLIC_PROVIDERS = ("openai", "anthropic", "grok", "gemini", "deepseek")
-PRIVATE_PROVIDERS = ("enterprise_llm_gateway",)
+PRIVATE_PROVIDERS = ("enterprise_llm_gateway", "offline_demo_twin")
 
 
 def trust_domain(provider: str) -> TrustDomain:

@@ -46,7 +46,7 @@ class FeatureEngineeringAgent:
         test: pd.DataFrame | None = None,
         time_column: str | None = None,
     ) -> FeatureDiagnostics:
-        if modality == "sequential":
+        if modality in {"sequential", "temporal_sequence"}:
             return self._sequential(train, target_column, time_column)
         if modality == "vision":
             return self._vision(train, target_column)
@@ -121,6 +121,31 @@ class FeatureEngineeringAgent:
         if not findings["has_time_column"]:
             notes.append("No time column supplied; ordering assumed by row index.")
         return FeatureDiagnostics("sequential", findings, [], [], notes)
+
+    def diagnose_temporal_sequence(
+        self,
+        *,
+        n_sequences: int,
+        timesteps: int,
+        n_features: int,
+        finite: bool,
+    ) -> FeatureDiagnostics:
+        """Diagnose the actual rank-3 tensor without inspecting metadata IDs."""
+        findings = {
+            "n_sequences": n_sequences,
+            "timesteps": timesteps,
+            "n_features": n_features,
+            "rank": 3,
+            "finite_values": finite,
+            "fixed_length": True,
+            "padding_or_masking_required": False,
+            "train_only_scaling_applied": False,
+        }
+        notes = [
+            "Rank-3 temporal input validated; sequence/entity IDs remain provenance metadata.",
+            "No tabular encoding, low-variance removal, or correlation pruning applies.",
+        ]
+        return FeatureDiagnostics("temporal_sequence", findings, [], [], notes)
 
     # -- vision ------------------------------------------------------------ #
     def _vision(self, train, target_column) -> FeatureDiagnostics:

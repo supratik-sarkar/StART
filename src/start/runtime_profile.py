@@ -77,7 +77,9 @@ PUBLIC_SAAS_PROVIDERS: frozenset[str] = frozenset(
 PRIVATE_GATEWAY_PROVIDERS: frozenset[str] = frozenset({"gateway", "enterprise_llm_gateway"})
 
 #: Providers that perform no network egress whatsoever.
-LOCAL_PROVIDERS: frozenset[str] = frozenset({"none", "hf_local", "replay"})
+LOCAL_PROVIDERS: frozenset[str] = frozenset(
+    {"none", "hf_local", "replay", "offline_demo_twin"}
+)
 
 #: Telemetry / observability sinks whose endpoints belong to third parties.
 TELEMETRY_EGRESS_SINKS: frozenset[str] = frozenset({"langsmith"})

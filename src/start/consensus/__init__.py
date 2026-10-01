@@ -9,8 +9,10 @@ from start.consensus.collisions import (
     AdjudicationRecord,
     Collision,
     CollisionRule,
+    FactualGroundingReconciliation,
     adjudicate_collisions_interactive,
     detect_collisions,
+    ground_agent_claims,
 )
 from start.consensus.cross_analytical import (
     eval_attribution_vs_factor_risk,
@@ -29,6 +31,8 @@ __all__ = [
     "Collision",
     "AdjudicationDecision",
     "AdjudicationRecord",
+    "FactualGroundingReconciliation",
+    "ground_agent_claims",
     "detect_collisions",
     "adjudicate_collisions_interactive",
     "eval_var_frequency_vs_independence",

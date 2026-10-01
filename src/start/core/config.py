@@ -45,6 +45,7 @@ class AgentConfig(BaseModel):
         "huggingface",
         "hf_local",
         "enterprise_llm_gateway",
+        "offline_demo_twin",
     ] = ""
 
 
@@ -59,6 +60,7 @@ class LLMConfig(BaseModel):
         "huggingface",
         "hf_local",
         "enterprise_llm_gateway",
+        "offline_demo_twin",
     ] = "none"
     model: str = ""
     temperature: float = 0.0

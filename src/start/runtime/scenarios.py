@@ -17,6 +17,7 @@ Preserves strict architectural boundaries:
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
@@ -25,7 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from start.runtime.contexts import instantiate_context
+from start.runtime.contexts import get_canonical_context_specs, instantiate_context
 
 
 class ScenarioClassification(StrEnum):
@@ -629,7 +630,6 @@ def _profile_short_rate(spec: ScenarioSpec, rates: np.ndarray) -> dict[str, Any]
 def _profile_recommender(spec: ScenarioSpec, data: list[Any]) -> dict[str, Any]:
     """Compute strictly descriptive statistics for a recommender interaction dataset."""
     from collections import Counter
-
     from start.recommender.data import profile_recommender_dataset
 
     profile = profile_recommender_dataset(data)

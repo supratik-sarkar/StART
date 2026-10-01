@@ -27,6 +27,7 @@ _ENDPOINTS = {
     "gemini": "https://generativelanguage.googleapis.com/v1beta/",
     "deepseek": "https://api.deepseek.com/v1",
     "enterprise_llm_gateway": "configured by the firm (src/start/enterprise/)",
+    "offline_demo_twin": "disabled (local deterministic fixture)",
     "none": "—",
 }
 
@@ -37,6 +38,7 @@ _DEFAULT_MODELS = {
     "gemini": "gemini-1.5-flash",
     "deepseek": "deepseek-chat",
     "enterprise_llm_gateway": "gateway-managed",
+    "offline_demo_twin": "deterministic-semantic-fixture-v1",
 }
 
 
@@ -108,6 +110,19 @@ def preflight_llm(provider_name: str, llm: Any = None, *, probe: bool = False) -
             endpoint="—",
             status="DETERMINISTIC",
             detail="No LLM selected; deterministic engines only.",
+        )
+
+    if provider_name == "offline_demo_twin":
+        return ActivationReport(
+            provider="offline_demo_twin",
+            model="deterministic-semantic-fixture-v1",
+            trust_domain="private/offline",
+            endpoint="disabled",
+            status="OFFLINE_REHEARSAL",
+            detail=(
+                "Execution: deterministic local fixture | Network: disabled | "
+                "Hosted calls: 0 | Purpose: rehearsal / controller validation"
+            ),
         )
 
     model = getattr(llm, "model", None) or _DEFAULT_MODELS.get(provider_name, "unknown")

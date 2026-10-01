@@ -13,7 +13,8 @@ sees progress — never a blank screen.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 from rich.console import Console
 
@@ -28,6 +29,7 @@ class ReviewConfig:
     data_path: str | None = None
     target: str | None = None
     dataset_selection: Any = None
+    sequence_bundle: Any = None
     task_override: str | None = None
     split_strategy: str = "stratified"
     architecture_family: str | None = None
@@ -470,7 +472,7 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
                     "StART never guesses model names on operator-supplied gateways."
                 )
         llm = get_llm_provider(
-            LLMConfig(provider=cfg.llm_provider, model=resolved_model),
+            LLMConfig(provider=cast(Any, cfg.llm_provider), model=resolved_model),
             expected_domain=expected,
         )
 
@@ -479,9 +481,11 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
     if getattr(cfg, "dataset_selection", None) is not None and cfg.dataset_selection.frame is not None:
         selection = cfg.dataset_selection
         df = selection.frame
+        if getattr(selection, "sequence_bundle", None) is not None:
+            cfg.sequence_bundle = selection.sequence_bundle
         console.print(
             f"[bold]Dataset:[/bold] {selection.display_name} — "
-            f"{selection.n_rows:,} rows x {selection.n_columns} columns "
+            f"{selection.volumetrics()} "
             f"({selection.source_reference})"
         )
         if not cfg.target:
@@ -495,7 +499,7 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
             f"[bold]Dataset:[/bold] {cfg.data_path} (user-supplied) — {len(df)} rows x {df.shape[1]} columns"
         )
     else:
-        preset_key = getattr(cfg, "preset_key", None)
+        preset_key = str(getattr(cfg, "preset_key", None) or "A")
         from start.modeling.data import load_preset_dataset
 
         df = load_preset_dataset(preset_key, seed=cfg.seed)
@@ -548,6 +552,21 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
             default_col = cfg.dataset_selection.target_column
         if default_col in df.columns:
             df = df.rename(columns={default_col: cfg.target})
+
+    # Reconcile sequence vs tabular architecture contract early
+    from start.modeling.sequence_dl import SequenceInputContractError
+
+    is_recurrent_arch = (cfg.architecture_family or "").lower() in ("lstm", "gru", "rnn", "bi_lstm")
+    if is_recurrent_arch and cfg.sequence_bundle is None:
+        raise SequenceInputContractError(
+            f"Recurrent architecture '{cfg.architecture_family}' requires a genuine rank-3 temporal sequence dataset (samples, timesteps, features) with timesteps > 1. "
+            f"Ordinary rank-2 tabular datasets cannot be converted to fake sequences."
+        )
+    if cfg.sequence_bundle is not None and not is_recurrent_arch:
+        raise ValueError(
+            f"Dataset is a temporal sequence dataset requiring recurrent architectures (lstm, gru, rnn, bi_lstm); "
+            f"selected architecture '{cfg.architecture_family}' expects tabular data."
+        )
 
     # Reconcile target cardinality & task override early
     if cfg.target in df.columns:
@@ -629,6 +648,8 @@ def run_interactive_review(cfg: ReviewConfig) -> Any:
             output_root=cfg.output_root,
             seed=cfg.seed,
             run_dl=cfg.run_dl,
+            architecture=cfg.architecture_family or "mlp",
+            sequence_bundle=cfg.sequence_bundle,
         )
     console.print(
         f"\n[bold green]Review complete[/bold green] — {outcome.run_id}\n"
@@ -666,7 +687,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     from start.agents.discovery import TaskInferenceAgent
 
     try:
-        ti = TaskInferenceAgent().infer(df, cfg.target, override=cfg.task_override)
+        ti = TaskInferenceAgent().infer(df, cfg.target or "", override=cfg.task_override)
         task_type = ti.task_type
     except Exception:
         task_type = cfg.task_override or "binary_classification"
@@ -690,13 +711,170 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     tracer = LangSmithTracer(run_id=enterprise_run_id)
     tracer.start_review(review_id=enterprise_run_id)
 
+    from start.review.architecture import ReviewDomain
+    from start.review.terminal_observability import (
+        TerminalReviewObserver,
+        build_flight_a_presentation_context,
+        render_temporal_contract,
+    )
+    from start.telemetry.engineering_trace import (
+        OP_MODEL_EVALUATE,
+        OP_POLICY_EVALUATE,
+        OP_RUN,
+        EngineeringTracer,
+    )
+
+    terminal_observer = TerminalReviewObserver(
+        enterprise_run_id,
+        console=console,
+        domains=(ReviewDomain.PREDICTIVE,),
+        session_kind="A",
+    )
+    enterprise_engineering_tracer = EngineeringTracer(
+        run_id=enterprise_run_id,
+        service_name="start.enterprise_review",
+    )
+    enterprise_run_trace = enterprise_engineering_tracer.span(
+        OP_RUN,
+        {"mode": cfg.agent_mode, "domain": "predictive", "task_type": task_type},
+    )
+    enterprise_run_trace.__enter__()
+    terminal_observer.session_started(source_component="start.interactive_review")
+    terminal_observer.human_action(
+        "SETUP",
+        "review.setup",
+        f"target: {cfg.target or 'inferred'}",
+    )
+    authority_backend = (
+        "offline"
+        if cfg.llm_provider == "offline_demo_twin"
+        else "hosted" if cfg.agent_mode == "llm" and cfg.llm_provider not in {"", "none"} else "none"
+    )
+    authority_provider_status = (
+        "OFFLINE_REHEARSAL"
+        if cfg.llm_provider == "offline_demo_twin"
+        else (
+            "CONNECTED"
+            if cfg.agent_mode == "llm" and bool(getattr(llm, "available", False))
+            else "FALLBACK" if authority_backend == "hosted" else "DETERMINISTIC"
+        )
+    )
+    terminal_observer.show_authority_boundary(
+        reviewer_mode=cfg.agent_mode,
+        backend_mode=authority_backend,
+        provider=cfg.llm_provider,
+        provider_status=authority_provider_status,
+    )
+
+    from start.orchestration.state_graph import build_live_review_graph
+
+    def _live_graph_transition(
+        source: str,
+        target: str,
+        trigger: str,
+        state_hash: str,
+        transition_thread_id: str,
+    ) -> None:
+        terminal_observer.graph_transition(
+            source,
+            target,
+            trigger=trigger,
+            state_hash=state_hash,
+            thread_id=transition_thread_id,
+        )
+
+    live_graph = build_live_review_graph(
+        run_id=enterprise_run_id,
+        phases=(
+            "plan",
+            "execute_tools",
+            "review_evidence",
+            "governance_signoff",
+            "archive_artifacts",
+        ),
+        on_transition=_live_graph_transition,
+    )
+
+    # Presentation-only context assembled from the exact runtime configuration.
+    # It does not create or mutate evidence, graph state, or scientific inputs.
+    if cfg.data_path:
+        dataset_source = describe_custom_dataset(df, cfg.data_path, cfg.target)
+    else:
+        dataset_source = describe_demo_dataset(df, cfg.target or "attrition")
+    flight_a_context = build_flight_a_presentation_context(
+        df=df,
+        sequence_bundle=cfg.sequence_bundle,
+        selected_architecture=cfg.architecture_family,
+        configured_split=cfg.split_strategy,
+    )
+    terminal_observer.bind_flight_a_context(flight_a_context)
+    sequence_total = flight_a_context.model_sample_count if cfg.sequence_bundle is not None else 0
+    selected_dataset = getattr(cfg, "dataset_selection", None)
+    from start.review.terminal_observability import (
+        predictive_review_path,
+        predictive_runtime_context_title,
+    )
+    from start.review.workflow_coherence import (
+        build_predictive_coherence_envelope,
+        synchronize_predictive_explainability,
+    )
+
+    terminal_observer.bind_coherence_envelope(
+        build_predictive_coherence_envelope(
+            run_id=enterprise_run_id,
+            config=cfg,
+            frame=df,
+            task_type=task_type,
+            presentation_context=flight_a_context,
+            dataset_selection=selected_dataset,
+        )
+    )
+    terminal_observer.publish_coherence_contract()
+    context_source = (
+        f"{selected_dataset.display_name} [{selected_dataset.kind.value}]"
+        if selected_dataset is not None
+        else f"{dataset_source.name} [{dataset_source.kind}]"
+    )
+    predictive_context_title = predictive_runtime_context_title(model_development=cfg.run_dl)
+    terminal_observer.flight_context(
+        predictive_context_title,
+        (
+            ("Data source", context_source),
+            ("Sample structure", flight_a_context.sample_structure),
+            ("Target / task", f"{cfg.target or 'inferred'} / {task_type}"),
+            ("Model input", flight_a_context.model_input_contract),
+            ("Split", flight_a_context.split_description),
+            ("Configured model", cfg.architecture_family or "mlp"),
+            ("Architecture alternatives", flight_a_context.architecture_alternatives),
+            ("Validation objective", f"{flight_a_context.split_description}; {cfg.costlier_errors or 'balanced'} errors"),
+            (
+                "Review path",
+                predictive_review_path(flight_a_context.modality),
+            ),
+        ),
+    )
+    if cfg.sequence_bundle is not None:
+        console.print(
+            render_temporal_contract(
+                n_sequences=sequence_total,
+                timesteps=cfg.sequence_bundle.timesteps,
+                n_features=cfg.sequence_bundle.n_features,
+                task="binary sequence classification",
+                feature_names=[f"feat_{i}" for i in range(cfg.sequence_bundle.n_features)],
+            )
+        )
+
     # Render Panel 1: Run Header (D6)
+    primary_dataset_shape: tuple[int, int] | str = (len(df), df.shape[1])
+    if cfg.sequence_bundle is not None:
+        primary_dataset_shape = f"Input={flight_a_context.model_input_contract}"
+        console.print(f"[dim]{flight_a_context.review_metadata_display}[/dim]")
     console.print(
         render_run_header(
             review_id=enterprise_run_id,
             target=cfg.target or "",
             task_type=task_type,
-            dataset_shape=(len(df), df.shape[1]),
+            dataset_shape=primary_dataset_shape,
             profile=active_profile().value,
             policy_id="public_demo",
             seed=cfg.seed,
@@ -743,12 +921,6 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     except Exception:
         pass
 
-    # dataset provenance: custom path vs built-in demo
-    if cfg.data_path:
-        dataset_source = describe_custom_dataset(df, cfg.data_path, cfg.target)
-    else:
-        dataset_source = describe_demo_dataset(df, cfg.target or "attrition")
-
     # Section B: interactive decision checkpoints (architecture, metric).
     # Recommendations come from the same agents the orchestrator uses; the
     # user's resolution is recorded and applied (never a silent override).
@@ -756,6 +928,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
     arch_choice = cfg.architecture_family or "mlp"
     cost_choice = cfg.costlier_errors
     checkpoint_decisions = []
+    live_graph.enter_phase("plan")
     if interactive or cfg.accept_recommendations:
         from start.agent_dialogue import AgentContext, ask_agent
         from start.agents.engineering_agents import (
@@ -783,40 +956,70 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
         _cand_targets = [cfg.target] if cfg.target else _evidence.candidate_targets
         console.print(
-            dataset_discovery_table(_evidence, _cand_targets, (cfg.train_prop, cfg.test_prop, cfg.oos_prop))
+            dataset_discovery_table(
+                _evidence,
+                _cand_targets,
+                (cfg.train_prop, cfg.test_prop, cfg.oos_prop),
+                temporal_metadata=cfg.sequence_bundle is not None,
+            )
         )
         console.print("")
         # v2.3.0 #6: FeatureEngineeringAgent evidence tables (real diagnostics).
-        _otab, _has_out = outlier_evidence_table(_evidence, 10)
+        _otab, _has_out = outlier_evidence_table(
+            _evidence,
+            10,
+            temporal_metadata=cfg.sequence_bundle is not None,
+        )
         if _has_out:
             console.print(_otab)
             console.print("")
-        _ctab, _has_corr = correlation_evidence_table(_evidence, 10)
+        _ctab, _has_corr = correlation_evidence_table(
+            _evidence,
+            10,
+            temporal_metadata=cfg.sequence_bundle is not None,
+        )
         if _has_corr:
             console.print(_ctab)
             console.print("")
 
+        canonical_modality = flight_a_context.modality
+        terminal_observer.agent_card(
+            "ArchitectureReviewAgent",
+            role="architecture challenge",
+            evidence_ids=(
+                getattr(record, "evidence_id", "")
+                for record in getattr(_evidence, "records", [])
+                if getattr(record, "evidence_id", "")
+            ),
+            activity="reasoning / recommendation",
+            deterministic_context=(
+                f"{flight_a_context.model_input_display}; "
+                f"split={flight_a_context.split_description}"
+            ),
+            checkpoint="architecture",
+        )
         ar = ArchitectureReviewAgent().review(
             user_family=arch_choice,
             user_activation=cfg.activation or "relu",
-            modality="tabular",
-            n_samples=len(df),
-            n_features=df.shape[1] - 1,
+            modality=canonical_modality,
+            n_samples=flight_a_context.model_sample_count,
+            n_features=flight_a_context.model_feature_count,
             task_type=task_type,
         )
         # Item 2: let the user interrogate the agent live at this checkpoint.
-        _llm_connected = activation.status == "CONNECTED"
+        _llm_connected = activation.status in {"CONNECTED", "OFFLINE_REHEARSAL"}
         _arch_ctx = AgentContext(
             agent="ArchitectureReviewAgent",
             recommendation=ar.recommendation["family"],
             reason=ar.reason,
             risk_if_ignored=ar.risk_if_ignored,
             alternatives=[
-                {"family": ar.recommendation["family"]},
-                {"family": arch_choice},
-                {"family": "xgboost"},
+                {"family": family} for family in flight_a_context.architecture_alternatives
             ],
-            dataset_summary=f"{len(df)} rows x {df.shape[1]} cols",
+            dataset_summary=(
+                f"{flight_a_context.model_input_display}; "
+                f"split={flight_a_context.split_description}"
+            ),
             checkpoint="architecture",
             evidence=_evidence,
             business_context=cfg.objective or "",
@@ -830,6 +1033,21 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                 "ArchitectureReviewAgent", question, _arch_ctx, session, llm=llm, llm_connected=_llm_connected
             ).answer
 
+        def _observe_arch_action(action: str, note: str) -> None:
+            terminal_observer.human_action(action, "architecture", note)
+            if action in {"C", "Q"}:
+                terminal_observer.agent_card(
+                    "ArchitectureReviewAgent",
+                    role="architecture challenge",
+                    evidence_ids=(),
+                    activity="challenge response" if action == "C" else "question response",
+                    deterministic_context=(
+                        f"{flight_a_context.model_input_display}; "
+                        f"split={flight_a_context.split_description}"
+                    ),
+                    checkpoint="architecture",
+                )
+
         # v2.3.0 #1/#4: present the evidence-first committee card BEFORE the
         # decision — Evidence -> Recommendation -> Alternatives -> Risks.
         from start.committee_card import CommitteeCard, render_card_rich
@@ -837,13 +1055,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         _arch_card = CommitteeCard(
             agent="ArchitectureReviewAgent",
             purpose="Model selection",
-            evidence=[
-                f"dataset size {len(df)} rows",
-                f"{df.shape[1] - 1} candidate features",
-                f"{task_type.replace('_', ' ')} task",
-            ],
+            evidence=flight_a_context.architecture_evidence(task_type),
             recommendation=f"{ar.recommendation['family']} ({ar.recommendation.get('activation', 'relu')})",
-            alternatives=[f"{ar.recommendation['family']} (recommended)", arch_choice, "xgboost"],
+            alternatives=[
+                f"{family} (recommended)" if family == ar.recommendation["family"] else family
+                for family in flight_a_context.architecture_alternatives
+            ],
             risks=[ar.risk_if_ignored] if ar.risk_if_ignored else [],
             artifacts_used=["data_statistics"],
         )
@@ -861,12 +1078,45 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             ask=input,
             emit=lambda m: console.print(m),
             on_ask=_ask_arch,
+            on_action=_observe_arch_action,
             llm=llm,
             session=session,
             ctx=_arch_ctx,
         )
         arch_choice = arch_dec.effective_value
         checkpoint_decisions.append(arch_dec.to_dict())
+        from start.review.workflow_coherence import AgentDecisionTrace
+
+        terminal_observer.agent_decision_trace(
+            AgentDecisionTrace(
+                agent_identity="ArchitectureReviewAgent",
+                role="model architecture review",
+                trigger="architecture checkpoint",
+                checkpoint="architecture",
+                canonical_input_references=(
+                    flight_a_context.model_input_contract,
+                    flight_a_context.split_description,
+                    f"task={task_type}",
+                    f"modality={flight_a_context.modality}",
+                ),
+                evidence_record_references=(str(ar.evidence_id),) if ar.evidence_id else (),
+                applicable_alternatives=flight_a_context.architecture_alternatives,
+                recommendation=str(ar.recommendation["family"]),
+                rationale_summary=str(ar.reason),
+                limitations=(str(ar.risk_if_ignored),) if ar.risk_if_ignored else (),
+                human_action=str(arch_dec.choice).upper(),
+                resulting_action=f"effective architecture={arch_choice}",
+            )
+        )
+        terminal_observer.review_story(
+            "DECISION SNAPSHOT — ARCHITECTURE",
+            question="Which implemented architecture should enter model development?",
+            alternatives=flight_a_context.architecture_alternatives,
+            human_action=str(arch_dec.choice).upper(),
+            agent_recommendation=str(ar.recommendation["family"]),
+            evidence=(str(ar.evidence_id),) if ar.evidence_id else (),
+            outcome=f"Effective development path: {arch_choice}",
+        )
         # Item 3: persist the decision so downstream agents/dashboard see it.
         session.record_decision(
             Decision(
@@ -884,7 +1134,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         # #1/#2: feature-engineering and metric checkpoints — each with Ask
         # Agent, recorded to the session so they drive downstream execution
         # (e.g. rejecting correlation pruning keeps all features).
-        if cfg.run_dl:
+        if cfg.run_dl and cfg.sequence_bundle is None:
             from start.interactive_checkpoints_flow import (
                 run_feature_engineering_checkpoints,
                 run_metric_checkpoint,
@@ -894,14 +1144,18 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
             try:
                 _stats = compute_data_statistics(df, cfg.target)
-                _fe = recommend_feature_engineering(_stats, cost_specification=cfg.cost_specification)
+                _fe = recommend_feature_engineering(
+                    _stats,
+                    modality=canonical_modality,
+                    cost_specification=cfg.cost_specification,
+                )
                 run_feature_engineering_checkpoints(
                     _fe,
                     session,
                     interactive=interactive,
                     auto_accept=cfg.accept_recommendations,
                     df=df,
-                    target=cfg.target,
+                    target=cfg.target or "",
                     already_weighted=bool(cfg.class_weight),
                     llm=llm,
                     llm_connected=_llm_connected,
@@ -973,7 +1227,42 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
         def on_stage_with_progress(event):
             _render_stage(event)
+            if event.status == "running" and event.stage == "model_execution":
+                if cfg.sequence_bundle is not None:
+                    input_contract = (
+                        f"({len(cfg.sequence_bundle.X_train)}, "
+                        f"{cfg.sequence_bundle.timesteps}, {cfg.sequence_bundle.n_features}) train tensor"
+                    )
+                    engine_name = "SequenceClassifier"
+                else:
+                    input_contract = f"{len(df)} rows x {df.shape[1] - 1} candidate features"
+                    engine_name = "RegisteredModelEngine"
+                terminal_observer.engine_card(
+                    engine_name,
+                    operation="fit and evaluate",
+                    input_contract=input_contract,
+                )
+            elif event.status == "running" and event.stage == "explainability":
+                terminal_observer.engine_card(
+                    "TemporalInputGradient" if cfg.sequence_bundle is not None else "ExplainabilityEngine",
+                    operation=(
+                        "mean absolute input-gradient saliency"
+                        if cfg.sequence_bundle is not None
+                        else cfg.explain_method
+                    ),
+                )
             if event.status in ("complete", "skipped"):
+                if event.stage in {"model_execution", "explainability"}:
+                    terminal_observer.engine_completed(
+                        "SequenceClassifier"
+                        if event.stage == "model_execution" and cfg.sequence_bundle is not None
+                        else (
+                            "TemporalInputGradient"
+                            if event.stage == "explainability" and cfg.sequence_bundle is not None
+                            else event.stage
+                        ),
+                        details=f"stage status: {event.status}",
+                    )
                 adv(1)
 
         orch = EnterpriseReviewOrchestrator(
@@ -983,36 +1272,83 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             on_adapter_start=lambda name, activity: console.print(
                 f"    [cyan]{announce_adapter_activity(name, activity)}[/cyan]"
             ),
+            on_evidence_committed=terminal_observer.evidence_committed,
         )
-        outcome = orch.run(
-            df,
-            user_target=cfg.target,
-            task_override=cfg.task_override,
-            split_strategy=cfg.split_strategy,
-            agent_mode=cfg.agent_mode,
-            llm=llm,
-            output_root=cfg.output_root,
-            run_dl=cfg.run_dl,
-            enterprise_mode=True,
-            seed=cfg.seed,
-            architecture=arch_choice,
-            activation=cfg.activation or "relu",
-            costlier_errors=cost_choice,
-            dataset_source=dataset_source,
-            requested_provider=cfg.llm_provider if cfg.agent_mode == "llm" else None,
-            split_props=(cfg.train_prop, cfg.test_prop, cfg.oos_prop),
-            explain_method=cfg.explain_method,
-            tuning_strategy=cfg.tuning_strategy,
-            tuning_trials=cfg.tuning_trials,
-            session=session,
-            class_weight=cfg.class_weight,
-            custom_space=cfg.custom_space,
-            validation=cfg.validation_scheme,
-            k_folds=cfg.k_folds,
-            cost_specification=cfg.cost_specification,
-            run_id=enterprise_run_id,
-            execution_mode=getattr(cfg, "execution_mode", "linear"),
-        )
+        live_graph.enter_phase("execute_tools")
+        with enterprise_engineering_tracer.span(
+            OP_MODEL_EVALUATE,
+            {"architecture": arch_choice, "sequence": cfg.sequence_bundle is not None},
+        ):
+            outcome = orch.run(
+                df,
+                user_target=cfg.target,
+                task_override=cfg.task_override,
+                split_strategy=cfg.split_strategy,
+                agent_mode=cfg.agent_mode,
+                llm=llm,
+                output_root=cfg.output_root,
+                run_dl=cfg.run_dl,
+                enterprise_mode=True,
+                seed=cfg.seed,
+                architecture=arch_choice,
+                activation=cfg.activation or "relu",
+                costlier_errors=cost_choice,
+                dataset_source=dataset_source,
+                requested_provider=cfg.llm_provider if cfg.agent_mode == "llm" else None,
+                split_props=(cfg.train_prop, cfg.test_prop, cfg.oos_prop),
+                explain_method=cfg.explain_method,
+                tuning_strategy=cfg.tuning_strategy,
+                tuning_trials=cfg.tuning_trials,
+                session=session,
+                class_weight=cfg.class_weight,
+                custom_space=cfg.custom_space,
+                validation=cfg.validation_scheme,
+                k_folds=cfg.k_folds,
+                cost_specification=cfg.cost_specification,
+                run_id=enterprise_run_id,
+                execution_mode=getattr(cfg, "execution_mode", "linear"),
+                sequence_bundle=cfg.sequence_bundle,
+                presentation_context=flight_a_context,
+            )
+    actual_explainability = str(
+        getattr(getattr(outcome, "model_execution", None), "explainability_method", "")
+        or "NOT_APPLICABLE"
+    )
+    synchronize_predictive_explainability(
+        terminal_observer.coherence_envelope,
+        actual_explainability,
+    )
+    terminal_observer.refresh_problem_contract()
+    live_graph.enter_phase(
+        "review_evidence",
+        updates={
+            "evidence_records": list(getattr(outcome.base_outcome, "evidence", [])),
+            "evidence_ids": [
+                record.evidence_id for record in getattr(outcome.base_outcome, "evidence", [])
+            ],
+        },
+    )
+    terminal_observer.evidence_batch_summary()
+    _execution_records = list(getattr(outcome.base_outcome, "evidence", []))
+    _oos_metrics = dict(
+        getattr(getattr(outcome, "model_execution", None), "metrics_by_split", {}).get("oos", {})
+    )
+    _metric_preview = ", ".join(
+        f"{name}={value:.4g}"
+        for name, value in list(_oos_metrics.items())[:3]
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    )
+    terminal_observer.review_story(
+        "REVIEW STORY — MODEL EXECUTION",
+        question="What did the selected model establish on held-out/OOS data?",
+        human_action=f"Architecture {arch_choice} selected",
+        deterministic_result=_metric_preview or "Typed model execution completed",
+        evidence=(record.evidence_id for record in _execution_records[:5]),
+        outcome=(
+            f"{len(_execution_records)} canonical EvidenceRecords now support independent review; "
+            f"attribution={getattr(getattr(outcome, 'model_execution', None), 'explainability_method', 'NOT_APPLICABLE')}"
+        ),
+    )
     if getattr(outcome, "execution_path", None) is not None:
         console.print("\n[bold]Execution path[/bold]")
         for line in outcome.execution_path.summary_lines():
@@ -1113,7 +1449,7 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
                     for key, path in figs.items()
                 ]
                 presentation = FigurePresentation.configure(
-                    explicit=getattr(cfg, "open_figures", None),
+                    explicit=False,
                     delay_seconds=getattr(cfg, "figure_delay", 1.5),
                     echo=lambda line: console.print(line, highlight=False),
                 )
@@ -1165,19 +1501,268 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         for art in outcome.artifact_registry.artifacts:
             console.print(f"  {art.name:24s} [{art.artifact_type}]  -> {art.path}")
 
-    # v2.3.0 #8/#11: MRM-grade signoff that weighs performance, generalization,
-    # calibration, feature dependence (sensitivity), and reviewer activity.
+    from start.reporting.current_run import (
+        RunLineage,
+        build_artifact_entry,
+        current_run_presentation_root,
+        write_current_run_manifest,
+    )
+
+    observer_dir = current_run_presentation_root(cfg.output_root, outcome.run_id)
+    board_lineage = RunLineage(
+        review_run_id=outcome.run_id,
+        execution_run_ids=(outcome.run_id,),
+        report_run_id=getattr(outcome, "inner_run_id", None),
+    )
+    canonical_records = list(getattr(outcome.base_outcome, "evidence", []) or [])
+    canonical_evidence_ids = {str(record.evidence_id) for record in canonical_records}
+    evidence_by_test: dict[str, list[str]] = {}
+    for canonical_record in canonical_records:
+        evidence_by_test.setdefault(str(canonical_record.test_id), []).append(
+            str(canonical_record.evidence_id)
+        )
+
+    # Recover exact scientific presentation metadata that the generic artifact
+    # registry intentionally does not own.  This is a read-only bridge from the
+    # execution-produced inventory into the review-level current-run manifest.
+    import json
+
+    scientific_by_path: dict[Path, dict[str, Any]] = {}
+    scientific_companions: set[Path] = set()
+    inventory_candidates: set[Path] = set()
+    for registered in getattr(outcome.artifact_registry, "artifacts", []) or []:
+        registered_path = Path(registered.path).expanduser().resolve()
+        inventory_candidates.update(
+            {
+                registered_path.parent / "scientific_artifacts.json",
+                registered_path.parent.parent / "scientific_artifacts.json",
+            }
+        )
+    for inventory_path in sorted(inventory_candidates):
+        if not inventory_path.is_file():
+            continue
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        if inventory.get("schema") != "start.scientific-artifacts/1":
+            raise ValueError(f"unsupported scientific artifact inventory: {inventory_path}")
+        if inventory.get("run_id") != outcome.run_id:
+            raise ValueError(f"scientific artifact inventory run mismatch: {inventory_path}")
+        scientific_root = Path(str(inventory.get("run_path", ""))).expanduser().resolve(strict=True)
+        if outcome.run_id not in scientific_root.parts:
+            raise ValueError(f"scientific artifact inventory escapes current run: {inventory_path}")
+        for raw_entry in inventory.get("groups", {}).get("flight_a", []):
+            scientific_path = Path(str(raw_entry.get("file_path", ""))).expanduser().resolve(
+                strict=True
+            )
+            if not scientific_path.is_relative_to(scientific_root):
+                raise ValueError(f"scientific artifact escapes declared run root: {scientific_path}")
+            scientific_by_path[scientific_path] = dict(raw_entry)
+            raw_companion = raw_entry.get("semantic_companion")
+            if raw_companion:
+                companion_path = Path(str(raw_companion)).expanduser().resolve(strict=True)
+                if not companion_path.is_relative_to(scientific_root):
+                    raise ValueError(
+                        f"scientific companion escapes declared run root: {companion_path}"
+                    )
+                scientific_companions.add(companion_path)
+
+    def _write_flight_a_manifest(*, emit_events: bool) -> Any:
+        groups: dict[str, list[dict[str, Any]]] = {
+            "flight_a": [],
+            "flight_b": [],
+            "flight_c": [],
+        }
+        for artifact in getattr(outcome.artifact_registry, "artifacts", []) or []:
+            artifact_path = Path(artifact.path).expanduser().resolve()
+            if outcome.run_id not in artifact_path.parts or not artifact_path.is_file():
+                continue
+            if artifact_path in scientific_companions:
+                continue
+            scientific = scientific_by_path.get(artifact_path)
+            test_id = str(scientific.get("test_id", "")) if scientific else artifact.category
+            evidence_ids = list(evidence_by_test.get(test_id, ()))
+            if scientific:
+                evidence_ids = list(
+                    dict.fromkeys(
+                        evidence_ids
+                        + [
+                            str(evidence_id)
+                            for evidence_id in scientific.get("evidence_ids", [])
+                            if str(evidence_id) in canonical_evidence_ids
+                        ]
+                    )
+                )
+            entry = build_artifact_entry(
+                path=artifact_path,
+                owner_run_id=outcome.run_id,
+                lineage=board_lineage,
+                artifact_id=(str(scientific.get("artifact_id")) if scientific else artifact.name),
+                artifact_type=(
+                    str(scientific.get("artifact_type"))
+                    if scientific
+                    else artifact.artifact_type
+                ),
+                title=(
+                    str(scientific.get("title"))
+                    if scientific
+                    else artifact.description or artifact.name.replace("_", " ").title()
+                ),
+                test_id=test_id,
+                evidence_ids=evidence_ids,
+                checkpoint=(
+                    str(scientific.get("checkpoint"))
+                    if scientific
+                    else "Flight A — Predictive / Temporal Review"
+                ),
+            )
+            if scientific:
+                entry["semantic_companion"] = scientific.get("semantic_companion")
+                entry["semantic_payload_hash"] = scientific.get("semantic_payload_hash")
+                entry["rendering_format"] = scientific.get("rendering_format")
+                entry["provenance_kind"] = "execution-produced-scientific-inventory"
+            groups["flight_a"].append(entry)
+            if emit_events:
+                terminal_observer.artifact_available(
+                    artifact_id=str(entry["artifact_id"]),
+                    file_path=str(entry["file_path"]),
+                    evidence_ids=entry["evidence_ids"],
+                    checkpoint=str(entry["checkpoint"]),
+                )
+        return write_current_run_manifest(
+            presentation_root=observer_dir,
+            lineage=board_lineage,
+            groups=groups,
+        )
+
+    # Publish the already-created scientific visuals before governance so the
+    # controller can place the exact-run artifact surface beside the terminal.
+    preview_manifest_path = _write_flight_a_manifest(emit_events=False)
+    terminal_observer.artifact_board_ready(preview_manifest_path, run_id=outcome.run_id)
+
+
+    # Cross-Agent Collisions & Human Adjudication (precedes formal governance sign-off)
+    from start.attestation.seal import build_seal, persist_seal_manifest, validate_seal_preconditions
+    from start.cli.panels import render_seal_panel
+    from start.consensus import adjudicate_collisions_interactive, detect_collisions
+
+    evidence_dicts = [
+        r.model_dump() if hasattr(r, "model_dump") else (r.as_dict() if hasattr(r, "as_dict") else dict(r))
+        for r in getattr(_final_store, "records", [])
+    ]
+    canonical_modality = "temporal_sequence" if cfg.sequence_bundle is not None else "tabular"
+    agent_outputs = {
+        "ArchitectureReviewAgent": {"recommended_family": arch_choice, "modality": canonical_modality},
+        "ValidationPlannerAgent": {"expected_modality": canonical_modality},
+    }
+    collisions = detect_collisions(
+        evidence_records=evidence_dicts,
+        agent_outputs=agent_outputs,
+        plan={"modality": canonical_modality, "architecture": arch_choice},
+    )
+    adjudications: list[Any] = []
+    can_proceed = True
+    if collisions:
+        adjudications, can_proceed = adjudicate_collisions_interactive(
+            collisions,
+            non_interactive=cfg.non_interactive,
+            output_func=lambda m: console.print(m),
+            input_func=input,
+        )
+
+    # Attach adjudications to session for MRM factor evaluation and canonical payload
+    session.adjudications = [
+        a.as_evidence_record() if hasattr(a, "as_evidence_record") else (a if isinstance(a, dict) else a.__dict__)
+        for a in adjudications
+    ]
+
+    # v2.3.0 #8/#11: Formal MRM-grade signoff that weighs performance, generalization,
+    # calibration, feature dependence (sensitivity), reviewer activity, and human adjudications.
     from start.agents.engineering_agents import select_primary_metric
     from start.mrm_signoff import evaluate_signoff, render_signoff_rich
 
     _mrm_mc = select_primary_metric(task_type, costlier_errors=cost_choice)
+    live_graph.enter_phase("governance_signoff")
     _mrm = evaluate_signoff(_final_store, session, primary_metric=_mrm_mc["primary_metric"])
     _st, _sp = render_signoff_rich(_mrm)
     console.print("")
     console.print(_st)
     console.print(_sp)
-    # expose on the session for transcript/dashboard
     session.mrm_signoff = _mrm.to_dict()
+
+    # The ledger commit hook already fed these canonical records synchronously
+    # while the deterministic orchestrator was running.
+    base_records = list(getattr(outcome.base_outcome, "evidence", []))
+
+    from start.attestation.claims import bind_claims as _bind_claims
+    from start.attestation.claims import extract_claims as _extract_claims
+    from start.telemetry.engineering_trace import PolicyAdapter
+
+    signoff_text = getattr(getattr(outcome.base_outcome, "agent_review", None), "signoff", "")
+    signoff_claims = _extract_claims(signoff_text)
+    signoff_binding = _bind_claims(signoff_claims, base_records)
+    terminal_observer.grounding_result(
+        accepted=len(signoff_binding.unbound) == 0 and outcome.critique_ok,
+        quantitative_claims=len(signoff_claims),
+        grounded_claims=len(signoff_binding.bound),
+        grounding_required_claims=signoff_binding.total_claims,
+        other_exempt_claims=max(0, len(signoff_claims) - signoff_binding.total_claims),
+        invalid_details=list(signoff_binding.unbound),
+        continuation="NOT_PERMITTED" if signoff_binding.unbound else "NOT_APPLICABLE",
+    )
+    policy_disposition = {
+        "READY": "ACCEPT",
+        "READY WITH CONDITIONS": "ACCEPT_WITH_CONDITIONS",
+        "NOT READY": "REMEDIATION_REQUIRED",
+    }.get(_mrm.verdict, "REMEDIATION_REQUIRED")
+    blocker_count = sum(1 for factor in _mrm.factors if factor.status == "blocker")
+    unresolved_count = sum(1 for factor in _mrm.factors if factor.status in {"blocker", "unknown"})
+    governance_conditions = [
+        f"{factor.name}: {factor.detail}"
+        for factor in _mrm.factors
+        if factor.status in {"concern", "blocker", "unknown"}
+    ]
+    terminal_observer.governance_card(
+        disposition=policy_disposition,
+        evidence_count=len(base_records),
+        unresolved_count=unresolved_count,
+        validation_failures=blocker_count,
+        conditions=governance_conditions,
+    )
+    with enterprise_engineering_tracer.span(
+        OP_POLICY_EVALUATE,
+        {
+            "evidence_count": len(base_records),
+            "ungrounded_claims": len(signoff_binding.unbound),
+            "disposition": policy_disposition,
+        },
+    ):
+        enterprise_policy_result = PolicyAdapter(use_opa=True).evaluate_signoff(
+            run_id=outcome.run_id,
+            evidence_ids=[record.evidence_id for record in base_records],
+            disposition=policy_disposition,
+            ungrounded_claims=len(signoff_binding.unbound),
+            validation_failures=blocker_count,
+        )
+    terminal_observer.policy_gate(enterprise_policy_result)
+    terminal_observer.review_story(
+        "DECISION SNAPSHOT — FINAL GOVERNANCE",
+        question="May this evidence-native model review proceed to attestation?",
+        human_action=terminal_observer.state.last_human_action or "REVIEWED",
+        agent_recommendation=f"MRM verdict: {_mrm.verdict}",
+        deterministic_result=(
+            f"{len(base_records)} EvidenceRecords; {blocker_count} validation blocker(s); "
+            f"{len(signoff_binding.unbound)} ungrounded claim(s)"
+        ),
+        evidence=(record.evidence_id for record in base_records[:5]),
+        outcome=f"Governance {policy_disposition} · policy {enterprise_policy_result.decision}",
+    )
+    enterprise_run_trace.__exit__(None, None, None)
+    terminal_observer.trace_waterfall(enterprise_engineering_tracer.get_records())
+
+    if not can_proceed:
+        import typer
+
+        console.print("[bold red]Review blocked by human adjudication outcome.[/bold red]")
+        raise typer.Exit(code=1)
 
     # v2.3.1 #8: compact review decision ledger (checkpoint/choice/recommendation/
     # status/evidence/impact) in the terminal.
@@ -1216,43 +1801,12 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         inner_run_id=inner_run_id,
     )
 
-    # Cross-Agent Collisions & Human Adjudication
-    from start.attestation.seal import build_seal, persist_seal_manifest, validate_seal_preconditions
-    from start.cli.panels import render_seal_panel
-    from start.consensus import adjudicate_collisions_interactive, detect_collisions
-
-    evidence_dicts = [
-        r.model_dump() if hasattr(r, "model_dump") else (r.as_dict() if hasattr(r, "as_dict") else dict(r))
-        for r in getattr(_final_store, "records", [])
-    ]
-    agent_outputs = {
-        "ArchitectureReviewAgent": {"recommended_family": arch_choice},
-        "ValidationPlannerAgent": {"expected_modality": "tabular"},
-    }
-    collisions = detect_collisions(
-        evidence_records=evidence_dicts,
-        agent_outputs=agent_outputs,
-    )
-    adjudications = []
-    if collisions:
-        adjudications, can_proceed = adjudicate_collisions_interactive(
-            collisions,
-            non_interactive=cfg.non_interactive,
-            output_func=lambda m: console.print(m),
-            input_func=input,
-        )
-        if not can_proceed:
-            import typer
-
-            if cfg.non_interactive:
-                raise typer.Exit(code=1)
-            console.print("[bold red]Review blocked by human adjudication outcome.[/bold red]")
-
     # Adjudications canonical payload (A2)
     adjudications_payload = session.to_canonical_dict()
     if adjudications:
         adjudications_payload["collisions"] = [
-            a.as_evidence_record() if hasattr(a, "as_evidence_record") else dict(a) for a in adjudications
+            a.as_evidence_record() if hasattr(a, "as_evidence_record") else (a if isinstance(a, dict) else a.__dict__)
+            for a in adjudications
         ]
 
     # Attestations leaf payload (A5)
@@ -1294,13 +1848,17 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         agent_mode=cfg.agent_mode,
         critic_verdict="PASSED" if outcome.critique_ok else "FAILED",
     )
-    if not valid_seal:
+    if not valid_seal or enterprise_policy_result.decision != "ALLOW":
         console.print(
             "\n[bold red]SEAL WITHHELD — this review cannot be cryptographically sealed.[/bold red]"
         )
         for c in check_results:
             mark = "[bold green]✓[/bold green]" if c.passed else "[bold red]✗[/bold red]"
             console.print(f"  {mark} {c.label}")
+        if enterprise_policy_result.decision != "ALLOW":
+            console.print(
+                f"  [bold red]✗[/bold red] Policy gate: {enterprise_policy_result.reason}"
+            )
         console.print(
             "\n[dim]A seal that commits to no evidence is worse than no seal: "
             "it verifies forever and attests to nothing.[/dim]\n"
@@ -1322,7 +1880,11 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
             "enterprise_run_id": outcome.run_id,
             "inner_run_id": inner_run_id,
         },
-        policy={"disclosure_policy": "public_demo", "profile": active_profile().value},
+        policy={
+            "disclosure_policy": "public_demo",
+            "profile": active_profile().value,
+            "governance_policy_decision": enterprise_policy_result.to_dict(),
+        },
         evidence_head=evidence_head_hash,
         attestations=attestations_list if attestations_list else None,
         adjudications=adjudications_payload,
@@ -1341,8 +1903,73 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
 
     console.print("")
     console.print(render_seal_panel(seal, critic_verdict="PASSED" if outcome.critique_ok else "FAILED"))
+    seal_root = seal.root() if callable(seal.root) else seal.root
+    terminal_observer.attestation_sealed(
+        merkle_root=str(seal_root),
+        leaf_count=len(getattr(seal, "leaves", [])),
+    )
+    live_graph.enter_phase(
+        "archive_artifacts",
+        updates={
+            "artifact_ids": [
+                str(getattr(artifact, "name", "ART"))
+                for artifact in (getattr(outcome.artifact_registry, "artifacts", []) or [])
+            ]
+        },
+    )
+
+    artifact_manifest_path = _write_flight_a_manifest(emit_events=True)
+    from start.review.workflow_coherence import DeterministicExecutionSummary
+
+    canonical_records = list(getattr(outcome.base_outcome, "evidence", ()) or ())
+    resolved_explainability = str(
+        terminal_observer.coherence_envelope.problem.domain_payloads["predictive"][
+            "explainability"
+        ]
+    )
+    terminal_observer.deterministic_execution_summary(
+        DeterministicExecutionSummary(
+            engine_ids=("EnterpriseReviewOrchestrator", "ModelExecution"),
+            canonical_input_references=(
+                flight_a_context.model_input_contract,
+                flight_a_context.split_description,
+                f"task={outcome.task_type}",
+                f"modality={outcome.modality}",
+            ),
+            operations=(
+                "model development",
+                "registered diagnostics",
+                f"explainability={resolved_explainability}",
+                "evidence commit",
+            ),
+            authoritative_outputs=tuple(record.test_id for record in canonical_records),
+            statuses=tuple(
+                str(getattr(record.status, "value", record.status)).upper()
+                for record in canonical_records
+            ),
+            evidence_record_references=tuple(record.evidence_id for record in canonical_records),
+            artifact_references=tuple(
+                str(getattr(artifact, "name", ""))
+                for artifact in (getattr(outcome.artifact_registry, "artifacts", ()) or ())
+                if getattr(artifact, "name", "")
+            ),
+            limitations=tuple(getattr(cfg, "notes", ()) or ()),
+            skipped_or_not_applicable=(
+                () if cfg.run_dl else ("model training", "explainability", "robustness")
+            ),
+        ),
+        checkpoint="review.execution.complete",
+    )
+    terminal_observer.session_completed(source_component="start.interactive_review")
+    terminal_observer.export(observer_dir / "presentation_events.json")
+    outcome.workflow_coherence = terminal_observer.coherence_envelope
+    outcome.run_outcome_capsule = terminal_observer.outcome_capsule
+    enterprise_engineering_tracer.export_jsonl(observer_dir / "engineering_trace.jsonl")
     tracer.end_review(seal_string=seal.seal_string())
     outcome.review_session = session
+    outcome.langgraph_app = live_graph.app
+    outcome.langgraph_state = live_graph.state
+    outcome.langgraph_checkpoint = live_graph.checkpoint
 
     summary = outcome.findings_register.summary()
     console.print(
@@ -1356,6 +1983,10 @@ def _run_enterprise(cfg: ReviewConfig, df: Any, llm: Any) -> Any:
         f"/{outcome.ai_engineering.total} adapters available\n"
         f"  evidence critique: {'PASSED' if outcome.critique_ok else 'FAILED'}\n"
         f"  seal: [bold cyan]{seal.seal_string()}[/bold cyan]\n"
+        f"  review run: {outcome.run_id}\n"
+        f"  execution run: {outcome.run_id}\n"
+        f"  report run: {inner_run_id or 'NOT_APPLICABLE'}\n"
+        f"  artifact manifest: {artifact_manifest_path}\n"
         f"  dashboard: {outcome.dashboard_paths['html']}\n"
         f"  transcript: {transcript_paths['html']}"
     )

@@ -3,7 +3,7 @@
 **Version:** 5.2.0  
 **Date:** 2026-09-10  
 **Status:** Certified Final Acceptance  
-**Target Repository:** `StART`
+**Target Repository:** repository root
 
 ---
 
@@ -160,7 +160,7 @@ To maintain absolute scientific integrity and avoid advertising unverified featu
 
 ## 8. Backend Capability Closure Ledger (B1–B8)
 
-| Blocker ID | Domain | Root Cause Identified by Codex | Final Status | Verification |
+| Blocker ID | Domain | Root Cause | Final Status | Verification |
 | :--- | :--- | :--- | :--- | :--- |
 | **B1** | Route Aliases & Three Modes | Missing `/plan/generate`, `/workflow/run`, no executionMode | **CLOSED** | Top-level route aliases, `execution_mode` parameter, `CP-AGENTIC` checkpoint |
 | **B2** | Scientific Parameter Propagation | Parameters ignored; silent model substitution | **CLOSED** | Full parameter propagation; fail-closed model resolution |
@@ -179,15 +179,14 @@ The StART Agentic AI Engineering Workbench has closed all identified backend cap
 
 ---
 
-## 10. FINAL CODEX CONTRACT CLOSURE
+## 10. FINAL FRONTEND CONTRACT CLOSURE
 
-Following Codex's final binding audit pass (`webapp/docs/FINAL_FRONTEND_BINDING.md`), the remaining blockers (C1–C4) have been definitively resolved:
+Following the final binding audit (`webapp/docs/FINAL_FRONTEND_BINDING.md`), the remaining blockers (C1–C4) have been definitively resolved:
 
-| ID | Issue Identified by Codex | Final Status | Architectural & Scientific Resolution |
+| ID | Identified Issue | Final Status | Architectural & Scientific Resolution |
 | :--- | :--- | :--- | :--- |
 | **C1** | Outlier mitigation and categorical encoding ignored or leaky | **CLOSED** | Implemented `start.data.preprocessing.apply_preprocessing_pipeline` with leak-free train-only fitting for IQR, Z-Score, Winsorize, Target, One-Hot, Ordinal, and Frequency transformers. Excluded `score` and `prediction` from feature matrix. |
 | **C2** | Tuning HTTP 500 on events/presentation & fallback to Logistic Regression | **CLOSED** | Added `start.utils.serializers.sanitize_json_primitives` ensuring numpy scalar safety across all Pydantic responses. Promoted champion architecture and lineage to `tab.model`, `resolved_configuration`, and canonical presentation. Set `n_jobs=1` on Darwin to eliminate OpenMP multithreading crashes. |
 | **C3** | Scenario dispatch metadata-only | **CLOSED** | Scenario type (`asset_tail_stress`, `factor_macro`, `reverse_stress`) and `shock_magnitude` wired to market execution and reflected in `resolved_configuration`. |
 | **C4** | Portfolio optimizer selection metadata-only | **CLOSED** | Dynamic dispatch to `solve_min_variance`, `solve_equal_risk_contribution`, and `hrp_weights_and_tree` across cases G, H, and I with distinct weights. |
-
 
