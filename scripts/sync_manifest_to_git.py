@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manifest-Driven Synchronizer from Development Tree to Protected Git Tree.
 
-Transfers only frozen, verified publication files to /Users/.../Desktop/My_Git/StART,
+Transfers only frozen, verified publication files to an explicitly configured public checkout,
 protecting .git and validating bit-for-bit SHA-256 hash matches.
 """
 

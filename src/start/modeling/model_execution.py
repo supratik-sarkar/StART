@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ import pandas as pd
 @dataclass
 class ModelExecution:
     split_table: list[dict[str, Any]] = field(default_factory=list)
-    metrics_by_split: dict[str, dict[str, float]] = field(default_factory=dict)
+    metrics_by_split: dict[str, dict[str, Any]] = field(default_factory=dict)
     training_diagnostics: dict[str, Any] = field(default_factory=dict)
     explainability_method: str = ""
     global_importance: list[dict[str, Any]] = field(default_factory=list)
@@ -133,11 +133,249 @@ def run_model_execution(
     custom_space: dict[str, Any] | None = None,
     costlier_errors: str | None = None,
     tuning_params: dict[str, Any] | None = None,
+    sequence_bundle: Any = None,
 ) -> ModelExecution | None:
-    """Train a tabular model and emit the visible tables + artifacts."""
+    """Train a tabular or sequence model and emit the visible tables + artifacts."""
     from start.modeling.tuning_run import _model_family
 
     family = _model_family(architecture)
+    if family == "sequence_dl" and sequence_bundle is None:
+        from start.modeling.sequence_dl import SequenceInputContractError
+
+        raise SequenceInputContractError(
+            f"Recurrent architecture '{architecture}' requires a rank-3 sequence bundle (samples, timesteps, features) with timesteps > 1. "
+            f"Ordinary rank-2 tabular dataframe cannot be converted to fake sequences."
+        )
+
+    if sequence_bundle is not None:
+        from start.modeling.deep_learning import torch_available
+
+        if not torch_available():
+            return None
+        from sklearn.metrics import confusion_matrix, precision_score, recall_score
+
+        from start.modeling.sequence_dl import (
+            SequenceClassifier,
+            sequence_robustness,
+            sequence_saliency,
+        )
+        from start.modeling.tabular_dl_metrics import dl_task_metrics
+
+        out_dir = Path(output_root) / "model_execution" / run_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+        features = [f"feat_{i}" for i in range(sequence_bundle.n_features)]
+        result = ModelExecution(feature_columns=features)
+
+        # split distribution table
+        n_train = len(sequence_bundle.X_train)
+        n_test = len(sequence_bundle.X_test)
+        n_oos = len(sequence_bundle.X_oos)
+        total = n_train + n_test + n_oos or 1
+        splits_info = [
+            ("train", n_train, sequence_bundle.y_train),
+            ("test", n_test, sequence_bundle.y_test),
+            ("oos", n_oos, sequence_bundle.y_oos),
+        ]
+        result.split_table = []
+        for sname, n_rows, y_arr in splits_info:
+            pos_rate = float((y_arr == 1).mean()) if n_rows else 0.0
+            result.split_table.append({
+                "split": sname,
+                "rows": n_rows,
+                "percent": round(100.0 * n_rows / total, 1),
+                "positive_rate": round(pos_rate, 4),
+                "negative_rate": round(1.0 - pos_rate, 4),
+            })
+        split_csv = out_dir / "split_distribution.csv"
+        pd.DataFrame(result.split_table).to_csv(split_csv, index=False)
+        split_json = out_dir / "split_distribution.json"
+        split_json.write_text(json.dumps(result.split_table, indent=2))
+        result.artifacts += [str(split_csv), str(split_json)]
+
+        # train
+        kwargs: dict[str, Any] = {
+            "family": architecture,
+            "epochs": 10,
+            "early_stopping_patience": 3,
+            "random_state": seed,
+        }
+        if class_weight:
+            kwargs["class_weight"] = class_weight
+        if custom_space:
+            scalar_space = {}
+            for k, v in custom_space.items():
+                scalar_space[k] = v[0] if isinstance(v, list) else v
+            kwargs.update(scalar_space)
+        clf_seq = SequenceClassifier(**kwargs)
+        clf_seq.fit(sequence_bundle.X_train, sequence_bundle.y_train)
+
+        # metrics by split
+        for sname, X_part, y_part in (
+            ("train", sequence_bundle.X_train, sequence_bundle.y_train),
+            ("test", sequence_bundle.X_test, sequence_bundle.y_test),
+            ("oos", sequence_bundle.X_oos, sequence_bundle.y_oos),
+        ):
+            proba = clf_seq.predict_proba(X_part)
+            m: dict[str, Any] = dict(dl_task_metrics("binary_classification", y_part, proba, classes=getattr(clf_seq, "classes_", None)))
+            p1 = proba[:, 1]
+            preds = (p1 >= 0.5).astype(int)
+            m["precision"] = round(float(precision_score(y_part, preds, zero_division=0)), 6)
+            m["recall"] = round(float(recall_score(y_part, preds, zero_division=0)), 6)
+            try:
+                tn, fp, fn, tp = confusion_matrix(y_part, preds, labels=[0, 1]).ravel()
+                m["specificity"] = round(float(tn / (tn + fp)) if (tn + fp) else 0.0, 6)
+                m["confusion_matrix"] = [int(tn), int(fp), int(fn), int(tp)]
+            except Exception:
+                m["specificity"] = float("nan")
+            result.metrics_by_split[sname] = m
+
+        if len(sequence_bundle.X_oos):
+            result.oos_y_true = sequence_bundle.y_oos
+            proba = clf_seq.predict_proba(sequence_bundle.X_oos)
+            result.oos_scores = proba[:, 1] if proba.shape[1] > 1 else proba[:, 0]
+
+        metrics_csv = out_dir / "metrics_by_split.csv"
+        scalar_metrics = {
+            split: {k: v for k, v in m.items() if not isinstance(v, list)}
+            for split, m in result.metrics_by_split.items()
+        }
+        pd.DataFrame(scalar_metrics).T.to_csv(metrics_csv)
+        result.artifacts.append(str(metrics_csv))
+
+        cm_rows = []
+        for s, m in result.metrics_by_split.items():
+            cm_val: Any = m.get("confusion_matrix")
+            if isinstance(cm_val, (list, tuple)) and len(cm_val) == 4:
+                cm_rows.append({
+                    "split": s,
+                    "tn": cm_val[0],
+                    "fp": cm_val[1],
+                    "fn": cm_val[2],
+                    "tp": cm_val[3],
+                })
+        if cm_rows:
+            cm_csv = out_dir / "confusion_matrix.csv"
+            pd.DataFrame(cm_rows).to_csv(cm_csv, index=False)
+            result.artifacts.append(str(cm_csv))
+
+        if "train" in result.metrics_by_split and "oos" in result.metrics_by_split:
+            result.generalization_gap = round(
+                result.metrics_by_split["train"]["auc_roc"] - result.metrics_by_split["oos"]["auc_roc"], 6
+            )
+
+        # training diagnostics
+        history = getattr(clf_seq, "history_", None) or {}
+        result.training_diagnostics = {
+            "device": getattr(clf_seq, "device_used", "cpu"),
+            "best_epoch": getattr(clf_seq, "best_epoch_", None),
+            "stopped_early": getattr(clf_seq, "stopped_early_", False),
+            "epochs_run": len(history.get("train_loss", [])) if history else None,
+            "architecture": architecture,
+        }
+        train_json = out_dir / "training_summary.json"
+        train_json.write_text(json.dumps(result.training_diagnostics, indent=2, default=str))
+        result.artifacts.append(str(train_json))
+        if history:
+            hist_csv = out_dir / "training_history.csv"
+            pd.DataFrame(history).to_csv(hist_csv, index_label="epoch")
+            result.artifacts.append(str(hist_csv))
+
+        # explainability & robustness
+        saliency = sequence_saliency(clf_seq, sequence_bundle.X_test, seed=seed)
+        result.explainability_method = "Temporal Input-Gradient Saliency"
+        result.explainability_available = ["input_gradient"]
+        per_feat = saliency.get("per_feature", [])
+        result.global_importance = [
+            {
+                "rank": i + 1,
+                "feature": f"feature_{i}",
+                "importance": round(float(v), 6),
+                "direction": "magnitude_only",
+            }
+            for i, v in enumerate(per_feat)
+        ]
+        imp_csv = out_dir / "global_feature_importance.csv"
+        pd.DataFrame(result.global_importance).to_csv(imp_csv, index=False)
+        sal_json = out_dir / "sequence_saliency.json"
+        sal_json.write_text(json.dumps(saliency, indent=2))
+        result.artifacts += [str(imp_csv), str(sal_json)]
+
+        robustness = sequence_robustness(clf_seq, sequence_bundle.X_test, sequence_bundle.y_test, seed=seed)
+        rob_json = out_dir / "sequence_robustness.json"
+        rob_json.write_text(json.dumps(robustness, indent=2))
+        result.artifacts.append(str(rob_json))
+
+        from start.modeling.sequence_artifacts import (
+            render_input_gradient_saliency_artifact,
+            render_temporal_contract_artifact,
+            render_temporal_robustness_artifact,
+        )
+
+        visual_dir = out_dir / "artifacts"
+        temporal_entries = [
+            render_temporal_contract_artifact(
+                n_sequences=total,
+                timesteps=sequence_bundle.timesteps,
+                feature_names=features,
+                run_id=run_id,
+                model_id=architecture,
+                output_dir=visual_dir,
+            ),
+            render_input_gradient_saliency_artifact(
+                saliency=saliency,
+                feature_names=features,
+                run_id=run_id,
+                model_id=architecture,
+                output_dir=visual_dir,
+            ),
+            render_temporal_robustness_artifact(
+                robustness=robustness,
+                run_id=run_id,
+                model_id=architecture,
+                output_dir=visual_dir,
+            ),
+        ]
+        for entry in temporal_entries:
+            entry["checkpoint"] = "Flight A — Temporal Sequence Classification"
+            result.artifacts.append(entry["file_path"])
+            result.artifacts.append(entry["semantic_companion"])
+        # Scientific child-run inventory.  The single current-review artifact
+        # manifest is owned by the presentation root and references these paths.
+        (out_dir / "scientific_artifacts.json").write_text(
+            json.dumps(
+                {
+                    "schema": "start.scientific-artifacts/1",
+                    "run_id": run_id,
+                    "run_path": str(out_dir.resolve()),
+                    "groups": {
+                        "flight_a": temporal_entries,
+                        "flight_b": [],
+                        "flight_c": [],
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        if registry is not None:
+            for path in result.artifacts:
+                category = (
+                    "split"
+                    if "split" in path
+                    else "metrics"
+                    if "metrics" in path
+                    else "training"
+                    if "training" in path
+                    else "explainability"
+                    if "importance" in path or "saliency" in path
+                    else "robustness"
+                    if "robustness" in path
+                    else "execution"
+                )
+                registry.register(path, category=category)
+        return result
+
     try:
         from start.modeling.models import resolve_model
 
@@ -148,8 +386,6 @@ def run_model_execution(
                 return None
             if family == "tabular_dl":
                 from start.modeling.tabular_dl import TabularDLClassifier
-            elif family == "sequence_dl":
-                from start.modeling.sequence_dl import SequenceClassifier
             elif family == "vision_dl":
                 from start.modeling.vision_dl import VisionCNNClassifier
         from start.modeling.dl_explain import dl_global_importance
@@ -210,6 +446,7 @@ def run_model_execution(
     result.artifacts += [str(split_csv), str(split_json)]
 
     # --- train (Section I) ---
+    clf: Any
     if family == "tabular_dl":
         kwargs = {
             "task": task_type,
@@ -237,20 +474,11 @@ def run_model_execution(
         else:
             clf.fit(splits["train"][features], splits["train"][target])
     elif family == "sequence_dl":
-        kwargs = {
-            "task": task_type,
-            "family": architecture,
-            "epochs": 10,
-            "early_stopping_patience": 3,
-            "random_state": seed,
-        }
-        if custom_space:
-            scalar_space = {}
-            for k, v in custom_space.items():
-                scalar_space[k] = v[0] if isinstance(v, list) else v
-            kwargs.update(scalar_space)
-        clf = SequenceClassifier(**kwargs)
-        clf.fit(splits["train"][features], splits["train"][target])
+        from start.modeling.sequence_dl import SequenceInputContractError
+
+        raise SequenceInputContractError(
+            f"Recurrent architecture '{architecture}' cannot be trained on rank-2 tabular dataframe."
+        )
     elif family == "vision_dl":
         kwargs = {
             "task": task_type,
@@ -292,23 +520,23 @@ def run_model_execution(
                 pass
         clf.fit(splits["train"][features], splits["train"][target], **fit_kwargs)
 
+    from types import SimpleNamespace
+
     from start.modeling.config_propagation import audit_propagation
 
-    class _CapturedConfig:
-        pass
-
-    _cfg = _CapturedConfig()
-    _cfg.class_weight = class_weight
-    _cfg.architecture_family = architecture
-    _cfg.activation = activation
-    _cfg.seed = seed
-    _cfg.explain_method = explain_method
-    _cfg.stratify = stratify
-    _cfg.train_prop = split_props[0] if split_props else None
-    _cfg.tuning_strategy = (tuning_params or {}).get("strategy")
-    _cfg.tuning_trials = (tuning_params or {}).get("trials")
-    _cfg.validation_scheme = (tuning_params or {}).get("validation")
-    _cfg.costlier_errors = costlier_errors
+    _cfg = SimpleNamespace(
+        class_weight=class_weight,
+        architecture_family=architecture,
+        activation=activation,
+        seed=seed,
+        explain_method=explain_method,
+        stratify=stratify,
+        train_prop=split_props[0] if split_props else None,
+        tuning_strategy=(tuning_params or {}).get("strategy"),
+        tuning_trials=(tuning_params or {}).get("trials"),
+        validation_scheme=(tuning_params or {}).get("validation"),
+        costlier_errors=costlier_errors,
+    )
 
     propagation = audit_propagation(
         _cfg,
@@ -340,24 +568,34 @@ def run_model_execution(
 
     for name, frame in splits.items():
         y_true = frame[target].to_numpy()
+        split_metrics: dict[str, Any]
         if task_type in ("regression", "forecasting"):
             preds = clf.predict(frame[features])
-            m = dl_task_metrics(task_type, y_true, preds)
+            split_metrics = cast(dict[str, Any], dl_task_metrics(task_type, y_true, preds))
         else:
             proba = clf.predict_proba(frame[features])
-            m = dl_task_metrics(task_type, y_true, proba, classes=getattr(clf, "classes_", None))
+            split_metrics = cast(
+                dict[str, Any],
+                dl_task_metrics(task_type, y_true, proba, classes=getattr(clf, "classes_", None)),
+            )
             if task_type == "binary_classification":
                 p1 = proba[:, 1]
                 preds = (p1 >= 0.5).astype(int)
-                m["precision"] = round(float(precision_score(y_true, preds, zero_division=0)), 6)
-                m["recall"] = round(float(recall_score(y_true, preds, zero_division=0)), 6)
+                split_metrics["precision"] = round(
+                    float(precision_score(y_true, preds, zero_division=0)), 6
+                )
+                split_metrics["recall"] = round(
+                    float(recall_score(y_true, preds, zero_division=0)), 6
+                )
                 try:
                     tn, fp, fn, tp = confusion_matrix(y_true, preds, labels=[0, 1]).ravel()
-                    m["specificity"] = round(float(tn / (tn + fp)) if (tn + fp) else 0.0, 6)
-                    m["confusion_matrix"] = [int(tn), int(fp), int(fn), int(tp)]
+                    split_metrics["specificity"] = round(
+                        float(tn / (tn + fp)) if (tn + fp) else 0.0, 6
+                    )
+                    split_metrics["confusion_matrix"] = [int(tn), int(fp), int(fn), int(tp)]
                 except Exception:
-                    m["specificity"] = float("nan")
-        result.metrics_by_split[name] = m
+                    split_metrics["specificity"] = float("nan")
+        result.metrics_by_split[name] = split_metrics
 
     if "oos" in splits and len(splits["oos"]):
         oos_frame = splits["oos"]
@@ -426,13 +664,15 @@ def run_model_execution(
         result.artifacts.append(str(cm_csv))
 
     if "train" in result.metrics_by_split and "oos" in result.metrics_by_split:
-        m = (
+        metric_key = (
             metric_name
             if metric_name in result.metrics_by_split["train"]
             else ("rmse" if task_type in ("regression", "forecasting") else "auc_roc")
         )
         result.generalization_gap = round(
-            result.metrics_by_split["train"][m] - result.metrics_by_split["oos"][m], 6
+            float(result.metrics_by_split["train"][metric_key])
+            - float(result.metrics_by_split["oos"][metric_key]),
+            6,
         )
 
     # --- training diagnostics (Section I) ---

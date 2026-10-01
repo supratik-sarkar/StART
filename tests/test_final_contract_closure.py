@@ -11,22 +11,22 @@ Tests:
 from __future__ import annotations
 
 import json
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from start.analysis.pipelines import (
-    run_portfolio_erc_pipeline,
-    run_portfolio_hrp_pipeline,
-    run_portfolio_min_variance_pipeline,
-)
 from start.data.preprocessing import apply_preprocessing_pipeline
+from start.analysis.pipelines import run_predictive_classification_pipeline
+from start.utils.serializers import sanitize_json_primitives
+from start.runtime.execution import CanonicalExecutionService
 from start.portfolio.hrp import hrp_weights_and_tree
 from start.portfolio.optimization import solve_equal_risk_contribution
-from start.runtime.execution import CanonicalExecutionService
 from start.tests.portfolio import solve_min_variance
-from start.utils.serializers import sanitize_json_primitives
+from start.analysis.pipelines import (
+    run_portfolio_hrp_pipeline,
+    run_portfolio_min_variance_pipeline,
+    run_portfolio_erc_pipeline,
+)
 
 
 # =========================================================================

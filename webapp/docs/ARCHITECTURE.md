@@ -1,4 +1,4 @@
-# StART Greenfield Webapp Architecture
+# StART Webapp Architecture
 
 This folder is intentionally portable. UI components depend on **domain contracts**, never Cloudflare, Oracle, HMAC, deployment IPs, or public-demo routes.
 
@@ -11,7 +11,7 @@ This folder is intentionally portable. UI components depend on **domain contract
 ## Current adapters
 
 - `DemoBackend`: deterministic visual-development adapter; it exists so the package can be reviewed before StART backend wiring. It is explicitly labeled in the UI and must not be used for public truth claims.
-- `PublicStARTBackend`: wiring target for the public repo. Endpoint paths are deliberately isolated here and should be reconciled against canonical StART routes by Antigravity.
+- `PublicStARTBackend`: wiring target for the public repository. Endpoint paths are deliberately isolated here and must be reconciled against canonical StART routes during backend integration.
 
 ## Visual architecture
 

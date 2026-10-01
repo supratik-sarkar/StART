@@ -14,23 +14,24 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from pathlib import Path
 import sys
 import threading
 import time
 import urllib.request
-import uuid
-from datetime import UTC
-from pathlib import Path
 from typing import Any
+import uuid
 
+from fastapi import APIRouter, Header, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 import pandas as pd
-from fastapi import APIRouter, Header, HTTPException, Query
 
-from start.data.providers.contract import DatasetContract, DatasetPartitionPlan
+from start.data.providers.contract import DatasetContract, DatasetPartitionPlan, DatasetTelemetry
 from start.data.providers.parallel import ArrowColumnarBatchPipeline, evaluate_ray_backend
 from start.data.providers.precertification import precertify_dataset
 from start.data.providers.registry import get_provider_adapter, list_provider_adapters
 from start.web.schemas import (
+    START_SCHEMA_VERSION,
     APIResponseEnvelope,
     DataPrecertificationRequest,
     DataResolveRequest,
@@ -502,8 +503,8 @@ def discover_datasets(
     remote_query_attempted = False
     remote_query_succeeded = False
     remote_error_category: str | None = None
-    from datetime import datetime
-    fetched_at = datetime.now(UTC).isoformat()
+    from datetime import datetime, timezone
+    fetched_at = datetime.now(timezone.utc).isoformat()
 
     if prov_key == "huggingface":
         remote_query_attempted = True

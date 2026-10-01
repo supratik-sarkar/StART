@@ -100,6 +100,11 @@ class EnterpriseOutcome:
     review_session: Any = None
     inner_run_id: str | None = None
     execution_path: Any = None
+    langgraph_app: Any = None
+    langgraph_state: dict[str, Any] | None = None
+    langgraph_checkpoint: Any = None
+    workflow_coherence: Any = None
+    run_outcome_capsule: Any = None
 
     @property
     def critique_ok(self) -> bool:
@@ -115,11 +120,13 @@ class EnterpriseReviewOrchestrator:
         on_layer: Callable[[LayerResult], None] | None = None,
         on_adapter: Callable[[Any], None] | None = None,
         on_adapter_start: Callable[[str, str], None] | None = None,
+        on_evidence_committed: Callable[[Any], None] | None = None,
     ) -> None:
         self.on_stage = on_stage
         self.on_layer = on_layer
         self.on_adapter = on_adapter
         self.on_adapter_start = on_adapter_start
+        self.on_evidence_committed = on_evidence_committed
         self.layers: list[LayerResult] = []
 
     def _on_adapter(self, result: Any) -> None:
@@ -175,6 +182,8 @@ class EnterpriseReviewOrchestrator:
         custom_space: dict[str, Any] | None = None,
         cost_specification: dict[str, Any] | None = None,
         run_id: str | None = None,
+        sequence_bundle: Any = None,
+        presentation_context: Any = None,
     ) -> EnterpriseOutcome:
         from start.agents.engineering_agents import (
             ArchitectureReviewAgent,
@@ -190,6 +199,15 @@ class EnterpriseReviewOrchestrator:
 
         if run_id is None:
             run_id = "RUN-ENT-" + uuid.uuid4().hex[:8]
+        if presentation_context is None:
+            from start.review.terminal_observability import build_flight_a_presentation_context
+
+            presentation_context = build_flight_a_presentation_context(
+                df=df,
+                sequence_bundle=sequence_bundle,
+                selected_architecture=architecture,
+                configured_split=split_strategy,
+            )
         register = FindingsRegister()
         action_log = ActionLog()
         trace_log = TraceLog()
@@ -218,7 +236,10 @@ class EnterpriseReviewOrchestrator:
         # The base orchestrator runs the full Layer 1-9 flow with stage streaming.
         t0 = time.perf_counter()
         data_layer = self._layer("Data")
-        base = ReviewOrchestrator(on_stage=self.on_stage)
+        base = ReviewOrchestrator(
+            on_stage=self.on_stage,
+            on_evidence_committed=self.on_evidence_committed,
+        )
         base_outcome = base.run(
             df,
             user_target=user_target,
@@ -234,6 +255,7 @@ class EnterpriseReviewOrchestrator:
             custom_space=custom_space,
             class_weight=class_weight,
             enterprise_run_id=run_id,
+            sequence_bundle=sequence_bundle,
         )
         evidence_ids = [getattr(r, "evidence_id", r.test_id) for r in base_outcome.evidence]
 
@@ -244,7 +266,11 @@ class EnterpriseReviewOrchestrator:
             if r.test_id.startswith(("discovery", "split", "feature_engineering"))
         ]
         data_layer.evidence_ids = data_ids
-        self._finish(data_layer, t0, f"{len(df)} rows; modality {base_outcome.modality}")
+        self._finish(
+            data_layer,
+            t0,
+            f"{presentation_context.sample_structure}; modality {base_outcome.modality}",
+        )
 
         # --- Co-pilot: data statistics + FE recommendations (visible intel) ---
         single_target = (
@@ -255,20 +281,31 @@ class EnterpriseReviewOrchestrator:
             dataset_source = describe_demo_dataset(df, single_target)
         action_log.record(
             "DatasetDiscoveryAgent",
-            f"{len(df)} rows x {df.shape[1]} cols",
+            presentation_context.discovery_trace_input,
             "computed data statistics",
-            recommendation=f"suggested split: {data_stats.suggested_split}",
+            recommendation=f"model split: {presentation_context.split_description}",
             evidence_ids=data_ids[:1],
         )
         trace_log.record(
             "DatasetDiscoveryAgent",
-            inputs=f"{len(df)} rows x {df.shape[1]} cols",
-            decision=f"profiled dataset; suggested split = {data_stats.suggested_split}",
-            reasoning=f"{data_stats.n_numeric} numeric / {data_stats.n_categorical} "
-            f"categorical; imbalance {data_stats.imbalance_warning}",
+            inputs=presentation_context.discovery_trace_input,
+            decision=(
+                "profiled review metadata separately from model input; "
+                f"model split = {presentation_context.split_description}"
+            ),
+            reasoning=(
+                f"Model contract has {presentation_context.model_feature_count} features; "
+                f"review metadata has {data_stats.n_numeric} numeric / "
+                f"{data_stats.n_categorical} categorical fields; "
+                f"imbalance {data_stats.imbalance_warning}"
+            ),
             evidence_ids=data_ids[:1],
             confidence=0.9,
-            alternative_considered="random split",
+            alternative_considered=(
+                "non-order-preserving split (not used)"
+                if presentation_context.modality == "temporal_sequence"
+                else "random split"
+            ),
             action_taken="emitted initial data statistics",
         )
         trace_log.record(
@@ -282,7 +319,11 @@ class EnterpriseReviewOrchestrator:
             else "classification",
             action_taken="set task type for downstream agents",
         )
-        fe_modality = {"tabular": "tabular", "sequence": "sequential", "vision": "vision"}.get(
+        fe_modality = {
+            "tabular": "tabular",
+            "temporal_sequence": "temporal_sequence",
+            "vision": "vision",
+        }.get(
             base_outcome.modality, "tabular"
         )
         fe_recs = recommend_feature_engineering(
@@ -320,8 +361,8 @@ class EnterpriseReviewOrchestrator:
             user_family=architecture,
             user_activation=activation,
             modality=base_outcome.modality,
-            n_samples=len(df),
-            n_features=df.shape[1] - 1,
+            n_samples=presentation_context.model_sample_count,
+            n_features=presentation_context.model_feature_count,
             task_type=base_outcome.task_type,
             imbalanced="severe" in data_stats.imbalance_warning or "moderate" in data_stats.imbalance_warning,
         )
@@ -336,8 +377,7 @@ class EnterpriseReviewOrchestrator:
         )
         trace_log.record(
             "ArchitectureReviewAgent",
-            inputs=f"user choice {architecture}+{activation}; "
-            f"{df.shape[1] - 1} features, {len(df)} rows, {base_outcome.modality}",
+            inputs=presentation_context.architecture_trace_input(architecture, activation),
             decision=f"recommend {arch_review.recommendation['family']}+"
             f"{arch_review.recommendation['activation']}",
             reasoning=arch_review.reason,
@@ -381,7 +421,10 @@ class EnterpriseReviewOrchestrator:
         )
         trace_log.record(
             "HyperparameterTuningAgent",
-            inputs=f"task {base_outcome.task_type}, {len(df)} rows, cost={costlier_errors}",
+            inputs=(
+                f"task {base_outcome.task_type}, {presentation_context.sample_structure}, "
+                f"cost={costlier_errors}, split={presentation_context.split_description}"
+            ),
             decision=f"{tuning_plan.n_trials}-trial {tuning_plan.strategy}, "
             f"metric {tuning_plan.primary_metric}",
             reasoning=f"metric routed by cost preference '{costlier_errors}'; "
@@ -557,6 +600,42 @@ class EnterpriseReviewOrchestrator:
                 # C/class_weight tuner) removed. The unified run_tuning now
                 # handles K-fold CV for the selected architecture.
                 kfold_tuning = None
+        elif (
+            run_dl
+            and base_outcome.cohort_metrics
+            and base_outcome.modality == "temporal_sequence"
+            and sequence_bundle is not None
+        ):
+            from start.modeling.model_execution import run_model_execution
+
+            model_exec = run_model_execution(
+                df,
+                single_target,
+                split_props=split_props,
+                metric_name=metric_choice.get("primary_metric", "auc_roc"),
+                explain_method="gradient_saliency",
+                seed=seed,
+                output_root=output_root,
+                run_id=run_id,
+                registry=artifact_registry,
+                architecture=architecture,
+                class_weight=class_weight,
+                task_type=base_outcome.task_type,
+                custom_space=custom_space,
+                costlier_errors=costlier_errors,
+                sequence_bundle=sequence_bundle,
+            )
+            if model_exec:
+                trace_log.record(
+                    "ModelExecutionAgent",
+                    inputs=f"train/test/oos sequence split ({len(sequence_bundle.X_train)}/{len(sequence_bundle.X_test)}/{len(sequence_bundle.X_oos)})",
+                    decision=f"trained {architecture}; explainability via {model_exec.explainability_method}",
+                    reasoning=f"generalization gap {model_exec.generalization_gap}",
+                    evidence_ids=val_ids[:1],
+                    confidence=0.85,
+                    alternative_considered="diagnostics-only (no training)",
+                    action_taken=f"emitted {len(model_exec.artifacts)} execution artifact(s)",
+                )
         self._finish(val_layer, t0, f"{len(base_outcome.cohort_metrics)} cohorts scored")
 
         # --- Governance layer: derive findings from evidence ---
@@ -671,6 +750,7 @@ class EnterpriseReviewOrchestrator:
                 artifact_registry=artifact_registry,
                 action_log=action_log,
                 trace_log=trace_log,
+                presentation_context=presentation_context,
             )
             if not base_outcome.agent_review.critique_ok or "NOT READY" in base_outcome.agent_review.signoff:
                 signoff_finding.description = base_outcome.agent_review.signoff
@@ -816,6 +896,7 @@ class EnterpriseReviewOrchestrator:
         artifact_registry: Any,
         action_log: Any,
         trace_log: Any,
+        presentation_context: Any,
     ) -> Any:
         import json
 
@@ -855,7 +936,9 @@ class EnterpriseReviewOrchestrator:
                 )
             fp = f"{len(df)}x{df.shape[1]}:{data_stats.suggested_split if data_stats else 'default'}"
             return NodeResult(
-                outcome=NodeOutcome.OK, detail=f"{len(df)} rows x {df.shape[1]} cols", fingerprint=fp
+                outcome=NodeOutcome.OK,
+                detail=presentation_context.discovery_trace_input,
+                fingerprint=fp,
             )
 
         handlers["dataset_discovery"] = _h_discovery
@@ -976,8 +1059,8 @@ class EnterpriseReviewOrchestrator:
             attempt = len(ctx.get("_remediation_history", []))
             if ctx.get("never_resolve_overfitting"):
                 gap = 0.28
-            elif ctx.get("resolve_overfitting_on_attempt") is not None:
-                resolve_at = int(ctx.get("resolve_overfitting_on_attempt"))
+            elif (resolve_value := ctx.get("resolve_overfitting_on_attempt")) is not None:
+                resolve_at = int(resolve_value)
                 gap = 0.04 if attempt >= resolve_at else 0.28
             else:
                 gap = (
@@ -1053,7 +1136,7 @@ class EnterpriseReviewOrchestrator:
             mat = (
                 Materiality.HIGH
                 if gf["severity"] == "blocker"
-                else (Materiality.MEDIUM if gf["severity"] == "concern" else Severity.LOW)
+                else (Materiality.MEDIUM if gf["severity"] == "concern" else Materiality.LOW)
             )
             finding_obj = Finding(
                 title=gf["kind"].replace("_", " ").title(),
@@ -1137,13 +1220,8 @@ class EnterpriseReviewOrchestrator:
                     winsorize=winsorize,
                 )
             elif family == "sequence_dl":
-                from start.modeling.sequence_dl import SequenceClassifier
-
-                clf = SequenceClassifier(
-                    family=architecture,
-                    epochs=8,
-                    random_state=seed,
-                )
+                # Recurrent sequence models cannot run tabular feature-shock sensitivity on rank-2 X
+                return None
             elif family == "vision_dl":
                 from start.modeling.vision_dl import VisionCNNClassifier
 

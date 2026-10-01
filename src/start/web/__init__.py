@@ -1,4 +1,4 @@
-"""StART v4.5 Web Transport, SSE, and Institutional Presentation Package."""
+"""StART web transport, SSE, and institutional presentation package."""
 
 try:
     from start.web.app import app, create_app
@@ -27,4 +27,3 @@ __all__ = [
     "WebReviewerSubmission",
     "ReviewerHydrationResponse",
 ]
-

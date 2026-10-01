@@ -1,0 +1,363 @@
+{
+  "findings": [
+    {
+      "finding_id": "F-01",
+      "finding_type": "OBSERVED_EVIDENCE",
+      "conclusion": "Portfolio weights and factor exposures are clearly \nseparated from the narrative interpretation: the optimiser inputs consist of a \nfully invested long-only portfolio and benchmark weight vectors with no excluded\nassets, and finite factor exposures for each of the defined factors, while the \nattribution narrative is purely descriptive of the resulting active exposures \nrather than modifying or renormalising the supplied weights.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.weights_sum"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_weights_sum"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.weights_renormalised"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.n_assets"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.n_assets_excluded"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.portfolio_exposure.F1"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.portfolio_exposure.F2"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.portfolio_exposure.F3"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.portfolio_exposure.F4"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.portfolio_exposure.F5"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F1"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F2"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F3"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F4"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F5"
+        }
+      ],
+      "criterion_status": "EVIDENCE_ONLY",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-02",
+      "finding_type": "OBSERVED_EVIDENCE",
+      "conclusion": "The objective metrics relevant for a risk-aware allocation \nare cleanly identified as variance-based quantities from the factor model and \nfrom the empirical return distribution, with a clear decomposition into factor \nand specific components and an explicit variance shortfall between model-implied\nand empirical risk; these are treated as optimisation or monitoring targets \nrather than being entangled with qualitative narrative claims.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.empirical_portfolio_variance"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.total_factor_model_variance"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_variance"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.specific_variance"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_variance_share"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.specific_variance_share"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_model_to_empirical_ratio"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.variance_shortfall"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_component_sum"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_component_reconciliation_error"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-03",
+      "finding_type": "OBSERVED_EVIDENCE",
+      "conclusion": "The baseline comparison for attribution and optimisation is\nclearly defined: the benchmark portfolio is explicitly provided, benchmark \nfactor exposures are calculated, and active exposures are measured as \ndifferences relative to this benchmark, so the narrative interpretation of \nactive risk is anchored to a concrete reference rather than an implicit or \nrenormalised baseline.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_available"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_exposure.F1"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_exposure.F2"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_exposure.F3"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_exposure.F4"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.benchmark_exposure.F5"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F1"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F2"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F3"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F4"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.active_exposure.F5"
+        },
+        {
+          "evidence_id": "EV-037b3fefa252",
+          "metric_path": "metrics.as_of"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-04",
+      "finding_type": "OBSERVED_EVIDENCE",
+      "conclusion": "The provenance of factor returns and their use in \nattribution and risk modelling is transparent and internally consistent: factor \nreturns are estimated via cross-sectional least squares with unit weighting and \nno intercept, the same factor return series and specific returns are reused \nacross factor estimation, cross-sectional factor statistics, return attribution,\nand risk attribution, and the source of factor covariance is explicitly \ndocumented as being derived from the supplied factor returns rather than from an\nasset covariance matrix.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-73deb14a278e",
+          "metric_path": "metrics.factor_returns_hash"
+        },
+        {
+          "evidence_id": "EV-73deb14a278e",
+          "metric_path": "metrics.specific_returns_hash"
+        },
+        {
+          "evidence_id": "EV-73deb14a278e",
+          "metric_path": "metrics.weighting"
+        },
+        {
+          "evidence_id": "EV-73deb14a278e",
+          "metric_path": "metrics.intercept_added"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.factor_returns_hash"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.specific_returns_hash"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.factor_return_source"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_returns_hash"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.specific_returns_hash"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_covariance_source"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.factor_returns_hash"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.specific_returns_hash"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-05",
+      "finding_type": "DIAGNOSTIC_FINDING",
+      "conclusion": "The factor model used for attribution and risk is \nnumerically stable and non-degenerate for the chosen factors, but the \ndescriptive factor-return statistics show only modest signal-to-noise and rely \non naive standard errors that assume serial independence, implying that any use \nof these factor returns in a deterministic optimisation objective should treat \nthem as descriptive rather than as precise estimates of risk premia.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-73deb14a278e",
+          "metric_path": "metrics.max_condition_number"
+        },
+        {
+          "evidence_id": "EV-73deb14a278e",
+          "metric_path": "metrics.n_degenerate_factors"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.degenerate_factors"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.degenerate.F1"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.degenerate.F2"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.degenerate.F3"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.degenerate.F4"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.degenerate.F5"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.stderr_convention"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.tstat.F1"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.tstat.F2"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.tstat.F3"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.tstat.F4"
+        },
+        {
+          "evidence_id": "EV-fbbe3dc34d33",
+          "metric_path": "metrics.tstat.F5"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-06",
+      "finding_type": "DIAGNOSTIC_FINDING",
+      "conclusion": "Return attribution and risk attribution exhibit strong \ninternal reconciliation but highlight model-specification risk for optimisation:\nperiod-by-period return attribution matches observed returns within numerical \ntolerance using the supplied factor returns, while the factor model explains \nonly a minority share of empirical variance and relies on a diagonal \nspecific-risk model, so an optimiser that minimises model-implied variance alone\nmay materially understate total portfolio risk.",
+      "evidence_refs": [
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.max_abs_reconciliation_error"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.mean_abs_reconciliation_error"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.n_periods_outside_tolerance"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.total_observed_return"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.total_factor_contribution"
+        },
+        {
+          "evidence_id": "EV-bcc3e5295e0e",
+          "metric_path": "metrics.total_specific_contribution"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_component_reconciliation_error"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_variance_share"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.specific_variance_share"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.factor_model_to_empirical_ratio"
+        },
+        {
+          "evidence_id": "EV-cc00068832ed",
+          "metric_path": "metrics.specific_risk_model"
+        }
+      ],
+      "criterion_status": "APPLICABLE",
+      "unresolved_reason": null
+    },
+    {
+      "finding_id": "F-07",
+      "finding_type": "EVIDENCE_GAP",
+      "conclusion": "Risk change decomposition between portfolio states is not \navailable, because no prior attribution state was supplied, so the model-risk \nanalysis cannot assess how sensitive the factor and specific risk decomposition \nis to changes in portfolio weights over time or under deterministic optimisation\nrebalancing.",
+      "evidence_refs": [],
+      "criterion_status": "ABSENT",
+      "unresolved_reason": "Risk-change evidence is structurally unavailable for\nthe current checkpoint, limiting validation of dynamic reallocation impacts."
+    }
+  ],
+  "overall_assessment": "For this high-materiality, risk-aware allocation use \ncase, the checkpoint evidence shows a clear separation between optimiser inputs \n(portfolio and benchmark weights, factor exposures), objective metrics \n(variance-based risk measures and return decompositions), baseline comparisons \n(explicit benchmark and empirical variance), and provenance (consistent \nfactor-return and specific-return series reused across estimation, attribution, \nand risk modelling). Portfolio weights are taken as supplied without hidden \nrenormalisation, and factor exposures and active exposures are computed against \nan explicitly identified benchmark, reducing the risk that narrative \ninterpretation contaminates the inputs used in deterministic optimisation. \nObjective quantities relevant for a risk-aware allocator are well defined: \nempirical variance, model-implied variance, and the factor versus specific \nvariance split, together with a documented variance shortfall that quantifies \nthe mismatch between the factor model and realised volatility. Provenance is \nstrong, with consistent hashes linking factor-return estimation, cross-sectional\nfactor statistics, return attribution, and risk attribution, and with the factor\ncovariance clearly sourced from the factor-return series rather than from an \nasset covariance matrix. However, the factor returns are purely descriptive \ncross-sectional coefficients estimated under a naive independence assumption and\ndo not provide robust estimates of risk premia, the factor model explains only a\nlimited share of empirical variance while using a diagonal specific-risk \nstructure, and there is no evidence on risk change decomposition across \nportfolio states. For initial validation, this supports using the factor model \nprimarily as a structured risk-descriptor in the optimisation objective, while \nexplicitly acknowledging that model-implied variance may understate true risk \nand that any allocation tilts based on factor-return statistics should be \ntreated as heuristic rather than as statistically validated expected-return \ninputs."
+}

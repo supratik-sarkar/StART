@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "staging/**"
+      - "release/**"
   pull_request:
     branches:
       - main
@@ -122,3 +123,30 @@ jobs:
           start risk stripes
       - name: Demo flight (no provider, no network)
         run: python scripts/demo_flight.py --speed 0 --no-clear
+
+  frontend:
+    name: frontend workbench (tests, typecheck, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend dependencies
+        run: |
+          cd webapp
+          npm ci
+      - name: Frontend tests
+        run: |
+          cd webapp
+          npm test
+      - name: Frontend typecheck
+        run: |
+          cd webapp
+          npm run typecheck
+      - name: Frontend production build
+        run: |
+          cd webapp
+          npm run build
+

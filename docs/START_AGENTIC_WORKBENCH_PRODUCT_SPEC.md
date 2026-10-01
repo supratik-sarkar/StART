@@ -3,7 +3,7 @@
 **Version:** 5.2.0  
 **Status:** Canonical Durable Specification  
 **Authority:** Product Architecture & Engineering  
-**Primary Repository Location:** `StART`
+**Primary Repository Location:** repository root
 
 ---
 
@@ -290,7 +290,7 @@ Child runs capture parameter differentials (`perturbation_rate`, `model_type`, `
 
 ---
 
-## 13. Codex Porcelain Engineering Visual System Invariants
+## 13. Porcelain Engineering Visual System Invariants
 
 1. **Identity**: Porcelain Engineering Workspace.
 2. **Palette**: Warm porcelain backgrounds (`#fbfbfa`), graphite typography, institutional indigo accents, subtle stone borders (`#e6e5e0`).

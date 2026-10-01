@@ -1,6 +1,6 @@
 {
   "package": "StART Greenfield Browser-Native Agentic Engineering Workbench",
-  "purpose": "Drop-in portable frontend baseline; backend wiring delegated to Antigravity through StartBackend adapter.",
+  "purpose": "Drop-in portable frontend baseline with backend integration through the StartBackend adapter.",
   "files": [
     {
       "path": ".env.example",
@@ -14,33 +14,33 @@
     },
     {
       "path": "README.md",
-      "bytes": 756,
-      "sha256": "73335f1257984dfecb886bf272fb32ad41fbf2f0a811ab4565c2e67aa53f1756"
+      "bytes": 734,
+      "sha256": "2fb4cf57926e46ce935c1f3b24549e29b57dca4a742cbc1e9a2bcfa097a6d9c1"
     },
     {
-      "path": "docs/ANTIGRAVITY_HANDOFF.md",
-      "bytes": 1873,
-      "sha256": "5f141d3d5d64baff264fa833115d3a3e620cd32a5850f7d3ee8cb60a8e0967b8"
+      "path": "docs/BACKEND_INTEGRATION_GUIDE.md",
+      "bytes": 1653,
+      "sha256": "919b69008ccea64fa019ff0d25bf91f80f3b0ed3e6529af57acbf82d8e8dc892"
     },
     {
-      "path": "docs/ANTIGRAVITY_WIRING_PROMPT.md",
-      "bytes": 4211,
-      "sha256": "4d5155e28ec360e005290f7d8eddcc8b24103bf938222fec7b5b1073a3e28142"
+      "path": "docs/BACKEND_WIRING_GUIDE.md",
+      "bytes": 2583,
+      "sha256": "2098623e152d5fcf14e0764b886f59fae19c219e3fa1636ece213199ac10dc5f"
     },
     {
       "path": "docs/ARCHITECTURE.md",
-      "bytes": 1629,
-      "sha256": "95f70d1bfd4e6f94b3b5fe96c73ce5c10176bcb80307c51f29665ccfc8483ac8"
+      "bytes": 1645,
+      "sha256": "82babe4eb157e788cc92c5944fbb6f30767d30dcea9848d00f22d7433e473e82"
     },
     {
       "path": "docs/BACKEND_ADAPTER.md",
-      "bytes": 1072,
-      "sha256": "626407c2ac36e097734571e36606e3bc83fa05a8ba79523d2d9fd433d5b54fa4"
+      "bytes": 1069,
+      "sha256": "3545f57fa8c31856294c31c8a0f9dd9e1519472487720b379bbecd9939f34a51"
     },
     {
       "path": "docs/BACKEND_GAP_CHECKLIST.md",
-      "bytes": 931,
-      "sha256": "80d4acb0c590d93d3432c46fa0b50b6d546b07881b1f8684f5aa8882e40389cc"
+      "bytes": 925,
+      "sha256": "2030ab59912142755dc761a11289b33ac6fcf389b5e56b8cc7288a6b8583f65d"
     },
     {
       "path": "docs/BROWSER_AI.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "docs/DESIGN_FREEZE.md",
-      "bytes": 1080,
-      "sha256": "187cece01a0ef1d54413518e8cbe3f185406ea245b7e5fd34049feaa7d030bb8"
+      "bytes": 1076,
+      "sha256": "e93ed645dc5334b89a5d1bd9c0ccfb87f27325cff31bc8545d33a57a56610c91"
     },
     {
       "path": "docs/EVENT_MODEL.md",
@@ -64,8 +64,8 @@
     },
     {
       "path": "docs/TERMINAL_TO_VISUAL_MAPPING.md",
-      "bytes": 2197,
-      "sha256": "ca22d174683919359d11ca140924c0c8c9de5d60f67cb9b3f25b73aa1c8e38f9"
+      "bytes": 2202,
+      "sha256": "0c4693a7b69ab2e21cd56c77ef0b126ada8346058826978a0fe834d31e1cb6df"
     },
     {
       "path": "index.html",
@@ -74,8 +74,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 584,
-      "sha256": "1c07a00e6ad7297a5acd8d69f0fed32ed08d4dc33875fe598443699c7283782d"
+      "bytes": 673,
+      "sha256": "783b7005871f83f06e29f68d5167bc1b66b436fced70755523204ed4d4e73348"
     },
     {
       "path": "src/adapters/demo/DemoBackend.ts",

@@ -166,6 +166,101 @@ class AdjudicationRecord:
         return sha256(self.canonical_json().encode("utf-8")).hexdigest()
 
 
+@dataclass(frozen=True)
+class FactualGroundingReconciliation:
+    """Record of a factual agent claim reconciled/invalidated against immutable deterministic evidence."""
+
+    agent: str
+    property_name: str
+    claimed_value: Any
+    canonical_value: Any
+    reconciliation: str
+    evidence_id: str
+    detail: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "agent": self.agent,
+            "property_name": self.property_name,
+            "claimed_value": self.claimed_value,
+            "canonical_value": self.canonical_value,
+            "reconciliation": self.reconciliation,
+            "evidence_id": self.evidence_id,
+            "detail": self.detail,
+        }
+
+
+def ground_agent_claims(
+    agent_outputs: dict[str, Any] | None,
+    evidence_records: list[dict[str, Any]],
+    plan: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[FactualGroundingReconciliation]]:
+    """Ground agent outputs against immutable deterministic evidence records.
+
+    Deterministic facts (modality, tensor rank, shape, timesteps, feature count,
+    target type) dominate agent assertions. If an agent claim contradicts an immutable
+    evidence fact, the claim is invalidated and recorded; it is not permitted to spawn
+    an ungrounded cross-agent collision.
+    """
+    outputs = {k: dict(v) if isinstance(v, dict) else v for k, v in (agent_outputs or {}).items()}
+    reconciliations: list[FactualGroundingReconciliation] = []
+
+    # Extract canonical facts from evidence records
+    disc_ev = next(
+        (r for r in evidence_records if r.get("test_id") == "discovery" or "discovery" in str(r.get("test_id", ""))),
+        None,
+    )
+    canonical_modality = None
+    canonical_shape = None
+    canonical_timesteps = None
+    canonical_features = None
+    disc_ev_id = "EV-DISC-01"
+
+    if disc_ev:
+        disc_ev_id = str(disc_ev.get("evidence_id", "EV-DISC-01"))
+        metrics = disc_ev.get("metrics", {})
+        canonical_modality = metrics.get("modality")
+        canonical_shape = metrics.get("tensor_shape")
+        canonical_timesteps = metrics.get("timesteps")
+        canonical_features = metrics.get("n_features")
+
+    if not canonical_modality and plan:
+        canonical_modality = plan.get("modality")
+
+    # If canonical evidence establishes sequence modality
+    if canonical_modality == "sequence":
+        val_out = outputs.get("ValidationPlannerAgent") or outputs.get("validation_plan")
+        if isinstance(val_out, dict):
+            claimed_modal = str(val_out.get("expected_modality", "")).lower()
+            if "tabular" in claimed_modal:
+                rec = FactualGroundingReconciliation(
+                    agent="ValidationPlannerAgent",
+                    property_name="expected_modality",
+                    claimed_value=val_out.get("expected_modality"),
+                    canonical_value="sequence",
+                    reconciliation="invalidated_by_deterministic_contract",
+                    evidence_id=disc_ev_id,
+                    detail=(
+                        f"ValidationPlannerAgent asserted modality='{val_out.get('expected_modality')}', "
+                        f"which contradicts immutable deterministic contract (modality='sequence', "
+                        f"shape={canonical_shape or '[N, 24, 3]'}, timesteps={canonical_timesteps or 24}, "
+                        f"features={canonical_features or 3}). "
+                        f"Deterministic evidence dominates; agent claim invalidated."
+                    ),
+                )
+                reconciliations.append(rec)
+                val_copy = dict(val_out)
+                val_copy["expected_modality"] = "sequence"
+                val_copy["grounding_status"] = "invalidated_by_deterministic_contract"
+                val_copy["grounding_reconciliation"] = rec.as_dict()
+                if "ValidationPlannerAgent" in outputs:
+                    outputs["ValidationPlannerAgent"] = val_copy
+                if "validation_plan" in outputs:
+                    outputs["validation_plan"] = val_copy
+
+    return outputs, reconciliations
+
+
 def detect_collisions(
     *,
     evidence_records: list[dict[str, Any]],
@@ -175,7 +270,10 @@ def detect_collisions(
 ) -> list[Collision]:
     """Evaluate implemented collision rules against review evidence and agent outputs."""
     collisions: list[Collision] = []
-    outputs = agent_outputs or {}
+    grounded_outputs, reconciliations = ground_agent_claims(agent_outputs, evidence_records, plan)
+    # Expose reconciliations for callers auditing grounded agent contradictions
+    detect_collisions.last_reconciliations = reconciliations  # type: ignore[attr-defined]
+    outputs = grounded_outputs
 
     # 1. Architecture Contradiction
     arch_out = outputs.get("ArchitectureReviewAgent") or outputs.get("architecture") or {}

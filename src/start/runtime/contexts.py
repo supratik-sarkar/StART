@@ -284,9 +284,8 @@ def instantiate_context(
     if context_id not in _CANONICAL_CONTEXT_SPECS:
         import numpy as np
         import pandas as pd
-        from sklearn.ensemble import RandomForestClassifier
         from sklearn.model_selection import train_test_split
-
+        from sklearn.ensemble import RandomForestClassifier
         from start.data.providers.registry import get_provider_adapter
         from start.registry import TestContext
 
@@ -314,7 +313,7 @@ def instantiate_context(
 
         # Clean string / categorical target into binary integer
         if target_col in df.columns:
-            if df[target_col].dtype == object or str(df[target_col].dtype) == "category" or not pd.api.types.is_numeric_dtype(df[target_col]):
+            if df[target_col].dtype == object or str(df[target_col].dtype) == "category" or not np.issubdtype(df[target_col].dtype, np.number):
                 uniques = sorted(list(df[target_col].dropna().unique()))
                 label_map = {val: idx for idx, val in enumerate(uniques)}
                 df[target_col] = df[target_col].map(label_map).fillna(0).astype(int)
@@ -497,11 +496,10 @@ def instantiate_context(
         )
 
     if spec.id == "synthetic_aml_imbalanced":
-        from sklearn.ensemble import RandomForestClassifier
-        from sklearn.model_selection import train_test_split
-
         from start.data.synthetic import generate_synthetic_transactions
         from start.registry import TestContext
+        from sklearn.model_selection import train_test_split
+        from sklearn.ensemble import RandomForestClassifier
 
         df = generate_synthetic_transactions(n_rows=spec.configured_samples or 1000, prevalence=0.055, seed=actual_seed)
         feature_cols = [c for c in df.columns if c != "is_fraud"]

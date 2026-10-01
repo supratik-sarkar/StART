@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "start-mrt"
-version = "6.0.1"
+version = "6.0.2"
 description = "StART: risk-stripe-agnostic agentic review platform — deterministic engines compute, agents reason, evidence proves, seals attest."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -205,10 +205,6 @@ testpaths = ["tests"]
 pythonpath = [".", "src"]
 addopts = "-q"
 markers = [
-  "core: local, deterministic, credential-free, network-free, platform-independent core tests",
-  "platform: tests specific to operating systems, architectures, or devices (e.g. macOS, Apple Silicon MPS)",
-  "integration: tests requiring live external services, connectors, or cloud APIs",
-  "release: formal end-to-end certification, full historical reconciliations, and release-gate audits",
   "network: test requires outbound network access (deselected by default in CI)",
   "slow: long-running test",
 ]

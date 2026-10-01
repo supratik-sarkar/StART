@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="900" height="400">
+  <defs>
+    <style>
+      .bg-rect { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; rx: 12; ry: 12; }
+      .node-top { fill: #e0f2fe; stroke: #7dd3fc; stroke-width: 2; rx: 8; ry: 8; }
+      .node-bottom { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 2; rx: 8; ry: 8; }
+      .bubble { fill: #ffffff; stroke: #94a3b8; stroke-width: 1; rx: 10; ry: 10; stroke-dasharray: 2 2; }
+      .text-main { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 500; fill: #1e293b; text-anchor: middle; }
+      .text-bubble { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; fill: #475569; text-anchor: middle; }
+      .section-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; fill: #334155; }
+      .arrow { stroke: #94a3b8; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .arrow-link { stroke: #cbd5e1; stroke-width: 2; fill: none; stroke-dasharray: 4 4; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <!-- Backgrounds -->
+  <rect x="20" y="40" width="860" height="150" class="bg-rect" />
+  <rect x="20" y="210" width="860" height="150" class="bg-rect" />
+
+  <text x="40" y="65" class="section-title">Scientific-Evidence Side</text>
+  <text x="40" y="235" class="section-title">Governance-Control Side</text>
+
+  <!-- Top Side Nodes -->
+  <!-- 1 -->
+  <rect x="40" y="90" width="150" height="40" class="node-top" />
+  <text x="115" y="115" class="text-main">Deterministic Math</text>
+  <rect x="40" y="145" width="150" height="25" class="bubble" />
+  <text x="115" y="162" class="text-bubble">No LLM arithmetic</text>
+  <path d="M 115 130 L 115 145" class="arrow" />
+
+  <!-- 2 -->
+  <rect x="205" y="90" width="150" height="40" class="node-top" />
+  <text x="280" y="115" class="text-main">Typed Applicability</text>
+  <rect x="205" y="145" width="150" height="25" class="bubble" />
+  <text x="280" y="162" class="text-bubble">Right test, data, domain</text>
+  <path d="M 280 130 L 280 145" class="arrow" />
+
+  <!-- 3 -->
+  <rect x="370" y="90" width="150" height="40" class="node-top" />
+  <text x="445" y="115" class="text-main">Evidence Lineage</text>
+  <rect x="370" y="145" width="150" height="25" class="bubble" />
+  <text x="445" y="162" class="text-bubble">IDs, hashes, provenance</text>
+  <path d="M 445 130 L 445 145" class="arrow" />
+
+  <!-- 4 -->
+  <rect x="535" y="90" width="160" height="40" class="node-top" />
+  <text x="615" y="115" class="text-main">Negative Evidence</text>
+  <rect x="535" y="145" width="160" height="25" class="bubble" />
+  <text x="615" y="162" class="text-bubble">Fails/skips stay visible</text>
+  <path d="M 615 130 L 615 145" class="arrow" />
+
+  <!-- 5 -->
+  <rect x="710" y="90" width="150" height="40" class="node-top" />
+  <text x="785" y="115" class="text-main">Challenge Semantics</text>
+  <rect x="710" y="145" width="150" height="25" class="bubble" />
+  <text x="785" y="162" class="text-bubble">Diagnostic → new evidence</text>
+  <path d="M 785 130 L 785 145" class="arrow" />
+
+  <!-- Bottom Side Nodes -->
+  <!-- 6 -->
+  <rect x="40" y="260" width="150" height="40" class="node-bottom" />
+  <text x="115" y="285" class="text-main">Governance Separation</text>
+  <rect x="40" y="315" width="150" height="25" class="bubble" />
+  <text x="115" y="332" class="text-bubble">Quality ≠ formal sign-off</text>
+  <path d="M 115 300 L 115 315" class="arrow" />
+
+  <!-- 7 -->
+  <rect x="205" y="260" width="150" height="40" class="node-bottom" />
+  <text x="280" y="285" class="text-main">Policy Enforcement</text>
+  <rect x="205" y="315" width="150" height="25" class="bubble" />
+  <text x="280" y="332" class="text-bubble">OPA explicit decisions</text>
+  <path d="M 280 300 L 280 315" class="arrow" />
+
+  <!-- 8 -->
+  <rect x="370" y="260" width="150" height="40" class="node-bottom" />
+  <text x="445" y="285" class="text-main">Observability</text>
+  <rect x="370" y="315" width="150" height="25" class="bubble" />
+  <text x="445" y="332" class="text-bubble">OTel + LangSmith</text>
+  <path d="M 445 300 L 445 315" class="arrow" />
+
+  <!-- 9 -->
+  <rect x="535" y="260" width="160" height="40" class="node-bottom" />
+  <text x="615" y="285" class="text-main">Reproducibility</text>
+  <rect x="535" y="315" width="160" height="25" class="bubble" />
+  <text x="615" y="332" class="text-bubble">Seeds, prints, ledger</text>
+  <path d="M 615 300 L 615 315" class="arrow" />
+
+  <!-- 10 -->
+  <rect x="710" y="260" width="150" height="40" class="node-bottom" />
+  <text x="785" y="285" class="text-main">Provider Neutrality</text>
+  <rect x="710" y="315" width="150" height="25" class="bubble" />
+  <text x="785" y="332" class="text-bubble">Public/Enterprise/Air-gap</text>
+  <path d="M 785 300 L 785 315" class="arrow" />
+
+  <!-- Vertical Links bridging top and bottom -->
+  <path d="M 115 190 L 115 210" class="arrow-link" />
+  <path d="M 280 190 L 280 210" class="arrow-link" />
+  <path d="M 445 190 L 445 210" class="arrow-link" />
+  <path d="M 615 190 L 615 210" class="arrow-link" />
+  <path d="M 785 190 L 785 210" class="arrow-link" />
+</svg>

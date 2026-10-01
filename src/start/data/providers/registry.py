@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from typing import Any
-
 from start.data.providers.base import DatasetProviderAdapter
 from start.data.providers.huggingface import HuggingFaceProviderAdapter
-from start.data.providers.kaggle import KaggleProviderAdapter
-from start.data.providers.local import LocalCSVProviderAdapter, LocalParquetProviderAdapter
 from start.data.providers.openml import OpenMLProviderAdapter
 from start.data.providers.uci import UCIProviderAdapter
+from start.data.providers.kaggle import KaggleProviderAdapter
+from start.data.providers.local import LocalCSVProviderAdapter, LocalParquetProviderAdapter
+
 
 _REGISTRY: dict[str, type[DatasetProviderAdapter]] = {
     "huggingface": HuggingFaceProviderAdapter,

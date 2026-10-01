@@ -1,4 +1,4 @@
-"""Untrusted Browser WebLLM Reviewer Ingestion, Hydration & Governance Gating Routes for StART v4.5."""
+"""Untrusted browser-review ingestion, hydration, and governance-gating routes."""
 
 from __future__ import annotations
 

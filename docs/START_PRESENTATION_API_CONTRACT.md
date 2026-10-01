@@ -2,7 +2,7 @@
 
 **Specification Version**: 1.0.0  
 **Authority**: StART Scientific Validation & Governance Core  
-**Frontend Binding Target**: Codex Porcelain Engineering Workspace  
+**Frontend Binding Target**: Porcelain Engineering Workspace  
 **Status**: ACTIVE CONTRACT  
 
 ---
@@ -12,7 +12,7 @@
 This contract defines the public HTTP presentation and data runtime interfaces for the StART workbench. It directly addresses and closes the ten backend presentation gaps identified in `webapp/docs/DATA_RUNTIME_CERTIFICATION_FRONTEND.md`.
 
 ### Strict System Invariants
-1. **Frontend Frozen**: `FRONTEND_FILES_CHANGED = 0` (Codex owns `webapp/src/**`).
+1. **Frontend Frozen**: `FRONTEND_FILES_CHANGED = 0` (`webapp/src/**` remains frozen).
 2. **Web Layer Non-Computation**: `WEB_LAYER_SCIENTIFIC_CALCULATIONS_ADDED = 0`. The web transport layer may read, validate, paginate, filter, and serialize existing models and bundles. It must **never** compute statistical tests, confidence intervals, Shapley values, portfolio weights, or scenario losses.
 3. **Zero Secret Exposure**: `SECRET_EXPOSURE = 0`. Credentials (API keys, Kaggle tokens) are handled exclusively via ephemeral server-side in-memory scopes or declared deferred. Secrets are never persisted to disk, never logged, never added to EvidenceRecords, and never echoed back in HTTP envelopes.
 4. **Architectural Truth**: Ray cluster execution is reported truthfully as unavailable (`ray_available = false`, `ray_distributed_execution_verified = false`). Parallelism is reported as `local_arrow_partitioned` with 1 worker.
@@ -20,7 +20,7 @@ This contract defines the public HTTP presentation and data runtime interfaces f
 
 ---
 
-## 2. Complete Codex Gap Mapping Matrix
+## 2. Complete Gap Mapping Matrix
 
 | GAP_ID | Description | Source Data Exists | Backend Source | New / Extended Route | Security Requirement | Status |
 | :--- | :--- | :---: | :--- | :--- | :--- | :---: |
@@ -526,7 +526,7 @@ This contract defines the public HTTP presentation and data runtime interfaces f
 
 ---
 
-## 7. Final Evidence & Data-Session Backend Additions (Codex G1–G7 Closure)
+## 7. Final Evidence & Data-Session Backend Additions (G1–G7 Closure)
 
 This section specifies the contracts for the seven blocker groups identified in `webapp/docs/FINAL_LIVE_API_BINDING.md`.
 
@@ -592,4 +592,3 @@ This section specifies the contracts for the seven blocker groups identified in 
 - `CertificationBundleCache` monitors disk modification times (`mtime`) and file sizes across all 14 artifacts in `scratch/scientific_certification/`.
 - If any artifact changes on disk, `ensure_loaded()` invalidates the cache and automatically re-reads the artifacts and updates the bundle hash on the next request without process restart.
 - Exposes `loaded_at` (ISO-8601 UTC) in `GET /api/v1/certification`.
-

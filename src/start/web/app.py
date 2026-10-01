@@ -1,4 +1,4 @@
-"""FastAPI Application Factory & Production Middleware for StART v4.5 Web Transport.
+"""FastAPI application factory and production middleware for StART web transport.
 
 Configures:
 - Strict CORS for Cloudflare production and Hugging Face mirror

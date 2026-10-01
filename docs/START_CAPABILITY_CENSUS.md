@@ -124,7 +124,7 @@ The following capabilities are intentionally designated as **UNIMPLEMENTED / DEF
 
 ## 5. Backend Capability Closure (B1–B8 Audit)
 
-In response to Codex's frontend capability harness (`webapp/docs/FRONTEND_CAPABILITY_HARNESS.md`), all 8 backend blockers have been definitively closed (`B1_OPEN = 0` through `B8_OPEN = 0`):
+In response to the frontend capability harness (`webapp/docs/FRONTEND_CAPABILITY_HARNESS.md`), all 8 backend blockers have been definitively closed (`B1_OPEN = 0` through `B8_OPEN = 0`):
 
 | ID | Capability Area | Final Status | Resolution Summary |
 | :--- | :--- | :--- | :--- |
@@ -139,7 +139,7 @@ In response to Codex's frontend capability harness (`webapp/docs/FRONTEND_CAPABI
 
 ---
 
-## 6. FINAL CODEX CONTRACT CLOSURE (C1–C4)
+## 6. FINAL FRONTEND CONTRACT CLOSURE (C1–C4)
 
 Following the final frontend binding audit (`webapp/docs/FINAL_FRONTEND_BINDING.md`), all four concrete blockers were verified and closed:
 
@@ -149,5 +149,4 @@ Following the final frontend binding audit (`webapp/docs/FINAL_FRONTEND_BINDING.
 | **C2** | Tuning HTTP 500 on events/presentation & fallback to Logistic Regression | **CLOSED** | Introduced `start.utils.serializers.sanitize_json_primitives` to convert numpy scalars (`np.int64`, `np.float64`) before Pydantic serialization. Promoted champion architecture and lineage into `tab.model`, `tab.extra["resolved_configuration"]`, and canonical artifact builder. Configured `n_jobs=1` for LightGBM on Darwin to eliminate OpenMP concurrency failures. |
 | **C3** | Quantitative scenario shocks ignored | **CLOSED** | Wired scenario selection (`asset_tail_stress`, `factor_macro`, `reverse_stress`) and `shock_magnitude` into `market.extra["resolved_configuration"]` and scenario pricing engine. |
 | **C4** | Portfolio optimizer selection ignored | **CLOSED** | Wired `hrp`, `min_var`, and `erc` to solve `solve_min_variance`, `solve_equal_risk_contribution`, and `hrp_weights_and_tree` across `run_portfolio_min_variance_pipeline` (`case_h`), `run_portfolio_erc_pipeline` (`case_i`), and `run_portfolio_hrp_pipeline` (`case_g`). |
-
 

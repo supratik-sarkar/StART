@@ -1,4 +1,4 @@
-"""Deterministic, Linux ARM64-Compatible Institutional PDF Generator for StART v4.5.
+"""Deterministic, Linux ARM64-compatible institutional PDF generator.
 
 Generates structured audit-grade review reports from ReviewPresentationModel and EvidenceRecords:
 - Executive Review
@@ -103,7 +103,7 @@ def generate_institutional_pdf(
             y_offset = -14
 
     footer_text = _escape_pdf_text(
-        "StART v4.5 Certified Deterministic Attestation — Cryptographically Bound to Evidence Records"
+        "StART v6.0.2 Certified Deterministic Attestation — Cryptographically Bound to Evidence Records"
     )
     stream_lines.extend(
         [

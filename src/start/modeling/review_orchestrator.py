@@ -38,7 +38,7 @@ from start.modeling.split_planner import SplitPlanner
 # Modality -> default model family suggestion (deterministic recommendation).
 _MODALITY_DEFAULT = {
     "tabular": "mlp",
-    "sequence": "lstm",
+    "temporal_sequence": "lstm",
     "vision": "simple_cnn_small",
 }
 
@@ -94,8 +94,13 @@ class ReviewOutcome:
 class ReviewOrchestrator:
     """Runs the full, visible model-review pipeline."""
 
-    def __init__(self, on_stage: Callable[[StageEvent], None] | None = None) -> None:
+    def __init__(
+        self,
+        on_stage: Callable[[StageEvent], None] | None = None,
+        on_evidence_committed: Callable[[EvidenceRecord], None] | None = None,
+    ) -> None:
         self._on_stage = on_stage
+        self._on_evidence_committed = on_evidence_committed
         self.stage_events: list[StageEvent] = []
 
     def _emit(self, stage: str, status: str, detail: str = "") -> None:
@@ -122,6 +127,7 @@ class ReviewOrchestrator:
         custom_space: dict[str, Any] | None = None,
         class_weight: str | None = None,
         enterprise_run_id: str | None = None,
+        sequence_bundle: Any = None,
     ) -> ReviewOutcome:
         import uuid
 
@@ -129,13 +135,36 @@ class ReviewOrchestrator:
         evidence: list[TestResult] = []
 
         # 1. dataset
-        self._emit("dataset", "complete", f"{len(df)} rows x {df.shape[1]} columns")
+        if sequence_bundle is not None:
+            n_tot = (
+                len(sequence_bundle.X_train)
+                + len(sequence_bundle.X_test)
+                + len(sequence_bundle.X_oos)
+            )
+            self._emit(
+                "dataset",
+                "complete",
+                f"{n_tot} sequences x {sequence_bundle.timesteps} timesteps x {sequence_bundle.n_features} features",
+            )
+        else:
+            self._emit("dataset", "complete", f"{len(df)} rows x {df.shape[1]} columns")
 
         # 2. discovery
         self._emit("discovery", "running")
         discovery_agent = DatasetDiscoveryAgent()
         profile = discovery_agent.discover(df)
-        evidence.append(discovery_agent.to_evidence(profile))
+        disc_ev = discovery_agent.to_evidence(profile)
+        if sequence_bundle is not None:
+            n_tot = (
+                len(sequence_bundle.X_train)
+                + len(sequence_bundle.X_test)
+                + len(sequence_bundle.X_oos)
+            )
+            disc_ev.metrics["modality"] = "temporal_sequence"
+            disc_ev.metrics["tensor_shape"] = f"[{n_tot}, {sequence_bundle.timesteps}, {sequence_bundle.n_features}]"
+            disc_ev.metrics["timesteps"] = sequence_bundle.timesteps
+            disc_ev.metrics["n_features"] = sequence_bundle.n_features
+        evidence.append(disc_ev)
         self._emit("discovery", "complete", profile.summary())
 
         # 3. target confirmation
@@ -153,11 +182,14 @@ class ReviewOrchestrator:
         # 4. task inference
         self._emit("task_inference", "running")
         task_agent = TaskInferenceAgent()
+        effective_task_override = task_override
+        if sequence_bundle is not None and not task_override:
+            effective_task_override = "binary_classification"
         inference = task_agent.infer(
             df,
             chosen_target,
-            override=task_override,
-            has_timestamp=bool(profile.timestamp_columns),
+            override=effective_task_override,
+            has_timestamp=bool(profile.timestamp_columns) or (sequence_bundle is not None),
         )
         evidence.append(task_agent.to_evidence(inference))
         self._emit("task_inference", "complete", inference.task_type)
@@ -174,14 +206,46 @@ class ReviewOrchestrator:
             seed=seed,
         )
         evidence.append(planner.to_evidence(plan, single_target))
-        self._emit("split_planning", "complete", f"{plan.strategy} {plan.sizes}")
+        split_label = (
+            "order-preserving contiguous sequence holdout "
+            "(independent sequences; not chronological forecasting)"
+            if sequence_bundle is not None
+            else plan.strategy
+        )
+        self._emit("split_planning", "complete", f"{split_label} {plan.sizes}")
 
         # 6. feature engineering
         self._emit("feature_engineering", "running")
-        modality = _infer_modality(profile)
+        modality = "temporal_sequence" if sequence_bundle is not None else _infer_modality(profile)
         fe = FeatureEngineeringAgent()
-        fe_modality = {"tabular": "tabular", "sequence": "sequential", "vision": "vision"}[modality]
-        diag = fe.diagnose(plan.train, single_target, modality=fe_modality, test=plan.test)
+        if sequence_bundle is not None:
+            import numpy as np
+
+            total_sequences = sum(
+                len(cohort)
+                for cohort in (
+                    sequence_bundle.X_train,
+                    sequence_bundle.X_test,
+                    sequence_bundle.X_oos,
+                )
+            )
+            all_finite = all(
+                bool(np.isfinite(cohort).all())
+                for cohort in (
+                    sequence_bundle.X_train,
+                    sequence_bundle.X_test,
+                    sequence_bundle.X_oos,
+                )
+            )
+            diag = fe.diagnose_temporal_sequence(
+                n_sequences=total_sequences,
+                timesteps=sequence_bundle.timesteps,
+                n_features=sequence_bundle.n_features,
+                finite=all_finite,
+            )
+        else:
+            fe_modality = {"tabular": "tabular", "vision": "vision"}[modality]
+            diag = fe.diagnose(plan.train, single_target, modality=fe_modality, test=plan.test)
         evidence.append(fe.to_evidence(diag))
         self._emit("feature_engineering", "complete", f"{modality} diagnostics")
 
@@ -192,7 +256,17 @@ class ReviewOrchestrator:
 
         # 8-12. execution + metrics + explainability + sensitivity + robustness
         cohort_metrics: dict[str, dict[str, float]] = {}
-        if (
+        if sequence_bundle is not None and run_dl:
+            cohort_metrics = self._run_sequence_dl(
+                sequence_bundle,
+                single_target,
+                evidence,
+                seed,
+                architecture=architecture,
+                custom_space=custom_space,
+                class_weight=class_weight,
+            )
+        elif (
             modality == "tabular"
             and run_dl
             and inference.task_type
@@ -285,6 +359,110 @@ class ReviewOrchestrator:
         )
 
     # -- helpers ----------------------------------------------------------- #
+    def _run_sequence_dl(
+        self,
+        sequence_bundle,
+        target,
+        evidence,
+        seed,
+        architecture="lstm",
+        custom_space=None,
+        class_weight=None,
+    ) -> dict[str, dict[str, float]]:
+        from start.core.schemas import TestResult
+        from start.modeling.sequence_dl import (
+            SequenceClassifier,
+            sequence_robustness,
+            sequence_saliency,
+        )
+        from start.modeling.tabular_dl_metrics import dl_task_metrics
+
+        self._emit(
+            "model_execution",
+            "running",
+            f"training sequence {architecture} model on (timesteps={sequence_bundle.timesteps}, features={sequence_bundle.n_features})",
+        )
+        kwargs = {
+            "family": architecture,
+            "epochs": 8,
+            "random_state": seed,
+            "class_weight": class_weight,
+        }
+        if custom_space:
+            for param in ("hidden_size", "learning_rate", "dropout", "epochs", "batch_size"):
+                if param in custom_space:
+                    val = custom_space[param]
+                    if isinstance(val, list):
+                        val = val[0]
+                    kwargs[param] = val
+
+        clf = SequenceClassifier(**kwargs)
+        clf.fit(sequence_bundle.X_train, sequence_bundle.y_train)
+        device_used = getattr(clf, "device_used", "cpu")
+        self._emit("model_execution", "complete", f"device={device_used}")
+
+        self._emit("metrics", "running")
+        cohort_metrics = {}
+        for name, X_part, y_part in (
+            ("train", sequence_bundle.X_train, sequence_bundle.y_train),
+            ("test", sequence_bundle.X_test, sequence_bundle.y_test),
+            ("oos", sequence_bundle.X_oos, sequence_bundle.y_oos),
+        ):
+            if len(X_part):
+                proba = clf.predict_proba(X_part)
+                classes = getattr(clf, "classes_", None)
+                cohort_metrics[name] = dl_task_metrics("binary_classification", y_part, proba, classes=classes)
+
+        evidence.append(
+            TestResult(
+                test_id="deep_learning.performance_diagnostics",
+                test_name="Sequence deep learning cohort metrics",
+                metrics={f"{k}_auc_roc": v["auc_roc"] for k, v in cohort_metrics.items() if "auc_roc" in v},
+                interpretation="; ".join(
+                    f"{k} AUC {v['auc_roc']:.4f}" for k, v in cohort_metrics.items() if "auc_roc" in v
+                ),
+            ).apply_thresholds()
+        )
+        self._emit("metrics", "complete")
+
+        # Explainability: sequence saliency
+        self._emit("explainability", "running")
+        saliency = sequence_saliency(clf, sequence_bundle.X_test, seed=seed)
+        evidence.append(
+            TestResult(
+                test_id="deep_learning.explainability_diagnostics",
+                test_name="Temporal sequence gradient saliency",
+                metrics={
+                    "most_salient_timestep": float(saliency.get("most_salient_timestep", 0)),
+                    "most_salient_feature": float(saliency.get("most_salient_feature", 0)),
+                },
+                interpretation=f"Gradient saliency: most salient timestep={saliency.get('most_salient_timestep')}, feature={saliency.get('most_salient_feature')}",
+            ).apply_thresholds()
+        )
+        self._emit("explainability", "complete", f"most salient timestep={saliency.get('most_salient_timestep')}")
+
+        # Sensitivity / Robustness: sequence robustness (noise and temporal jitter)
+        self._emit("sensitivity", "running")
+        self._emit("sensitivity", "complete", "computed via temporal robustness")
+
+        self._emit("robustness", "running")
+        robustness = sequence_robustness(clf, sequence_bundle.X_test, sequence_bundle.y_test, seed=seed)
+        evidence.append(
+            TestResult(
+                test_id="deep_learning.robustness_diagnostics",
+                test_name="Temporal sequence robustness & jitter analysis",
+                metrics={
+                    "baseline_auc": robustness.get("baseline_auc", 0.0),
+                    "max_abs_noise_drift": robustness.get("max_abs_noise_drift", 0.0),
+                    "max_abs_jitter_drift": robustness.get("max_abs_jitter_drift", 0.0),
+                },
+                interpretation=f"Robustness: baseline AUC={robustness.get('baseline_auc')}, max noise drift={robustness.get('max_abs_noise_drift')}, max jitter drift={robustness.get('max_abs_jitter_drift')}",
+            ).apply_thresholds()
+        )
+        self._emit("robustness", "complete", f"jitter drift={robustness.get('max_abs_jitter_drift')}")
+
+        return cohort_metrics
+
     def _run_tabular_dl(
         self,
         plan,
@@ -308,6 +486,13 @@ class ReviewOrchestrator:
         features = [c for c in features if pd.api.types.is_numeric_dtype(plan.train[c])]
 
         family = _model_family(architecture)
+        if family == "sequence_dl":
+            from start.modeling.sequence_dl import SequenceInputContractError
+
+            raise SequenceInputContractError(
+                f"Recurrent architecture '{architecture}' cannot be trained on rank-2 tabular dataframe. "
+                f"A genuine rank-3 sequence bundle (samples, timesteps, features) with timesteps > 1 is required."
+            )
         if family == "sklearn":
             from sklearn.impute import SimpleImputer
 
@@ -320,6 +505,7 @@ class ReviewOrchestrator:
             if len(plan.oos):
                 plan.oos = plan.oos.copy()
                 plan.oos[features] = imputer.transform(plan.oos[features])
+        clf: Any
         if family == "tabular_dl":
             from start.modeling.tabular_dl import TabularDLClassifier
 
@@ -343,23 +529,6 @@ class ReviewOrchestrator:
                             val = val[0]
                         kwargs[param] = val
             clf = TabularDLClassifier(**kwargs)
-        elif family == "sequence_dl":
-            from start.modeling.sequence_dl import SequenceClassifier
-
-            kwargs = {
-                "family": architecture,
-                "epochs": 8,
-                "random_state": seed,
-                "class_weight": class_weight,
-            }
-            if custom_space:
-                for param in ("hidden_size", "learning_rate", "dropout", "epochs"):
-                    if param in custom_space:
-                        val = custom_space[param]
-                        if isinstance(val, list):
-                            val = val[0]
-                        kwargs[param] = val
-            clf = SequenceClassifier(**kwargs)
         elif family == "vision_dl":
             from start.modeling.vision_dl import VisionCNNClassifier
 
@@ -465,7 +634,9 @@ class ReviewOrchestrator:
 
             ledger = EvidenceLedger(Path(output_root) / "ledger.jsonl", Path(output_root) / "evidence_store")
             for rec in records:
-                ledger.append(rec)
+                committed = ledger.append(rec)
+                if self._on_evidence_committed is not None:
+                    self._on_evidence_committed(committed)
         return records
 
     def _write_report(

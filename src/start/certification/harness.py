@@ -33,15 +33,14 @@ import hashlib
 import json
 import logging
 import math
-import time
-import uuid
 from pathlib import Path
+import time
 from typing import Any
+import uuid
 
 import numpy as np
 import pandas as pd
-from lightgbm import LGBMClassifier
-from scipy.stats import kurtosis, norm, skew
+from scipy.stats import chi2, kurtosis, norm, skew
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -56,9 +55,11 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, RobustScaler, StandardScaler
+
+from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 
-from start.certification.policies import DeterministicPolicyRunner, GPT41PolicyRunner
+from start.certification.policies import DeterministicPolicyRunner, GPT41PolicyRunner, PolicyPlan
 from start.certification.spec import (
     ChampionChallengerRecord,
     DatasetManifestItem,
@@ -67,11 +68,14 @@ from start.certification.spec import (
     InvariantResult,
     ProviderTraceRecord,
     SensitivityResult,
+    XAIResult,
 )
 from start.data.providers.parallel import evaluate_ray_backend
-from start.data.providers.registry import get_provider_adapter
+from start.data.providers.registry import get_provider_adapter, list_provider_adapters
 from start.data.synthetic import generate_synthetic_transactions
 from start.data.synthetic_market import generate_market_world
+from start.modeling.deep_learning import resolve_torch_device
+from start.modeling.explain import global_importance
 from start.modeling.models import resolve_model
 from start.modeling.sensitivity_analysis import run_sensitivity_analysis
 from start.modeling.sequence_data import load_sequence_demo
@@ -86,10 +90,11 @@ from start.portfolio.optimization import (
 from start.portfolio.tail_risk import (
     compute_historical_var_es,
     compute_parametric_normal_var_es,
+    kupiec_lr,
     run_comprehensive_tail_backtest,
 )
 from start.recommender.fixtures import get_dataset_c_contextual
-from start.recommender.metrics import compute_ndcg_at_k
+from start.recommender.metrics import compute_map_at_k, compute_mrr, compute_ndcg_at_k
 from start.recommender.models import (
     FactorizationMachineModel,
     FieldAwareFactorizationMachineModel,
@@ -2356,8 +2361,8 @@ class ScientificCertificationHarness:
 
         lines.append("# StART Scientific Certification Report")
         lines.append("")
-        lines.append("**Document Version**: 2.0.0  ")
-        lines.append("**Authority**: StART Scientific Validation & Governance Core  ")
+        lines.append(f"**Document Version**: 2.0.0  ")
+        lines.append(f"**Authority**: StART Scientific Validation & Governance Core  ")
         lines.append(f"**Certification Identifier**: `{manifest['certification_id']}`  ")
         lines.append(f"**Timestamp**: {manifest['timestamp']}  ")
         lines.append(f"**Total Run Records**: {manifest['total_runs_recorded']} ({manifest['deterministic_runs_count']} deterministic, {manifest['gpt41_runs_count']} GPT-4.1)  ")

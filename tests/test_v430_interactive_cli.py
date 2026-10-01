@@ -843,7 +843,7 @@ def test_checkpoint_grounding_repair_single_attempt(monkeypatch):
 
 
 def test_checkpoint_grounding_failure_surfaced(monkeypatch):
-    """Verify that if repair fails, the failure is surfaced and user can continue deterministically."""
+    """A required-valid-response checkpoint fails closed on ungrounded output."""
     from start.core.schemas import EvidenceRecord, Status, TestResult
     from start.review.architecture import LLMReviewConfig
     from start.review.executor import run_domain_checkpoints
@@ -879,26 +879,16 @@ def test_checkpoint_grounding_failure_surfaced(monkeypatch):
     )
     port_rec.evidence_id = "EV-PORT12345678"
 
-    prompts = [
-        "Q",  # Action -> Question
-        "Explain volatility",  # Question text
-        "1",  # On Grounding Failure: [1] Continue deterministically
-        "A",
-        "A",
-        "A",
-        "A",
-    ]
+    prompts = ["Q", "Explain volatility"]
     prompt_iter = iter(prompts)
 
-    decisions = run_domain_checkpoints(
-        bundle,
-        [port_rec],
-        interactive=True,
-        ask=lambda _: next(prompt_iter),
-    )
-
-    assert decisions[0]["backend"] == "fallback"
-    assert "Deterministic fallback" in decisions[0]["response"]
+    with pytest.raises(ReviewCancelled, match="requires valid agent response"):
+        run_domain_checkpoints(
+            bundle,
+            [port_rec],
+            interactive=True,
+            ask=lambda _: next(prompt_iter),
+        )
 
 
 def test_checkpoint_challenge_uses_grounding_pipeline(monkeypatch):

@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -32,7 +32,7 @@ class PredicateEvaluationResult:
     independently_recomputed: bool = True
     notes: str = ""
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "predicate": self.predicate_path,
             "required_value": self.required_value,
@@ -54,12 +54,12 @@ class GateEvaluationSummary:
     total_predicates: int
     passed_predicates: int
     failed_predicates: int
-    failed_predicate_details: list[dict[str, Any]] = field(default_factory=list)
-    predicate_results: dict[str, PredicateEvaluationResult] = field(default_factory=dict)
+    failed_predicate_details: List[Dict[str, Any]] = field(default_factory=list)
+    predicate_results: Dict[str, PredicateEvaluationResult] = field(default_factory=dict)
     prerequisite_met: bool = True
-    prerequisite_failure_reason: str | None = None
+    prerequisite_failure_reason: Optional[str] = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "gate": self.gate,
             "status": "PASS" if self.is_closed else "FAIL",
@@ -79,8 +79,8 @@ class RecursivePredicateEvaluator:
 
     def __init__(
         self,
-        gate_a_spec_path: Path | None = None,
-        gate_b_spec_path: Path | None = None,
+        gate_a_spec_path: Optional[Path] = None,
+        gate_b_spec_path: Optional[Path] = None,
     ):
         specs_dir = Path(__file__).resolve().parent / "specs"
         fallback_path = Path(__file__).resolve().parents[3] / "START_GATE_AB_CLOSURE_PACK"
@@ -92,16 +92,16 @@ class RecursivePredicateEvaluator:
         self.gate_b_spec = self._load_json(self.gate_b_spec_path)
 
     @staticmethod
-    def _load_json(path: Path) -> dict[str, Any]:
+    def _load_json(path: Path) -> Dict[str, Any]:
         if not path.exists():
             raise FileNotFoundError(f"Spec file not found: {path}")
-        with open(path, encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
     @staticmethod
-    def flatten_predicates(spec_dict: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    def flatten_predicates(spec_dict: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
         """Flatten a nested dictionary into dot-separated paths."""
-        flat: dict[str, Any] = {}
+        flat: Dict[str, Any] = {}
         for k, v in spec_dict.items():
             full_key = f"{prefix}.{k}" if prefix else k
             if isinstance(v, dict):
@@ -112,15 +112,15 @@ class RecursivePredicateEvaluator:
 
     def evaluate_gate_a(
         self,
-        actual_evidence: dict[str, Any],
-        metadata_map: dict[str, dict[str, Any]] | None = None,
+        actual_evidence: Dict[str, Any],
+        metadata_map: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> GateEvaluationSummary:
         """Evaluate Gate A predicates recursively from actual evidence."""
         metadata_map = metadata_map or {}
         hard_specs = self.flatten_predicates(self.gate_a_spec.get("hard_predicates", {}))
         
-        results: dict[str, PredicateEvaluationResult] = {}
-        failed_details: list[dict[str, Any]] = []
+        results: Dict[str, PredicateEvaluationResult] = {}
+        failed_details: List[Dict[str, Any]] = []
 
         for pred_path, req_val in hard_specs.items():
             meta = metadata_map.get(pred_path, {})
@@ -162,9 +162,9 @@ class RecursivePredicateEvaluator:
 
     def evaluate_gate_b(
         self,
-        actual_evidence: dict[str, Any],
-        gate_a_summary: GateEvaluationSummary | None = None,
-        metadata_map: dict[str, dict[str, Any]] | None = None,
+        actual_evidence: Dict[str, Any],
+        gate_a_summary: Optional[GateEvaluationSummary] = None,
+        metadata_map: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> GateEvaluationSummary:
         """Evaluate Gate B predicates.
         
@@ -173,8 +173,8 @@ class RecursivePredicateEvaluator:
         metadata_map = metadata_map or {}
         hard_specs = self.flatten_predicates(self.gate_b_spec.get("hard_predicates", {}))
 
-        results: dict[str, PredicateEvaluationResult] = {}
-        failed_details: list[dict[str, Any]] = []
+        results: Dict[str, PredicateEvaluationResult] = {}
+        failed_details: List[Dict[str, Any]] = []
 
         # Check prerequisite
         prereq_met = True
@@ -228,12 +228,12 @@ class RecursivePredicateEvaluator:
 
     def evaluate_closure(
         self,
-        gate_a_evidence: dict[str, Any],
-        gate_b_evidence: dict[str, Any],
-        metadata_map_a: dict[str, dict[str, Any]] | None = None,
-        metadata_map_b: dict[str, dict[str, Any]] | None = None,
+        gate_a_evidence: Dict[str, Any],
+        gate_b_evidence: Dict[str, Any],
+        metadata_map_a: Optional[Dict[str, Dict[str, Any]]] = None,
+        metadata_map_b: Optional[Dict[str, Dict[str, Any]]] = None,
         git_operations_performed: int = 0,
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Compute the complete joint Gate A + Gate B closure evaluation.
         
         Derives all statuses dynamically without hardcoding.
@@ -274,7 +274,7 @@ class RecursivePredicateEvaluator:
         }
 
     @staticmethod
-    def _extract_value(d: dict[str, Any], dot_path: str) -> Any:
+    def _extract_value(d: Dict[str, Any], dot_path: str) -> Any:
         """Extract value by dot path, supporting both flat and nested keys."""
         if dot_path in d:
             return d[dot_path]

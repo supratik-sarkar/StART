@@ -38,8 +38,6 @@ from start.portfolio.tail_risk import (
     run_comprehensive_tail_backtest,
 )
 
-pytestmark = pytest.mark.release
-
 # =========================================================================== #
 # 1. EXCEPTION COUNT & RATE INVARIANTS
 # =========================================================================== #

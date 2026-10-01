@@ -146,13 +146,14 @@ def evaluate_signoff(
     cm = store.cohort_metrics or {}
     if "train" in cm and ("oos" in cm or "test" in cm):
         hold = cm.get("oos") or cm.get("test")
-        use_r2_gap = "r2" in cm["train"] and "r2" in hold
-        metric_for_gap = "r2" if use_r2_gap else primary_metric
-        if metric_for_gap in cm["train"] and metric_for_gap in hold:
-            if metric_for_gap == "r2" or not lower_is_better:
-                gap = cm["train"][metric_for_gap] - hold[metric_for_gap]
-            else:
-                gap = hold[metric_for_gap] - cm["train"][metric_for_gap]
+        if hold and isinstance(hold, dict):
+            use_r2_gap = "r2" in cm["train"] and "r2" in hold
+            metric_for_gap = "r2" if use_r2_gap else primary_metric
+            if metric_for_gap in cm["train"] and metric_for_gap in hold:
+                if metric_for_gap == "r2" or not lower_is_better:
+                    gap = cm["train"][metric_for_gap] - hold[metric_for_gap]
+                else:
+                    gap = hold[metric_for_gap] - cm["train"][metric_for_gap]
 
             is_scale_dependent = metric_for_gap != "r2" and lower_is_better
             if not is_scale_dependent and gap > _MAX_GEN_GAP:
@@ -292,6 +293,32 @@ def evaluate_signoff(
         if status == "concern":
             concerns += 1
         # "informational" contributes to NEITHER blockers nor concerns — that is A2.
+
+        # --- cross-agent collisions / human adjudication outcomes ---
+        if hasattr(session, "adjudications") and session.adjudications:
+            for adj in session.adjudications:
+                dec = adj.get("decision", "") if isinstance(adj, dict) else getattr(adj, "decision", "")
+                rule = adj.get("rule_name", "collision") if isinstance(adj, dict) else getattr(adj, "rule_name", "collision")
+                ev_id = adj.get("evidence_id", "adjudication") if isinstance(adj, dict) else getattr(adj, "evidence_id", "adjudication")
+                if dec in ("defer", "reject_run"):
+                    factors.append(
+                        SignoffFactor(
+                            "Cross-agent collisions",
+                            "blocker",
+                            f"Adjudication decision '{dec}' on [{rule}] blocks formal sign-off.",
+                            ev_id,
+                        )
+                    )
+                    blockers += 1
+                elif dec in ("uphold_a", "uphold_b", "reconcile_partial"):
+                    factors.append(
+                        SignoffFactor(
+                            "Cross-agent collisions",
+                            "ok",
+                            f"Collision [{rule}] resolved via human adjudication ({dec}).",
+                            ev_id,
+                        )
+                    )
 
     # --- verdict ---
     if blockers:

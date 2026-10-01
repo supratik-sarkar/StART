@@ -1,4 +1,4 @@
-"""Single-Slot Analytical Concurrency Scheduler & Session Manager for StART v4.5.
+"""Single-slot analytical concurrency scheduler and session manager.
 
 Tailored specifically for Oracle A1 (2 OCPU / 12 GB RAM) resource governance:
 - Enforces strict analytical concurrency limit (default: 1 active heavy run).
@@ -354,4 +354,3 @@ class QueueEventSink:
 
 # Global singleton queue instance for the process
 GLOBAL_QUEUE = AnalyticalQueue(max_concurrency=1, max_queue_size=10, session_ttl_seconds=3600)
-

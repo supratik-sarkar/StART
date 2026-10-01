@@ -46,6 +46,7 @@ from start.portfolio.contracts import (
     ScenarioResult,
     ScenarioSensitivityResult,
     ScenarioSetResult,
+    ScenarioSpec,
     TailBacktestResult,
     TailModelComparisonResult,
     TailRiskContributionResult,
@@ -156,6 +157,7 @@ def render_dendrogram_artifact(
     test_id: str = "portfolio.hierarchical_risk_parity.tree_topology",
     output_dir: Path | str | None = None,
     allow_empty_evidence: bool = False,
+    run_id: str = "",
 ) -> ArtifactRecord:
     """Render a Hierarchical Dendrogram as an SVG vector image and semantic JSON tree."""
     _validate_provenance(evidence_ids, allow_empty=allow_empty_evidence)
@@ -164,7 +166,7 @@ def render_dendrogram_artifact(
         title="Hierarchical Risk Parity Dendrogram",
         test_id=test_id,
         evidence_ids=evidence_ids,
-        parameters={"linkage_method": tree_result.linkage_method},
+        parameters={"linkage_method": tree_result.linkage_method, "run_id": run_id},
     )
 
     semantic_payload = {
@@ -175,6 +177,7 @@ def render_dendrogram_artifact(
         "linkage_matrix": tree_result.linkage_matrix,
         "cluster_tree": tree_result.cluster_tree,
         "cophenetic_correlation": tree_result.cophenetic_correlation,
+        "run_id": run_id,
     }
     payload_hash = _hash_payload(semantic_payload)
     artifact_id = f"ART-HRP-DENDROGRAM-{payload_hash[:8]}"
@@ -184,7 +187,7 @@ def render_dendrogram_artifact(
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
         file_path = str(out_p / f"{artifact_id}.svg")
-        svg_content = _generate_dendrogram_svg(tree_result)
+        svg_content = _generate_dendrogram_svg(tree_result, run_id=run_id)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
         # Write machine-readable JSON companion
@@ -202,11 +205,28 @@ def render_dendrogram_artifact(
     )
 
 
-def _generate_dendrogram_svg(tree: HierarchicalTreeResult) -> str:
-    assets = tree.quasi_diagonal_order
+def _generate_dendrogram_svg(tree: HierarchicalTreeResult, run_id: str = "") -> str:
+    """Render the exact optimizer linkage matrix, not decorative clustering."""
+    assets = tuple(tree.assets)
     n = len(assets)
-    width = max(600, n * 60)
-    height = 400
+    width = max(700, n * 72)
+    height = 440
+    left_pad, right_pad, top_pad, baseline = 55.0, 35.0, 65.0, height - 70.0
+    leaf_order = tuple(int(i) for i in tree.leaf_order) or tuple(range(n))
+    if set(leaf_order) != set(range(n)):
+        raise ValueError("HRP tree leaf_order is not a permutation of optimizer assets")
+    linkage_rows = [tuple(float(v) for v in row) for row in tree.linkage_matrix]
+    if n > 1 and len(linkage_rows) != n - 1:
+        raise ValueError("HRP linkage matrix must contain n_assets - 1 merges")
+    max_height = max((row[2] for row in linkage_rows), default=1.0) or 1.0
+    step = (width - left_pad - right_pad) / max(n - 1, 1)
+    x_by_node: dict[int, float] = {
+        leaf_id: left_pad + position * step for position, leaf_id in enumerate(leaf_order)
+    }
+    height_by_node: dict[int, float] = {leaf_id: 0.0 for leaf_id in range(n)}
+
+    def y_coord(link_height: float) -> float:
+        return baseline - (link_height / max_height) * (baseline - top_pad)
 
     lines = [
         (
@@ -216,16 +236,38 @@ def _generate_dendrogram_svg(tree: HierarchicalTreeResult) -> str:
         "  <style>",
         "    .title { font: bold 14px sans-serif; fill: #1e293b; }",
         "    .label { font: 12px sans-serif; fill: #475569; }",
+        "    .meta { font: 11px sans-serif; fill: #64748b; }",
         "    .link { fill: none; stroke: #2563eb; stroke-width: 2px; }",
         "  </style>",
         f'  <text x="20" y="30" class="title">HRP Dendrogram ({tree.linkage_method} linkage)</text>',
+        f'  <text x="20" y="48" class="meta">Run: {html.escape(run_id or "UNSPECIFIED")} | Evidence tree covariance: {html.escape(tree.covariance_fingerprint[:16])}…</text>',
     ]
-    step = (width - 100) / max(n, 1)
-    for i, asset in enumerate(assets):
-        x = 50 + i * step
-        y = height - 40
-        lines.append(f'  <text x="{x}" y="{y}" class="label" text-anchor="middle">{asset}</text>')
-        lines.append(f'  <line x1="{x}" y1="{y - 15}" x2="{x}" y2="{y - 40}" class="link" />')
+
+    for merge_index, (left_raw, right_raw, merge_height, _count) in enumerate(linkage_rows):
+        left, right = int(left_raw), int(right_raw)
+        if left not in x_by_node or right not in x_by_node:
+            raise ValueError("HRP linkage matrix references an unavailable child cluster")
+        left_x, right_x = x_by_node[left], x_by_node[right]
+        left_y, right_y = y_coord(height_by_node[left]), y_coord(height_by_node[right])
+        parent_y = y_coord(merge_height)
+        parent_x = (left_x + right_x) / 2.0
+        lines.extend(
+            [
+                f'  <line x1="{left_x:.2f}" y1="{left_y:.2f}" x2="{left_x:.2f}" y2="{parent_y:.2f}" class="link" />',
+                f'  <line x1="{right_x:.2f}" y1="{right_y:.2f}" x2="{right_x:.2f}" y2="{parent_y:.2f}" class="link" />',
+                f'  <line x1="{left_x:.2f}" y1="{parent_y:.2f}" x2="{right_x:.2f}" y2="{parent_y:.2f}" class="link" />',
+            ]
+        )
+        parent_id = n + merge_index
+        x_by_node[parent_id] = parent_x
+        height_by_node[parent_id] = merge_height
+
+    for position, leaf_id in enumerate(leaf_order):
+        x = left_pad + position * step
+        label = html.escape(str(assets[leaf_id]))
+        lines.append(
+            f'  <text x="{x:.2f}" y="{height - 35}" class="label" text-anchor="end" transform="rotate(-45 {x:.2f} {height - 35})">{label}</text>'
+        )
 
     lines.append("</svg>")
     return "\n".join(lines)
@@ -263,11 +305,18 @@ def render_raw_correlation_artifact(
     if output_dir:
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
-        file_path = str(out_p / f"{artifact_id}.md")
-        df = pd.DataFrame(corr_matrix, index=asset_list, columns=asset_list)
-        md = f"### Raw Asset Correlation Matrix\n\n```\n{df.to_string()}\n```\n"
+        file_path = str(out_p / f"{artifact_id}.svg")
+        svg_content = _generate_matrix_heatmap_svg(
+            matrix=[[float(x) for x in row] for row in corr_matrix],
+            row_labels=asset_list,
+            col_labels=asset_list,
+            title="Asset Correlation Matrix",
+            subtitle=f"{len(asset_list)} assets | Current-run correlation structure",
+            fmt=".3f",
+            is_diverging=True,
+        )
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(md)
+            f.write(svg_content)
         with open(str(out_p / f"{artifact_id}.json"), "w", encoding="utf-8") as f:
             json.dump(semantic_payload, f, indent=2)
 
@@ -278,7 +327,7 @@ def render_raw_correlation_artifact(
         semantic_payload=semantic_payload,
         semantic_payload_hash=payload_hash,
         file_path=file_path,
-        rendering_format="markdown" if file_path else "json",
+        rendering_format="svg" if file_path else "json",
     )
 
 
@@ -320,11 +369,18 @@ def render_seriated_correlation_artifact(
     if output_dir:
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
-        file_path = str(out_p / f"{artifact_id}.md")
-        df = pd.DataFrame(seriated_mat, index=ord_list, columns=ord_list)
-        md = f"### Quasi-Diagonally Seriated Correlation Matrix\n\n```\n{df.to_string()}\n```\n"
+        file_path = str(out_p / f"{artifact_id}.svg")
+        svg_content = _generate_matrix_heatmap_svg(
+            matrix=[[float(x) for x in row] for row in seriated_mat],
+            row_labels=ord_list,
+            col_labels=ord_list,
+            title="HRP-Ordered Correlation Matrix",
+            subtitle="Exact quasi-diagonal leaf ordering from the optimizer tree",
+            fmt=".3f",
+            is_diverging=True,
+        )
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(md)
+            f.write(svg_content)
         with open(str(out_p / f"{artifact_id}.json"), "w", encoding="utf-8") as f:
             json.dump(semantic_payload, f, indent=2)
 
@@ -335,7 +391,7 @@ def render_seriated_correlation_artifact(
         semantic_payload=semantic_payload,
         semantic_payload_hash=payload_hash,
         file_path=file_path,
-        rendering_format="markdown" if file_path else "json",
+        rendering_format="svg" if file_path else "json",
     )
 
 
@@ -553,17 +609,16 @@ def render_asset_weights_artifact(
     if output_dir:
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
-        file_path = str(out_p / f"{artifact_id}.md")
-        rows = [
-            "| Asset | Weight |",
-            "|---|---|",
-        ]
-        for a, w in w_dict.items():
-            rows.append(f"| {a} | {w:.4%} |")
-        rows.append(f"| **Effective Positions (1/H)** | **{eff_n:.2f}** |")
-        md = f"### {method_name} Asset Allocation Weights\n\n" + "\n".join(rows) + "\n"
+        file_path = str(out_p / f"{artifact_id}.svg")
+        svg_content = _generate_bars_svg(
+            categories=list(w_dict),
+            values=list(w_dict.values()),
+            title=f"{method_name} Asset Allocation Weights",
+            subtitle=f"Weights sum={float(np.sum(values)):.6f} | Effective N={eff_n:.2f}",
+            fmt=".2%",
+        )
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(md)
+            f.write(svg_content)
         with open(str(out_p / f"{artifact_id}.json"), "w", encoding="utf-8") as f:
             json.dump(semantic_payload, f, indent=2)
 
@@ -574,7 +629,7 @@ def render_asset_weights_artifact(
         semantic_payload=semantic_payload,
         semantic_payload_hash=payload_hash,
         file_path=file_path,
-        rendering_format="markdown" if file_path else "json",
+        rendering_format="svg" if file_path else "json",
     )
 
 
@@ -613,20 +668,20 @@ def render_risk_contribution_artifact(
     if output_dir:
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
-        file_path = str(out_p / f"{artifact_id}.md")
-        rows = [
-            "| Asset | Marginal Risk (MCR) | Component Risk (CR) | % Risk Contribution (%CR) |",
-            "|---|---|---|---|",
-        ]
-        for a in assets:
-            mcr = rc.marginal_contributions.get(a, 0.0)
-            cr = rc.component_contributions.get(a, 0.0)
-            pcr = rc.percentage_contributions.get(a, 0.0)
-            rows.append(f"| {a} | {mcr:.6f} | {cr:.6f} | {pcr:.4%} |")
-        rows.append(f"| **Total** | — | **{rc.portfolio_volatility:.6f}** | **100.00%** |")
-        md = "### Euler Risk Contribution Breakdown\n\n" + "\n".join(rows) + "\n"
+        file_path = str(out_p / f"{artifact_id}.svg")
+        asset_list = list(assets)
+        svg_content = _generate_bars_svg(
+            categories=asset_list,
+            values=[float(rc.percentage_contributions.get(a, 0.0)) for a in asset_list],
+            title="Normalized Euler Risk Contribution",
+            subtitle=(
+                f"Weight ≠ risk contribution | Euler reconciliation error "
+                f"{rc.euler_reconciliation_error:.2e}"
+            ),
+            fmt=".2%",
+        )
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(md)
+            f.write(svg_content)
         with open(str(out_p / f"{artifact_id}.json"), "w", encoding="utf-8") as f:
             json.dump(semantic_payload, f, indent=2)
 
@@ -637,7 +692,7 @@ def render_risk_contribution_artifact(
         semantic_payload=semantic_payload,
         semantic_payload_hash=payload_hash,
         file_path=file_path,
-        rendering_format="markdown" if file_path else "json",
+        rendering_format="svg" if file_path else "json",
     )
 
 
@@ -1554,6 +1609,61 @@ def _generate_bars_svg(
     return "\n".join(lines)
 
 
+def _generate_var_timeline_svg(
+    *,
+    losses: list[float],
+    var_values: list[float],
+    indicators: list[int],
+    confidence: float,
+    horizon: str,
+) -> str:
+    """Render the canonical Loss=-Return and Loss>VaR exception convention."""
+    n = len(losses)
+    width, height = 920, 410
+    left, right, top, bottom = 65.0, 25.0, 82.0, 55.0
+    chart_w, chart_h = width - left - right, height - top - bottom
+    low = min([0.0, *losses, *var_values])
+    high = max([0.0, *losses, *var_values])
+    pad = max((high - low) * 0.08, 1e-9)
+    low, high = low - pad, high + pad
+
+    def x(index: int) -> float:
+        return left + chart_w * index / max(n - 1, 1)
+
+    def y(value: float) -> float:
+        return top + chart_h * (1.0 - (value - low) / max(high - low, 1e-12))
+
+    loss_points = " ".join(f"{x(i):.2f},{y(v):.2f}" for i, v in enumerate(losses))
+    var_points = " ".join(f"{x(i):.2f},{y(v):.2f}" for i, v in enumerate(var_values))
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
+        "<style>.title{font:bold 16px sans-serif;fill:#0f172a}.meta{font:12px sans-serif;fill:#64748b}.axis{font:10px sans-serif;fill:#475569}.legend{font:bold 11px sans-serif}</style>",
+        '<rect width="100%" height="100%" fill="#fff"/>',
+        '<text x="24" y="30" class="title">Realized Loss vs VaR Exception Timeline</text>',
+        f'<text x="24" y="50" class="meta">Loss = -Return | exception iff Loss &gt; VaR | confidence {confidence:.1%} | horizon {html.escape(horizon)}</text>',
+        f'<line x1="{left}" y1="{top + chart_h}" x2="{left + chart_w}" y2="{top + chart_h}" stroke="#94a3b8"/>',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + chart_h}" stroke="#94a3b8"/>',
+        f'<polyline points="{loss_points}" fill="none" stroke="#2563eb" stroke-width="1.7"/>',
+        f'<polyline points="{var_points}" fill="none" stroke="#dc2626" stroke-width="1.7" stroke-dasharray="5,3"/>',
+    ]
+    for index, indicator in enumerate(indicators):
+        if indicator:
+            lines.append(
+                f'<circle cx="{x(index):.2f}" cy="{y(losses[index]):.2f}" r="4" fill="#dc2626" stroke="#7f1d1d"/>'
+            )
+    lines.extend(
+        [
+            f'<text x="{left}" y="{height - 22}" class="axis">0</text>',
+            f'<text x="{left + chart_w}" y="{height - 22}" class="axis" text-anchor="end">{n - 1}</text>',
+            f'<text x="{left + chart_w / 2}" y="{height - 10}" class="axis" text-anchor="middle">out-of-sample observation</text>',
+            '<line x1="650" y1="28" x2="680" y2="28" stroke="#2563eb" stroke-width="2"/><text x="686" y="32" class="legend" fill="#2563eb">Loss</text>',
+            '<line x1="742" y1="28" x2="772" y2="28" stroke="#dc2626" stroke-width="2" stroke-dasharray="5,3"/><text x="778" y="32" class="legend" fill="#dc2626">VaR</text>',
+            "</svg>",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _generate_dashboard_svg(
     metrics: list[tuple[str, str, str]],  # title, value, status/note
     title: str,
@@ -2402,6 +2512,10 @@ def render_var_pnl_timeline_artifact(
     evidence_ids: tuple[str, ...],
     output_dir: str | Path | None = None,
     test_id: str = "traded_risk.var_exceptions",
+    pnl_or_losses: Any | None = None,
+    var_series: Any | None = None,
+    is_loss_series: bool = False,
+    horizon: str = "one period",
 ) -> ArtifactRecord:
     """Render VaR forecast vs realized P&L exception tracking timeline."""
     _validate_provenance(evidence_ids)
@@ -2424,8 +2538,24 @@ def render_var_pnl_timeline_artifact(
         "exception_dates": list(backtest.exception_dates),
         "indicators_count": len(backtest.indicators),
         "exception_convention": backtest.exception_convention,
+        "horizon": horizon,
         "data_fingerprint": backtest.data_fingerprint,
     }
+    loss_values: list[float] = []
+    var_values: list[float] = []
+    if pnl_or_losses is not None and var_series is not None:
+        raw = np.asarray(pnl_or_losses, dtype=float).reshape(-1)
+        var_arr = np.asarray(var_series, dtype=float).reshape(-1)
+        if len(raw) != len(var_arr) or len(raw) != backtest.n_observations:
+            raise ValueError("VaR timeline arrays must match the canonical backtest observations")
+        losses = raw if is_loss_series else -raw
+        indicators = (losses > var_arr).astype(int)
+        if tuple(int(v) for v in indicators) != tuple(backtest.indicators):
+            raise ValueError("VaR timeline exception markers do not reconcile to TailBacktestResult")
+        loss_values = [float(v) for v in losses]
+        var_values = [float(v) for v in var_arr]
+        semantic_payload["loss_series"] = loss_values
+        semantic_payload["var_series"] = var_values
     payload_hash = _hash_payload(semantic_payload)
     artifact_id = f"ART-VAR-TIMELINE-{payload_hash[:8]}"
 
@@ -2434,19 +2564,28 @@ def render_var_pnl_timeline_artifact(
         out_p = Path(output_dir)
         out_p.mkdir(parents=True, exist_ok=True)
         file_path = str(out_p / f"{artifact_id}.svg")
-        cards = [
-            ("Aligned Obs", f"{backtest.n_observations:,}", "Out-of-sample sample"),
-            ("Exceptions", f"{backtest.n_exceptions}", "Realized breaches"),
-            ("Realized Rate", f"{backtest.exception_rate:.2%}", "Observed frequency"),
-            ("Expected Rate", f"{backtest.expected_probability:.2%}", "1 - alpha_var"),
-            ("Expected Count", f"{backtest.expected_exceptions:.1f}", "Target count"),
-            ("P&L Source", backtest.pnl_source.upper(), "P&L provenance"),
-        ]
-        svg_content = _generate_dashboard_svg(
-            metrics=cards,
-            title="VaR Forecast vs Realized P&L Exception Diagnostics",
-            subtitle=f"{backtest.n_exceptions} exception(s) in {backtest.n_observations:,} observations @ {backtest.var_confidence:.1%} VaR Confidence ({backtest.pnl_source} P&L)",
-        )
+        if loss_values and var_values:
+            svg_content = _generate_var_timeline_svg(
+                losses=loss_values,
+                var_values=var_values,
+                indicators=list(backtest.indicators),
+                confidence=backtest.var_confidence,
+                horizon=horizon,
+            )
+        else:
+            cards = [
+                ("Aligned Obs", f"{backtest.n_observations:,}", "Out-of-sample sample"),
+                ("Exceptions", f"{backtest.n_exceptions}", "Realized breaches"),
+                ("Realized Rate", f"{backtest.exception_rate:.2%}", "Observed frequency"),
+                ("Expected Rate", f"{backtest.expected_probability:.2%}", "1 - alpha_var"),
+                ("Expected Count", f"{backtest.expected_exceptions:.1f}", "Target count"),
+                ("P&L Source", backtest.pnl_source.upper(), "P&L provenance"),
+            ]
+            svg_content = _generate_dashboard_svg(
+                metrics=cards,
+                title="VaR Exception Diagnostics",
+                subtitle="Time series unavailable; no synthetic timeline rendered",
+            )
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
         with open(str(out_p / f"{artifact_id}.json"), "w", encoding="utf-8") as f:
@@ -2735,6 +2874,11 @@ def render_backtest_summary_artifact(
                 f"alpha_var = {backtest.var_confidence:.2%}",
                 f"Expected Rate: {backtest.expected_probability:.2%}",
             ),
+            (
+                "Interpretation",
+                "NON-REJECTION",
+                "does not prove model correctness",
+            ),
         ]
         svg_content = _generate_dashboard_svg(
             metrics=cards,
@@ -2903,6 +3047,7 @@ def render_scenario_pnl_waterfall_artifact(
     res: ScenarioResult,
     evidence_ids: tuple[str, ...],
     output_dir: str | Path | None = None,
+    scenario_spec: ScenarioSpec | None = None,
 ) -> ArtifactRecord:
     """Render scenario P&L / return waterfall and summary dashboard."""
     spec = ArtifactSpec(
@@ -2959,8 +3104,46 @@ def render_scenario_pnl_waterfall_artifact(
         "asset_contributions": res.asset_contributions,
         "factor_contributions": res.factor_contributions,
         "reconciliation_error": res.reconciliation_error,
+        "horizon": res.horizon,
+        "currency": res.currency,
+        "limitations": list(res.limitations),
         "data_fingerprint": res.data_fingerprint,
     }
+    shock_summary = "Shock specification unavailable"
+    if scenario_spec is not None:
+        shock_units = sorted(
+            {
+                str(getattr(shock.shock_unit, "value", shock.shock_unit))
+                for shock in scenario_spec.shocks
+            }
+        )
+        nonzero_shocks = sum(abs(float(shock.raw_value)) > 0 for shock in scenario_spec.shocks)
+        shock_summary = (
+            f"{nonzero_shocks}/{len(scenario_spec.shocks)} non-zero explicit shocks; "
+            f"units {', '.join(shock_units) or 'UNSPECIFIED'}; "
+            f"missing/specific policy {scenario_spec.specific_shock_policy}"
+        )
+        semantic_payload["scenario_spec"] = {
+            "scenario_name": scenario_spec.scenario_name,
+            "horizon": str(getattr(scenario_spec.horizon, "value", scenario_spec.horizon)),
+            "frequency": scenario_spec.frequency,
+            "currency": scenario_spec.currency,
+            "specific_shock_policy": scenario_spec.specific_shock_policy,
+            "assumptions": list(scenario_spec.assumptions),
+            "shocks": [
+                {
+                    "risk_factor_id": shock.risk_factor_id,
+                    "shock_space": str(getattr(shock.shock_space, "value", shock.shock_space)),
+                    "shock_unit": str(getattr(shock.shock_unit, "value", shock.shock_unit)),
+                    "raw_value": shock.raw_value,
+                    "normalized_value": shock.normalized_value,
+                    "normalization_rule": shock.normalization_rule,
+                    "computational_unit": shock.computational_unit,
+                    "source_reference": shock.source_reference,
+                }
+                for shock in scenario_spec.shocks
+            ],
+        }
     payload_hash = _hash_payload(semantic_payload)
     artifact_id = f"ART-SCEN-WATERFALL-{payload_hash[:8]}"
 
@@ -2973,7 +3156,10 @@ def render_scenario_pnl_waterfall_artifact(
             headers=headers,
             rows=rows,
             title=f"Scenario P&L Waterfall: {res.scenario_id} ({res.repricing_method})",
-            subtitle=f"Scenario Return: {res.scenario_return:.4f} | Canonical Loss: {res.scenario_loss:.4f} | Recon Error: {res.reconciliation_error:.2e}",
+            subtitle=(
+                f"Return {res.scenario_return:.4f} | Canonical Loss {res.scenario_loss:.4f} | "
+                f"Horizon {res.horizon or 'UNSPECIFIED'} | {shock_summary}"
+            ),
         )
         with open(file_path, "w", encoding="utf-8") as fp:
             fp.write(svg_content)
@@ -3397,11 +3583,36 @@ def render_reverse_stress_profile_artifact(
         evidence_ids=evidence_ids,
         parameters={"target_loss": rev_res.target_loss, "distance_norm": rev_res.distance_norm},
     )
-    headers = ["Risk Factor", "Required Shock", "Distance Contribution", "Status"]
+    headers = ["Risk Factor", "Required Shock", "Normalized Shock", "Status"]
     rows = []
+    result_status = (
+        "CONVERGED"
+        if rev_res.converged and rev_res.bounds_satisfied
+        else "OUT_OF_BOUNDS"
+        if not rev_res.bounds_satisfied
+        else str(rev_res.solver_status).upper() or "UNRESOLVED"
+    )
+    solution_kind = (
+        "CLOSED_FORM_UNCONSTRAINED" if rev_res.is_closed_form else "CONSTRAINED_OPTIMIZATION"
+    )
     for rf, s in rev_res.shock_vector.items():
-        rows.append([rf, f"{s:.4f}", f"{abs(s):.4f}", "SOLVED"])
-    rows.append(["TARGET LOSS", f"{rev_res.target_loss:.4f}", "-", f"Achieved: {rev_res.achieved_loss:.4f}"])
+        normalized = rev_res.normalized_shocks.get(rf)
+        rows.append(
+            [
+                rf,
+                f"{s:.4f}",
+                f"{normalized:.4f}" if normalized is not None else "NOT_APPLICABLE",
+                result_status,
+            ]
+        )
+    rows.append(
+        [
+            "TARGET LOSS",
+            f"{rev_res.target_loss:.4f}",
+            "-",
+            f"Achieved: {rev_res.achieved_loss:.4f} ({result_status})",
+        ]
+    )
     rows.append(
         [
             "NORM DISTANCE",
@@ -3418,9 +3629,13 @@ def render_reverse_stress_profile_artifact(
         "distance": rev_res.distance,
         "distance_norm": rev_res.distance_norm,
         "shock_vector": rev_res.shock_vector,
+        "normalized_shocks": rev_res.normalized_shocks,
+        "bounds_satisfied": rev_res.bounds_satisfied,
         "solver_status": rev_res.solver_status,
         "converged": rev_res.converged,
         "is_closed_form": rev_res.is_closed_form,
+        "solution_kind": solution_kind,
+        "limitations": list(rev_res.limitations),
         "data_fingerprint": rev_res.data_fingerprint,
     }
     payload_hash = _hash_payload(semantic_payload)
@@ -3435,7 +3650,11 @@ def render_reverse_stress_profile_artifact(
             headers=headers,
             rows=rows,
             title=f"Minimum Shock Reverse Stress ({rev_res.distance_norm})",
-            subtitle=f"Target Loss: {rev_res.target_loss:.4f} | Achieved: {rev_res.achieved_loss:.4f} | Status: {rev_res.solver_status}",
+            subtitle=(
+                f"Target Loss: {rev_res.target_loss:.4f} | Achieved: {rev_res.achieved_loss:.4f} | "
+                f"Bounds: {'SATISFIED' if rev_res.bounds_satisfied else 'VIOLATED'} | "
+                f"{solution_kind} | Status: {result_status}"
+            ),
         )
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(svg_content)

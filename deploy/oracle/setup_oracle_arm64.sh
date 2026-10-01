@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# StART v4.5 — Automated Oracle Linux ARM64 Deployment Setup Script
+# StART v6.0.2 — Automated Oracle Linux ARM64 Deployment Setup Script
 # Target: Oracle Cloud Infrastructure Always Free (VM.Standard.A1.Flex)
 # Specs: 2 OCPU / 12 GB RAM / Oracle Linux 9 ARM64 (aarch64)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 echo "======================================================================"
-echo "StART v4.5 — Oracle Linux ARM64 Setup & Provisioning"
+echo "StART v6.0.2 — Oracle Linux ARM64 Setup & Provisioning"
 echo "======================================================================"
 
 # 1. Update OS packages
@@ -53,6 +53,6 @@ sudo systemctl enable start_web.service
 sudo systemctl restart start_web.service
 
 echo "======================================================================"
-echo "StART v4.5 deployed successfully on Oracle Linux ARM64!"
+echo "StART v6.0.2 deployed successfully on Oracle Linux ARM64!"
 echo "Status check: sudo systemctl status start_web.service"
 echo "======================================================================"

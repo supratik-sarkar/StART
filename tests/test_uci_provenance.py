@@ -10,6 +10,7 @@ Proves that:
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from start.data.providers.uci import UCIProviderAdapter
 from start.runtime.contexts import resolve_context_spec

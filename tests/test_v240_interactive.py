@@ -90,11 +90,11 @@ def test_sequence_and_vision_2d_reshaping():
     X = df[features].to_numpy()
     y = df["attrition"].to_numpy()
 
-    # Sequence Classifier should accept 2D inputs and fit successfully
+    from start.modeling.sequence_dl import SequenceInputContractError
+    # Sequence Classifier must reject 2D inputs (enforcing rank-3 temporal contract)
     clf_seq = SequenceClassifier(epochs=3, random_state=42, class_weight="balanced")
-    clf_seq.fit(X, y)
-    probs_seq = clf_seq.predict_proba(X)
-    assert probs_seq.shape == (len(X), 2)
+    with pytest.raises(SequenceInputContractError, match="requires rank-3 input"):
+        clf_seq.fit(X, y)
 
     # Vision Classifier should accept 2D inputs and fit successfully
     clf_vis = VisionCNNClassifier(epochs=3, random_state=42, class_weight="balanced")

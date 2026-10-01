@@ -2,7 +2,7 @@
 """StART Live Interactive Acceptance Harness.
 
 Drives the real interactive StART review CLI programmatically from the canonical Markdown runbook:
-StART_v4.3.0_Market_Manual_Acceptance_Runbook.md.
+docs/MARKET_MANUAL_ACCEPTANCE_RUNBOOK.md.
 """
 
 from __future__ import annotations
@@ -24,11 +24,7 @@ from typing import Any, cast
 
 # Canonical Paths
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
-RUNBOOK_PATH = WORKSPACE_ROOT / "StART_v4.3.0_Market_Manual_Acceptance_Runbook.md"
-if not RUNBOOK_PATH.exists():
-    _arch_candidate = WORKSPACE_ROOT / "docs" / "StART_v4.3.0_Market_Manual_Acceptance_Runbook.md"
-    if _arch_candidate.exists():
-        RUNBOOK_PATH = _arch_candidate
+RUNBOOK_PATH = WORKSPACE_ROOT / "docs" / "MARKET_MANUAL_ACCEPTANCE_RUNBOOK.md"
 DEFAULT_START_BIN = WORKSPACE_ROOT / ".venv-start" / "bin" / "start"
 DEFAULT_OUTPUT_DIR = WORKSPACE_ROOT / "start_output" / "acceptance_runs"
 

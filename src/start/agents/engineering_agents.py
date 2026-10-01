@@ -126,7 +126,7 @@ class ArchitectureReviewAgent:
             if user_activation in ("selu", "elu") and small:
                 rec_activation = "relu"
                 reasons.append("ReLU is a robust default for small tabular data.")
-        elif modality == "sequence":
+        elif modality in {"sequence", "temporal_sequence"}:
             if user_family not in ("rnn", "gru", "lstm", "bi_lstm"):
                 rec_family = "lstm"
                 reasons.append("Sequence modality; an LSTM is a strong default for temporal data.")
@@ -197,6 +197,7 @@ class HyperparameterTuningAgent:
     ) -> TuningPlan:
         metric = select_primary_metric(task_type, costlier_errors=costlier_errors)["primary_metric"]
         trials = n_trials or (5 if n_samples < 2000 else 10 if n_samples < 20000 else 15)
+        search_space: dict[str, list[Any]]
         if family in ("rnn", "lstm", "gru", "bi_lstm"):
             search_space = {
                 "learning_rate": [1e-3, 3e-3, 1e-2],

@@ -13,8 +13,6 @@ from __future__ import annotations
 import types
 from unittest.mock import MagicMock
 
-import pytest
-
 from start.core.schemas import EvidenceRecord, Status
 from start.data.synthetic_market import generate_market_world
 from start.providers.base import ProviderResult, ProviderUsage
@@ -31,8 +29,6 @@ from start.review.architecture import (
     ReviewMode,
 )
 from start.review.executor import run_domain_checkpoints
-
-pytestmark = [pytest.mark.integration, pytest.mark.release]
 
 
 # =========================================================================== #

@@ -1,4 +1,4 @@
-"""Typed SSE Event Broadcaster & Reconnection Manager for StART v4.5.
+"""Typed SSE event broadcaster and reconnection manager for StART web transport.
 
 Bridges canonical RuntimeEvents to frontend EventSource listeners with:
 - Monotonic sequence numbering

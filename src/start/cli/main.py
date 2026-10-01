@@ -18,6 +18,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from start import __version__
 from start.core.config import StartConfig, load_config, load_policy
 from start.core.schemas import DatasetSummary, Materiality, ModelMetadata, TaskType
 
@@ -27,27 +28,24 @@ console = Console()
 DEFAULT_CONFIG = "configs/default.yaml"
 
 
-def version_callback(value: bool) -> None:
+def _version_callback(value: bool) -> None:
+    """Print the canonical package version and stop before command dispatch."""
     if value:
-        import start
-
-        console.print(f"StART {start.__version__}")
+        typer.echo(f"StART {__version__}")
         raise typer.Exit()
 
 
 @app.callback()
-def main(
-    version: bool | None = typer.Option(
-        None,
+def root(
+    version: bool = typer.Option(
+        False,
         "--version",
-        "-v",
-        help="Show version and exit.",
-        callback=version_callback,
+        callback=_version_callback,
         is_eager=True,
+        help="Show the StART version and exit.",
     ),
 ) -> None:
-    """StART: Standardized Agentic Reusable Tests."""
-    pass
+    """StART command group."""
 
 
 @app.command()
@@ -754,6 +752,7 @@ def review_callback(
                     data_path=data_path_sel,
                     target=target,
                     dataset_selection=selection,
+                    sequence_bundle=config_state.get("sequence_bundle"),
                     task_override=config_state.get("task_type", task),
                     split_strategy=config_state.get("split_strategy_name", "stratified"),
                     architecture_family=config_state.get("model", architecture),
@@ -932,10 +931,27 @@ def review_run_workflow_cmd(
     trace: str = typer.Option("off", "--trace", help="Trace mode: off | summary | engineering | debug"),
 ) -> None:
     """Execute a canonical StART workflow using the shared execution service."""
-    import hashlib
+    import uuid
 
     from start.runtime import CanonicalExecutionService
-    from start.telemetry.engineering_trace import TerminalEngineeringRenderer
+
+    observer = None
+    runtime_sink = None
+    runtime_run_id = None
+    if trace.lower() in ("engineering", "summary", "debug"):
+        from start.review.terminal_observability import (
+            RuntimePresentationSink,
+            TerminalReviewObserver,
+        )
+
+        runtime_run_id = f"RUN-{uuid.uuid4().hex[:8]}"
+        observer = TerminalReviewObserver(
+            runtime_run_id,
+            console=console,
+            session_kind="C",
+            control_plane=True,
+        )
+        runtime_sink = RuntimePresentationSink(observer, workflow_id=workflow)
 
     context_id = context or (
         "institutional_market_v1"
@@ -952,84 +968,19 @@ def review_run_workflow_cmd(
         seed=seed,
         output_root=output_root,
         trace_mode=trace,
+        run_id=runtime_run_id,
+        event_sink=runtime_sink,
     )
     console.print(f"[green]Workflow '{workflow}' completed successfully -> {res.output_path}[/green]")
     console.print(
         f"Records: {len(res.records)} | Governance: {res.governance_disposition} | Merkle: {str(res.merkle_root)[:16]}"
     )
 
-    if trace.lower() in ("engineering", "summary", "debug"):
-        ctx_inst = res.context_instance
-        dataset_proof = {
-            "provider": getattr(ctx_inst, "provider", "canonical_built_in"),
-            "dataset_id": ctx_inst.spec_id,
-            "revision": "1.0",
-            "target_column": ctx_inst.actual_target,
-            "rows": ctx_inst.actual_samples,
-            "features": ctx_inst.actual_features,
-            "fingerprint": f"sha256:{hashlib.sha256(ctx_inst.spec_id.encode()).hexdigest()[:16]}",
-            "precertification": "PASSED_PRECERTIFIED",
-        }
-        orchestration_proof = {
-            "execution_mode": "deterministic_run",
-            "llm_provider": "none",
-            "llm_model": "none",
-            "planner_action": f"EXECUTE_{workflow.upper()}",
-            "agent_handoffs": "Director -> DomainSpecialist -> EvidenceLedger -> ModelGovernance",
-            "numeric_boundary": "DETERMINISTIC_ENGINE_ONLY (LLM numeric authority = 0)",
-        }
-        dispatch_proof = {
-            "requested_model": getattr(res.context_instance.bundle.tabular, "model", type("Model", (), {})()).__class__.__name__ if hasattr(res.context_instance.bundle, "tabular") and res.context_instance.bundle.tabular else workflow,
-            "registry_entry": f"start.{workflow}.canonical",
-            "implementation": "Native Verified Implementation",
-            "device": "cpu",
-            "substitution_status": "NO_SUBSTITUTION (Exact Requested Model Executed)",
-        }
-        invariants_proof = {
-            "leakage": "CLEAN (Disjoint Train/Holdout Splits)",
-            "metric_domains": "VALID (0.0 <= metrics <= 1.0)",
-            "finite_outputs": "VERIFIED (0 NaN, 0 Inf across all evaluated metrics)",
-            "architecture_match": "COMPATIBLE (Data schema matches model intake contract)",
-        }
-        lineage_proof = {
-            "total_records": len(res.records),
-            "sample_evidence_ids": [r.evidence_id for r in res.records[:6]],
-            "stages": "step-context, step-features, step-evaluation, step-governance",
-            "integrity_hash": f"sha256:{hashlib.sha256(res.run_id.encode()).hexdigest()[:16]}",
-        }
-        gov_proof = {
-            "decision": res.governance_disposition or "ACCEPT",
-            "decision_id": res.policy_result.decision_id if res.policy_result else f"POL-DEC-{res.run_id[-8:]}",
-            "policy_package": res.policy_result.policy_package if res.policy_result else "start.governance.attestation_rules",
-            "engine": res.policy_result.engine if res.policy_result else "OPA_LOCAL",
-            "evidence_ids": [r.evidence_id for r in res.records],
-        }
-        repro_proof = {
-            "seed": seed,
-            "merkle_root": str(res.merkle_root),
-            "replay_readiness": "SELF_CONTAINED_CAPSULE_COMMITTED",
-        }
-        resource_proof = {
-            "wall_time_seconds": res.elapsed_seconds,
-            "device": "cpu",
-            "peak_memory_mb": 142.5,
-            "llm_calls": 0,
-            "llm_tokens": 0,
-        }
-
-        trace_rendered = TerminalEngineeringRenderer.render(
-            run_id=res.run_id,
-            dataset_contract=dataset_proof,
-            orchestration=orchestration_proof,
-            dispatch=dispatch_proof,
-            scientific_invariants=invariants_proof,
-            evidence_lineage=lineage_proof,
-            governance_policy=gov_proof,
-            reproducibility=repro_proof,
-            resource_ledger=resource_proof,
-            trace_mode=trace,
-        )
-        console.print(trace_rendered)
+    if observer is not None:
+        observer.session_completed(source_component="start.cli.main")
+        observer.export(Path(res.output_path) / "presentation_events.json")
+        res.workflow_coherence = observer.coherence_envelope
+        res.run_outcome_capsule = observer.outcome_capsule
 
 
 @review_app.command("agent-review")
