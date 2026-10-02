@@ -85,10 +85,8 @@ def test_webapp_versions_and_changed_manifest_entries_are_consistent() -> None:
 
 def test_release_hygiene_documents_have_no_development_provenance() -> None:
     paths = [
-        ROOT / "docs" / "START_BACKEND_BINDING_CLOSURE.md",
-        ROOT / "docs" / "START_AGENTIC_WORKBENCH_PRODUCT_SPEC.md",
-        ROOT / "docs" / "START_CAPABILITY_CENSUS.md",
-        ROOT / "docs" / "START_PRESENTATION_API_CONTRACT.md",
+        ROOT / "docs" / "WORKBENCH_CHEATSHEET.md",
+        ROOT / "docs" / "MARKET_MANUAL_ACCEPTANCE_RUNBOOK.md",
         WEBAPP / "README.md",
         WEBAPP / "PACKAGE_MANIFEST.json",
         *(WEBAPP / "docs").glob("*.md"),
