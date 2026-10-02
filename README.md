@@ -23,7 +23,7 @@
 
 ### Web Workbench
 
-**[Open the StART Web Workbench →](https://start-mrt-gateway.sapman.workers.dev)**  
+**[Open the StART Web Workbench →](https://start-mrt-gateway.sapman.workers.dev)**
 *Public demo · Rate limits may apply*
 
 ---
@@ -153,9 +153,16 @@ start review --domain market --mode deterministic
 start doctor
 ```
 
----
+## Web Workbench
 
-## Local Web Workbench
+### Using the Web Workbench
+
+New to the browser interface? The [Web Workbench Quick Guide](docs/WORKBENCH_CHEATSHEET.md) gives you the 60-second workflow, a map of the main controls, and ready-to-try predictive-ML and quantitative-finance examples.
+
+[Open the StART Web Workbench →](https://start-mrt-gateway.sapman.workers.dev/)
+Public demo · No API key required · Rate limits may apply
+
+### Local Web Workbench
 
 StART includes a local browser-based engineering workbench (`webapp/`) with an offline demonstration twin requiring zero hosted model calls:
 
