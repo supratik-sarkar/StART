@@ -1,9 +1,10 @@
 name: integration-live
 
+# Manual only. No test currently carries the `integration` marker and no provider
+# secrets are wired into this job, so a scheduled run selected zero tests and
+# pytest exited 5 every week. Re-add a schedule only once both exist.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 * * 0'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,6 +33,13 @@ jobs:
       - name: Install full suite with connectors
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[everything,dev]"
+          pip install -e ".[everything,dev]" -c constraints.txt
       - name: Run live integration tests
-        run: pytest -m "integration"
+        run: |
+          set +e
+          pytest -m "integration"
+          rc=$?
+          if [ "$rc" -eq 5 ]; then
+            echo "::error::No test carries the integration marker; nothing was exercised."
+          fi
+          exit $rc

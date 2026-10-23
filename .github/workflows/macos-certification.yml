@@ -3,7 +3,8 @@ name: macos-certification
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'
+    # Weekly; see full-regression.yml for the reasoning.
+    - cron: '0 3 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -61,11 +62,12 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dl,trees,tuning,xai,formats,llm,orchestration,web,telemetry,dev]"
+          pip install -e ".[dl,trees,tuning,xai,formats,llm,orchestration,web,telemetry,dev]" -c constraints.txt
       - name: pip check
         run: pip check || true
       - name: Tests
-        run: pytest tests/
+        # Same selection as core-ci, plus platform-marked tests on their own platform.
+        run: pytest -m "not integration and not release and not network and not slow"
       - name: CLI smoke test
         run: |
           start doctor

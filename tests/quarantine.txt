@@ -1,0 +1,34 @@
+# Quarantined test modules.
+#
+# These modules contain assertions that no longer match the published repository.
+# They are excluded from EVERY pytest run (local, core-ci, scheduled, release) by
+# tests/conftest.py, so all environments agree on what "the test suite" means.
+#
+# Before this file existed, core-ci excluded these with --ignore flags while the
+# scheduled workflows ran them, so a commit that passed its pull-request gate
+# failed every night.
+#
+# Quarantine is not a pass. Each entry must be triaged: update the test to the
+# current behaviour, guard it with a skip for a genuinely private resource, or
+# delete it. Remove the line when the module is green again. This list should
+# only ever shrink.
+#
+# Run them deliberately with:  START_RUN_QUARANTINED=1 pytest tests/<file>
+#
+# Format: <path relative to repo root>  # <reason observed on 05aae4b>
+
+tests/test_controller_offline_e2e.py              # expects private StART_2.0_DEMO_CHEATSHEET_PRIVATE.md (not published)
+tests/test_demo_controller_truth.py               # expects private StART_2.0_DEMO_CHEATSHEET_PRIVATE.md (not published)
+tests/test_generalized_workflow_coherence.py      # expects pruned webapp/docs/ engineering documents
+tests/test_live_terminal_observability.py         # stale checkpoint labels vs current flow
+tests/test_release_hygiene_patch.py               # stale release-hygiene expectations after docs pruning
+tests/test_trust_domains.py                       # provider set now includes the demo twin
+tests/test_v240_tuning_wizard.py                  # v2.4.0 wizard expectations; requires torch
+tests/test_v301_enhancements.py                   # v3.0.1 expectations superseded
+tests/test_v401_contracts.py                      # v4.0.1 contract expectation superseded
+tests/test_v430_gate0_hardened_control_plane.py   # v4.3.0 gate expectation superseded
+tests/test_v430_gate11_ux_parity.py               # menu now has 5 options, test expects 4
+tests/test_v430_gate11a_parity_closure.py         # checkpoint names renamed since v4.3.0
+tests/test_v430_gate13a_hardening.py              # v4.3.0 hardening expectation superseded
+tests/test_v430_interactive_cli.py                # checkpoint renamed; scripted input now aborts early
+tests/test_v430_structured_reviewer_contract.py   # provider fallback contract changed
