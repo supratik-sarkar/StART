@@ -5,10 +5,8 @@ Uses official Hugging Face `datasets` library with `streaming=True` by default.
 
 from __future__ import annotations
 
-import hashlib
-import time
-from typing import Any, Iterator
-from pathlib import Path
+from collections.abc import Iterator
+
 import pandas as pd
 
 from start.data.providers.base import DatasetProviderAdapter

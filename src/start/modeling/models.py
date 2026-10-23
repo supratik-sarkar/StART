@@ -273,8 +273,9 @@ def resolve_model(name: str, seed: int = 42, fail_closed: bool = True, **kwargs:
                 "random_forest",
                 'xgboost is not installed (pip install -e ".[tree-models]"); falling back to Random Forest.',
             )
-        from xgboost import XGBClassifier
         import sys
+
+        from xgboost import XGBClassifier
 
         n_jobs = 1 if sys.platform == "darwin" else -1
         params = {
@@ -298,8 +299,9 @@ def resolve_model(name: str, seed: int = 42, fail_closed: bool = True, **kwargs:
                 "random_forest",
                 'lightgbm is not installed (pip install -e ".[tree-models]"); falling back to Random Forest.',
             )
-        from lightgbm import LGBMClassifier
         import sys
+
+        from lightgbm import LGBMClassifier
 
         n_jobs = 1 if sys.platform == "darwin" else -1
         params = {"n_estimators": 200, "random_state": seed, "verbose": -1, "n_jobs": n_jobs}
@@ -339,8 +341,9 @@ def resolve_model(name: str, seed: int = 42, fail_closed: bool = True, **kwargs:
         return CatBoostClassifier(**params), "catboost", ""
 
     if name in ("random_forest", "rf"):
-        from sklearn.ensemble import RandomForestClassifier
         import sys
+
+        from sklearn.ensemble import RandomForestClassifier
 
         n_jobs = 1 if sys.platform == "darwin" else -1
         params = {"n_estimators": 200, "random_state": seed, "n_jobs": n_jobs}
@@ -350,8 +353,9 @@ def resolve_model(name: str, seed: int = 42, fail_closed: bool = True, **kwargs:
         return RandomForestClassifier(**params), "random_forest", ""
 
     if name == "distributed_random_forest":
-        from sklearn.ensemble import RandomForestClassifier
         import sys
+
+        from sklearn.ensemble import RandomForestClassifier
 
         n_jobs = 1 if sys.platform == "darwin" else -1
         params = {"n_estimators": 200, "random_state": seed, "n_jobs": n_jobs}
@@ -361,8 +365,9 @@ def resolve_model(name: str, seed: int = 42, fail_closed: bool = True, **kwargs:
         return RandomForestClassifier(**params), "distributed_random_forest", ""
 
     if name == "extra_trees":
-        from sklearn.ensemble import ExtraTreesClassifier
         import sys
+
+        from sklearn.ensemble import ExtraTreesClassifier
 
         n_jobs = 1 if sys.platform == "darwin" else -1
         params = {"n_estimators": 200, "random_state": seed, "n_jobs": n_jobs}

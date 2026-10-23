@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random
 from typing import Any
+
 import pandas as pd
 
 from start.recommender.contracts import (
