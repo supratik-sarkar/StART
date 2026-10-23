@@ -1,8 +1,8 @@
 """Closure package for StART engineering gates."""
 from start.closure.predicate_evaluator import (
-    RecursivePredicateEvaluator,
-    PredicateEvaluationResult,
     GateEvaluationSummary,
+    PredicateEvaluationResult,
+    RecursivePredicateEvaluator,
 )
 
 __all__ = [

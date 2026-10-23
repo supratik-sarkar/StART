@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
+
 import pandas as pd
-import pyarrow as pa
 import pyarrow.parquet as pq
 
 from start.data.providers.base import DatasetProviderAdapter

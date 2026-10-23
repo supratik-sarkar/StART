@@ -1,0 +1,12 @@
+# Local gate that mirrors core-ci's lint step, so lint violations are caught
+# before a push rather than by CI. The ruff version must equal the pin in
+# constraints.txt; tests/test_ci_workflow_parity.py enforces this.
+#
+#   pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.16
+    hooks:
+      - id: ruff
+        args: ["--no-fix"]
+        files: ^(src|tests|scripts)/

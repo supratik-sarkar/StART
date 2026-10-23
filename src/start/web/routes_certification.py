@@ -12,8 +12,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from pathlib import Path
 import threading
+from datetime import UTC
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -79,8 +80,8 @@ class CertificationBundleCache:
             self._load_bundle()
             self._signature = current_sig
             self._loaded = True
-            from datetime import datetime, timezone
-            self._loaded_at = datetime.now(timezone.utc).isoformat()
+            from datetime import datetime
+            self._loaded_at = datetime.now(UTC).isoformat()
 
     def _load_bundle(self) -> None:
         sources = []
