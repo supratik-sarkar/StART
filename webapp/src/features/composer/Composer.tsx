@@ -557,7 +557,7 @@ export function Composer(p: {
           }} />
           {p.plan!.warnings?.map((v, i) => <p key={i}>{v}</p>)}
           <button className="primary" disabled={!ready} onClick={p.onStart}>
-            Accept & execute plan
+            {p.busy ? 'Verifying execution…' : 'Accept & execute plan'}
             <ArrowRight size={15} />
           </button>
         </section>

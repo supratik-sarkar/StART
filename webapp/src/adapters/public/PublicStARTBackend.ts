@@ -14,6 +14,7 @@ import {
   validateRunCompareResult, validateRunHistoryItems, validateRunLineage,
   validateRunSnapshot, validateRuntimeEvent
 } from '../../contracts/validators'
+import { createBrowserTurnstileClient, type TurnstileProtection } from '../../security/TurnstileClient'
 
 /**
  * Public StART Backend Adapter.
@@ -26,7 +27,10 @@ export class PublicStARTBackend implements StartBackend {
   readonly adapterMode = 'public' as const
   private activeSessionId: string | null = null
 
-  constructor(private readonly baseUrl: string = '') {}
+  constructor(
+    private readonly baseUrl: string = '',
+    private readonly turnstile: TurnstileProtection = createBrowserTurnstileClient(import.meta.env.VITE_TURNSTILE_SITE_KEY ?? ''),
+  ) {}
 
   private async json<T>(path: string, init?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${path}`
@@ -40,11 +44,16 @@ export class PublicStARTBackend implements StartBackend {
     })
     if (!r.ok) {
       let errText = ''
+      let errCode = ''
       try {
         const errJson = await r.json()
+        errCode = errJson.error_code || ''
         errText = errJson.error || errJson.detail || JSON.stringify(errJson)
       } catch {
         errText = await r.text()
+      }
+      if (errCode === 'TURNSTILE_FAILED') {
+        throw new Error('Execution verification was rejected. Please retry execution.')
       }
       throw new Error(`StART backend ${r.status}: ${errText}`)
     }
@@ -114,15 +123,17 @@ export class PublicStARTBackend implements StartBackend {
   }
 
   async createRun(request: RunRequest): Promise<RunSnapshot> {
-    const sessionId = (request as any).sessionId || (request as any).session_id || this.activeSessionId || `SES-${Date.now().toString(36)}`
-    this.activeSessionId = sessionId
-    const payload = { ...request, session_id: sessionId }
-    const raw = await this.json<unknown>('/api/v1/workflow/run', {
-      method: 'POST',
-      body: JSON.stringify(payload),
+    return this.turnstile.withFreshToken(async turnstileToken => {
+      const sessionId = (request as any).sessionId || (request as any).session_id || this.activeSessionId || `SES-${Date.now().toString(36)}`
+      this.activeSessionId = sessionId
+      const payload = { ...request, session_id: sessionId, turnstile_token: turnstileToken }
+      const raw = await this.json<unknown>('/api/v1/workflow/run', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      const unwrapped = this.unwrap(raw, 'run')
+      return validateRunSnapshot(unwrapped)
     })
-    const unwrapped = this.unwrap(raw, 'run')
-    return validateRunSnapshot(unwrapped)
   }
 
   async getRun(runId: string): Promise<RunSnapshot> {
@@ -335,4 +346,3 @@ export class PublicStARTBackend implements StartBackend {
     return []
   }
 }
-
