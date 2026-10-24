@@ -106,3 +106,13 @@ tmp/
 
 # Demo controller output (kept beneath the canonical output root)
 start_output/demo_results/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+# ── Private notes & demo cheatsheets (OPS-managed) ──────────────────────────
+*_PRIVATE.*
+*_private.*
+*cheatsheet*

@@ -40,6 +40,8 @@ def build_frontend() -> None:
     
     env = os.environ.copy()
     env["VITE_TURNSTILE_SITE_KEY"] = site_key
+    env["VITE_START_API_BASE"] = os.environ.get("VITE_START_API_BASE", "")
+    env["VITE_START_ADAPTER"] = os.environ.get("VITE_START_ADAPTER", "public")
     
     model_base = os.environ.get("VITE_START_MODEL_BASE") or config.get("model_base_url")
     if model_base:

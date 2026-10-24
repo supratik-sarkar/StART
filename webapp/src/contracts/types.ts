@@ -108,6 +108,7 @@ export interface RunRequest {
   parentRunId?: string
   sourceEvidenceId?: string
   intervention?: string
+  turnstile_token?: string
 }
 
 export interface RunSnapshot {

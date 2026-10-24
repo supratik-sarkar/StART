@@ -49,6 +49,8 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
   const [isReplay, setIsReplay] = useState(false)
   const [runtimeArtifactCanvasUnlocked, setRuntimeArtifactCanvasUnlocked] = useState(false)
   const activeLiveRunId = useRef<string | null>(null)
+  const currentRunIdRef = useRef<string | null>(null)
+  const fetchSeqRef = useRef<number>(0)
   const runStartArtifactIds = useRef<Set<string>>(new Set())
 
   // Pinning (localStorage)
@@ -86,10 +88,14 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
       .catch((e) => setError(e.message))
   }, [backend])
 
-  useEffect(() => () => subscription.current?.close(), [])
+  useEffect(() => () => {
+    currentRunIdRef.current = null
+    subscription.current?.close()
+  }, [])
 
   const refreshRunData = useCallback(
     async (runId: string) => {
+      const seq = ++fetchSeqRef.current
       try {
         const [snap, g, e, f, a, gov, att, cps] = await Promise.all([
           backend.getRun(runId),
@@ -101,6 +107,9 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
           backend.getAttestation(runId),
           backend.getCheckpoints ? backend.getCheckpoints(runId) : Promise.resolve([]),
         ])
+        if (currentRunIdRef.current !== runId || fetchSeqRef.current !== seq) {
+          return null
+        }
         setRun(snap)
         setGraph(g)
         setEvidence(e)
@@ -114,7 +123,9 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
         }
         return { snap, artifacts: a }
       } catch (err) {
-        setError((err as Error).message)
+        if (currentRunIdRef.current === runId && fetchSeqRef.current === seq) {
+          setError((err as Error).message)
+        }
         return null
       }
     },
@@ -304,12 +315,14 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
 
       // Reset dynamic canvas lock for new live run
       activeLiveRunId.current = null
+      currentRunIdRef.current = null
       runStartArtifactIds.current = new Set(artifacts.map((a) => a.artifactId))
       setRuntimeArtifactCanvasUnlocked(false)
 
       try {
         const snap = await backend.createRun(buildRequest(overrides))
         activeLiveRunId.current = snap.runId
+        currentRunIdRef.current = snap.runId
         setRun(snap)
         setPlan(null)
         setSelectedNodeId(snap.plan[0]?.id || null)
@@ -423,6 +436,7 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
       subscription.current?.close()
       seenEventIds.current.clear()
       activeLiveRunId.current = snap.runId
+      currentRunIdRef.current = snap.runId
       runStartArtifactIds.current = new Set(artifacts.map((a) => a.artifactId))
       setRuntimeArtifactCanvasUnlocked(false)
 
@@ -494,6 +508,7 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
           window.location.hash = `#run=${runId}`
         }
 
+        currentRunIdRef.current = runId
         const result = await refreshRunData(runId)
         if (!result) return
         const { snap, artifacts: loadedArtifacts } = result
@@ -679,6 +694,7 @@ export function useWorkbench(backend: StartBackend, reviewer?: ReviewerRuntime) 
     setError(null)
     setIsReplay(false)
     activeLiveRunId.current = null
+    currentRunIdRef.current = null
     runStartArtifactIds.current.clear()
     setRuntimeArtifactCanvasUnlocked(false)
     window.location.hash = ''
